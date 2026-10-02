@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/017-purchasing-orders-suppliers/spec.md`, `Docs/PRD.md`, `Docs/SDD.md`, `Docs/database/ERD.md`, ADR 0001 (Inventory), ADR 0005 (Activitylog), ADR 0011 (Accounting payables), ADR 0012 (Origin Domain Owns the Business Fact), and the IERP Constitution Product Scope & Boundaries section
+**Related**: `Docs/domains/purchasing/README.md`, `Docs/product/PRODUCT_OVERVIEW.md`, `Docs/architecture/SYSTEM_OVERVIEW.md`, `Docs/architecture/DATA_ARCHITECTURE.md`, ADR 0001 (Inventory), ADR 0005 (Activitylog), ADR 0011 (Accounting payables), ADR 0012 (Origin Domain Owns the Business Fact), and the IERP Constitution Product Scope & Boundaries section
 
 ## Context
 
@@ -20,7 +20,7 @@ and their English labels (`app/Filament/AdminModuleRegistry.php` group
 `purchasing`, `lang/en/admin.php`). Opening the module today renders the shared
 placeholder page.
 
-The documented design treats purchasing thinly. `Docs/PRD.md` describes
+The documented design treats purchasing thinly. `Docs/product/PRODUCT_OVERVIEW.md` describes
 Supplier Management and states in §9 that supplier confirmations are manually
 updated by an admin; §11 places a supplier-facing portal out of scope. The ERD
 carries `suppliers`, `supplier_product_references`, and a
@@ -220,7 +220,7 @@ commercial cost from receiving, or absolutely prohibits a Purchasing-triggered
 Draft-Bill handoff. It does **not** permit Purchasing to approve/post/pay Bills,
 write journal entries, recognise tax, or bypass Accounting authorization.
 
-See `Docs/PHASE0_CROSS_MODULE_OWNERSHIP.md` for the executable flow and ADR 0012
+See `Docs/product/BUSINESS_FLOWS.md` and ADR 0012
 for the controlling ownership rule.
 
 ## Consequences

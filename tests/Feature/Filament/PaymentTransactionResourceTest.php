@@ -52,6 +52,7 @@ beforeEach(function (): void {
         'type' => PaymentMethodType::Stripe,
         'chart_account_id' => $account('1100'),
         'is_active' => true,
+        'requires_proof' => false,
     ]);
 });
 
@@ -137,11 +138,13 @@ it('retries settlement for a chargeable ticket payment transaction from the view
     (new SlaPolicySeeder)->run();
 
     $ticket = Ticket::factory()->chargeable()->create();
-    $link = TicketPaymentLink::factory()->for($ticket)->create(['amount' => '40.00', 'currency' => 'USD']);
+    $link = TicketPaymentLink::factory()->for($ticket)->create(['amount' => '40.00', 'currency' => 'AED']);
     $transaction = PaymentTransaction::factory()->succeeded()->create([
         'customer_id' => $ticket->customer_id,
         'purpose_type' => TicketPaymentLink::class,
         'purpose_id' => $link->getKey(),
+        'amount_minor' => 4000,
+        'currency' => 'AED',
         'payment_intent_id' => 'pi_ticket_view_retry',
     ]);
 

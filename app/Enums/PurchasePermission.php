@@ -18,7 +18,7 @@ use Database\Seeders\PurchasePermissionSeeder;
  * receipt execution is Inventory-owned; Purchase Order screens expose receipt
  * progress as read-only context and never authorize stock receipt execution.
  *
- * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md §1
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md §1
  */
 enum PurchasePermission: string
 {

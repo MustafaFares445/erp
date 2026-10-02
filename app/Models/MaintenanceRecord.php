@@ -139,6 +139,33 @@ final class MaintenanceRecord extends Model
         return $this->hasBillingActivity();
     }
 
+    /**
+     * Operational repair costs may continue to accrue after a customer has
+     * accepted a quotation and the request has moved into the repair stages.
+     * Commercial/coverage fields remain frozen by isLockedForChanges(); this
+     * narrower predicate is only for actual labour/third-party cost capture.
+     */
+    public function allowsActualCostRecording(): bool
+    {
+        $billingType = $this->getAttribute('billing_type');
+
+        if ($this->isFinalised()
+            || $this->invoice_id !== null
+            || ($billingType instanceof MaintenanceBillingType && $billingType->isSettled())) {
+            return false;
+        }
+
+        if ($billingType === MaintenanceBillingType::Quoted) {
+            return in_array($this->status, [
+                MaintenanceStatus::ReadyForRepair,
+                MaintenanceStatus::InProgress,
+                MaintenanceStatus::QualityAssurance,
+            ], true);
+        }
+
+        return true;
+    }
+
     /** @return BelongsTo<CustomerProfile, $this> */
     public function customer(): BelongsTo
     {

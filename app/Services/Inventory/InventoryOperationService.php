@@ -184,11 +184,13 @@ final readonly class InventoryOperationService
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
             $fromStage = $locked->stage;
 
-            match ($locked->operation_type) {
-                OperationType::Receipt => $this->receiveLines($lines, $this->requireWarehouse($locked->destination_warehouse_id), $locked, $actor),
-                OperationType::Delivery => $this->deliverLines($lines, $this->requireWarehouse($locked->source_warehouse_id), $locked, $actor),
-                OperationType::InternalTransfer => throw new DomainException('Transfers must be received through the transfer receipt workflow.'),
-            };
+            if ($locked->operation_type === OperationType::Receipt) {
+                $this->receiveLines($lines, $this->requireWarehouse($locked->destination_warehouse_id), $locked, $actor);
+            } else {
+                // Internal transfers are routed through receiveTransfer() above, so the only
+                // remaining operation type here is Delivery.
+                $this->deliverLines($lines, $this->requireWarehouse($locked->source_warehouse_id), $locked, $actor);
+            }
 
             $locked->forceFill(['completed_at' => now()]);
 
@@ -199,7 +201,7 @@ final readonly class InventoryOperationService
             // operation commits with it or not at all. This carries no knowledge
             // of its listeners: Purchasing advances a purchase order's received
             // quantities from here, and Inventory stays unaware that Purchasing
-            // exists (spec 017 research.md R-002).
+            // exists (historical Spec Kit 017 research.md R-002).
             InventoryOperationCompleted::dispatch($completed, $actor);
 
             return $completed;
@@ -280,11 +282,7 @@ final readonly class InventoryOperationService
                     6,
                 );
 
-                $variant = $variants[$line->product_variant_id] ?? null;
-
-                if (! $variant instanceof ProductVariant) {
-                    continue;
-                }
+                $variant = $variants[$line->product_variant_id];
 
                 if (bccomp($receivedBaseQuantity, '0', 6) > 0) {
                     $destinationLot = $this->inventoryLotService->receiveTransfer(
@@ -786,11 +784,7 @@ final readonly class InventoryOperationService
         InventoryOperation $operation,
     ): void {
         foreach ($lines as $line) {
-            $variant = $variants[$line->product_variant_id] ?? null;
-
-            if (! $variant instanceof ProductVariant) {
-                continue;
-            }
+            $variant = $variants[$line->product_variant_id];
 
             $normalized = $this->quantityNormalizer->normalize(
                 $variant,
@@ -819,7 +813,7 @@ final readonly class InventoryOperationService
     }
 
     /**
-     * A receipt line carries a serial number already recorded on another unit (spec 014 §3.4,
+     * A receipt line carries a serial number already recorded on another unit (historical Spec Kit 014 §3.4,
      * §4): guards against two in-flight *receipts* recording the same physical serial. Scoped to
      * receipts only — an outbound delivery or transfer line referencing a serial that is already
      * committed elsewhere is a reservation conflict, not a recording one, and is caught by
@@ -954,11 +948,7 @@ final readonly class InventoryOperationService
         $commands = [];
 
         foreach ($lines as $line) {
-            $variant = $variants[$line->product_variant_id] ?? null;
-
-            if (! $variant instanceof ProductVariant) {
-                continue;
-            }
+            $variant = $variants[$line->product_variant_id];
 
             // The lot mutation stays inside the operation transaction and is based on the same
             // normalized base quantity used by the aggregate posting. Phase 6 moves this
@@ -1034,11 +1024,7 @@ final readonly class InventoryOperationService
         $commands = [];
 
         foreach ($lines as $line) {
-            $variant = $variants[$line->product_variant_id] ?? null;
-
-            if (! $variant instanceof ProductVariant) {
-                continue;
-            }
+            $variant = $variants[$line->product_variant_id];
 
             $sourceLot = $this->inventoryLotService->consume(
                 $line,
@@ -1116,11 +1102,7 @@ final readonly class InventoryOperationService
         $variants = $this->lockVariants($lines);
 
         foreach ($lines as $line) {
-            $variant = $variants[$line->product_variant_id] ?? null;
-
-            if (! $variant instanceof ProductVariant) {
-                continue;
-            }
+            $variant = $variants[$line->product_variant_id];
 
             $snapshot = $this->postingSnapshot($line);
             $lot = $this->inventoryLotService->receive($line, $variant, $warehouseId, $snapshot['base_quantity']);

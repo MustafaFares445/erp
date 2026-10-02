@@ -39,7 +39,7 @@ use Livewire\Attributes\Url;
  * top-level "Manage*" resource with an identical shape (one page, no
  * separate create/edit routes); this page reproduces each one's exact
  * form/table body under a tab, so no capability is lost — see
- * specs/012-inventory-module-consolidation/spec.md's Catalog setup entry.
+ * Docs/domains/catalog/README.md's Catalog setup entry.
  *
  * Not a Filament Resource: a Resource is bound to one Eloquent model, and
  * this page hosts four unrelated ones. Built on the same

@@ -6,7 +6,6 @@ namespace App\Support;
 
 use App\Services\Settings\CurrencyCatalogService;
 use Illuminate\Support\Number;
-use RuntimeException;
 
 /**
  * Pairs a minor-unit integer with a currency code and formats it the same
@@ -18,30 +17,14 @@ final class MoneyFormatter
     public static function format(int $minorUnits, ?string $currency = null): string
     {
         $currency ??= app(CurrencyCatalogService::class)->defaultCode();
-        $formatted = Number::currency($minorUnits / 100, $currency);
 
-        // @codeCoverageIgnoreStart
-        // ICU can theoretically return false, but valid configured currency codes do not expose a deterministic failure path.
-        if ($formatted === false) {
-            throw new RuntimeException("Unable to format {$minorUnits} minor units as {$currency}.");
-        }
-        // @codeCoverageIgnoreEnd
-
-        return $formatted;
+        return Number::currency($minorUnits / 100, $currency);
     }
 
     public static function formatAmount(string|int|float $amount, ?string $currency = null): string
     {
         $currency ??= app(CurrencyCatalogService::class)->defaultCode();
-        $formatted = Number::currency((float) $amount, $currency);
 
-        // @codeCoverageIgnoreStart
-        // ICU can theoretically return false, but configured ISO currency codes do not expose a deterministic failure path.
-        if ($formatted === false) {
-            throw new RuntimeException("Unable to format {$amount} as {$currency}.");
-        }
-        // @codeCoverageIgnoreEnd
-
-        return $formatted;
+        return Number::currency((float) $amount, $currency);
     }
 }

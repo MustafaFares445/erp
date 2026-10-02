@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
  * expected to own its own transaction, so a thrown exception leaves no
  * partial state.
  *
- * @see /specs/001-inventory-dashboard-foundation/contracts/action-adapter.md
+ * @see /Docs/domains/inventory/README.md
  */
 trait InteractsWithInventoryServices
 {

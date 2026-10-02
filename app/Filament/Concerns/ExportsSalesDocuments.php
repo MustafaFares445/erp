@@ -77,25 +77,13 @@ trait ExportsSalesDocuments
         $headings = $this->salesDocumentExportHeadings();
 
         return response()->streamDownload(function () use ($headings, $records): void {
+            /** @var resource $handle */
             $handle = fopen('php://output', 'wb');
-
-            // @codeCoverageIgnoreStart
-            // php://output is guaranteed by PHP in the supported runtime; keep the defensive guard.
-            if ($handle === false) {
-                return;
-            }
-            // @codeCoverageIgnoreEnd
 
             fputcsv($handle, $headings, escape: '\\');
 
             foreach ($records as $record) {
-                // @codeCoverageIgnoreStart
-                // getFilteredTableQuery() is an Eloquent Builder<Model>; get() only yields models.
-                if (! $record instanceof Model) {
-                    continue;
-                }
-                // @codeCoverageIgnoreEnd
-
+                /** @var Model $record */
                 fputcsv($handle, $this->salesDocumentExportRow($record), escape: '\\');
             }
 

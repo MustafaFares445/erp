@@ -167,15 +167,8 @@ final class InventoryLotReconciliationService
                 foreach ($balances as $balance) {
                     $checked++;
 
+                    /** @var int $balanceKey */
                     $balanceKey = $balance->getKey();
-
-                    // Eloquent integer primary keys cannot produce a non-int key here.
-
-                    // @codeCoverageIgnoreStart
-                    if (! is_int($balanceKey)) {
-                        throw new \LogicException('Inventory lot balance identifiers must be integers.');
-                    }
-                    // @codeCoverageIgnoreEnd
 
                     $onHand = (string) $balance->on_hand_base_quantity;
                     $reserved = (string) $balance->reserved_base_quantity;
@@ -241,18 +234,8 @@ final class InventoryLotReconciliationService
             ->orderBy('id')
             ->chunkById(100, function (Collection $variants) use (&$errors, &$checked): void {
                 foreach ($variants as $variant) {
+                    /** @var int $variantKey */
                     $variantKey = $variant->getKey();
-
-                    // ProductVariant uses an integer primary key.
-
-                    // @codeCoverageIgnoreStart
-                    // ProductVariant uses an integer primary key.
-                    // @codeCoverageIgnoreStart
-                    if (! is_int($variantKey)) {
-                        throw new \LogicException('Inventory lot identifiers must be integers.');
-                    }
-                    // @codeCoverageIgnoreEnd
-                    // @codeCoverageIgnoreEnd
 
                     $aggregateGrains = InventoryConditionBalance::query()
                         ->where('product_variant_id', $variantKey)
@@ -274,16 +257,10 @@ final class InventoryLotReconciliationService
                             )
                             ->first();
 
+                        /** @var numeric-string|int|float $rawOnHand */
                         $rawOnHand = $lotTotals->on_hand ?? '0';
+                        /** @var numeric-string|int|float $rawReserved */
                         $rawReserved = $lotTotals->reserved ?? '0';
-
-                        // SQL SUM/COALESCE always returns numeric values for these DECIMAL columns.
-
-                        // @codeCoverageIgnoreStart
-                        if (! is_numeric($rawOnHand) || ! is_numeric($rawReserved)) {
-                            throw new \LogicException('Aggregate lot totals must be numeric.');
-                        }
-                        // @codeCoverageIgnoreEnd
 
                         $lotOnHand = $this->decimal((string) $rawOnHand);
                         $lotReserved = $this->decimal((string) $rawReserved);
@@ -322,17 +299,12 @@ final class InventoryLotReconciliationService
                         ->get(['balances.inventory_lot_id', 'balances.warehouse_id', 'balances.stock_condition']);
 
                     foreach ($orphanLotGrains as $grain) {
+                        /** @var int $grainLotId */
                         $grainLotId = $grain->inventory_lot_id;
+                        /** @var int $grainWarehouseId */
                         $grainWarehouseId = $grain->warehouse_id;
+                        /** @var string $grainStockCondition */
                         $grainStockCondition = $grain->stock_condition;
-
-                        // selected FK ids and enum-backed condition columns have fixed DB types.
-
-                        // @codeCoverageIgnoreStart
-                        if (! is_int($grainLotId) || ! is_int($grainWarehouseId) || ! is_string($grainStockCondition)) {
-                            throw new \LogicException('Orphan lot balance grains must resolve to integer identifiers and a string stock condition.');
-                        }
-                        // @codeCoverageIgnoreEnd
 
                         $errors[] = sprintf(
                             'Lot %d / warehouse %d / %s has quantity without an aggregate condition balance.',
@@ -455,16 +427,10 @@ final class InventoryLotReconciliationService
             ->get();
 
         foreach ($activeAllocatedGrains as $grain) {
+            /** @var int $grainLotId */
             $grainLotId = $grain->inventory_lot_id;
+            /** @var int $grainWarehouseId */
             $grainWarehouseId = $grain->warehouse_id;
-
-            // grouped reservation FK ids are integer DB columns.
-
-            // @codeCoverageIgnoreStart
-            if (! is_int($grainLotId) || ! is_int($grainWarehouseId)) {
-                throw new \LogicException('Active reservation allocation grains must resolve to integer identifiers.');
-            }
-            // @codeCoverageIgnoreEnd
 
             $exists = InventoryLotBalance::query()
                 ->where('inventory_lot_id', $grainLotId)
@@ -499,15 +465,8 @@ final class InventoryLotReconciliationService
                 foreach ($units as $unit) {
                     $checked++;
 
+                    /** @var int $unitKey */
                     $unitKey = $unit->getKey();
-
-                    // serialized units use integer primary keys.
-
-                    // @codeCoverageIgnoreStart
-                    if (! is_int($unitKey)) {
-                        throw new \LogicException('Serialized inventory unit identifiers must be integers.');
-                    }
-                    // @codeCoverageIgnoreEnd
 
                     if (! $unit->lot instanceof InventoryLot) {
                         $errors[] = sprintf('Serialized unit %d references a missing lot.', $unitKey);
@@ -571,14 +530,8 @@ final class InventoryLotReconciliationService
             ->orderBy('id')
             ->chunkById(100, function (Collection $variants) use (&$errors): void {
                 foreach ($variants as $variant) {
+                    /** @var int $variantKey */
                     $variantKey = $variant->getKey();
-
-                    // ProductVariant uses an integer primary key.
-                    // @codeCoverageIgnoreStart
-                    if (! is_int($variantKey)) {
-                        throw new \LogicException('Inventory lot identifiers must be integers.');
-                    }
-                    // @codeCoverageIgnoreEnd
 
                     $serialGrains = SerializedInventoryUnit::query()
                         ->where('product_variant_id', $variantKey)
@@ -599,16 +552,8 @@ final class InventoryLotReconciliationService
                             ? $this->decimal((string) $aggregate->on_hand_base_quantity)
                             : '0.000000';
 
+                        /** @var numeric-string|int $rawUnitCount */
                         $rawUnitCount = $grain->getAttribute('unit_count');
-
-                        // SQL COUNT always returns a numeric value.
-
-                        // @codeCoverageIgnoreStart
-                        if (! is_numeric($rawUnitCount)) {
-                            throw new \LogicException('Serialized custody counts must be numeric.');
-                        }
-                        // @codeCoverageIgnoreEnd
-
                         $serialCount = $this->decimal((string) $rawUnitCount);
 
                         if (bccomp($aggregateOnHand, $serialCount, 6) !== 0) {
@@ -641,15 +586,8 @@ final class InventoryLotReconciliationService
                 foreach ($lines as $line) {
                     $checked++;
 
+                    /** @var int $lineKey */
                     $lineKey = $line->getKey();
-
-                    // inventory return lines use integer primary keys.
-
-                    // @codeCoverageIgnoreStart
-                    if (! is_int($lineKey)) {
-                        throw new \LogicException('Inventory return line identifiers must be integers.');
-                    }
-                    // @codeCoverageIgnoreEnd
 
                     $return = $line->inventoryReturn;
 
@@ -734,15 +672,8 @@ final class InventoryLotReconciliationService
             ->chunkById(200, function (Collection $movements) use (&$errors, &$checked): void {
                 foreach ($movements as $movement) {
                     $checked++;
+                    /** @var int $movementKey */
                     $movementKey = $movement->getKey();
-
-                    // inventory movements use integer primary keys.
-
-                    // @codeCoverageIgnoreStart
-                    if (! is_int($movementKey)) {
-                        throw new \LogicException('Inventory movement identifiers must be integers.');
-                    }
-                    // @codeCoverageIgnoreEnd
 
                     if (($movement->source_type === null) !== ($movement->source_id === null)) {
                         $errors[] = sprintf(
@@ -776,47 +707,18 @@ final class InventoryLotReconciliationService
                     }
 
                     if ($present === count($snapshot)) {
-                        $transactionUnitId = $movement->transaction_unit_id;
-                        $transactionUnitIsValid = is_int($transactionUnitId);
-                        $transactionQuantity = is_numeric($movement->transaction_quantity)
-                            ? $this->decimal((string) $movement->transaction_quantity)
-                            // persisted decimal casts normalize non-null values to numeric strings.
-                            // @codeCoverageIgnoreStart
-                            : null;
-                        // @codeCoverageIgnoreEnd
-                        $conversionFactor = is_numeric($movement->conversion_factor_snapshot)
-                            ? $this->decimal((string) $movement->conversion_factor_snapshot)
-                            // persisted decimal casts normalize non-null values to numeric strings.
-                            // @codeCoverageIgnoreStart
-                            : null;
-                        // @codeCoverageIgnoreEnd
-                        $baseQuantityDelta = is_numeric($movement->base_quantity_delta)
-                            ? $this->decimal((string) $movement->base_quantity_delta)
-                            // persisted decimal casts normalize non-null values to numeric strings.
-                            // @codeCoverageIgnoreStart
-                            : null;
-                        // @codeCoverageIgnoreEnd
-                        $absoluteBaseQuantity = $baseQuantityDelta !== null
-                            && bccomp($baseQuantityDelta, '0', 6) < 0
+                        $transactionQuantity = $this->decimal((string) $movement->transaction_quantity);
+                        $conversionFactor = $this->decimal((string) $movement->conversion_factor_snapshot);
+                        $baseQuantityDelta = $this->decimal((string) $movement->base_quantity_delta);
+                        $absoluteBaseQuantity = bccomp($baseQuantityDelta, '0', 6) < 0
                             ? bcsub('0', $baseQuantityDelta, 6)
                             : $baseQuantityDelta;
-                        $expectedBaseQuantity = $transactionQuantity !== null && $conversionFactor !== null
-                            ? $this->decimal(bcmul($transactionQuantity, $conversionFactor, 12))
-                            // persisted decimal casts normalize non-null values to numeric strings.
-                            // @codeCoverageIgnoreStart
-                            : null;
-                        // @codeCoverageIgnoreEnd
+                        $expectedBaseQuantity = $this->decimal(bcmul($transactionQuantity, $conversionFactor, 12));
 
                         if (
-                            ! $transactionUnitIsValid
-                            || $transactionQuantity === null
-                            || $conversionFactor === null
-                            || $baseQuantityDelta === null
-                            || bccomp($transactionQuantity, '0', 6) <= 0
+                            bccomp($transactionQuantity, '0', 6) <= 0
                             || bccomp($conversionFactor, '0', 6) <= 0
                             || bccomp($baseQuantityDelta, (string) $movement->quantity, 6) !== 0
-                            || $absoluteBaseQuantity === null
-                            || $expectedBaseQuantity === null
                             || bccomp($absoluteBaseQuantity, $expectedBaseQuantity, 6) !== 0
                         ) {
                             $errors[] = sprintf(

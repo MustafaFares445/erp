@@ -5,28 +5,34 @@ declare(strict_types=1);
 namespace App\Services\Support;
 
 use App\Enums\PaymentLinkStatus;
+use App\Enums\PaymentMethodType;
 use App\Enums\TicketStatus;
+use App\Models\PaymentMethod;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
 use App\Models\User;
+use App\Services\Payments\PaymentService;
+use App\Services\Payments\SystemActorResolver;
 use App\Services\Settings\CurrencyCatalogService;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use LogicException;
 
 /**
  * Chargeable-ticket payment holds and settlement (FR-040–048,
- * contracts/ticket-lifecycle.md §5). No Stripe integration and no
- * accounting/journal/tax side effect exists anywhere in this class (D4,
- * FR-046, SC-004) — settlement touches only `ticket_payment_links` and
- * `tickets`.
+ * contracts/ticket-lifecycle.md §5). Settlement records the collected money
+ * through the canonical Payment service as an unallocated customer deposit,
+ * then transitions the ticket to Live. Any later service invoice consumes
+ * that deposit through the existing allocation/tax/accounting workflow.
  */
 final readonly class TicketPaymentService
 {
     public function __construct(
         private SlaService $slaService,
         private CurrencyCatalogService $currencies,
+        private PaymentService $payments,
+        private SystemActorResolver $systemActor,
     ) {}
 
     /**
@@ -40,7 +46,7 @@ final readonly class TicketPaymentService
         return TicketPaymentLink::query()->create([
             'ticket_id' => $ticket->getKey(),
             'amount' => $amount,
-            'currency' => $this->currencies->normalizeActive($currency, 'currency'),
+            'currency' => $this->currencies->normalizeBase($currency, 'currency'),
             'status' => PaymentLinkStatus::Pending,
         ]);
     }
@@ -63,22 +69,20 @@ final readonly class TicketPaymentService
      * calls this with a verified Stripe transaction reference instead. The
      * transition rules themselves never differ between the two callers.
      */
-    public function settle(TicketPaymentLink $link, string $methodReference, User $actor, string $sourceChannel = 'dashboard'): void
-    {
+    public function settle(
+        TicketPaymentLink $link,
+        string $methodReference,
+        User $actor,
+        ?int $paymentMethodId = null,
+        string $sourceChannel = 'dashboard',
+    ): void {
         $ticket = $link->ticket;
 
-        // @codeCoverageIgnoreStart
-        // ticket_payment_links.ticket_id is NOT NULL and foreign-key constrained.
-        if (! $ticket instanceof Ticket) {
-            throw new LogicException('A TicketPaymentLink must always belong to a Ticket.');
-        }
-
-        // @codeCoverageIgnoreEnd
-
+        /** @var Ticket $ticket */
         Gate::forUser($actor)->authorize('settlePayment', $ticket);
 
         try {
-            DB::transaction(function () use ($link, $actor, $methodReference, $sourceChannel): void {
+            DB::transaction(function () use ($link, $actor, $methodReference, $paymentMethodId, $sourceChannel): void {
                 $lockedLink = TicketPaymentLink::query()->whereKey($link->getKey())->lockForUpdate()->firstOrFail();
                 $lockedTicket = Ticket::query()->whereKey($lockedLink->ticket_id)->lockForUpdate()->firstOrFail();
 
@@ -86,7 +90,22 @@ final readonly class TicketPaymentService
                     throw InvalidStatusTransition::fromTo($lockedLink->status->value, PaymentLinkStatus::Settled->value);
                 }
 
+                $financialActor = $this->systemActor->resolve();
+                $resolvedPaymentMethodId = $this->resolvePaymentMethodId($paymentMethodId, $sourceChannel);
+                $payment = $this->payments->createDraft($financialActor, [
+                    'customer_id' => $lockedTicket->customer_id,
+                    'payment_method_id' => $resolvedPaymentMethodId,
+                    'amount' => (float) $lockedLink->amount,
+                    'currency' => $lockedLink->currency,
+                    'payment_date' => now()->toDateString(),
+                    'external_reference' => $methodReference,
+                    'notes' => "Support ticket {$lockedTicket->ticket_number} prepayment",
+                ]);
+                $payment->forceFill(['source' => $sourceChannel === 'stripe' ? 'stripe' : 'manual'])->save();
+                $postedPayment = $this->payments->post($financialActor, $payment, []);
+
                 $lockedLink->update([
+                    'payment_id' => $postedPayment->getKey(),
                     'status' => PaymentLinkStatus::Settled,
                     'settled_by' => $actor->getKey(),
                     'settled_at' => now(),
@@ -108,7 +127,11 @@ final readonly class TicketPaymentService
                         'old' => ['ticket_status' => TicketStatus::PendingPayment->value, 'payment_link_status' => PaymentLinkStatus::Pending->value],
                         'attributes' => ['ticket_status' => TicketStatus::Live->value, 'payment_link_status' => PaymentLinkStatus::Settled->value, 'payment_method_reference' => $methodReference],
                     ])
-                    ->withProperties(['source_channel' => $sourceChannel, 'ip_address' => request()->ip()])
+                    ->withProperties([
+                        'source_channel' => $sourceChannel,
+                        'ip_address' => request()->ip(),
+                        'payment_id' => $postedPayment->getKey(),
+                    ])
                     ->log('support.payment_link.settled');
             });
         } catch (InvalidStatusTransition $invalidStatusTransition) {
@@ -124,6 +147,30 @@ final readonly class TicketPaymentService
 
             throw $invalidStatusTransition;
         }
+    }
+
+    private function resolvePaymentMethodId(?int $paymentMethodId, string $sourceChannel): int
+    {
+        $query = PaymentMethod::query()
+            ->where('is_active', true)
+            ->where('requires_proof', false)
+            ->whereNotNull('chart_account_id');
+
+        if ($paymentMethodId !== null) {
+            $query->whereKey($paymentMethodId);
+        } elseif ($sourceChannel === 'stripe') {
+            $query->where('type', PaymentMethodType::Stripe->value);
+        } else {
+            $query->where('type', '!=', PaymentMethodType::Stripe->value);
+        }
+
+        $method = $query->orderBy('id')->first();
+
+        if (! $method instanceof PaymentMethod) {
+            throw new DomainException('An active payment method with a collection account and no proof requirement is required to settle this ticket.');
+        }
+
+        return $method->id;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\InventoryPostingCommand;
+use App\Data\Inventory\InventoryPostingResult;
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\InventoryReturnDisposition;
 use App\Enums\InventoryReturnStatus;
@@ -525,32 +526,10 @@ final readonly class InventoryReturnService
                 : $this->supplierPostingCommands($locked, $lines, $actor);
 
             $results = $this->inventoryPostingService->postMany($commands);
-            $postingsByReturnLineId = [];
-
-            foreach ($results as $posting) {
-                $movement = $posting->movement;
-
-                if (
-                    $movement->source_line_type !== 'inventory_return_line'
-                    || ! is_int($movement->source_line_id)
-                ) {
-                    throw new DomainException('A canonical return posting must retain its return-line provenance.');
-                }
-
-                if (array_key_exists($movement->source_line_id, $postingsByReturnLineId)) {
-                    throw new DomainException('A return line cannot receive more than one canonical posting result.');
-                }
-
-                $postingsByReturnLineId[$movement->source_line_id] = $posting;
-            }
+            $postingsByReturnLineId = $this->indexReturnPostings($results);
 
             foreach ($lines as $line) {
-                $lineId = $line->getKey();
-                $posting = is_int($lineId) ? ($postingsByReturnLineId[$lineId] ?? null) : null;
-
-                if ($posting === null) {
-                    throw new DomainException('Every return line must receive exactly one canonical posting result.');
-                }
+                $posting = $this->postingForReturnLine($postingsByReturnLineId, $line);
 
                 $line->forceFill([
                     'posted_base_quantity' => $line->base_quantity,
@@ -582,6 +561,51 @@ final readonly class InventoryReturnService
 
             return $locked->refresh();
         }, attempts: 5);
+    }
+
+    /**
+     * @param  list<InventoryPostingResult>  $results
+     * @return array<int, InventoryPostingResult>
+     */
+    private function indexReturnPostings(array $results): array
+    {
+        $postingsByReturnLineId = [];
+
+        foreach ($results as $posting) {
+            $movement = $posting->movement;
+
+            if (
+                $movement->source_line_type !== 'inventory_return_line'
+                || ! is_int($movement->source_line_id)
+            ) {
+                throw new DomainException('A canonical return posting must retain its return-line provenance.');
+            }
+
+            if (array_key_exists($movement->source_line_id, $postingsByReturnLineId)) {
+                throw new DomainException('A return line cannot receive more than one canonical posting result.');
+            }
+
+            $postingsByReturnLineId[$movement->source_line_id] = $posting;
+        }
+
+        return $postingsByReturnLineId;
+    }
+
+    /**
+     * @param  array<int, InventoryPostingResult>  $postingsByReturnLineId
+     */
+    private function postingForReturnLine(
+        array $postingsByReturnLineId,
+        InventoryReturnLine $line,
+    ): InventoryPostingResult {
+        $lineId = $line->getKey();
+        $posting = is_int($lineId) ? ($postingsByReturnLineId[$lineId] ?? null) : null;
+
+        if (! $posting instanceof InventoryPostingResult) {
+            throw new DomainException('Every return line must receive exactly one canonical posting result.');
+        }
+
+        return $posting;
     }
 
     public function removeLine(InventoryReturnLine $line): void
@@ -684,13 +708,10 @@ final readonly class InventoryReturnService
                 $alreadyPosted,
                 self::QUANTITY_SCALE,
             );
+            /** @var int|float $currentReturnTotalRaw */
             $currentReturnTotalRaw = $lines
                 ->where('original_inventory_operation_line_id', $originalLine->getKey())
                 ->sum('base_quantity');
-
-            if (! is_numeric($currentReturnTotalRaw)) {
-                throw new DomainException('Return quantities must be numeric.');
-            }
 
             $currentReturnTotal = $this->decimal((string) $currentReturnTotalRaw);
 
@@ -838,13 +859,10 @@ final readonly class InventoryReturnService
                     $alreadyPosted,
                     self::QUANTITY_SCALE,
                 );
+                /** @var int|float $currentReturnTotalRaw */
                 $currentReturnTotalRaw = $lines
                     ->where('original_inventory_operation_line_id', $receiptLine->getKey())
                     ->sum('base_quantity');
-
-                if (! is_numeric($currentReturnTotalRaw)) {
-                    throw new DomainException('Return quantities must be numeric.');
-                }
 
                 $currentReturnTotal = $this->decimal((string) $currentReturnTotalRaw);
 

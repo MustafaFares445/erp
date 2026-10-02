@@ -6,7 +6,9 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/016-support-maintenance-dashboard/spec.md`, `Docs/PRD.md`, `Docs/SDD.md`, `Docs/database/ERD.md`, and the IERP Constitution Product Scope & Boundaries section
+**Related**: `Docs/domains/support/README.md`, `Docs/product/PRODUCT_OVERVIEW.md`, `Docs/architecture/SYSTEM_OVERVIEW.md`, `Docs/architecture/DATA_ARCHITECTURE.md`, and the IERP Constitution Product Scope & Boundaries section
+
+> **Historical decision note:** This ADR records the repository and approved scope as of 2026-08-10. Current Support, Payments, and mobile-channel behavior is documented in `Docs/domains/support/`, `Docs/domains/payments/`, and `Docs/product/BUSINESS_FLOWS.md`.
 
 ## Context
 
@@ -21,8 +23,7 @@ their English labels (`app/Filament/AdminModuleRegistry.php` group `support`,
 `lang/en/admin.php`). Opening the module today renders the shared placeholder
 page.
 
-The documented design in `Docs/api/API_CONTRACT.md`,
-`Docs/database/DFD.md`, and `Docs/diagrams/SEQUENCE_DIAGRAMS.md` §15 describes
+The historical API/DFD/sequence design documents (removed from the working tree and retained in Git history) described
 this module primarily as a customer-app flow: the customer submits a ticket
 through `/api/customer/tickets`, a Stripe payment link is created for a
 chargeable ticket, and the webhook moves the ticket to `live`. That design
@@ -112,7 +113,7 @@ Agent**, to the existing `DashboardRole` catalogue, alongside the existing
 System Admin and Reviewer roles which it reuses.
 
 This approval is limited to English-only UI strings for this phase, following
-the spec 013 and spec 015 precedent.
+the historical Spec Kit 013 and historical Spec Kit 015 precedent.
 
 The constitution's Specification Governance extraction order lists this work as
 `012-tickets-maintenance`; this ADR authorises only that entry's dashboard
@@ -123,7 +124,7 @@ reflecting that scope narrowing.
 
 The documented ERD does not carry ticket priority, SLA tracking, warranty data,
 or parts consumption. Four extensions are authorised and must be reflected back
-into `Docs/database/ERD.md` when this feature is planned:
+into `Docs/architecture/DATA_ARCHITECTURE.md` when this feature is planned:
 
 1. `tickets` gains priority, SLA target snapshot, response/resolution due
    timestamps, first-response and resolution timestamps, accumulated
@@ -165,7 +166,7 @@ Every other structure follows the ERD as written.
   narrows every other module's `isAdmin()`-bypass check automatically; each
   module's existing cross-module boundary tests must confirm the new roles grant
   no access outside Support.
-- `Docs/database/ERD.md` must be updated with the four extensions listed above
+- `Docs/architecture/DATA_ARCHITECTURE.md` must be updated with the four extensions listed above
   before implementation begins, per Constitution Principle I (database design
   finalized before implementation).
 - Any future Filament dashboard exception for another module still requires its

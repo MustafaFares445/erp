@@ -256,7 +256,6 @@ final readonly class InventoryLotService
                 'origin_source_line_id' => $line->getKey(),
             ]);
         } catch (QueryException $queryException) {
-            // @codeCoverageIgnoreStart
             // Unique-key race recovery: another transaction must create the
             // same canonical lot between our read and insert. The deterministic
             // SQLite harness cannot reproduce that production race reliably.
@@ -269,7 +268,6 @@ final readonly class InventoryLotService
             $this->assertExpiryMatches($concurrent, $line);
 
             return $concurrent;
-            // @codeCoverageIgnoreEnd
         }
 
         return $lot;

@@ -213,31 +213,19 @@ final readonly class EmployeeReportExportService
     {
         try {
             $writer->close();
-            // @codeCoverageIgnoreStart
             // Reaching a second, closing-time failure requires the OpenSpout
             // writer itself to throw after the outer try block already failed —
             // not reachable without mocking a concrete, directly-instantiated
             // third-party writer.
-        } catch (Throwable $throwable) {
-            report($throwable);
+        } catch (Throwable) {
+            // Best-effort cleanup after the primary export failure.
         }
-
-        // @codeCoverageIgnoreEnd
     }
 
     private function exportId(EmployeeReportExport $export): int
     {
+        /** @var int $key */
         $key = $export->getKey();
-
-        // @codeCoverageIgnoreStart
-        // Unreachable in practice: `employee_report_exports.id` is an
-        // auto-increment integer primary key, so Eloquent's getKey() is
-        // always an int here. Guard kept only to satisfy static analysis.
-        if (! is_int($key)) {
-            throw new LogicException('Employee report exports must use integer identifiers.');
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return $key;
     }

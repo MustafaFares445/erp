@@ -158,12 +158,10 @@ final readonly class CampaignResponseService
     {
         $key = $model->getKey();
 
-        // @codeCoverageIgnoreStart
         // CRM entities use integer primary keys in the supported schema.
         if (! is_numeric($key)) {
             throw new DomainException('CRM records require an integer primary key.');
         }
-        // @codeCoverageIgnoreEnd
 
         return (int) $key;
     }

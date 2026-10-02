@@ -712,7 +712,7 @@ it('assigns every inventory item to one of the groups declared sections', functi
     }
 });
 
-// Intent: navigation defect N-1 (spec 020, FR-050). Financial Reports used to
+// Intent: navigation defect N-1 (historical Spec Kit 020, FR-050). Financial Reports used to
 // be registered once in `accounting` and once in `reports`, both resolving to
 // the same placeholder until FinancialReportResource existed — at which point
 // the item would have rendered twice and activeGroupKey() could not have said

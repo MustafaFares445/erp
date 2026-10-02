@@ -32,14 +32,7 @@ final class CrmCustomerGrowthTrend extends ChartWidget
             ->pluck('created_at')
             ->filter()
             ->map(function (mixed $value): Carbon {
-                // @codeCoverageIgnoreStart
-                // CustomerProfile::created_at carries Eloquent's default datetime cast, so
-                // pluck() always hydrates it through the cast into a Carbon instance.
-                if (! is_string($value) && ! $value instanceof \DateTimeInterface) {
-                    throw new \LogicException('Customer profile created_at values must be date-like.');
-                }
-                // @codeCoverageIgnoreEnd
-
+                /** @var string|\DateTimeInterface $value */
                 return Carbon::parse($value);
             });
 

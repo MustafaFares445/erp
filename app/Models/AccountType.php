@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * accounting, so there is no field here an operator could legitimately tune
  * (research.md R-007). Surfaced as a column and filter on Chart of Accounts.
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §2
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §2
  */
 /**
  * @property int $id

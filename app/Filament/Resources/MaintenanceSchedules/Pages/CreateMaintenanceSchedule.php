@@ -23,14 +23,8 @@ final class CreateMaintenanceSchedule extends CreateRecord
     #[\Override]
     protected function handleRecordCreation(array $data): Model
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        // @codeCoverageIgnoreStart
-        if (! $actor instanceof User) {
-            abort(403);
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return app(MaintenanceScheduleService::class)->create(new MaintenanceScheduleData(
             serializedInventoryUnitId: $data['serialized_inventory_unit_id'],

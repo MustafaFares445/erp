@@ -108,10 +108,8 @@ final class ListAccountsReceivable extends Page
         $to = CarbonImmutable::parse($this->asOf ?? CarbonImmutable::today()->toDateString());
         $from = $to->subYear()->addDay();
         $statement = app(AccountsReceivableService::class)->statement($customer, $from, $to);
+        /** @var resource $stream */
         $stream = fopen('php://temp', 'w+');
-        if ($stream === false) {
-            throw new LogicException('The customer statement export stream could not be opened.');
-        }
 
         fputcsv($stream, ['Customer', $statement['customer_name']], escape: '\\');
         fputcsv($stream, ['Period', $statement['from'].' to '.$statement['to']], escape: '\\');

@@ -184,16 +184,8 @@ final readonly class OutboundFulfillmentService
                 ]);
 
                 foreach ($shipmentInput['assignments'] as $assignment) {
+                    /** @var ProductVariant $variant */
                     $variant = $variants->get($assignment['product_variant_id']);
-                    // @codeCoverageIgnoreStart
-                    // Unreachable in practice: $assignment['product_variant_id'] is always one of the
-                    // keys the outer $variantIds/$variants count-match guard above already verified
-                    // exist, since both are derived from the same $normalizedShipments assignments.
-                    if (! $variant instanceof ProductVariant) {
-                        throw new DomainException('The selected product variant is unavailable.');
-                    }
-                    // @codeCoverageIgnoreEnd
-
                     $serialIds = $assignment['serialized_inventory_unit_ids'];
                     if ($variant->track_serials) {
                         if (abs($assignment['quantity'] - round($assignment['quantity'])) > self::Tolerance

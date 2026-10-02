@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/022-accounting-payables-expenses-bills/spec.md`, `Docs/PRD.md` §5 and §11, `Docs/SDD.md` §Supplier Management, `Docs/database/ERD.md`, ADR 0005 (Activitylog), **ADR 0006 (Purchasing) — amended by this ADR**, ADR 0007 (Accounting foundation), ADR 0008 (Sales, Payments, Credit Notes), ADR 0009 (Financial Reports), ADR 0010 (Receivables, Tax, Refunds), and the IERP Constitution Product Scope & Boundaries and Specification Governance sections
+**Related**: `Docs/domains/accounting/BUSINESS_RULES.md`, `Docs/product/PRODUCT_OVERVIEW.md` §5 and §11, `Docs/architecture/SYSTEM_OVERVIEW.md` §Supplier Management, `Docs/architecture/DATA_ARCHITECTURE.md`, ADR 0005 (Activitylog), **ADR 0006 (Purchasing) — amended by this ADR**, ADR 0007 (Accounting foundation), ADR 0008 (Sales, Payments, Credit Notes), ADR 0009 (Financial Reports), ADR 0010 (Receivables, Tax, Refunds), and the IERP Constitution Product Scope & Boundaries and Specification Governance sections
 
 ## Context
 
@@ -108,7 +108,7 @@ rather than in a code comment.
 
 **Input tax is recognised at bill approval, posted to one new seeded account,
 `1450 Recoverable Input Tax`.** Constitution Principle III makes *output* tax
-follow collection; it says nothing about input tax, and `Docs/PRD.md` §12's
+follow collection; it says nothing about input tax, and `Docs/product/PRODUCT_OVERVIEW.md` §12's
 currency and tax-rate question is still open. This is the decision in this ADR
 most likely to be wrong for the eventual jurisdiction, and it is deliberately
 isolated to one account and one posting line so that changing it later is cheap.
@@ -135,9 +135,9 @@ add. The supplier-facing portal the constitution excludes is **not** relaxed.
 Five tables are added — `expenses`, `bills`, `bill_lines`, `supplier_payments`,
 `supplier_payment_allocations` — and one account, `1450 Recoverable Input Tax`, is
 seeded. No purchasing table gains a column. `accounts_payable` does not become a
-table. See `specs/022-accounting-payables-expenses-bills/spec.md` §ERD Divergence
+table. See `Docs/domains/accounting/BUSINESS_RULES.md` §ERD Divergence
 Register for the full register, every row of which is recorded in
-`Docs/database/ERD.md` by this accepted decision.
+`Docs/architecture/DATA_ARCHITECTURE.md` by this accepted decision.
 
 **A supplier payment is not a `payments` row.** The ERD's `payments` table is
 customer-facing with a non-nullable `customer_id`, and ADR 0008 builds it that
@@ -184,7 +184,7 @@ It adds five tables, the largest schema addition since the ledger itself. The
 expense-not-capitalise decision leaves the ledger's cost timing wrong in a way an
 accountant will notice, accepted only because inventory valuation is a much larger
 feature. And the input-tax timing decision is a guess about a jurisdiction that
-`Docs/PRD.md` §12 has not yet named.
+`Docs/product/PRODUCT_OVERVIEW.md` §12 has not yet named.
 
 **Neutral.** Payable postings appear in ADR 0009's reports automatically. This
 feature shares only the ledger with ADR 0008's and ADR 0010's work, and shares

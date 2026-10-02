@@ -13,7 +13,7 @@ return new class extends Migration
      * uniqueness contract from `(order_id, product_variant_id)` to
      * `(order_id, product_variant_id, unit_id)` when the aggregation key
      * gained a UOM dimension. `QuotationConversionService::aggregateLines()`
-     * (spec 019, price provenance) later widened that same key again to also
+     * (historical Spec Kit 019, price provenance) later widened that same key again to also
      * require an identical commercial price and price provenance before two
      * quotation lines may collapse into one order line — but the unique index
      * was never widened to match, so two quotation lines for the same variant

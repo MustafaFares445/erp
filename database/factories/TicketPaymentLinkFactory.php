@@ -23,7 +23,7 @@ final class TicketPaymentLinkFactory extends Factory
         return [
             'ticket_id' => Ticket::factory()->chargeable(),
             'amount' => fake()->randomFloat(2, 10, 500),
-            'currency' => 'USD',
+            'currency' => 'AED',
             'status' => PaymentLinkStatus::Pending,
         ];
     }

@@ -1,201 +1,82 @@
-<laravel-boost-guidelines>
-=== .ai/feature-development rules ===
+# IERP Agent Entry Point
 
-# AI Feature Development Standard
+This file is intentionally short. Shared project guidance lives in the canonical documentation so agents do not receive several conflicting copies of the same rules.
 
-These rules govern how AI-assisted changes are made in this application. They apply to every agent (Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode) working in this repo.
+## Required Read Order
 
-1. **Discover before changing.** Read the existing implementation, its tests, and sibling files before writing new code. Reuse existing conventions, helpers, and components instead of introducing parallel ones.
-2. **Prefer version-specific documentation over remembered syntax.** Use Laravel Boost's `search-docs` tool (or the installed package's own docs) before relying on training-data knowledge, especially for Filament, Livewire, and Pest APIs.
-3. **Make small, reviewable changes.** One logical change per commit/PR. Do not bundle mechanical refactors (Rector, Pint) with behavioral changes.
-4. **Use explicit types and fail early.** Type-hint all parameters, properties, and return values. Prefer throwing/validating early over silently tolerating invalid state.
-5. **Test every behavior change.** New or changed behavior must ship with a Pest feature or unit test. Bug fixes must include a regression test.
-6. **Keep architecture enforceable through code, tests, static analysis, and CI**, not through documentation alone:
-   - `vendor/bin/pint --dirty` for formatting.
-   - `vendor/bin/phpstan analyse` for static analysis (see `phpstan.neon` / `phpstan-baseline.neon`).
-   - `vendor/bin/pest` (including `tests/Unit/ArchTest.php`) for architecture and behavior.
-   - `composer test` mirrors the CI gate in `.github/workflows/tests.yml`.
-7. **Improve legacy code incrementally.** New PHPStan baseline entries are forbidden; the baseline may only shrink. When a change touches a file with existing baseline entries, remove the entries that no longer apply.
-8. **Never weaken quality gates to make a build pass.** Do not lower PHPStan level, remove architecture rules, skip tests, or inflate type/test coverage thresholds just to get CI green — fix the underlying issue or, if truly out of scope, leave it documented and unbaselined-only-when-safe.
+Before behavior changes:
 
-=== foundation rules ===
+1. Read `Docs/README.md`.
+2. Read `Docs/onboarding/AGENT_WORKFLOW.md`.
+3. Identify the owner in `Docs/architecture/DOMAIN_MAP.md`.
+4. Read the relevant `Docs/domains/<domain>/` pages.
+5. Read relevant accepted ADRs.
+6. Inspect the current code and tests.
+7. Read an active plan/spec only when implementing unfinished work.
 
-# Laravel Boost Guidelines
+For cross-domain work, also read `Docs/product/BUSINESS_FLOWS.md`.
 
-The Laravel Boost guidelines are specifically curated by Laravel maintainers for this application. These guidelines should be followed closely to ensure the best experience when building Laravel applications.
+## Current Stack
 
-## Foundational Context
+- PHP 8.4
+- Laravel 13
+- Filament 5
+- Livewire 3
+- Pest 4 / PHPUnit 12
+- Larastan 3
+- Laravel Boost 2
+- Rector 2
+- Pint 1
 
-This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
+## Engineering Rules
 
-- php - 8.4
-- filament/filament (FILAMENT) - v5
-- laravel/framework (LARAVEL) - v13
-- laravel/prompts (PROMPTS) - v0
-- livewire/livewire (LIVEWIRE) - v3
-- larastan/larastan (LARASTAN) - v3
-- laravel/boost (BOOST) - v2
-- laravel/mcp (MCP) - v0
-- laravel/pail (PAIL) - v1
-- laravel/pint (PINT) - v1
-- pestphp/pest (PEST) - v4
-- phpunit/phpunit (PHPUNIT) - v12
-- rector/rector (RECTOR) - v2
+The shared AI development standard is `.ai/guidelines/project/feature-development.md`.
 
-## Skills Activation
+Key requirements:
 
-This project has domain-specific skills available in `**/skills/**`. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.
+- Discover before changing.
+- Reuse existing domain services and conventions.
+- Prefer installed/version-specific documentation; use Laravel Boost `search-docs` when available before relying on remembered Laravel/Filament/Livewire/Pest syntax.
+- Every behavior change requires regression coverage.
+- New PHPStan baseline debt is forbidden.
+- Never weaken type/coverage/static-analysis/architecture gates to make a build pass.
+- Do not discard or rewrite unrelated working-tree changes.
+- Update canonical documentation when a business invariant, lifecycle, permission, cross-domain effect, public/mobile contract or operational requirement changes.
 
-## Conventions
+## Quality Gates
 
-- You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
-- Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
-- Check for existing components to reuse before writing a new one.
+See `Docs/onboarding/TESTING_AND_QUALITY.md`.
 
-## Verification Scripts
+The full project gate is:
 
-- Do not create verification scripts or tinker when tests cover that functionality and prove they work. Unit and feature tests are more important.
+```bash
+composer test
+```
 
-## Application Structure & Architecture
+Current CI requires 100% type coverage and 100% code coverage.
 
-- Stick to existing directory structure; don't create new base folders without approval.
-- Do not change the application's dependencies without approval.
+## Architecture Non-Negotiables
 
-## Frontend Bundling
+- Inventory owns physical stock mutation.
+- Accounting owns the general ledger.
+- Payments owns collection/allocation/provider behavior.
+- Origin domains own their business facts.
+- Posted stock/accounting history is corrected through explicit correction/reversal paths.
+- Customer/employee ownership must be derived server-side.
+- AI output remains reviewable evidence/suggestion until a human/domain rule confirms it.
 
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
+## API Reality
 
-## Documentation Files
+Do not infer endpoints from old plans or service classes.
 
-- You must only create documentation files if explicitly requested by the user.
+At the 2026-10-02 documentation audit, the runtime route table has no `api/*` routes. Use `Docs/reference/API.md` and active mobile plans for the current distinction between implemented domain capability and future API exposure.
 
-## Replies
+## Documentation Creation
 
-- Be concise in your explanations - focus on what's important rather than explaining obvious details.
+Do not create another standalone findings/final/v2/implementation-summary Markdown file when the information belongs in an existing canonical page.
 
-=== boost rules ===
-
-# Laravel Boost
-
-## Tools
-
-- Laravel Boost is an MCP server with tools designed specifically for this application. Prefer Boost tools over manual alternatives like shell commands or file reads.
-- Use `database-query` to run read-only queries against the database instead of writing raw SQL in tinker.
-- Use `database-schema` to inspect table structure before writing migrations or models.
-- Use `get-absolute-url` to resolve the correct scheme, domain, and port for project URLs. Always use this before sharing a URL with the user.
-- Use `browser-logs` to read browser logs, errors, and exceptions. Only recent logs are useful, ignore old entries.
-
-## Searching Documentation (IMPORTANT)
-
-- Always use `search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
-- Pass a `packages` array to scope results when you know which packages are relevant.
-- Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
-- Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
-
-### Search Syntax
-
-1. Use words for auto-stemmed AND logic: `rate limit` matches both "rate" AND "limit".
-2. Use `"quoted phrases"` for exact position matching: `"infinite scroll"` requires adjacent words in order.
-3. Combine words and phrases for mixed queries: `middleware "rate limit"`.
-4. Use multiple queries for OR logic: `queries=["authentication", "middleware"]`.
-
-## Artisan
-
-- Run Artisan commands directly via the command line (e.g., `php artisan route:list`). Use `php artisan list` to discover available commands and `php artisan [command] --help` to check parameters.
-- Inspect routes with `php artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
-- Read configuration values using dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`. Or read config files directly from the `config/` directory.
-
-## Tinker
-
-- Execute PHP in app context for debugging and testing code. Do not create models without user approval, prefer tests with factories instead. Prefer existing Artisan commands over custom tinker code.
-- Always use single quotes to prevent shell expansion: `php artisan tinker --execute 'Your::code();'`
-  - Double quotes for PHP strings inside: `php artisan tinker --execute 'User::where("active", true)->count();'`
-
-=== php rules ===
-
-# PHP
-
-- Always use curly braces for control structures, even for single-line bodies.
-- Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Do not leave empty zero-parameter `__construct()` methods unless the constructor is private.
-- Use explicit return type declarations and type hints for all method parameters: `function isAccessible(User $user, ?string $path = null): bool`
-- Use TitleCase for Enum keys: `FavoritePerson`, `BestLake`, `Monthly`.
-- Prefer PHPDoc blocks over inline comments. Only add inline comments for exceptionally complex logic.
-- Use array shape type definitions in PHPDoc blocks.
-
-=== deployments rules ===
-
-# Deployment
-
-- Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
-
-=== herd rules ===
-
-# Laravel Herd
-
-- The application is served by Laravel Herd at `https?://[kebab-case-project-dir].test`. Use the `get-absolute-url` tool to generate valid URLs. Never run commands to serve the site. It is always available.
-- Use the `herd` CLI to manage services, PHP versions, and sites (e.g. `herd sites`, `herd services:start <service>`, `herd php:list`). Run `herd list` to discover all available commands.
-
-=== tests rules ===
-
-# Test Enforcement
-
-- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
-
-=== laravel/core rules ===
-
-# Do Things the Laravel Way
-
-- Use `php artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using `php artisan list` and check their parameters with `php artisan [command] --help`.
-- If you're creating a generic PHP class, use `php artisan make:class`.
-- Pass `--no-interaction` to all Artisan commands to ensure they work without user input. You should also pass the correct `--options` to ensure correct behavior.
-
-### Model Creation
-
-- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `php artisan make:model --help` to check the available options.
-
-## APIs & Eloquent Resources
-
-- For APIs, default to using Eloquent API Resources and API versioning unless existing API routes do not, then you should follow existing application convention.
-
-## URL Generation
-
-- When generating links to other pages, prefer named routes and the `route()` function.
-
-## Testing
-
-- When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
-- Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
-- When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
-
-## Vite Error
-
-- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
-
-=== pint/core rules ===
-
-# Laravel Pint Code Formatter
-
-- If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
-- Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
-
-=== pest/core rules ===
-
-## Pest
-
-- This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
-- The `{name}` argument should not include the test suite directory. Use `php artisan make:test --pest SomeFeatureTest` instead of `php artisan make:test --pest Feature/SomeFeatureTest`.
-- Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
-- Do NOT delete tests without approval.
-
-=== spatie/guidelines-skills rules ===
-
-# Project Coding Guidelines
-
-- This codebase follows Spatie's coding guidelines.
-- Always activate the `spatie-laravel-php` skill when writing, editing, reviewing, or formatting Laravel or PHP code.
-- Always activate the `spatie-javascript` skill when writing, editing, reviewing, or formatting JavaScript or TypeScript code.
-- Always activate the `spatie-version-control` skill when creating commits, branches, or managing Git operations.
-- Always activate the `spatie-security` skill when configuring security, reviewing authentication, or setting up servers and databases.
-
-</laravel-boost-guidelines>
+Use:
+- canonical domain/product/architecture docs for current truth;
+- ADRs for durable decisions;
+- `Docs/plans/` for active future work only;
+- Git history for completed plans.

@@ -31,6 +31,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
       - run: cp .env.example .env
       - run: php artisan key:generate
+      - run: composer run test:docs
       - run: composer run test:lint
       - run: composer run test:types
       - run: composer run test:type-coverage

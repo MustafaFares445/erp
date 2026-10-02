@@ -16,17 +16,17 @@ use App\Services\Payments\SystemActorResolver;
  *
  * Adding a case here narrows every other module's bypass, which is the point:
  * a user given a scoped role in any module is thereafter checked explicitly
- * everywhere. Spec 018's `Chief Accountant` and `Accountant` are held to the
+ * everywhere. historical Spec Kit 018's `Chief Accountant` and `Accountant` are held to the
  * same rule, and `AccountingRoleNarrowingTest` proves the narrowing rather
  * than assuming it.
  *
- * Spec 017's `Purchasing Manager` and `Purchasing Officer` are held to it too,
+ * historical Spec Kit 017's `Purchasing Manager` and `Purchasing Officer` are held to it too,
  * and `PurchasingRoleNarrowingTest` proves the narrowing rather than assuming
  * it — an admin who is also given a purchasing role loses bypass in Inventory,
  * CRM, Employees, Support, and Accounting as well, which is a real behavioural
  * change to shipped code and is tested as one.
  *
- * Spec 019's `Sales Manager`, `Sales Officer`, and `Billing Officer` are held
+ * historical Spec Kit 019's `Sales Manager`, `Sales Officer`, and `Billing Officer` are held
  * to it too, proved by `SalesRoleNarrowingTest`: granting a System Admin any
  * one of the three removes their admin bypass in Inventory, CRM, Employees,
  * Support, Accounting, and Purchasing as well.
@@ -38,10 +38,10 @@ use App\Services\Payments\SystemActorResolver;
  * what confines that actor to its two explicitly granted abilities instead
  * of silently inheriting the blanket admin bypass.
  *
- * @see /specs/015-employees-plans-visits-dashboard/research.md R-006
- * @see /specs/018-chart-of-accounts-journals/contracts/permissions.md §4
- * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md §4
- * @see /specs/019-sales-lifecycle-payments-credits/contracts/permissions.md §2
+ * @see /Docs/domains/employees/README.md R-006
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md §4
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md §4
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md §2
  */
 enum DashboardRole: string
 {

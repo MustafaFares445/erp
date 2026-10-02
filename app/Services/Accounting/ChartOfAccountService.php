@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Gate;
  * always be marked inactive but never deleted (FR-010, FR-011) — inactive blocks
  * future postings without rewriting the past.
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §3
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §3
  */
 final readonly class ChartOfAccountService
 {

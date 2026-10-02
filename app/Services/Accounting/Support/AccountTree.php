@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Collection;
  * needs depth-first display ordering, which `AccountBalanceService` has no
  * reason to grow.
  *
- * @see /specs/020-accounting-financial-reports/data-model.md §AccountTree
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §AccountTree
  */
 final readonly class AccountTree
 {

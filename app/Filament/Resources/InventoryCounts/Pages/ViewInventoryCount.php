@@ -138,6 +138,9 @@ final class ViewInventoryCount extends ViewRecord
         return response()->streamDownload(static function () use ($lines): void {
             $handle = fopen('php://output', 'wb');
 
+            // php://output is guaranteed by PHP in the web runtime; when fopen
+            // itself fails Laravel converts the warning to an exception before
+            // this defensive false-return guard can be reached.
             if ($handle === false) {
                 return;
             }
@@ -183,6 +186,9 @@ final class ViewInventoryCount extends ViewRecord
         $absolutePath = Storage::disk('local')->path($path);
         $handle = fopen($absolutePath, 'rb');
 
+        // Laravel promotes fopen warnings to exceptions, so an unreadable path
+        // never reaches the native false return in the application runtime.
+        // Keep the guard for environments without that error handler.
         if ($handle === false) {
             throw new LogicException('The uploaded count sheet could not be opened.');
         }

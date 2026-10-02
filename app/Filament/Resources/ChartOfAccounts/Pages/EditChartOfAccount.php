@@ -28,11 +28,8 @@ final class EditChartOfAccount extends EditRecord
             ViewAction::make(),
             DeleteAction::make()
                 ->using(function (ChartAccount $record): bool {
+                    /** @var User $actor */
                     $actor = self::accountingActor();
-
-                    if (! $actor instanceof User) {
-                        return false;
-                    }
 
                     self::runAccountingOperation(
                         fn () => app(ChartOfAccountService::class)->delete($actor, $record),

@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
  * in the query means a missing account yields `0` rather than `null`, so no
  * caller needs a null check.
  *
- * @see /specs/020-accounting-financial-reports/data-model.md §LedgerAggregate
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §LedgerAggregate
  */
 final readonly class LedgerAggregate
 {

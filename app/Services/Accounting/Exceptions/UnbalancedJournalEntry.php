@@ -11,9 +11,9 @@ use DomainException;
  * do not agree, or because it has too few lines to be a double-entry posting at
  * all (FR-020, FR-024).
  *
- * FR-020 is the single acceptance criterion `Docs/IMPLEMENTATION_PLAN.md` §6
- * states outright, which is why the message carries both totals rather than a
- * generic failure: the accountant needs to know the size of the gap.
+ * Canonical Accounting rules require balanced double-entry posting. The exception
+ * carries both totals rather than a generic failure so the accountant can see the
+ * size of the gap.
  */
 final class UnbalancedJournalEntry extends DomainException
 {

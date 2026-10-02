@@ -86,6 +86,10 @@ final readonly class InvoiceService
                 throw new DomainException('A sales delivery must reference its originating sales order.');
             }
 
+            if ($orderIds->count() > 1) {
+                throw new DomainException('Cross-order consolidated invoicing is not supported. Create a separate invoice for each sales order.');
+            }
+
             /** @var Collection<int, Order> $lockedOrders */
             $lockedOrders = Order::query()
                 ->with(['lines.productVariant', 'paymentTerm'])

@@ -15,7 +15,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use LogicException;
 
 final class AssignmentsRelationManager extends RelationManager
 {
@@ -70,26 +69,16 @@ final class AssignmentsRelationManager extends RelationManager
 
     private function ticket(): Ticket
     {
+        /** @var Ticket $record */
         $record = $this->getOwnerRecord();
-
-        if (! $record instanceof Ticket) {
-            throw new LogicException('Expected the owner record of AssignmentsRelationManager to be a Ticket.');
-        }
 
         return $record;
     }
 
     private function currentActor(): User
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
-        if (! $actor instanceof User) {
-            throw new LogicException('An authenticated User is required.');
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }

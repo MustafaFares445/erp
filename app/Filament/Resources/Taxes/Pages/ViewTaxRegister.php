@@ -236,12 +236,10 @@ final class ViewTaxRegister extends Page
         return response()->streamDownload(function () use ($writer): void {
             $handle = fopen('php://output', 'wb');
 
-            // @codeCoverageIgnoreStart
             // php://output is guaranteed by PHP in the supported runtime; keep the defensive guard.
             if ($handle === false) {
                 return;
             }
-            // @codeCoverageIgnoreEnd
 
             $writer($handle);
 

@@ -18,7 +18,7 @@ use Spatie\LaravelData\Data;
  * on top of the shape rules below, so the shared source stays honest about
  * what it can and cannot own.
  *
- * @see /specs/002-warehouses-stock-visibility/contracts/warehouse-resource.md
+ * @see /Docs/domains/inventory/README.md
  */
 final class WarehouseData extends Data
 {

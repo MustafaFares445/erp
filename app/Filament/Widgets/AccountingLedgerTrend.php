@@ -54,19 +54,15 @@ final class AccountingLedgerTrend extends ChartWidget
             ->get(['journal_entries.entry_date as entry_date', 'journal_entry_lines.debit as debit']);
 
         foreach ($rows as $row) {
-            // @codeCoverageIgnoreStart
-            // journal_entries.entry_date is a DATE column and journal_entry_lines.debit
-            // is NUMERIC; every supported database driver returns a date-like string and
-            // a numeric value for these columns, so this guard cannot fail in practice.
-            if (! is_string($row->entry_date) || ! is_numeric($row->debit)) {
-                throw new \LogicException('Journal entry line rows must carry a date and a numeric debit.');
-            }
-            // @codeCoverageIgnoreEnd
+            /** @var string $entryDate */
+            $entryDate = $row->entry_date;
+            /** @var numeric-string|int|float $debit */
+            $debit = $row->debit;
 
-            $month = Carbon::parse($row->entry_date)->format('Y-m');
+            $month = Carbon::parse($entryDate)->format('Y-m');
 
             if ($totals->has($month)) {
-                $totals[$month] += (float) $row->debit;
+                $totals[$month] += (float) $debit;
             }
         }
 

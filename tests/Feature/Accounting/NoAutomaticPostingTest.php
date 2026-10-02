@@ -23,7 +23,6 @@ use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\OrderFulfillmentService;
 use App\Services\Support\TicketPaymentService;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\InventoryDemoSeeder;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportDemoSeeder;
@@ -45,7 +44,7 @@ uses(RefreshDatabase::class);
  * them fails.
  */
 beforeEach(function (): void {
-    (new ChartOfAccountsSeeder)->run();
+    $this->paymentMethod = configurePaymentAccounting();
 });
 
 function actorWithInventoryPermissions(): User
@@ -142,7 +141,7 @@ it('writes no journal entry when a delivery is dispatched and completed', functi
         ->and(JournalEntry::query()->count())->toBe(0);
 });
 
-it('writes no journal entry when a chargeable ticket payment is settled', function (): void {
+it('posts a chargeable ticket collection to customer deposits when it is settled', function (): void {
     (new SupportPermissionSeeder)->run();
     // Settling moves the ticket to Live, which snapshots an SLA target.
     (new SlaPolicySeeder)->run();
@@ -156,10 +155,12 @@ it('writes no journal entry when a chargeable ticket payment is settled', functi
 
     $service = app(TicketPaymentService::class);
     $link = $service->createForTicket($ticket, 450.00, 'AED');
-    $service->settle($link, 'VISA-TEST-0001', $actor);
+    $service->settle($link, 'VISA-TEST-0001', $actor, $this->paymentMethod->getKey());
 
     expect($link->refresh()->settled_at)->not->toBeNull()
-        ->and(JournalEntry::query()->count())->toBe(0);
+        ->and($link->payment_id)->not->toBeNull()
+        ->and(JournalEntry::query()->count())->toBe(1)
+        ->and(JournalEntryLine::query()->count())->toBe(2);
 });
 
 it('writes no journal entry when an inventory adjustment moves stock', function (): void {
@@ -195,15 +196,14 @@ it('writes no journal entry when an inventory adjustment moves stock', function 
         ->and(JournalEntry::query()->count())->toBe(0);
 });
 
-it('leaves the ledger empty after the whole demo data set, accounting aside', function (): void {
-    // Every other module's demo seeder drives its own real services end to end —
-    // orders, deliveries, receipts, ticket intake, chargeable-payment settlement,
-    // maintenance and spare-part consumption. None of them may leave a ledger row.
+it('keeps operational demo actions off the ledger except explicit support payment collection', function (): void {
     $this->seed(InventoryDemoSeeder::class);
+    expect(JournalEntry::query()->count())->toBe(0);
+
     $this->seed(SupportDemoSeeder::class);
 
-    expect(JournalEntry::query()->count())->toBe(0)
-        ->and(JournalEntryLine::query()->count())->toBe(0);
+    expect(JournalEntry::query()->count())->toBeGreaterThanOrEqual(1)
+        ->and(JournalEntryLine::query()->count())->toBeGreaterThanOrEqual(2);
 });
 
 it('registers no model observer or event listener that could post on a document event', function (): void {

@@ -41,7 +41,6 @@ final class SupportReportResource extends Resource
         return $schema->components([]);
     }
 
-    // @codeCoverageIgnoreStart
     // Required by the abstract Resource contract, but ViewSupportReports is a plain
     // custom Page (not a List/ManageRecords page), so Filament never actually calls this.
     #[\Override]
@@ -49,8 +48,6 @@ final class SupportReportResource extends Resource
     {
         return $table;
     }
-
-    // @codeCoverageIgnoreEnd
 
     #[\Override]
     public static function canAccess(): bool

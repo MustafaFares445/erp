@@ -16,7 +16,7 @@ use App\Policies\Concerns\ChecksInventoryPermissions;
  * or movement row cannot be deleted (FR-005) — the dashboard offers
  * deactivation instead. Hard delete is never permitted (FR-006).
  *
- * @see /specs/002-warehouses-stock-visibility/contracts/authorization.md
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md
  */
 final class WarehousePolicy
 {

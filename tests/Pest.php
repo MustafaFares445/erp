@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Models\ChartAccount;
+use App\Models\FiscalPeriod;
+use App\Models\PaymentMethod;
+use App\Models\SalesSetting;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\ParallelTesting;
@@ -71,7 +76,35 @@ expect()->extend('toBeOne', fn () => $this->toBe(1));
 |
 */
 
-function something(): void
+function configurePaymentAccounting(string $methodType = 'bank_transfer', float $taxPercent = 0.0): PaymentMethod
 {
-    // ..
+    (new ChartOfAccountsSeeder)->run();
+
+    if (! FiscalPeriod::query()->exists()) {
+        FiscalPeriod::factory()->create();
+    }
+
+    $account = static fn (string $code): int => (int) ChartAccount::query()
+        ->where('code', $code)
+        ->sole()
+        ->getKey();
+
+    SalesSetting::query()->firstOrCreate([], [
+        'default_tax_percent' => number_format($taxPercent, 2, '.', ''),
+        'default_quotation_validity_days' => 30,
+        'receivable_account_id' => $account('1200'),
+        'revenue_account_id' => $account('4100'),
+        'deferred_tax_account_id' => $account('2350'),
+        'tax_payable_account_id' => $account('2300'),
+        'customer_deposits_account_id' => $account('2400'),
+        'bad_debt_expense_account_id' => $account('6800'),
+        'auto_apply_customer_deposits' => true,
+    ]);
+
+    return PaymentMethod::factory()->create([
+        'type' => $methodType,
+        'chart_account_id' => $account('1100'),
+        'is_active' => true,
+        'requires_proof' => false,
+    ]);
 }

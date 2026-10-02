@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/019-sales-lifecycle-payments-credits/spec.md`, `Docs/PRD.md`, `Docs/SDD.md`, `Docs/database/ERD.md`, `Docs/IMPLEMENTATION_PLAN.md` §8–§10, ADR 0001 (Inventory), ADR 0002 (CRM), ADR 0003 (Employees), ADR 0004 (Support), ADR 0005 (Activitylog), ADR 0006 (Purchasing), ADR 0007 (Accounting foundation), and the IERP Constitution Product Scope & Boundaries and Specification Governance sections
+**Related**: `Docs/domains/sales/README.md`, `Docs/product/PRODUCT_OVERVIEW.md`, `Docs/architecture/SYSTEM_OVERVIEW.md`, `Docs/architecture/DATA_ARCHITECTURE.md`, historical global implementation plan (removed; Git history) §8–§10, ADR 0001 (Inventory), ADR 0002 (CRM), ADR 0003 (Employees), ADR 0004 (Support), ADR 0005 (Activitylog), ADR 0006 (Purchasing), ADR 0007 (Accounting foundation), and the IERP Constitution Product Scope & Boundaries and Specification Governance sections
 
 ## Context
 
@@ -32,15 +32,15 @@ dashboard, and the only module whose navigation group is mostly placeholder.
 Unlike Purchasing, this module is not thinly documented. It is the most heavily
 specified area of the entire canonical set, and it is specified consistently.
 
-`Docs/IMPLEMENTATION_PLAN.md` supplies three sequential phases with one
+historical global implementation plan (removed; Git history) supplies three sequential phases with one
 acceptance criterion each: §8 Sales Flow ("Given a delivery note is confirmed,
 then stock decreases and no tax is recognized"), §9 Payments and Tax ("Given a
 partial payment, then tax is recognized proportionally"), and §10 Credit Notes
 ("Given a credit note is confirmed, then the invoice is corrected without
-physical deletion"). `Docs/PRD.md` names the lifecycle in its objectives
+physical deletion"). `Docs/product/PRODUCT_OVERVIEW.md` names the lifecycle in its objectives
 (§Objectives: "Quotation -> Delivery Note -> Invoice -> Payment"), lists eleven
 functional requirements covering it (FR-003 through FR-013), and states the tax
-rule twice more in §Business Rules. `Docs/database/ERD.md` supplies eighteen
+rule twice more in §Business Rules. `Docs/architecture/DATA_ARCHITECTURE.md` supplies eighteen
 tables and a status catalogue for five of them.
 
 Most decisively, the constitution itself specifies this module in Principle III,
@@ -71,7 +71,7 @@ avoiding and located all of them in extraction entry `007`:
 > ERD tables — all live in `007` and later.
 
 Two of the three were then settled in advance by project-owner decisions D2 and
-D3, recorded in `specs/018-chart-of-accounts-journals/spec.md` §Owner Decisions
+D3, recorded in `Docs/domains/accounting/README.md` §Owner Decisions
 so that this specification would not reopen them: the built `orders` table is
 extended rather than replaced, and no `delivery_notes` table is created — the
 Delivery Notes surface derives from `InventoryOperation` rows with
@@ -115,8 +115,7 @@ This is the first module to modify a built, in-production table rather than only
 add to the schema. `orders` and `order_lines` carry live rows and are read by
 `OrderFulfillmentService`, `DeliveryWarehouseAllocationService`,
 `WarehouseStockService`, the `Shipment` flow, `SupplierConfirmation`'s
-`confirmable` morph, and the `InventoryOperation.source_document` morph. Spec
-017's supplier-confirmation-against-a-customer-order path runs through the same
+`confirmable` morph, and the `InventoryOperation.source_document` morph. historical Spec Kit 017's supplier-confirmation-against-a-customer-order path runs through the same
 table. Every one of these must behave identically afterwards.
 
 ### Alternatives considered
@@ -147,7 +146,7 @@ owed.
 **Model an invoice correction as an edit, or as a cancel-and-delete.** Rejected.
 Principle III forbids physically deleting a confirmed financial document. The
 credit note is the correction path the PRD, the SDD, and
-`Docs/IMPLEMENTATION_PLAN.md` §10 all name.
+historical global implementation plan (removed; Git history) §10 all name.
 
 **Build an aged-receivables report while the data is fresh.** Rejected. It is
 `014-reporting-notifications-audit`, and this feature is already the largest in
@@ -182,7 +181,7 @@ this ADR records the reversal explicitly so that no future reader mistakes it
 for an oversight or for the earlier judgement having been forgotten.
 
 Two things reduce, but do not eliminate, the cost. Entry 006 already shipped
-separately as spec 018, so this is three entries rather than four, and the
+separately as historical Spec Kit 018, so this is three entries rather than four, and the
 hardest of the four — the ledger itself — is behind us. And the specification's
 nine user stories are ordered P1 → P3 with each independently shippable, so the
 work lands as a sequence of reviewable increments. That ordering is binding on
@@ -208,7 +207,7 @@ Reversing a payment or a credit note reverses its own entries through
 **No fourth caller is authorised by this ADR.** Quotations, orders, delivery
 operations, purchase orders, inventory movements, ticket payments, spare-part
 consumption, and every future document post nothing as a result of this
-decision. Spec 018's `NoAutomaticPostingTest` is tightened rather than deleted:
+decision. historical Spec Kit 018's `NoAutomaticPostingTest` is tightened rather than deleted:
 it must assert that these three sources exist and that no other does.
 
 ### In scope
@@ -317,7 +316,7 @@ separate ADR or an explicit amendment to this one.
 **Positive.** The lifecycle Principle III mandates exists end to end for the
 first time, and its central invariant — tax on collection, proportionally — is
 demonstrable in one feature rather than inferable across three. The ledger built
-by spec 018 stops being an unwired interface. The `orders` table becomes the
+by historical Spec Kit 018 stops being an unwired interface. The `orders` table becomes the
 sales order the ERD describes without a parallel table to reconcile against.
 Three of the four remaining financial extraction entries close.
 

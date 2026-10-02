@@ -55,7 +55,7 @@ describe('the chart of accounts seeder', function (): void {
             ->and(ChartAccount::query()->count())->toBe($accounts);
     });
 
-    it('seeds 2350 Deferred Sales Tax, postable and active (spec 019, ADR 0008, research.md R-007)', function (): void {
+    it('seeds 2350 Deferred Sales Tax, postable and active (historical Spec Kit 019, ADR 0008, research.md R-007)', function (): void {
         (new ChartOfAccountsSeeder)->run();
 
         $account = ChartAccount::query()->where('code', '2350')->sole();
@@ -67,7 +67,7 @@ describe('the chart of accounts seeder', function (): void {
     });
 
     it('adds 2350 on a re-run against an existing chart without touching the other accounts', function (): void {
-        // Simulates re-running the seeder on a chart that predates spec 019 —
+        // Simulates re-running the seeder on a chart that predates historical Spec Kit 019 —
         // the realistic upgrade path, not a fresh install.
         (new ChartOfAccountsSeeder)->run();
         // forceDelete, not delete: a soft-deleted row still occupies the

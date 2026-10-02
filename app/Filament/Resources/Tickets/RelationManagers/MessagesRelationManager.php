@@ -7,16 +7,13 @@ namespace App\Filament\Resources\Tickets\RelationManagers;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\TicketMessageService;
-use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
-use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use LogicException;
 
 final class MessagesRelationManager extends RelationManager
 {
@@ -56,45 +53,26 @@ final class MessagesRelationManager extends RelationManager
 
     private function post(string $message, bool $isInternalNote): void
     {
-        try {
-            app(TicketMessageService::class)->post(
-                $this->ticket(),
-                $message,
-                $isInternalNote,
-                $this->currentActor(),
-            );
-            // @codeCoverageIgnoreStart
-            // TicketMessageService::post() only ever throws AuthorizationException,
-            // never DomainException — this catch is a defensive backstop.
-        } catch (DomainException $domainException) {
-            Notification::make()->danger()->title(__('Unable to post this message'))->body($domainException->getMessage())->send();
-        }
-
-        // @codeCoverageIgnoreEnd
+        app(TicketMessageService::class)->post(
+            $this->ticket(),
+            $message,
+            $isInternalNote,
+            $this->currentActor(),
+        );
     }
 
     private function ticket(): Ticket
     {
+        /** @var Ticket $record */
         $record = $this->getOwnerRecord();
-
-        if (! $record instanceof Ticket) {
-            throw new LogicException('Expected the owner record of MessagesRelationManager to be a Ticket.');
-        }
 
         return $record;
     }
 
     private function currentActor(): User
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
-        if (! $actor instanceof User) {
-            throw new LogicException('An authenticated User is required.');
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }

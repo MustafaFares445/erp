@@ -16,7 +16,9 @@ use App\Models\Warehouse;
 use App\Services\Crm\CustomerReturnRequestService;
 use App\Services\Crm\Exceptions\InvalidCustomerReturnRequestTransition;
 use App\Services\Inventory\InventoryOperationService;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -275,4 +277,54 @@ it('refuses a return request with a non-positive requested quantity', function (
         InvalidCustomerReturnRequestTransition::class,
         'requested quantity must be positive',
     );
+});
+
+it('rejects conversion when the original delivery was soft deleted after approval', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    [$delivery, $line, $warehouse] = completedDeliveryForReturnRequest($customer);
+    $actor = User::factory()->admin()->create();
+    $service = app(CustomerReturnRequestService::class);
+
+    $request = $service->submit(
+        customer: $customer,
+        delivery: $delivery,
+        lines: [[
+            'original_inventory_operation_line_id' => $line->getKey(),
+            'requested_quantity' => '1.000000',
+        ]],
+    );
+    $approved = $service->approve($actor, $service->startReview($actor, $request));
+
+    $delivery->delete();
+
+    expect(fn () => $service->convertToInventoryReturn($actor, $approved->fresh(), $warehouse))
+        ->toThrow(
+            InvalidCustomerReturnRequestTransition::class,
+            'original delivery for this return request no longer exists',
+        );
+});
+
+it('prevents deleting a delivery line while an approved return request still references it', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    [$delivery, $line] = completedDeliveryForReturnRequest($customer);
+    $actor = User::factory()->admin()->create();
+    $service = app(CustomerReturnRequestService::class);
+
+    $request = $service->submit(
+        customer: $customer,
+        delivery: $delivery,
+        lines: [[
+            'original_inventory_operation_line_id' => $line->getKey(),
+            'requested_quantity' => '1.000000',
+        ]],
+    );
+    $approved = $service->approve($actor, $service->startReview($actor, $request));
+
+    expect(fn () => DB::table('inventory_operation_lines')
+        ->where('id', $line->getKey())
+        ->delete())
+        ->toThrow(QueryException::class);
+
+    expect($approved->refresh()->status)->toBe(CustomerReturnRequestStatus::Approved)
+        ->and($approved->lines()->sole()->original_inventory_operation_line_id)->toBe($line->getKey());
 });

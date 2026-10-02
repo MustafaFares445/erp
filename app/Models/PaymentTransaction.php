@@ -99,11 +99,11 @@ final class PaymentTransaction extends Model
     }
 
     /**
-     * A ticket-purpose transaction never creates an ERP {@see Payment} (no
-     * accounting side effect — {@see TicketPaymentService}
-     * touches only `ticket_payment_links`/`tickets`), so `payment_id` can
-     * never mark it settled. Its {@see TicketPaymentLink} status is the
-     * source of truth for that purpose instead.
+     * Ticket-purpose transactions settle through {@see TicketPaymentService},
+     * which now posts the collected amount as a canonical ERP {@see Payment}
+     * and customer deposit before the ticket becomes live. The ticket link
+     * remains the purpose-level source of truth while `payment_id` provides
+     * the accounting trace back to the posted collection.
      */
     public function isSettled(): bool
     {

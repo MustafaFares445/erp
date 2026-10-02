@@ -32,15 +32,8 @@ final class WarehouseStockService
         $candidates = [];
 
         foreach ($stocks as $stock) {
+            /** @var Warehouse $warehouse */
             $warehouse = $stock->warehouse;
-
-            // @codeCoverageIgnoreStart
-            // whereHas('warehouse') and with('warehouse') guarantee this relation exists.
-            if (! $warehouse instanceof Warehouse) {
-                continue;
-            }
-
-            // @codeCoverageIgnoreEnd
 
             $warehouseId = (int) $stock->warehouse_id;
             $candidates[$warehouseId] ??= ['warehouse' => $warehouse, 'stocks' => []];
@@ -68,15 +61,8 @@ final class WarehouseStockService
         $warehouses = [];
 
         foreach ($stocks as $stock) {
+            /** @var Warehouse $warehouse */
             $warehouse = $stock->warehouse;
-
-            // @codeCoverageIgnoreStart
-            // whereHas('warehouse') and with('warehouse') guarantee this relation exists.
-            if (! $warehouse instanceof Warehouse) {
-                continue;
-            }
-
-            // @codeCoverageIgnoreEnd
 
             $warehouses[] = [
                 'id' => (int) $stock->warehouse_id,

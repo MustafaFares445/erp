@@ -14,7 +14,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
-use LogicException;
 
 /**
  * Table/relation-manager actions for preventive maintenance schedules and
@@ -80,14 +79,8 @@ final class MaintenanceScheduleActions
 
     private static function currentActor(): User
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        // @codeCoverageIgnoreStart
-        if (! $actor instanceof User) {
-            throw new LogicException('An authenticated User is required.');
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }

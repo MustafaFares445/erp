@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `ERP_CROSS_MODULE_REMEDIATION_PLAN.md` Phase 0, `Docs/adr/0006-filament-purchasing-dashboard.md`, `Docs/adr/0011-accounting-payables-expenses-bills.md`, `Docs/ERP_DOMAIN_MODEL.md`, `Docs/CROSS_MODULE_BUSINESS_FLOWS.md`
+**Related**: historical cross-module remediation plan Phase 0 (removed; Git history), `Docs/adr/0006-filament-purchasing-dashboard.md`, `Docs/adr/0011-accounting-payables-expenses-bills.md`, `Docs/architecture/DOMAIN_MAP.md`, `Docs/product/BUSINESS_FLOWS.md`
 
 ## Context
 

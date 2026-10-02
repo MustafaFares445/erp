@@ -19,15 +19,8 @@ final class SlaPolicyForm
                     ->schema([
                         TextInput::make('priority')
                             ->formatStateUsing(static function (mixed $state): string {
-                                $value = match (true) {
-                                    $state instanceof TicketPriority => $state->value,
-                                    is_string($state) => $state,
-                                    // @codeCoverageIgnoreStart
-                                    // sla_policies.priority is enum-cast and never null, so
-                                    // Filament only ever passes a TicketPriority or a string here.
-                                    default => '',
-                                    // @codeCoverageIgnoreEnd
-                                };
+                                /** @var TicketPriority|string $state */
+                                $value = $state instanceof TicketPriority ? $state->value : $state;
 
                                 return __(str($value)->headline()->toString());
                             })

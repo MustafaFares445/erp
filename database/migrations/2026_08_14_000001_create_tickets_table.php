@@ -27,7 +27,7 @@ return new class extends Migration
             // SLA snapshot and clock (ADR 0004 ext. 1) — dormant until spec
             // 016's User Story 5 populates them; created here because every
             // migration in this codebase creates a table's full column set in
-            // the earliest story that owns it (matching how spec 015's
+            // the earliest story that owns it (matching how historical Spec Kit 015's
             // employee_profiles.commission_target_amount, used only by a
             // later salary story, was created with the base migration).
             $table->unsignedInteger('sla_response_target_minutes')->nullable();

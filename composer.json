@@ -72,6 +72,7 @@
             "pint --parallel --test",
             "rector --dry-run"
         ],
+        "test:docs": "@php scripts/docs-check.php",
         "test:types": "phpstan analyse --memory-limit=1G",
         "test:type-coverage": [
             "Composer\\Config::disableProcessTimeout",
@@ -91,6 +92,7 @@
         ],
         "test": [
             "@test:lint",
+            "@test:docs",
             "@test:types",
             "@test:type-coverage",
             "@test:coverage"

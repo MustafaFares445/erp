@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Model;
  * An ability with no entry in the map is denied by default, which is how
  * this pattern realizes "no delete capability" for read-only ledgers.
  *
- * @see /specs/001-inventory-dashboard-foundation/contracts/policy-abilities.md
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md
  */
 trait ChecksInventoryPermissions
 {

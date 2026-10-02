@@ -90,10 +90,8 @@ final class SupplierConfirmationActions
             ->visible(fn (SupplierConfirmation $record): bool => self::canAnswer($record))
             ->authorize(fn (SupplierConfirmation $record): bool => self::canAnswer($record))
             ->action(function (SupplierConfirmation $record, array $data): void {
+                /** @var User $actor */
                 $actor = self::purchasingActor();
-                if (! $actor instanceof User) {
-                    return;
-                }
 
                 $response = self::stringFrom($data['response'] ?? null);
                 $status = SupplierConfirmationStatus::from($response);

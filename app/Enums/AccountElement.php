@@ -17,7 +17,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
  * `normal_balance` from {@see self::normalBalance()}, so the pairing is
  * declared once.
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §2
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §2
  */
 enum AccountElement: string
 {

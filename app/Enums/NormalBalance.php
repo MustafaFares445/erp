@@ -14,7 +14,7 @@ use App\Services\Accounting\AccountBalanceService;
  * account holding its normal balance always reads positive. Consumed by
  * {@see AccountBalanceService}.
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §7
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §7
  */
 enum NormalBalance: string
 {

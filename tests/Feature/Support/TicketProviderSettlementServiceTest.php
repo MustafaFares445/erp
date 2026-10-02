@@ -22,6 +22,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    $this->stripeMethod = configurePaymentAccounting('stripe');
 
     $this->app->instance(StripeClientInterface::class, new FakeStripeClient);
 });
@@ -30,15 +31,25 @@ function providerSettledTicketLink(): TicketPaymentLink
 {
     $ticket = Ticket::factory()->chargeable()->create();
 
-    return TicketPaymentLink::factory()->for($ticket)->create(['amount' => '75.00', 'currency' => 'USD']);
+    return TicketPaymentLink::factory()->for($ticket)->create(['amount' => '75.00', 'currency' => 'AED']);
+}
+
+/** @param array<string, mixed> $overrides */
+function providerSucceededTransaction(TicketPaymentLink $link, array $overrides = []): PaymentTransaction
+{
+    return PaymentTransaction::factory()->succeeded()->create([
+        'customer_id' => $link->ticket->customer_id,
+        'purpose_type' => TicketPaymentLink::class,
+        'purpose_id' => $link->getKey(),
+        'amount_minor' => 7500,
+        'currency' => 'AED',
+        ...$overrides,
+    ]);
 }
 
 it('settles a chargeable ticket from a verified Stripe transaction, reusing the same lifecycle rules a dashboard settlement uses', function (): void {
     $link = providerSettledTicketLink();
-    $transaction = PaymentTransaction::factory()->succeeded()->create([
-        'customer_id' => $link->ticket->customer_id,
-        'purpose_type' => TicketPaymentLink::class,
-        'purpose_id' => $link->getKey(),
+    $transaction = providerSucceededTransaction($link, [
         'payment_intent_id' => 'pi_ticket_settle',
     ]);
 
@@ -53,11 +64,7 @@ it('settles a chargeable ticket from a verified Stripe transaction, reusing the 
 
 it('settles using the narrowly-permissioned system-integration actor, never a real admin', function (): void {
     $link = providerSettledTicketLink();
-    $transaction = PaymentTransaction::factory()->succeeded()->create([
-        'customer_id' => $link->ticket->customer_id,
-        'purpose_type' => TicketPaymentLink::class,
-        'purpose_id' => $link->getKey(),
-    ]);
+    $transaction = providerSucceededTransaction($link);
 
     app(TicketProviderSettlementService::class)->settle($transaction);
 
@@ -66,11 +73,7 @@ it('settles using the narrowly-permissioned system-integration actor, never a re
 
 it('records the settlement activity with the stripe source channel, distinct from a dashboard settlement', function (): void {
     $link = providerSettledTicketLink();
-    $transaction = PaymentTransaction::factory()->succeeded()->create([
-        'customer_id' => $link->ticket->customer_id,
-        'purpose_type' => TicketPaymentLink::class,
-        'purpose_id' => $link->getKey(),
-    ]);
+    $transaction = providerSucceededTransaction($link);
 
     app(TicketProviderSettlementService::class)->settle($transaction);
 
@@ -81,11 +84,7 @@ it('records the settlement activity with the stripe source channel, distinct fro
 
 it('is idempotent when a transaction is settled twice', function (): void {
     $link = providerSettledTicketLink();
-    $transaction = PaymentTransaction::factory()->succeeded()->create([
-        'customer_id' => $link->ticket->customer_id,
-        'purpose_type' => TicketPaymentLink::class,
-        'purpose_id' => $link->getKey(),
-    ]);
+    $transaction = providerSucceededTransaction($link);
 
     $service = app(TicketProviderSettlementService::class);
     $service->settle($transaction);
@@ -96,11 +95,7 @@ it('is idempotent when a transaction is settled twice', function (): void {
 
 it('is a no-op, without throwing, when the ticket has already moved past pending_payment through another path', function (): void {
     $link = providerSettledTicketLink();
-    $transaction = PaymentTransaction::factory()->succeeded()->create([
-        'customer_id' => $link->ticket->customer_id,
-        'purpose_type' => TicketPaymentLink::class,
-        'purpose_id' => $link->getKey(),
-    ]);
+    $transaction = providerSucceededTransaction($link);
 
     // Simulate the ticket having been moved to Live by a concurrent path
     // without going through TicketPaymentService, so the link itself is

@@ -429,18 +429,8 @@ final class AdjustmentItemsRelationManager extends RelationManager
      */
     private function adjustment(): InventoryAdjustment
     {
+        /** @var InventoryAdjustment $record */
         $record = $this->getOwnerRecord();
-
-        // @codeCoverageIgnoreStart
-        // Unreachable in practice: this relation manager is only ever mounted
-        // on AdjustmentResource's pages, so the owner record is always an
-        // InventoryAdjustment. The guard exists only to satisfy static
-        // analysis (getOwnerRecord() is typed as the generic base Model).
-        if (! $record instanceof InventoryAdjustment) {
-            throw new LogicException('Expected the owner record of AdjustmentItemsRelationManager to be an InventoryAdjustment.');
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return $record;
     }

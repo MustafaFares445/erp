@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/021-accounting-receivables-tax-refunds/spec.md`, `Docs/PRD.md` §5 FR-010/FR-011 and §11, `Docs/SDD.md` §Tax Recognition and §Credit Notes, `Docs/database/ERD.md`, constitution Principle III (NON-NEGOTIABLE), ADR 0005 (Activitylog), ADR 0007 (Accounting foundation), ADR 0008 (Sales, Payments, Credit Notes), ADR 0009 (Financial Reports)
+**Related**: `Docs/domains/accounting/BUSINESS_RULES.md`, `Docs/product/PRODUCT_OVERVIEW.md` §5 FR-010/FR-011 and §11, `Docs/architecture/SYSTEM_OVERVIEW.md` §Tax Recognition and §Credit Notes, `Docs/architecture/DATA_ARCHITECTURE.md`, constitution Principle III (NON-NEGOTIABLE), ADR 0005 (Activitylog), ADR 0007 (Accounting foundation), ADR 0008 (Sales, Payments, Credit Notes), ADR 0009 (Financial Reports)
 
 ## Context
 
@@ -94,9 +94,9 @@ customer-refund administration** in the Accounting module. Concretely:
 One table is added, `refunds`, and one existing table is extended:
 `tax_recognition_entries` gains a nullable `refund_id` and permits a negative
 recognised amount. Neither `accounts_receivable` nor `taxes` becomes a table;
-both are computed. See `specs/021-accounting-receivables-tax-refunds/spec.md`
+both are computed. See `Docs/domains/accounting/BUSINESS_RULES.md`
 §ERD Divergence Register for the full register, every row of which must be
-written into `Docs/database/ERD.md` before implementation begins.
+written into `Docs/architecture/DATA_ARCHITECTURE.md` before implementation begins.
 
 **A refund is not a negative payment.** Modelling it as a negative `payments` row
 would be smaller, and it would silently corrupt ADR 0008's proportional tax

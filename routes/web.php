@@ -84,7 +84,7 @@ Route::middleware(Authenticate::class)->group(function (): void {
 });
 
 /**
- * Pre-consolidation Inventory URLs (spec 012), each merged into one tab of
+ * Pre-consolidation Inventory URLs (historical Spec Kit 012), each merged into one tab of
  * the new admin/catalog-setup page. Kept so bookmarks and links made before
  * the merge keep working.
  */

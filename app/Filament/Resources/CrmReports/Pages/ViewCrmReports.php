@@ -85,11 +85,8 @@ final class ViewCrmReports extends Page
         $rows = $this->rows();
 
         return response()->streamDownload(function () use ($rows): void {
+            /** @var resource $handle */
             $handle = fopen('php://output', 'wb');
-
-            if ($handle === false) {
-                return;
-            }
 
             $first = $rows->first();
 

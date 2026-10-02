@@ -10,17 +10,24 @@ use App\Enums\PaymentLinkStatus;
 use App\Enums\QuotationStatus;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyLineCategory;
 use App\Enums\WarrantyStatus;
 use App\Events\MaintenanceRecordBilled;
 use App\Models\Invoice;
+use App\Models\MaintenanceCoverageLine;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
+use App\Models\MaintenanceThirdPartyCost;
+use App\Models\Payment;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
 use App\Models\SalesSetting;
 use App\Models\ServiceRecordPart;
+use App\Models\TicketPaymentLink;
 use App\Models\User;
 use App\Services\Inventory\PriceResolver;
+use App\Services\Payments\CustomerDepositApplicationService;
+use App\Services\Payments\SystemActorResolver;
 use App\Services\Sales\InvoiceService;
 use App\Services\Sales\LineTotalCalculator;
 use App\Services\Sales\QuotationService;
@@ -37,6 +44,8 @@ final readonly class MaintenanceBillingService
         private InvoiceService $invoiceService,
         private PriceResolver $priceResolver,
         private LineTotalCalculator $calculator,
+        private CustomerDepositApplicationService $depositApplication,
+        private SystemActorResolver $systemActor,
     ) {}
 
     public function markWarrantyCovered(MaintenanceRecord $record, User $user, string $reason): MaintenanceRecord
@@ -170,16 +179,44 @@ final readonly class MaintenanceBillingService
             $locked = $this->lockedRecord($record);
 
             $this->assertBillable($locked);
-            $locked->loadMissing('ticket.paymentLink');
+            $locked->loadMissing('ticket.paymentLink.payment');
 
-            if ($locked->ticket === null || $locked->ticket->paymentLink?->status !== PaymentLinkStatus::Settled) {
+            $link = $locked->ticket?->paymentLink;
+
+            if (! $link instanceof TicketPaymentLink || $link->status !== PaymentLinkStatus::Settled) {
                 throw ValidationException::withMessages([
                     'record' => 'The linked ticket does not have a settled support payment.',
                 ]);
             }
 
+            $payment = $link->payment;
+
+            if (! $payment instanceof Payment || ! $payment->isPosted()) {
+                throw ValidationException::withMessages([
+                    'record' => 'The settled ticket payment has not been posted to accounting.',
+                ]);
+            }
+
+            $financialActor = $this->systemActor->resolve();
+            $invoice = $this->invoiceService->createStandalone($financialActor, [
+                'customer_id' => $locked->customer_id,
+                'description' => sprintf('Support fee for ticket %s', $locked->ticket->ticket_number),
+            ], [$this->ticketFeeInvoiceLine($link)]);
+            $invoice->forceFill(['maintenance_record_id' => $locked->id])->save();
+
+            $issued = $this->invoiceService->issue($financialActor, $invoice);
+            $this->depositApplication->applyEligibleDeposits($issued);
+            $issued->refresh();
+
+            if ($issued->outstandingAmount() > 0.009) {
+                throw ValidationException::withMessages([
+                    'record' => 'The settled support payment could not be fully applied to its service invoice.',
+                ]);
+            }
+
             $locked->update([
                 'billing_type' => MaintenanceBillingType::TicketSettled,
+                'invoice_id' => $issued->getKey(),
                 'billed_at' => now(),
             ]);
 
@@ -194,7 +231,9 @@ final readonly class MaintenanceBillingService
                     'source_channel' => 'dashboard',
                     'reason' => $reason,
                     'ticket_id' => $locked->ticket_id,
-                    'ticket_payment_link_id' => $locked->ticket->paymentLink->getKey(),
+                    'ticket_payment_link_id' => $link->getKey(),
+                    'payment_id' => $payment->getKey(),
+                    'invoice_id' => $issued->getKey(),
                 ])
                 ->log('support.maintenance_record.ticket_settled');
 
@@ -250,12 +289,31 @@ final readonly class MaintenanceBillingService
             $locked = $this->lockedRecord($record);
             $this->assertQuotable($locked);
 
-            $lines = $this->customerResponsibilityLines($locked);
+            $locked->loadMissing('quotation');
+            $previousQuotation = $locked->quotation;
+            $lines = $previousQuotation instanceof Quotation
+                ? $this->actualCustomerResponsibilityLines($locked)
+                : $this->customerResponsibilityLines($locked);
 
             if ($lines === []) {
                 throw ValidationException::withMessages([
                     'record' => 'There is no customer responsibility to quote for this coverage decision.',
                 ]);
+            }
+
+            if ($previousQuotation instanceof Quotation && $previousQuotation->status === QuotationStatus::Accepted) {
+                $currentAmount = $this->linesTotal($lines);
+                $approvedAmount = round((float) $previousQuotation->grand_total, 2);
+
+                if ($currentAmount <= $approvedAmount + 0.009) {
+                    throw ValidationException::withMessages([
+                        'record' => sprintf(
+                            'The accepted quotation already covers the current customer responsibility (approved %.2f, current %.2f). Create the final invoice instead.',
+                            $approvedAmount,
+                            $currentAmount,
+                        ),
+                    ]);
+                }
             }
 
             $quotation = $this->quotationService->create(
@@ -270,6 +328,10 @@ final readonly class MaintenanceBillingService
                 $lines,
             );
 
+            if ($previousQuotation instanceof Quotation) {
+                $quotation->forceFill(['requoted_from_id' => $previousQuotation->getKey()])->save();
+            }
+
             $locked->update([
                 'billing_type' => MaintenanceBillingType::Quoted,
                 'quotation_id' => $quotation->getKey(),
@@ -282,6 +344,7 @@ final readonly class MaintenanceBillingService
                 ->withProperties([
                     'source_channel' => 'dashboard',
                     'quotation_id' => $quotation->getKey(),
+                    'requoted_from_id' => $previousQuotation?->getKey(),
                     'customer_responsibility_minor' => (int) $locked->coverageLines()->sum('customer_amount_minor'),
                 ])
                 ->log('support.maintenance_record.quoted');
@@ -311,8 +374,8 @@ final readonly class MaintenanceBillingService
                 ], true);
 
             $lines = $hasCoverageAssessment
-                ? $this->customerResponsibilityLines($locked)
-                : [...$this->partsLines($locked), ...$this->labourLine($locked)];
+                ? $this->actualCustomerResponsibilityLines($locked)
+                : [...$this->partsLines($locked), ...$this->labourLine($locked), ...$this->thirdPartyLines($locked)];
 
             if ($lines === []) {
                 throw ValidationException::withMessages([
@@ -320,7 +383,50 @@ final readonly class MaintenanceBillingService
                 ]);
             }
 
-            $invoice = $this->invoiceService->createStandalone($user, [
+            if ($locked->billing_type === MaintenanceBillingType::Quoted) {
+                $locked->loadMissing('quotation');
+                $currentQuotation = $locked->quotation;
+
+                if (! $currentQuotation instanceof Quotation) {
+                    throw ValidationException::withMessages([
+                        'record' => 'The customer-responsibility quotation is missing.',
+                    ]);
+                }
+
+                if (in_array($currentQuotation->status, [
+                    QuotationStatus::Draft,
+                    QuotationStatus::Sent,
+                    QuotationStatus::ChangesRequested,
+                ], true)) {
+                    throw ValidationException::withMessages([
+                        'record' => 'The latest customer quotation must be decided before creating the final invoice.',
+                    ]);
+                }
+
+                $acceptedQuotation = $this->latestAcceptedQuotation($currentQuotation);
+
+                if (! $acceptedQuotation instanceof Quotation) {
+                    throw ValidationException::withMessages([
+                        'record' => 'The customer-responsibility quotation must be accepted before creating the final invoice.',
+                    ]);
+                }
+
+                $invoiceAmount = $this->linesTotal($lines);
+                $approvedAmount = round((float) $acceptedQuotation->grand_total, 2);
+
+                if ($invoiceAmount > $approvedAmount + 0.009) {
+                    throw ValidationException::withMessages([
+                        'record' => sprintf(
+                            'The final invoice amount %.2f exceeds the customer-approved quotation %.2f. Create and obtain acceptance for a revised quotation first.',
+                            $invoiceAmount,
+                            $approvedAmount,
+                        ),
+                    ]);
+                }
+            }
+
+            $financialActor = $this->systemActor->resolve();
+            $invoice = $this->invoiceService->createStandalone($financialActor, [
                 'customer_id' => $locked->customer_id,
                 'description' => sprintf('Service job #%d', $locked->id),
             ], $lines);
@@ -379,14 +485,6 @@ final readonly class MaintenanceBillingService
         }
 
         if ($record->billing_type === MaintenanceBillingType::Quoted) {
-            $record->loadMissing('quotation');
-
-            if ($record->quotation?->status !== QuotationStatus::Accepted) {
-                throw ValidationException::withMessages([
-                    'record' => 'The customer-responsibility quotation must be accepted before creating the final invoice.',
-                ]);
-            }
-
             return;
         }
 
@@ -408,7 +506,12 @@ final readonly class MaintenanceBillingService
         if ($record->billing_type === MaintenanceBillingType::Quoted) {
             $record->loadMissing('quotation');
 
-            if (! in_array($record->quotation?->status, [QuotationStatus::Rejected, QuotationStatus::Expired, QuotationStatus::Cancelled], true)) {
+            if (! in_array($record->quotation?->status, [
+                QuotationStatus::Accepted,
+                QuotationStatus::Rejected,
+                QuotationStatus::Expired,
+                QuotationStatus::Cancelled,
+            ], true)) {
                 throw ValidationException::withMessages([
                     'record' => 'A customer-responsibility quotation already exists for this maintenance request.',
                 ]);
@@ -427,10 +530,227 @@ final readonly class MaintenanceBillingService
         }
     }
 
+    /** @return array{description:string,quantity:int,unit_price:float,tax_amount:float} */
+    private function ticketFeeInvoiceLine(TicketPaymentLink $link): array
+    {
+        $gross = round((float) $link->amount, 2);
+        $taxPercent = max(0.0, (float) SalesSetting::current()->default_tax_percent);
+        $net = $taxPercent > 0.0
+            ? round($gross / (1 + ($taxPercent / 100)), 2)
+            : $gross;
+        $tax = round($gross - $net, 2);
+
+        return [
+            'description' => sprintf('Support ticket fee #%d', $link->ticket_id),
+            'quantity' => 1,
+            'unit_price' => $net,
+            'tax_amount' => $tax,
+        ];
+    }
+
     /**
-     * Converts the post-coverage customer share into ordinary Sales service
-     * lines. When no coverage assessment exists yet, keep the legacy support
-     * billing path so existing jobs remain billable without backfilling claims.
+     * @param  list<array{description?:string,product_variant_id?:int,quantity:int|float,unit_price:float,tax_amount:float}>  $lines
+     */
+    private function linesTotal(array $lines): float
+    {
+        $total = 0.0;
+
+        foreach ($lines as $line) {
+            $quantity = (float) $line['quantity'];
+            $unitPrice = (float) $line['unit_price'];
+            $tax = (float) $line['tax_amount'];
+
+            $total += round($quantity * $unitPrice, 2) + round($tax, 2);
+        }
+
+        return round($total, 2);
+    }
+
+    private function latestAcceptedQuotation(Quotation $quotation): ?Quotation
+    {
+        $current = $quotation;
+        $visited = [];
+
+        while (true) {
+            $key = $current->getKey();
+            if (! is_int($key) || isset($visited[$key])) {
+                return null;
+            }
+
+            $visited[$key] = true;
+
+            if ($current->status === QuotationStatus::Accepted) {
+                return $current;
+            }
+
+            $parent = $current->requotedFrom()->first();
+            if (! $parent instanceof Quotation) {
+                return null;
+            }
+
+            $current = $parent;
+        }
+    }
+
+    /**
+     * Builds the final customer charge from the actual repair work while
+     * preserving the coverage percentages that were approved during diagnosis.
+     * New work that did not exist in the frozen coverage assessment is treated
+     * as customer responsibility until a revised quotation is accepted.
+     *
+     * @return list<array{description:string, quantity:int, unit_price:float, tax_amount:float}|array{product_variant_id:int, quantity:float, unit_price:float, tax_amount:float}>
+     */
+    private function actualCustomerResponsibilityLines(MaintenanceRecord $record): array
+    {
+        $coverageLines = $record->coverageLines()->orderBy('id')->get();
+
+        if ($coverageLines->isEmpty()) {
+            if (in_array($record->coverage_decision, [
+                WarrantyClaimDecision::FullyCovered,
+                WarrantyClaimDecision::Goodwill,
+                WarrantyClaimDecision::ThirdPartyWarranty,
+                WarrantyClaimDecision::ServiceContract,
+            ], true)) {
+                return [];
+            }
+
+            return [...$this->partsLines($record), ...$this->labourLine($record), ...$this->thirdPartyLines($record)];
+        }
+
+        $record->loadMissing([
+            'serviceRecords.parts.productVariant',
+            'customer.user',
+            'labourEntries',
+            'thirdPartyCosts',
+        ]);
+
+        $taxPercent = (float) SalesSetting::current()->default_tax_percent;
+        $defaultUnassessedCustomerPercent = in_array($record->coverage_decision, [
+            WarrantyClaimDecision::PartiallyCovered,
+            WarrantyClaimDecision::Rejected,
+        ], true) ? 100.0 : 0.0;
+        $usedCoverageLineIds = [];
+        $lines = [];
+
+        foreach ($record->serviceRecords as $task) {
+            foreach ($task->parts as $part) {
+                if ($part->reversed_at !== null) {
+                    continue;
+                }
+                /** @var ProductVariant $productVariant */
+                $productVariant = $part->productVariant;
+                $coverageLine = $coverageLines->first(
+                    fn (MaintenanceCoverageLine $line): bool => $line->source_type === ServiceRecordPart::class
+                        && (int) $line->source_id === (int) $part->id,
+                );
+                $customerPercent = $coverageLine !== null
+                    ? max(0.0, 100.0 - (float) $coverageLine->coverage_percent)
+                    : $defaultUnassessedCustomerPercent;
+
+                if ($coverageLine !== null && is_int($coverageLine->getKey())) {
+                    $usedCoverageLineIds[$coverageLine->getKey()] = true;
+                }
+
+                if ($customerPercent <= 0.0) {
+                    continue;
+                }
+
+                $quantity = (float) $part->quantity;
+                $fullUnitPrice = round($this->priceResolver->resolve(
+                    $productVariant,
+                    $record->customer?->user,
+                )->amount, 2);
+                $unitPrice = round($fullUnitPrice * ($customerPercent / 100), 2);
+
+                $lines[] = [
+                    'product_variant_id' => $part->product_variant_id,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'tax_amount' => $this->calculator->defaultTax($quantity, $unitPrice, $taxPercent),
+                ];
+            }
+        }
+
+        $labourSum = $record->labourEntries->sum('total_cost_minor');
+        $labourMinor = is_numeric($labourSum) ? (int) $labourSum : 0;
+        if ($labourMinor > 0) {
+            $labourCoverage = $coverageLines->first(
+                fn (MaintenanceCoverageLine $line): bool => $line->source_type === 'maintenance_labour'
+                    || ($line->source_type === null && $line->category === WarrantyLineCategory::Labour),
+            );
+            $customerPercent = $labourCoverage !== null
+                ? max(0.0, 100.0 - (float) $labourCoverage->coverage_percent)
+                : $defaultUnassessedCustomerPercent;
+
+            if ($labourCoverage !== null && is_int($labourCoverage->getKey())) {
+                $usedCoverageLineIds[$labourCoverage->getKey()] = true;
+            }
+
+            if ($customerPercent > 0.0) {
+                $unitPrice = round(($labourMinor / 100) * ($customerPercent / 100), 2);
+                $lines[] = [
+                    'description' => 'Labour',
+                    'quantity' => 1,
+                    'unit_price' => $unitPrice,
+                    'tax_amount' => $this->calculator->defaultTax(1, $unitPrice, $taxPercent),
+                ];
+            }
+        }
+
+        foreach ($record->thirdPartyCosts as $cost) {
+            $coverageLine = $coverageLines->first(
+                fn (MaintenanceCoverageLine $line): bool => $line->source_type === MaintenanceThirdPartyCost::class
+                    && (int) $line->source_id === (int) $cost->id,
+            );
+            $customerPercent = $coverageLine !== null
+                ? max(0.0, 100.0 - (float) $coverageLine->coverage_percent)
+                : $defaultUnassessedCustomerPercent;
+
+            if ($coverageLine !== null && is_int($coverageLine->getKey())) {
+                $usedCoverageLineIds[$coverageLine->getKey()] = true;
+            }
+
+            if ($customerPercent <= 0.0) {
+                continue;
+            }
+
+            $unitPrice = round(($cost->amount_minor / 100) * ($customerPercent / 100), 2);
+            $lines[] = [
+                'description' => (string) $cost->description,
+                'quantity' => 1,
+                'unit_price' => $unitPrice,
+                'tax_amount' => $this->calculator->defaultTax(1, $unitPrice, $taxPercent),
+            ];
+        }
+
+        foreach ($coverageLines as $coverageLine) {
+            $key = $coverageLine->getKey();
+            if (is_int($key) && isset($usedCoverageLineIds[$key])) {
+                continue;
+            }
+            if ($coverageLine->source_type !== null) {
+                continue;
+            }
+            if ((int) $coverageLine->customer_amount_minor <= 0) {
+                continue;
+            }
+
+            $unitPrice = round(((int) $coverageLine->customer_amount_minor) / 100, 2);
+            $lines[] = [
+                'description' => (string) $coverageLine->description,
+                'quantity' => 1,
+                'unit_price' => $unitPrice,
+                'tax_amount' => $this->calculator->defaultTax(1, $unitPrice, $taxPercent),
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Converts the frozen post-coverage customer share into Sales service lines
+     * for the initial quotation. Final invoicing uses the actual repair work
+     * through actualCustomerResponsibilityLines().
      *
      * @return list<array{description:string, quantity:int, unit_price:float, tax_amount:float}|array{product_variant_id:int, quantity:float, unit_price:float, tax_amount:float}>
      */
@@ -443,7 +763,7 @@ final readonly class MaintenanceBillingService
 
         if ($coverageLines->isEmpty()) {
             if ($record->coverage_decision === WarrantyClaimDecision::Rejected) {
-                return [...$this->partsLines($record), ...$this->labourLine($record)];
+                return [...$this->partsLines($record), ...$this->labourLine($record), ...$this->thirdPartyLines($record)];
             }
 
             if (in_array($record->coverage_decision, [
@@ -534,5 +854,30 @@ final readonly class MaintenanceBillingService
             'unit_price' => $unitPrice,
             'tax_amount' => $this->calculator->defaultTax(1, $unitPrice, $taxPercent),
         ]];
+    }
+
+    /** @return list<array{description:string, quantity:int, unit_price:float, tax_amount:float}> */
+    private function thirdPartyLines(MaintenanceRecord $record): array
+    {
+        $record->loadMissing('thirdPartyCosts');
+        $taxPercent = (float) SalesSetting::current()->default_tax_percent;
+        $lines = [];
+
+        foreach ($record->thirdPartyCosts as $cost) {
+            $unitPrice = round(((int) $cost->amount_minor) / 100, 2);
+
+            if ($unitPrice <= 0.0) {
+                continue;
+            }
+
+            $lines[] = [
+                'description' => (string) $cost->description,
+                'quantity' => 1,
+                'unit_price' => $unitPrice,
+                'tax_amount' => $this->calculator->defaultTax(1, $unitPrice, $taxPercent),
+            ];
+        }
+
+        return $lines;
     }
 }

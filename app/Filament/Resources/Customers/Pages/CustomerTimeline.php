@@ -177,12 +177,10 @@ final class CustomerTimeline extends Page
         return response()->streamDownload(function () use ($events): void {
             $handle = fopen('php://output', 'wb');
 
-            // @codeCoverageIgnoreStart
             // php://output is guaranteed by PHP in supported runtime environments; keep this defensive guard.
             if ($handle === false) {
                 throw new RuntimeException('Unable to open the CSV output stream.');
             }
-            // @codeCoverageIgnoreEnd
 
             fputcsv($handle, ['Date', 'Type', 'Title', 'Status', 'Amount', 'Actor'], escape: '\\');
 

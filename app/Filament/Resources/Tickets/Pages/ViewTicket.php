@@ -14,6 +14,7 @@ use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\EmployeeProfile;
 use App\Models\MaintenanceRecord;
+use App\Models\PaymentMethod;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\TicketLifecycleService;
@@ -122,6 +123,18 @@ final class ViewTicket extends ViewRecord
             ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::PendingPayment
                 && $this->getTicket()->paymentLink?->status === PaymentLinkStatus::Pending)
             ->schema([
+                Select::make('payment_method_id')
+                    ->label(__('Payment method'))
+                    ->options(fn (): array => PaymentMethod::query()
+                        ->where('is_active', true)
+                        ->where('requires_proof', false)
+                        ->whereNotNull('chart_account_id')
+                        ->where('type', '!=', 'stripe')
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->searchable()
+                    ->required(),
                 TextInput::make('payment_method_reference')
                     ->label(__('Payment reference'))
                     ->required()
@@ -129,14 +142,15 @@ final class ViewTicket extends ViewRecord
             ])
             ->action(function (array $data): void {
                 $reference = $data['payment_method_reference'] ?? null;
+                $paymentMethodId = $data['payment_method_id'] ?? null;
                 $link = $this->getTicket()->paymentLink;
 
-                if (! is_string($reference) || $reference === '' || $link === null) {
+                if (! is_string($reference) || $reference === '' || ! is_numeric($paymentMethodId) || $link === null) {
                     return;
                 }
 
                 try {
-                    app(TicketPaymentService::class)->settle($link, $reference, $this->currentActor());
+                    app(TicketPaymentService::class)->settle($link, $reference, $this->currentActor(), (int) $paymentMethodId);
                     Notification::make()->success()->title(__('Payment settled'))->send();
                 } catch (DomainException $domainException) {
                     Notification::make()->danger()->title(__('Unable to settle payment'))->body($domainException->getMessage())->send();

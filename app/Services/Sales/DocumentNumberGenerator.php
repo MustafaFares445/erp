@@ -33,7 +33,7 @@ use Illuminate\Database\Eloquent\Model;
  * every prior generator in this codebase rejected it: a document number has to
  * be readable aloud to a customer.
  *
- * @see /specs/019-sales-lifecycle-payments-credits/research.md R-005
+ * @see /Docs/domains/sales/README.md R-005
  */
 final readonly class DocumentNumberGenerator
 {

@@ -21,7 +21,7 @@ use App\Models\PurchaseSetting;
  * customer and employee applications will reach the same domain services.
  *
  * Reads are memoised for the lifetime of the request, not cached in a store.
- * `Docs/CONFIGURATION.md` only sanctions caching data whose invalidation is
+ * `Docs/reference/CONFIGURATION.md` only sanctions caching data whose invalidation is
  * implemented, and a per-request array needs none — it cannot go stale across
  * processes because it does not outlive one.
  */

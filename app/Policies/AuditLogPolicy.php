@@ -48,7 +48,7 @@ final class AuditLogPolicy
     }
 
     /**
-     * `support.audit.view` (spec 016, ADR 0004) is an additional valid
+     * `support.audit.view` (historical Spec Kit 016, ADR 0004) is an additional valid
      * credential alongside the original `crm.audit.view` — there is no
      * Support-specific audit mechanism; both modules share this one
      * `AuditLogResource` (contracts/audit-log.md).

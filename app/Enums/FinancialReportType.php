@@ -11,7 +11,7 @@ namespace App\Enums;
  * same posted ledger and share one permission, {@see AccountingPermission::ReportView}
  * (research §R7).
  *
- * @see /specs/020-accounting-financial-reports/research.md R7
+ * @see /Docs/domains/reporting/BUSINESS_RULES.md R7
  */
 enum FinancialReportType: string
 {

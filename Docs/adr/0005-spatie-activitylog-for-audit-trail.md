@@ -6,11 +6,11 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/003-stock-adjustments/contracts/audit-log.md`, `specs/004-stock-transfers/contracts/audit-log.md`, ADR 0003 (Employees), ADR 0004 (Support and Maintenance)
+**Related**: `Docs/architecture/SECURITY.md`, `Docs/architecture/SECURITY.md`, ADR 0003 (Employees), ADR 0004 (Support and Maintenance)
 
 ## Context
 
-FI-3 (`specs/003-stock-adjustments`) introduced a bespoke audit trail: a
+FI-3 (`historical Spec Kit 003 (removed; Git history)`) introduced a bespoke audit trail: a
 `audit_logs` table (`actor_user_id`, `action`, `entity_type`, `entity_id`,
 `old_values`, `new_values`, `source_channel`, `ip_address`), a single writer
 service `App\Services\Audit\AuditLogger`, and later a read-only Filament
@@ -71,8 +71,8 @@ Replace the custom audit trail with `spatie/laravel-activitylog`:
   `old_values`/`new_values` move into `attribute_changes` (`old`/`attributes`
   keys); `source_channel`/`ip_address` move into the generic `properties`
   column, exposed back out through model accessors of the same name.
-- `specs/003-stock-adjustments/contracts/audit-log.md` and
-  `specs/004-stock-transfers/contracts/audit-log.md` are updated to describe
+- `Docs/architecture/SECURITY.md` and
+  `Docs/architecture/SECURITY.md` are updated to describe
   the `activity()` call shape instead of the retired `AuditLogger` contract.
 - Any future sensitive action still reuses the same shared infrastructure —
   now Spatie's `activity()` helper — rather than introducing a parallel audit

@@ -30,20 +30,9 @@ final class EditServiceRecord extends EditRecord
     #[\Override]
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User, and
-        // Filament's own EditRecord routing guarantees $record matches this resource's model.
-        if (! $actor instanceof User) {
-            abort(403);
-        }
-
-        if (! $record instanceof MaintenanceTask) {
-            abort(404);
-        }
-
-        // @codeCoverageIgnoreEnd
+        /** @var MaintenanceTask $record */
 
         return app(ServiceRecordService::class)->update($record, $data, $actor);
     }

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\MonthlyPlans\Pages;
 
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
-use App\Models\SalesPlan;
 use App\Services\Employees\SalesPlanService;
 use DomainException;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 
 final class CreateMonthlyPlan extends CreateRecord
@@ -31,12 +31,8 @@ final class CreateMonthlyPlan extends CreateRecord
                 ->body($domainException->getMessage())
                 ->send();
 
-            $this->halt();
+            throw new Halt;
         }
 
-        // @codeCoverageIgnoreStart
-        // BasePage::halt() always throws Halt, so this fallback is unreachable at runtime.
-        return new SalesPlan;
-        // @codeCoverageIgnoreEnd
     }
 }

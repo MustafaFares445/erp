@@ -28,7 +28,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 /**
- * F-07 (Docs/CROSS_MODULE_BUSINESS_FLOWS.md) — a ticket becomes a warranty
+ * F-07 (Docs/product/BUSINESS_FLOWS.md) — a ticket becomes a warranty
  * job whose real cost must stay visible even though it earns zero revenue
  * (GAP-MW-09).
  */

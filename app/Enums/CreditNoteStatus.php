@@ -8,7 +8,7 @@ use App\Models\CreditNote;
 use App\Services\Sales\CreditNoteService;
 
 /**
- * The lifecycle of a {@see CreditNote} (spec 019 data-model.md §9).
+ * The lifecycle of a {@see CreditNote} (historical Spec Kit 019 data-model.md §9).
  *
  * Confirming freezes the note and posts its accounting correction
  * ({@see CreditNoteService::confirm()}); only a confirmed,

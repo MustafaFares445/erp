@@ -69,7 +69,7 @@ it('moves payment-required triage to pending_payment without starting SLA', func
         'service_path' => TicketServicePath::RemoteSupport->value,
         'billing_decision' => 'payment_required',
         'amount' => 90,
-        'currency' => 'USD',
+        'currency' => 'AED',
     ], $manager);
 
     $ticket->refresh();

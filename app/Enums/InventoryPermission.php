@@ -14,7 +14,7 @@ use Database\Seeders\InventoryPermissionSeeder;
  * and by {@see ChecksInventoryPermissions} so the
  * dashboard and any other access channel share identical permission names.
  *
- * @see /specs/001-inventory-dashboard-foundation/contracts/permissions.md
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md
  */
 enum InventoryPermission: string
 {

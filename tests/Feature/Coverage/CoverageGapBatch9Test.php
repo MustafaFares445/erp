@@ -11,9 +11,10 @@ use App\Filament\Resources\MaintenanceRequests\Actions\MaintenanceBillingActions
 use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
 use App\Models\MaintenanceRecord;
 use App\Models\Ticket;
-use App\Models\TicketPaymentLink;
 use App\Models\User;
 use App\Services\Support\MaintenanceBillingService;
+use App\Services\Support\TicketPaymentService;
+use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -65,8 +66,11 @@ it('keeps legacy ticket-settled billing available at the service layer without a
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
 
+    (new SlaPolicySeeder)->run();
+    $paymentMethod = configurePaymentAccounting();
     $ticket = Ticket::factory()->chargeable()->create();
-    TicketPaymentLink::factory()->for($ticket)->settled()->create();
+    $link = app(TicketPaymentService::class)->createForTicket($ticket, 50.00, 'AED');
+    app(TicketPaymentService::class)->settle($link, 'LEGACY-TICKET-FEE', $actor, $paymentMethod->getKey());
 
     $record = MaintenanceRecord::factory()->create([
         'ticket_id' => $ticket->getKey(),

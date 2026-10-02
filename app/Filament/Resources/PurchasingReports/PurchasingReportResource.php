@@ -46,7 +46,6 @@ final class PurchasingReportResource extends Resource
         return $schema->components([]);
     }
 
-    // @codeCoverageIgnoreStart
     // Required by the abstract Resource contract, but ListPurchasingReports is a
     // plain custom Page, so Filament never calls this.
     #[\Override]
@@ -54,8 +53,6 @@ final class PurchasingReportResource extends Resource
     {
         return $table;
     }
-
-    // @codeCoverageIgnoreEnd
 
     #[\Override]
     public static function canAccess(): bool

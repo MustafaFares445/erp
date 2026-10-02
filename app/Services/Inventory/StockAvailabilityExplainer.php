@@ -365,11 +365,10 @@ final readonly class StockAvailabilityExplainer
             ->groupBy('inventory_operation_id');
 
         $operations = $lines->map(function (Collection $operationLines): ?array {
-            $operation = $operationLines->first()?->operation;
-
-            if ($operation === null) {
-                return null;
-            }
+            /** @var InventoryOperationLine $firstLine */
+            $firstLine = $operationLines->first();
+            /** @var InventoryOperation $operation */
+            $operation = $firstLine->operation;
 
             $quantity = (float) $operationLines->sum(fn (InventoryOperationLine $line): float => (float) $line->dispatched_base_quantity - (float) $line->received_base_quantity);
 

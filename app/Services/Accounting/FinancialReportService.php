@@ -35,7 +35,7 @@ use Illuminate\Pagination\Paginator;
  * its own value is always zero and it contributes nothing extra to a total
  * its descendants already contributed to (FR-014, invariant I-10).
  *
- * @see /specs/020-accounting-financial-reports/contracts/financial-report-service.md
+ * @see /Docs/domains/reporting/BUSINESS_RULES.md
  */
 final readonly class FinancialReportService
 {

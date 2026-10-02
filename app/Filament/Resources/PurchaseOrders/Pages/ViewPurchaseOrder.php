@@ -41,21 +41,17 @@ final class ViewPurchaseOrder extends ViewRecord
     #[\Override]
     public function getTitle(): string
     {
+        /** @var PurchaseOrder $record */
         $record = $this->getRecord();
 
-        return $record instanceof PurchaseOrder
-            ? 'Purchase Order '.$record->purchase_order_number
-            : 'Purchase Order';
+        return 'Purchase Order '.$record->purchase_order_number;
     }
 
     #[\Override]
-    public function getSubheading(): ?string
+    public function getSubheading(): string
     {
+        /** @var PurchaseOrder $record */
         $record = $this->getRecord();
-
-        if (! $record instanceof PurchaseOrder) {
-            return null;
-        }
 
         $expected = $record->expected_at?->toDateString() ?? 'Not specified';
 

@@ -25,11 +25,11 @@ use Illuminate\Support\Facades\Gate;
 /**
  * The single write path into the general ledger.
  *
- * This is the interface `Docs/IMPLEMENTATION_PLAN.md` §6 calls the "posting
- * service interface for invoices, payments, tax, credit notes". This feature
- * builds it and its manual caller only: **no document is wired to it** (FR-034),
- * because ADR 0007 authorises no automatic posting. Connecting a document is that
- * document's own feature and ADR.
+ * `JournalPostingService` is the canonical ledger posting interface documented by
+ * `Docs/domains/accounting/BUSINESS_RULES.md`. Manual journal actions and approved
+ * source-backed workflows (for example Sales and Payments posting adapters) converge
+ * here so balancing, account validity, fiscal-period checks, immutability, and
+ * reversal semantics remain Accounting-owned.
  *
  * Every public method takes an explicit `User $actor` and authorizes exactly one
  * ability against it, so a direct service call is never an authorization bypass
@@ -40,7 +40,7 @@ use Illuminate\Support\Facades\Gate;
  *
  * `draft()` and `post()` authorize `create`/`post` when called with no
  * `$source`, and the narrower `createFromSource`/`postFromSource` when a
- * `$source` document is given (spec 019, ADR 0008) — see
+ * `$source` document is given (historical Spec Kit 019, ADR 0008) — see
  * {@see JournalEntryPolicy}. This is what lets a document's own
  * feature (e.g. Sales) grant its actor exactly enough to post through this
  * service on that document's behalf, without also granting free-form manual
@@ -48,7 +48,7 @@ use Illuminate\Support\Facades\Gate;
  *
  * Nothing here calls `auth()`, and an architecture test proves it.
  *
- * @see /specs/018-chart-of-accounts-journals/contracts/journal-posting.md
+ * @see /Docs/domains/accounting/BUSINESS_RULES.md
  */
 final readonly class JournalPostingService
 {

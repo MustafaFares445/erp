@@ -47,7 +47,7 @@ use UnitEnum;
  * last paid price or a receipt-completion cost. A buyer may still enter a newly
  * quoted price before the next order.
  *
- * @see /specs/017-purchasing-orders-suppliers/spec.md User Story 6
+ * @see /Docs/domains/purchasing/README.md User Story 6
  */
 final class SupplierProductReferenceResource extends Resource
 {

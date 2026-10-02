@@ -24,7 +24,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use LogicException;
 
 final class ConsumedPartsRelationManager extends RelationManager
 {
@@ -90,14 +89,11 @@ final class ConsumedPartsRelationManager extends RelationManager
                         $inventoryLotId = $data['inventory_lot_id'] ?? null;
                         $serializedInventoryUnitId = $data['serialized_inventory_unit_id'] ?? null;
 
-                        // @codeCoverageIgnoreStart
                         // The Select/TextInput fields above are each ->required(), so
                         // Filament's own form validation guarantees numeric values here.
                         if (! is_numeric($productVariantId) || ! is_numeric($warehouseId) || ! is_numeric($quantity)) {
                             return;
                         }
-
-                        // @codeCoverageIgnoreEnd
 
                         app(ServiceRecordPartService::class)->consume(
                             $this->serviceRecord(),
@@ -125,14 +121,12 @@ final class ConsumedPartsRelationManager extends RelationManager
     {
         try {
             app(ServiceRecordPartService::class)->reverse($record, self::currentActor());
-            // @codeCoverageIgnoreStart
             // The row action's own ->visible() guard (reversed_at === null) means this
             // can never actually be reached through the action.
         } catch (DomainException $domainException) {
             Notification::make()->danger()->title(__('Unable to reverse this consumption'))->body($domainException->getMessage())->send();
         }
 
-        // @codeCoverageIgnoreEnd
     }
 
     private static function tracksBatches(mixed $variantId): bool
@@ -157,20 +151,20 @@ final class ConsumedPartsRelationManager extends RelationManager
             return [];
         }
 
-        return app(InventoryLotService::class)
-            ->availableLots((int) $variantId, (int) $warehouseId)
-            ->mapWithKeys(function (InventoryLot $lot) use ($warehouseId): array {
-                $lotKey = $lot->getKey();
+        $variantId = (int) $variantId;
+        $warehouseId = (int) $warehouseId;
 
-                if (! is_int($lotKey)) {
-                    throw new LogicException('Inventory lot identifiers must be integers.');
-                }
+        return app(InventoryLotService::class)
+            ->availableLots($variantId, $warehouseId)
+            ->mapWithKeys(function (InventoryLot $lot) use ($warehouseId): array {
+                /** @var int $lotKey */
+                $lotKey = $lot->getKey();
 
                 return [
                     $lotKey => sprintf(
                         '%s — %.3f available',
                         $lot->lot_number ?? '#'.$lotKey,
-                        $lot->availableQuantity((int) $warehouseId),
+                        $lot->availableQuantity($warehouseId),
                     ),
                 ];
             })
@@ -187,57 +181,44 @@ final class ConsumedPartsRelationManager extends RelationManager
             return [];
         }
 
+        $variantId = (int) $variantId;
+        $warehouseId = (int) $warehouseId;
+        $inventoryLotId = $get('inventory_lot_id');
+        $inventoryLotId = is_numeric($inventoryLotId) ? (int) $inventoryLotId : null;
+
         return SerializedInventoryUnit::query()
-            ->where('product_variant_id', (int) $variantId)
-            ->where('warehouse_id', (int) $warehouseId)
+            ->where('product_variant_id', $variantId)
+            ->where('warehouse_id', $warehouseId)
             ->where('status', SerializedInventoryUnitStatus::Available->value)
             ->where('stock_condition', StockCondition::Saleable->value)
             ->when(
-                is_numeric($get('inventory_lot_id')),
-                function (Builder $query) use ($get): Builder {
-                    $inventoryLotId = $get('inventory_lot_id');
-
-                    if (! is_numeric($inventoryLotId)) {
-                        throw new LogicException('Inventory lot identifiers must be numeric.');
-                    }
-
-                    return $query->where('inventory_lot_id', (int) $inventoryLotId);
-                },
+                $inventoryLotId !== null,
+                fn (Builder $query): Builder => $query->where('inventory_lot_id', $inventoryLotId),
             )
             ->orderBy('serial_number')
             ->pluck('serial_number', 'id')
-            ->mapWithKeys(function (mixed $serialNumber, mixed $id): array {
-                if (! is_int($id) || ! is_string($serialNumber)) {
-                    throw new LogicException('Serialized inventory unit rows must carry an integer id and string serial number.');
+            ->mapWithKeys(static function (mixed $serialNumber, mixed $id): array {
+                if (! is_numeric($id) || ! is_scalar($serialNumber)) {
+                    return [];
                 }
 
-                return [$id => $serialNumber];
+                return [(int) $id => (string) $serialNumber];
             })
             ->all();
     }
 
     private function serviceRecord(): MaintenanceTask
     {
+        /** @var MaintenanceTask $record */
         $record = $this->getOwnerRecord();
-
-        if (! $record instanceof MaintenanceTask) {
-            throw new LogicException('Expected the owner record of ConsumedPartsRelationManager to be a MaintenanceTask.');
-        }
 
         return $record;
     }
 
     private static function currentActor(): User
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
-        if (! $actor instanceof User) {
-            throw new LogicException('An authenticated User is required.');
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }

@@ -17,7 +17,7 @@ use App\Policies\Concerns\ChecksInventoryPermissions;
  * {@see ChecksInventoryPermissions}, realizing "no create/edit/delete
  * anywhere" (FR-015).
  *
- * @see /specs/002-warehouses-stock-visibility/contracts/authorization.md
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md
  */
 final class InventoryMovementPolicy
 {

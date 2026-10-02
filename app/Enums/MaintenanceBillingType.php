@@ -10,9 +10,11 @@ use App\Services\Support\MaintenanceBillingService;
 /**
  * How a {@see MaintenanceRecord} job's cost was (or was not) recovered
  * (WP-2.9, GAP-MW-09/GAP-MW-10). `Unbilled` is the default for every job;
- * `WarrantyCovered` and `TicketSettled` recognise zero revenue against a real
- * cost (F-07); `Quoted` and `Invoiced` are the standard Sales billing path
- * (F-06), set only by {@see MaintenanceBillingService}.
+ * `WarrantyCovered` recognises zero customer revenue against a real cost;
+ * `TicketSettled` means the previously collected ticket fee was invoiced and
+ * applied through the canonical payment/accounting path. `Quoted` and
+ * `Invoiced` are the standard Sales billing path, set only by
+ * {@see MaintenanceBillingService}.
  */
 enum MaintenanceBillingType: string
 {

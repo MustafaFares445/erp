@@ -99,7 +99,7 @@ it('always creates a new ticket as pending and defers payment decisions to triag
         // Legacy client fields must no longer activate billing during intake.
         'is_chargeable' => true,
         'amount' => 100,
-        'currency' => 'USD',
+        'currency' => 'AED',
     ], $actor);
 
     expect($ticket->status)->toBe(TicketStatus::Pending)

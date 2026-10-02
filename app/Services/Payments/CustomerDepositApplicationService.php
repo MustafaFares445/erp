@@ -62,16 +62,24 @@ final readonly class CustomerDepositApplicationService
 
             $actor = $this->systemActor->resolve();
             $defaultCurrency = $this->currencies->defaultCode();
+            $locked->loadMissing('maintenanceRecord.ticket.paymentLink');
+            $preferredPaymentId = $locked->maintenanceRecord?->ticket?->paymentLink?->payment_id;
 
             CustomerProfile::query()
                 ->whereKey($locked->customer_id)
                 ->lockForUpdate()
                 ->sole();
 
-            $deposits = Payment::query()
+            $depositQuery = Payment::query()
                 ->where('customer_id', $locked->customer_id)
                 ->where('status', PaymentStatus::Posted->value)
-                ->where('currency', $defaultCurrency)
+                ->where('currency', $defaultCurrency);
+
+            if (is_numeric($preferredPaymentId)) {
+                $depositQuery->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) $preferredPaymentId]);
+            }
+
+            $deposits = $depositQuery
                 ->orderBy('payment_date')
                 ->orderBy('id')
                 ->lockForUpdate()

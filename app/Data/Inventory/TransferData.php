@@ -15,7 +15,7 @@ use Spatie\LaravelData\Data;
  * `transfer_number` is intentionally absent: it is never user input
  * (FR-003) — assigned only by {@see StockTransferService::confirm()}.
  *
- * @see /specs/004-stock-transfers/contracts/transfer-resource.md
+ * @see /Docs/domains/inventory/WORKFLOWS.md
  */
 final class TransferData extends Data
 {

@@ -83,7 +83,7 @@ it('lets Sales Manager and Billing Officer post a sourced journal entry but not 
     // JournalEntryPolicy::post() picks the ability name from the entry's own
     // source_type — 'postFromSource' when set, plain 'post' otherwise — so a
     // sourced draft and an unsourced one are provably different acts to the
-    // Gate (spec 019, ADR 0008).
+    // Gate (historical Spec Kit 019, ADR 0008).
     $sourced = JournalEntry::factory()->make(['source_type' => Ticket::class, 'source_id' => 1]);
     $unsourced = JournalEntry::factory()->make(['source_type' => null, 'source_id' => null]);
 

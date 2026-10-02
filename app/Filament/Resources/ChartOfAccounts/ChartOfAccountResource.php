@@ -25,7 +25,7 @@ use UnitEnum;
  * read (FR-038) — hence the View page, which the sibling Fiscal Periods resource
  * does not need.
  *
- * @see /specs/018-chart-of-accounts-journals/spec.md User Story 2, User Story 6
+ * @see /Docs/domains/accounting/README.md User Story 2, User Story 6
  */
 final class ChartOfAccountResource extends Resource
 {

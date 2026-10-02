@@ -33,6 +33,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    $this->paymentMethod = configurePaymentAccounting();
 });
 
 function makeSupportManager(): User
@@ -354,7 +355,10 @@ it("settles a chargeable ticket's payment through the actual table row action", 
 
     Livewire::actingAs($admin)
         ->test(ListTickets::class)
-        ->callTableAction('settlePayment', $ticket, ['payment_method_reference' => 'REF-TABLE-1'])
+        ->callTableAction('settlePayment', $ticket, [
+            'payment_method_id' => $this->paymentMethod->getKey(),
+            'payment_method_reference' => 'REF-TABLE-1',
+        ])
         ->assertHasNoTableActionErrors();
 
     expect($ticket->refresh()->status)->toBe(TicketStatus::Live)
@@ -442,7 +446,10 @@ it('settles payment through the view-page action and handles a stale settled lin
 
     Livewire::actingAs($admin)
         ->test(ViewTicket::class, ['record' => $ticket->getKey()])
-        ->callAction('settlePayment', ['payment_method_reference' => 'REF-VIEW-1']);
+        ->callAction('settlePayment', [
+            'payment_method_id' => $this->paymentMethod->getKey(),
+            'payment_method_reference' => 'REF-VIEW-1',
+        ]);
 
     expect($ticket->refresh()->status)->toBe(TicketStatus::Live)
         ->and($link->refresh()->status)->toBe(PaymentLinkStatus::Settled);
@@ -455,7 +462,10 @@ it('settles payment through the view-page action and handles a stale settled lin
     $staleLink->forceFill(['status' => PaymentLinkStatus::Settled])->saveQuietly();
 
     $component
-        ->callAction('settlePayment', ['payment_method_reference' => 'REF-VIEW-STALE']);
+        ->callAction('settlePayment', [
+            'payment_method_id' => $this->paymentMethod->getKey(),
+            'payment_method_reference' => 'REF-VIEW-STALE',
+        ]);
 
     expect($staleTicket->refresh()->status)->toBe(TicketStatus::PendingPayment);
 });

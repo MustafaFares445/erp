@@ -28,7 +28,7 @@ use UnitEnum;
  * posted record, so an operator who guesses the URL is refused by the same rule
  * that hides the button.
  *
- * @see /specs/018-chart-of-accounts-journals/spec.md User Story 3, User Story 4
+ * @see /Docs/domains/accounting/README.md User Story 3, User Story 4
  */
 final class JournalEntryResource extends Resource
 {

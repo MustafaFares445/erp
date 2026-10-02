@@ -118,8 +118,8 @@ final readonly class SlaService
         }
 
         $policy = $this->policyFor($newPriority);
-        $responseStartedAt = $ticket->response_sla_started_at ?? $ticket->created_at ?? now();
-        $responseDueAt = $responseStartedAt->clone()->addMinutes($policy->response_target_minutes);
+        $responseAnchorAt = $ticket->live_at ?? $ticket->response_sla_started_at ?? $ticket->created_at ?? now();
+        $responseDueAt = $responseAnchorAt->clone()->addMinutes($policy->response_target_minutes);
         $resolutionDueAt = $ticket->live_at?->clone()
             ->addMinutes($policy->resolution_target_minutes)
             ->addSeconds($ticket->waiting_customer_accumulated_seconds);

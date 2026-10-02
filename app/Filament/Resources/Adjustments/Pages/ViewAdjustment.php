@@ -70,19 +70,8 @@ final class ViewAdjustment extends ViewRecord
                 ->requiresConfirmation()
                 ->modalDescription(__('Confirming this adjustment posts inventory movements. The user who created the adjustment cannot confirm their own work.'))
                 ->action(function (InventoryAdjustment $record): void {
+                    /** @var User $actor */
                     $actor = auth()->user();
-
-                    // @codeCoverageIgnoreStart
-                    // Unreachable in practice: the ->authorize() gate above already
-                    // requires auth()->user()?->can('confirm', ...) to be true before
-                    // Filament invokes this closure, so $actor is never null here. The
-                    // guard exists only to satisfy static analysis (auth()->user() is
-                    // typed nullable) without widening the service's User parameter.
-                    if (! $actor instanceof User) {
-                        return;
-                    }
-
-                    // @codeCoverageIgnoreEnd
 
                     $this->runInventoryOperation(
                         fn () => app(InventoryAdjustmentService::class)->confirm($record, $actor),

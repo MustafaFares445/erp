@@ -419,13 +419,10 @@ final class CreateInventoryOperation extends CreateRecord
 
         $delivery = $order->deliveries()->orderBy('id')->first();
 
-        // @codeCoverageIgnoreStart
         // OrderFulfillmentService::create() guarantees a delivery for every assignment.
         if (! $delivery instanceof InventoryOperation) {
             throw new LogicException('The delivery group did not create a child delivery.');
         }
-
-        // @codeCoverageIgnoreEnd
 
         return $delivery;
     }
@@ -634,13 +631,10 @@ final class CreateInventoryOperation extends CreateRecord
         foreach ($variants as $variant) {
             $productName = $variant->product?->name;
 
-            // @codeCoverageIgnoreStart
             // The query above requires an active product, so this relation cannot be absent.
             if (! is_string($productName)) {
                 continue;
             }
-
-            // @codeCoverageIgnoreEnd
 
             if (array_key_exists($variant->product_id, $options)) {
                 continue;
@@ -1141,9 +1135,7 @@ final class CreateInventoryOperation extends CreateRecord
             return (int) $key;
         }
 
-        // @codeCoverageIgnoreStart
         // Filament records use auto-incrementing integer primary keys.
         throw new LogicException('The delivery wizard requires an integer model key.');
-        // @codeCoverageIgnoreEnd
     }
 }

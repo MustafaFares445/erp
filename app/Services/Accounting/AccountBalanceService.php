@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Collection;
  * All arithmetic is in integer minor units and only converted back to a decimal
  * string at the boundary, so no float ever participates (FR-030).
  *
- * @see /specs/018-chart-of-accounts-journals/contracts/journal-posting.md §6
+ * @see /Docs/domains/accounting/BUSINESS_RULES.md §6
  */
 final readonly class AccountBalanceService
 {
@@ -141,22 +141,12 @@ final readonly class AccountBalanceService
             return 0;
         }
 
-        /** @var object{debit_total: mixed, credit_total: mixed}|null $totals */
+        /** @var JournalEntryLine $totals */
         $totals = JournalEntryLine::query()
             ->whereIn('chart_account_id', $accountIds)
             ->whereHas('journalEntry', fn (Builder $query): Builder => $query->where('status', JournalEntryStatus::Posted->value))
             ->selectRaw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total')
-            ->first();
-
-        // @codeCoverageIgnoreStart
-        // Unreachable in practice: an aggregate SELECT with COALESCE always returns
-        // exactly one row, even over zero matching lines. The guard exists only to
-        // narrow first()'s nullable return for static analysis.
-        if ($totals === null) {
-            return 0;
-        }
-
-        // @codeCoverageIgnoreEnd
+            ->firstOrFail();
 
         return JournalEntryLine::toMinorUnits($totals->debit_total)
             - JournalEntryLine::toMinorUnits($totals->credit_total);

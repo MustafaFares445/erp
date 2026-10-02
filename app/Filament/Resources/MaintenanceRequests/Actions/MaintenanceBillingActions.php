@@ -16,7 +16,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
-use LogicException;
 
 final class MaintenanceBillingActions
 {
@@ -63,13 +62,26 @@ final class MaintenanceBillingActions
     private static function createQuotation(): Action
     {
         return Action::make('create_quotation')
-            ->label(__('Create Customer Quotation'))
+            ->label(fn (MaintenanceRecord $record): string => $record->billing_type === MaintenanceBillingType::Quoted
+                ? __('Create Revised Quotation')
+                : __('Create Customer Quotation'))
             ->requiresConfirmation()
             ->visible(static fn (MaintenanceRecord $record): bool => in_array($record->status, [
                 MaintenanceStatus::AwaitingApproval,
                 MaintenanceStatus::Closed,
             ], true)
-                && $record->billing_type === MaintenanceBillingType::Unbilled
+                && (
+                    $record->billing_type === MaintenanceBillingType::Unbilled
+                    || (
+                        $record->billing_type === MaintenanceBillingType::Quoted
+                        && in_array($record->quotation?->status, [
+                            QuotationStatus::Accepted,
+                            QuotationStatus::Rejected,
+                            QuotationStatus::Expired,
+                            QuotationStatus::Cancelled,
+                        ], true)
+                    )
+                )
                 && in_array($record->coverage_decision, [
                     WarrantyClaimDecision::PartiallyCovered,
                     WarrantyClaimDecision::Rejected,
@@ -150,11 +162,8 @@ final class MaintenanceBillingActions
 
     private static function currentActor(): User
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        if (! $actor instanceof User) {
-            throw new LogicException('An authenticated User is required.');
-        }
 
         return $actor;
     }

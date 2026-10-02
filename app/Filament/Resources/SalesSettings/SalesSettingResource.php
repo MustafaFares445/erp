@@ -37,7 +37,7 @@ use UnitEnum;
  * an accounting decision wearing a sales label, not something a Sales or
  * Billing role should move on their own.
  *
- * @see /specs/019-sales-lifecycle-payments-credits/data-model.md §1
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §1
  */
 final class SalesSettingResource extends Resource
 {

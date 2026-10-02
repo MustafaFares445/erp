@@ -251,11 +251,9 @@ final class LinesRelationManager extends RelationManager
     {
         $record = $this->getOwnerRecord();
 
-        // @codeCoverageIgnoreStart
         if (! $record instanceof PurchaseOrder) {
             throw new LogicException('Expected the owner record of LinesRelationManager to be a PurchaseOrder.');
         }
-        // @codeCoverageIgnoreEnd
 
         return $record;
     }

@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * write guard of its own, because unlike a posted journal entry an account has
  * no invariant that must survive a direct write.
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §3
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §3
  */
 /**
  * @property int $id

@@ -24,7 +24,7 @@ use LogicException;
  * entry. Drafts are excluded — they are not in the ledger, and including them
  * would make the running balance disagree with the account's reported balance.
  *
- * @see /specs/018-chart-of-accounts-journals/spec.md User Story 6
+ * @see /Docs/domains/accounting/README.md User Story 6
  */
 final class LedgerRelationManager extends RelationManager
 {

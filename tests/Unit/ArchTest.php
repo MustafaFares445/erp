@@ -120,14 +120,14 @@ use App\Services\Support\ServiceRecordPartService;
 use Illuminate\Support\Facades\File;
 
 arch()->preset()->php();
-// PriceFloorOverride/PriceHistory (spec 014) established the precedent this
+// PriceFloorOverride/PriceHistory (historical Spec Kit 014) established the precedent this
 // feature follows for the same reason: a protected static booted() is
 // Eloquent's own required override signature for a model-level saving/
 // deleting guard (EmployeeProfile's base-salary rule; TaskStatusLog's and
 // VisitGpsLog's append-only guards; VoiceNoteTranscription's confidence
 // invariant, D6) — not a design choice that could be made public instead.
 //
-// Order is unrelated to spec 014/015: its protected casts() overrides
+// Order is unrelated to historical Spec Kit 014/015: its protected casts() overrides
 // Eloquent's own casts() (Illuminate\Database\Eloquent\Concerns\HasAttributes),
 // which the framework itself declares protected — same reasoning, a
 // different required-override hook.
@@ -139,7 +139,7 @@ arch()->preset()->php();
 //
 // Shipment combines both patterns above in one class: protected static
 // booted() guards tracking_number generation (same required-override
-// reasoning as the spec 014/015 group), and protected casts() is the
+// reasoning as the historical Spec Kit 014/015 group), and protected casts() is the
 // same Eloquent override as Order's.
 //
 // AuditLog (ADR 0005): sourceChannel()/ipAddress() are Laravel's own
@@ -147,32 +147,32 @@ arch()->preset()->php();
 // Attribute), which the framework's own convention declares protected —
 // the same required-override reasoning as Order's/Shipment's casts().
 //
-// TicketAssignment/TicketMessage (spec 016): protected static booted()
+// TicketAssignment/TicketMessage (historical Spec Kit 016): protected static booted()
 // guards their append-only invariant (FR-023/FR-032), the same required
 // Eloquent-override reasoning as TaskStatusLog/VisitGpsLog above.
 //
-// SlaPolicy (spec 016, US5): protected static booted() stamps `updated_by`
+// SlaPolicy (historical Spec Kit 016, US5): protected static booted() stamps `updated_by`
 // from the acting user on every edit (data-model.md §5 — no `created_by`,
 // so TracksBlameable isn't reused) — the same required-override reasoning.
 //
-// ServiceRecordPart (spec 016, US8): protected static booted() guards its
+// ServiceRecordPart (historical Spec Kit 016, US8): protected static booted() guards its
 // immutable-except-reversal-fields invariant (FR-086), the same required
 // Eloquent-override reasoning as TicketAssignment/TicketMessage above.
 //
-// MaintenanceRecord (spec 016, FR-064): protected static booted() guards its
+// MaintenanceRecord (historical Spec Kit 016, FR-064): protected static booted() guards its
 // covered-warranty-requires-expiry invariant as defense-in-depth against a
 // direct write bypassing MaintenanceRecordService, the same required
 // Eloquent-override reasoning as EmployeeProfile above.
 //
-// MaintenanceTask (spec 016, FR-071): protected static booted() guards its
+// MaintenanceTask (historical Spec Kit 016, FR-071): protected static booted() guards its
 // never-movable-between-parents invariant as defense-in-depth against a
 // direct write bypassing ServiceRecordService, the same required
 // Eloquent-override reasoning as TicketAssignment/TicketMessage above.
 //
-// AccountType/ChartAccount/FiscalPeriod (spec 018) override protected casts()
+// AccountType/ChartAccount/FiscalPeriod (historical Spec Kit 018) override protected casts()
 // only, the same Eloquent-mandated signature as Order above.
 //
-// JournalEntry/JournalEntryLine (spec 018, FR-025): both override protected
+// JournalEntry/JournalEntryLine (historical Spec Kit 018, FR-025): both override protected
 // static booted() to refuse every write against a *posted* entry — the entry
 // itself on update/delete, and its lines on create/update/delete. Same required
 // Eloquent-override signature as TicketMessage above, and the reason is stronger
@@ -287,10 +287,10 @@ arch()->preset()->strict()->ignoring([
 // to App\Services\Employees\Exceptions instead, next to the services that throw
 // them, rather than collected in one flat, feature-agnostic folder — so that
 // namespace is exempted from this one preset rule, not from the rest of it.
-// Spec 016 (contracts/ticket-lifecycle.md, contracts/maintenance-lifecycle.md)
+// historical Spec Kit 016 (contracts/ticket-lifecycle.md, contracts/maintenance-lifecycle.md)
 // follows the identical precedent under App\Services\Support\Exceptions, and
-// spec 018 (contracts/journal-posting.md) under App\Services\Accounting\Exceptions,
-// spec 017 under App\Services\Purchasing\Exceptions, and spec 019 under
+// historical Spec Kit 018 (contracts/journal-posting.md) under App\Services\Accounting\Exceptions,
+// historical Spec Kit 017 under App\Services\Purchasing\Exceptions, and historical Spec Kit 019 under
 // App\Services\Sales\Exceptions and App\Services\Payments\Exceptions. The
 // Customer App V1 backend work follows the same precedent under
 // App\Services\Crm\Exceptions.
@@ -321,10 +321,10 @@ arch()->preset()->security();
 // records. Stock levels, movements, returns, reports, and widgets may read
 // these models through tested read-only surfaces. Every other Filament
 // namespace remains banned, so write surfaces must use domain services.
-// See specs/002-warehouses-stock-visibility/research.md R1.
+// See Docs/domains/inventory/BUSINESS_RULES.md R1.
 //
 // App\Filament\Resources\InventoryOperations and App\Filament\Resources\Packages
-// (specs/014-inventory-erp-rework) are deliberately absent from the ignoring()
+// (Docs/domains/inventory/README.md) are deliberately absent from the ignoring()
 // list below and must stay that way: both write stock exclusively through
 // InventoryOperationService, never directly (contracts/inventory-operations.md
 // P-2). Because this assertion targets the whole App\Filament namespace, it
@@ -663,7 +663,7 @@ it('never resolves the authenticated user internally in a Support service', func
         ->not->toUse('auth');
 });
 
-// Intent: identical rule for App\Services\Accounting (spec 018, research.md
+// Intent: identical rule for App\Services\Accounting (historical Spec Kit 018, research.md
 // R-010). Every accounting service takes an explicit User $actor and authorizes
 // exactly one ability against it, so a direct service call is never an
 // authorization bypass. The ledger is the surface where trusting the ambient
@@ -733,7 +733,7 @@ it('never references a Purchasing class from an Inventory service', function ():
 });
 
 // Intent: the same explicit-actor rule every prior module's ledger-adjacent
-// services follow (spec 019, FR-077). No Sales or Payments service may resolve
+// services follow (historical Spec Kit 019, FR-077). No Sales or Payments service may resolve
 // the acting user from the ambient session; the actor is always an explicit
 // argument, so a call from a queued job or a console command is authorized
 // identically to a dashboard click.

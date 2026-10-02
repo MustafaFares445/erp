@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Gate;
  * `PeriodCloseOverride` permission must supply a written reason, which is
  * itself recorded and audited under a distinct event name.
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §4
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §4
  */
 final readonly class FiscalPeriodService
 {

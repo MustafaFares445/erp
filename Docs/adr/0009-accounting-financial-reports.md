@@ -10,7 +10,7 @@
 
 **Constitution**: Recorded as the eighth narrow Filament dashboard exception at version **1.9.0**
 
-**Related**: `specs/020-accounting-financial-reports/spec.md`, `Docs/PRD.md` §5 FR-023 and §11, `Docs/SDD.md` §Reports and Notifications, `Docs/database/ERD.md`, ADR 0005 (Activitylog), ADR 0007 (Accounting foundation), ADR 0008 (Sales, Payments, Credit Notes), and the IERP Constitution Product Scope & Boundaries and Specification Governance sections
+**Related**: `Docs/domains/reporting/README.md`, `Docs/product/PRODUCT_OVERVIEW.md` §5 FR-023 and §11, `Docs/architecture/SYSTEM_OVERVIEW.md` §Reports and Notifications, `Docs/architecture/DATA_ARCHITECTURE.md`, ADR 0005 (Activitylog), ADR 0007 (Accounting foundation), ADR 0008 (Sales, Payments, Credit Notes), and the IERP Constitution Product Scope & Boundaries and Specification Governance sections
 
 ## Context
 
@@ -27,26 +27,25 @@ terms — it names the reports individually rather than gesturing at a category:
 > balance, profit and loss, or balance sheet ...
 
 The same exclusion is restated in constitution §Product Scope & Boundaries and
-in `Docs/PRD.md` §11. So the ledger currently has the property that an
+in `Docs/product/PRODUCT_OVERVIEW.md` §11. So the ledger currently has the property that an
 accountant can post to it and inspect one account at a time, but cannot ask
 whether the books balance. That is a strange resting place, and it is the gap
 this ADR closes.
 
 ### What the documentation asks for
 
-The documented requirement is thin but not absent. `Docs/PRD.md` §5 FR-023 says
+The documented requirement is thin but not absent. `Docs/product/PRODUCT_OVERVIEW.md` §5 FR-023 says
 reports "must cover sales, invoices, payments, tax, inventory, employees,
 tickets, and CRM" — a list that conspicuously omits the general ledger, because
 the PRD's reporting requirement was written from the operational side. §11's
 exclusion is an ADR 0007 consequence, not an owner preference against reporting.
-`Docs/SDD.md` §Reports and Notifications describes reporting generically for
+`Docs/architecture/SYSTEM_OVERVIEW.md` §Reports and Notifications describes reporting generically for
 every module.
 
 More useful than any of that is what the ledger itself implies. A double-entry
 system whose entries are validated on posting but never aggregated afterwards
 cannot demonstrate the one property that makes double entry worth the cost: that
-debits equal credits across the whole book, not merely within each entry. Spec
-018 proves the invariant per entry. Only a trial balance proves it globally.
+debits equal credits across the whole book, not merely within each entry. historical Spec Kit 018 proves the invariant per entry. Only a trial balance proves it globally.
 
 ### Why this is separate from ADR 0008
 
@@ -141,7 +140,7 @@ Purchasing nothing.
 ## Consequences
 
 **Positive.** The ledger becomes verifiable from the dashboard: the global
-debit-equals-credit invariant, which spec 018 could only assert per entry, is
+debit-equals-credit invariant, which historical Spec Kit 018 could only assert per entry, is
 now demonstrable across the whole book. That matters most precisely while ADR
 0008's automatic postings are being reviewed. The feature is read-only, so it
 cannot corrupt what it reads, and it has no schema footprint, so it is unusually
@@ -176,7 +175,7 @@ which share no data and no permission with it.
 rather than as a new one, and the one-ADR-per-scope-expansion pattern of
 0001–0008 is easier to audit.
 
-**Add stored balance columns to make reports fast.** Rejected. Spec 018 already
+**Add stored balance columns to make reports fast.** Rejected. historical Spec Kit 018 already
 rejected stored balances for the same reason: a cached balance is the first thing
 to disagree with the ledger after any direct write, and the ledger's whole value
 is that the lines are the truth. Reports that recompute cannot drift.

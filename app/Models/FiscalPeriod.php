@@ -26,7 +26,7 @@ use Illuminate\Support\Carbon;
  * {@see JournalPostingService} reads `is_closed` to refuse a posting or a
  * reversal into a closed period (FR-023).
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §4
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §4
  */
 /**
  * @property int $id

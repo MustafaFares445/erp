@@ -113,18 +113,14 @@ final readonly class SupportReportService
         $resolved = (clone $query)->whereNotNull('resolved_at')->get(['live_at', 'resolved_at']);
         $resolutionMinutes = $resolved
             ->map(function (Ticket $ticket): ?int {
-                // @codeCoverageIgnoreStart
                 // Both columns are guaranteed non-null here: the outer query
                 // already filters whereNotNull('live_at'), and $resolved itself
-                // is whereNotNull('resolved_at') — required only to satisfy
-                // Carbon::diffInMinutes()'s non-nullable parameter type.
-                if (! $ticket->live_at instanceof Carbon || ! $ticket->resolved_at instanceof Carbon) {
-                    return null;
-                }
+                /** @var Carbon $liveAt */
+                $liveAt = $ticket->live_at;
+                /** @var Carbon $resolvedAt */
+                $resolvedAt = $ticket->resolved_at;
 
-                // @codeCoverageIgnoreEnd
-
-                return (int) $ticket->live_at->diffInMinutes($ticket->resolved_at);
+                return (int) $liveAt->diffInMinutes($resolvedAt);
             })
             ->filter(fn (?int $minutes): bool => $minutes !== null);
         $averageResolutionMinutes = $resolutionMinutes->isEmpty() ? null : round($resolutionMinutes->avg() ?? 0, 1);

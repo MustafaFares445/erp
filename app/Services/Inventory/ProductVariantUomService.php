@@ -52,17 +52,11 @@ final class ProductVariantUomService
 
             $lockedVariant->update(['unit_id' => $baseUnitId]);
 
-            if (! $lockedVariant->product instanceof Product) {
-                // @codeCoverageIgnoreStart
-                // Defensive: product_id is a non-nullable, restrict-on-delete foreign key
-                // (create_product_variants_table migration), so a variant's product relation
-                // cannot actually be missing. Guards against that invariant changing later.
-                throw new \LogicException('A variant UOM configuration requires a product.');
-                // @codeCoverageIgnoreEnd
-            }
+            /** @var Product $product */
+            $product = $lockedVariant->product;
 
             foreach ($units as $unit) {
-                $lockedVariant->product->addAllowedUnit($unit);
+                $product->addAllowedUnit($unit);
             }
 
             return $lockedVariant->refresh();

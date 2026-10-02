@@ -38,11 +38,8 @@ final class ViewDeliveryNote extends ViewRecord
                     && (self::salesActor()?->can('create', Invoice::class) ?? false))
                 ->authorize(fn (InventoryOperation $record): bool => self::salesActor()?->can('create', Invoice::class) ?? false)
                 ->action(function (InventoryOperation $record): void {
+                    /** @var User $actor */
                     $actor = self::salesActor();
-
-                    if (! $actor instanceof User) {
-                        return;
-                    }
 
                     $invoice = self::runSalesOperation(
                         fn (): Invoice => app(InvoiceService::class)->createFromDelivery($actor, $record),

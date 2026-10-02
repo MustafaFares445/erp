@@ -319,9 +319,6 @@ final class SupplierInfolist
 
         foreach ($orders as $order) {
             $completedAt = $order->getAttribute('last_receipt_completed_at');
-            if (! $order->ordered_at instanceof Carbon) {
-                continue;
-            }
             if (! is_string($completedAt)) {
                 continue;
             }
@@ -329,7 +326,9 @@ final class SupplierInfolist
                 continue;
             }
 
-            $minutes[] = (float) $order->ordered_at->startOfDay()->diffInMinutes(Carbon::parse($completedAt));
+            /** @var Carbon $orderedAt */
+            $orderedAt = $order->ordered_at;
+            $minutes[] = (float) $orderedAt->startOfDay()->diffInMinutes(Carbon::parse($completedAt));
         }
 
         if ($minutes === []) {
@@ -439,11 +438,8 @@ final class SupplierInfolist
                 continue;
             }
 
+            /** @var Carbon $expectedAt */
             $expectedAt = $order->expected_at;
-
-            if (! $expectedAt instanceof Carbon) {
-                continue;
-            }
 
             $eligible++;
 

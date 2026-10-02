@@ -26,7 +26,7 @@ use UnitEnum;
  * the reconciliation pack — the evidence a close decision
  * rests on.
  *
- * @see /specs/018-chart-of-accounts-journals/plan.md §Project Structure
+ * @see /Docs/domains/accounting/README.md §Project Structure
  */
 final class FiscalPeriodResource extends Resource
 {

@@ -104,9 +104,7 @@ final readonly class CrmFunnelReportService
                 'pipeline_value_minor' => 0,
             ];
             $groups[$key]['ages'][] = $age;
-            $groups[$key]['pipeline_value_minor'] += is_numeric($opportunity->estimated_value_minor)
-                ? (int) $opportunity->estimated_value_minor
-                : 0;
+            $groups[$key]['pipeline_value_minor'] += (int) ($opportunity->estimated_value_minor ?? 0);
         }
 
         ksort($groups);
@@ -168,11 +166,6 @@ final readonly class CrmFunnelReportService
         foreach ([$leadRows, $opportunityRows] as $sourceRows) {
             foreach ($sourceRows as $row) {
                 $campaignId = $this->intValue(data_get($row, 'campaign_id'));
-
-                if ($campaignId === 0) {
-                    continue;
-                }
-
                 $totals[$campaignId] = ($totals[$campaignId] ?? 0.0)
                     + $this->floatValue(data_get($row, 'collected_amount'));
             }

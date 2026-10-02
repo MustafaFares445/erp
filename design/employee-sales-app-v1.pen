@@ -1,5 +1,5 @@
 {
-  "version": "2.18",
+  "version": "2.19",
   "children": [
     {
       "type": "frame",
@@ -893,7 +893,7 @@
                 {
                   "type": "frame",
                   "id": "hADY9",
-                  "name": "BottomNav/Main5",
+                  "name": "BottomNav/Main5 ? Deprecated",
                   "reusable": true,
                   "width": 390,
                   "height": 68,
@@ -4395,27 +4395,67 @@
                 {
                   "id": "tbi2T",
                   "type": "ref",
-                  "ref": "hADY9",
+                  "ref": "hu0UC",
                   "name": "Bottom Navigation",
                   "width": "fill_container",
                   "descendants": {
-                    "qKSYG": {
+                    "zEDSg": {
                       "fill": "$color.primary-soft"
                     },
-                    "oZouP": {
+                    "D9LPK": {
                       "fill": "$color.primary"
                     },
-                    "rcEsQ": {
+                    "L8d8lg": {
                       "fill": "$color.primary",
                       "fontWeight": "700"
                     },
-                    "SIgmv": {
+                    "zG1DS": {
                       "fill": "#FFFFFF00"
                     },
-                    "N4SrN": {
+                    "fn3rL": {
                       "fill": "$color.text-muted"
                     },
-                    "kX2FA": {
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "snm4U": {
+                      "fill": "$color.text-muted"
+                    },
+                    "wCZD9": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "fjOTn": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.text-muted"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
                       "fill": "$color.text-muted",
                       "fontWeight": "500"
                     }
@@ -4813,29 +4853,69 @@
                 {
                   "id": "pzbUG",
                   "type": "ref",
-                  "ref": "hADY9",
+                  "ref": "hu0UC",
                   "name": "Bottom Navigation",
                   "width": "fill_container",
                   "descendants": {
-                    "qKSYG": {
+                    "zEDSg": {
                       "fill": "#FFFFFF00"
                     },
-                    "oZouP": {
+                    "D9LPK": {
                       "fill": "$color.text-muted"
                     },
-                    "rcEsQ": {
+                    "L8d8lg": {
                       "fill": "$color.text-muted",
                       "fontWeight": "500"
                     },
-                    "SIgmv": {
+                    "zG1DS": {
                       "fill": "$color.primary-soft"
                     },
-                    "N4SrN": {
+                    "fn3rL": {
                       "fill": "$color.primary"
                     },
-                    "kX2FA": {
+                    "a3GcdD": {
                       "fill": "$color.primary",
                       "fontWeight": "700"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "snm4U": {
+                      "fill": "$color.text-muted"
+                    },
+                    "wCZD9": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "fjOTn": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.text-muted"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
                     }
                   }
                 }
@@ -5596,29 +5676,69 @@
                 {
                   "id": "mohFS",
                   "type": "ref",
-                  "ref": "hADY9",
+                  "ref": "hu0UC",
                   "name": "Bottom Navigation",
                   "width": "fill_container",
                   "descendants": {
-                    "qKSYG": {
+                    "zEDSg": {
                       "fill": "#FFFFFF00"
                     },
-                    "oZouP": {
+                    "D9LPK": {
                       "fill": "$color.text-muted"
                     },
-                    "rcEsQ": {
+                    "L8d8lg": {
                       "fill": "$color.text-muted",
                       "fontWeight": "500"
                     },
-                    "Fv01T": {
+                    "zG1DS": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "fn3rL": {
+                      "fill": "$color.text-muted"
+                    },
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
                       "fill": "$color.primary-soft"
                     },
-                    "tPqZA": {
+                    "dbInO": {
                       "fill": "$color.primary"
                     },
-                    "Q3vb6": {
+                    "cq3u2": {
                       "fill": "$color.primary",
                       "fontWeight": "700"
+                    },
+                    "V1EIk5": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "snm4U": {
+                      "fill": "$color.text-muted"
+                    },
+                    "wCZD9": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "fjOTn": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.text-muted"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
                     }
                   }
                 }
@@ -6303,6 +6423,85 @@
                           "fontFamily": "$font.family",
                           "fontSize": 12,
                           "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "f35ac85a",
+                      "name": "Visit Attachments",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 12,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "f057fb94",
+                          "name": "Attachment Copy",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "t4998173",
+                              "name": "Attachment Title",
+                              "fill": "$color.text",
+                              "content": "Attachments",
+                              "fontFamily": "$font.family",
+                              "fontSize": 12,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "t7f49608",
+                              "name": "Attachment Subtitle",
+                              "fill": "$color.text-muted",
+                              "content": "2 photos attached ? private visit evidence",
+                              "fontFamily": "$font.family",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "f9614a05",
+                          "name": "Add Attachment Button",
+                          "width": "fill_container",
+                          "height": 46,
+                          "fill": "$color.primary-soft",
+                          "cornerRadius": 14,
+                          "gap": 8,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "ic7c515f",
+                              "name": "Button Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "paperclip",
+                              "library": "lucide",
+                              "fill": "$color.primary"
+                            },
+                            {
+                              "type": "text",
+                              "id": "t5921b02",
+                              "name": "Button Label",
+                              "fill": "$color.primary",
+                              "content": "Add Photo or File",
+                              "fontFamily": "$font.family",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
                         }
                       ]
                     }
@@ -7156,7 +7355,7 @@
                                   "id": "MMRSK",
                                   "name": "State Label",
                                   "fill": "$color.primary",
-                                  "content": "Processing",
+                                  "content": "Transcribing",
                                   "fontFamily": "$font.family",
                                   "fontSize": 10,
                                   "fontWeight": "700"
@@ -7170,7 +7369,7 @@
                           "id": "MtaaD",
                           "name": "Description",
                           "fill": "$color.text-muted",
-                          "content": "Processing transcription",
+                          "content": "processing_transcription ? Whisper auto-detects Arabic, English, Hindi, Urdu or mixed speech.",
                           "fontFamily": "$font.family",
                           "fontSize": 11,
                           "fontWeight": "normal"
@@ -7224,7 +7423,7 @@
                                   "id": "xCghE",
                                   "name": "State Label",
                                   "fill": "$color.success",
-                                  "content": "Ready",
+                                  "content": "AI analysis",
                                   "fontFamily": "$font.family",
                                   "fontSize": 10,
                                   "fontWeight": "700"
@@ -7238,7 +7437,7 @@
                           "id": "trVtM",
                           "name": "Description",
                           "fill": "$color.text-muted",
-                          "content": "Ready for review",
+                          "content": "Transcript ready ? processing_opportunities. The transcript remains available while product intent is analysed.",
                           "fontFamily": "$font.family",
                           "fontSize": 11,
                           "fontWeight": "normal"
@@ -7304,7 +7503,7 @@
                                   "id": "R3kvYb",
                                   "name": "State Label",
                                   "fill": "$color.danger",
-                                  "content": "Failed",
+                                  "content": "Manual review",
                                   "fontFamily": "$font.family",
                                   "fontSize": 10,
                                   "fontWeight": "700"
@@ -7318,7 +7517,7 @@
                           "id": "H3Cnp9",
                           "name": "Description",
                           "fill": "$color.text-muted",
-                          "content": "Transcription failed · Enter manually",
+                          "content": "failed_opportunity_extraction ? Transcript is kept. Enter the outcome and choose products manually.",
                           "fontFamily": "$font.family",
                           "fontSize": 11,
                           "fontWeight": "normal"
@@ -7327,10 +7526,53 @@
                     },
                     {
                       "type": "frame",
-                      "id": "wJ1Dd",
-                      "name": "Space",
+                      "id": "f2cbfee6",
+                      "name": "AI Pipeline State Reference",
                       "width": "fill_container",
-                      "height": "fill_container"
+                      "height": "fill_container",
+                      "fill": "$color.primary-soft",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 5,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "t60f488b",
+                          "name": "Pipeline Label",
+                          "fill": "$color.text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "ASYNC PIPELINE STATES",
+                          "fontFamily": "$font.family",
+                          "fontSize": 9,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t8f910bd",
+                          "name": "Pipeline Happy Path",
+                          "fill": "$color.text",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "queued ? processing_transcription ? processing_opportunities ? ready",
+                          "fontFamily": "$font.family",
+                          "fontSize": 10,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t3b47615",
+                          "name": "Pipeline Failure Rule",
+                          "fill": "$color.text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "failed_transcription / failed_opportunity_extraction never block manual visit completion.",
+                          "fontFamily": "$font.family",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
                     },
                     {
                       "type": "text",
@@ -7339,7 +7581,7 @@
                       "fill": "$color.text-muted",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "You can continue the visit while processing finishes.",
+                      "content": "Continue working while AI runs. If a provider fails or remains delayed, complete the visit with a manual outcome and manual product review.",
                       "textAlign": "center",
                       "fontFamily": "$font.family",
                       "fontSize": 11,
@@ -7506,6 +7748,57 @@
                     },
                     {
                       "type": "frame",
+                      "id": "ffa3800e",
+                      "name": "Requested Product Context",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 10,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "t306654f",
+                          "name": "Context Label",
+                          "fill": "$color.text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "AI-EXTRACTED REQUEST CONTEXT",
+                          "fontFamily": "$font.family",
+                          "fontSize": 9,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t0526692",
+                          "name": "Context Summary",
+                          "fill": "$color.text",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "2 pcs ? Intent: quotation ? Timeframe: Q4",
+                          "fontFamily": "$font.family",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t5691c8c",
+                          "name": "Context Details",
+                          "fill": "$color.text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Requirements: 220V ? EU plug. Quantity and requirements remain editable before confirmation.",
+                          "fontFamily": "$font.family",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
                       "id": "m49jjp",
                       "name": "Product Actions",
                       "width": "fill_container",
@@ -7527,11 +7820,11 @@
                           "id": "ITgYl",
                           "type": "ref",
                           "ref": "olpHg",
-                          "name": "No Opportunity",
+                          "name": "Confirm No Sales Opportunity",
                           "width": "fill_container",
                           "descendants": {
                             "nNTCA": {
-                              "content": "No Opportunity"
+                              "content": "Confirm No Opportunity"
                             }
                           }
                         }
@@ -7583,7 +7876,7 @@
                       "fill": "$color.text-muted",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "I reviewed the final outcome and selected sales opportunities/products.",
+                      "content": "I reviewed the final outcome and selected products, or explicitly confirmed No Sales Opportunity.",
                       "fontFamily": "$font.family",
                       "fontSize": 10,
                       "fontWeight": "normal"
@@ -8381,9 +8674,82 @@
                                   "id": "m6mUP",
                                   "name": "Value",
                                   "fill": "$color.text-muted",
-                                  "content": "2 products confirmed",
+                                  "content": "2 products confirmed ? or No Opportunity confirmed",
                                   "fontFamily": "$font.family",
                                   "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ff8ac256",
+                          "name": "AI review mode",
+                          "width": "fill_container",
+                          "stroke": "$color.border",
+                          "strokeWidth": {
+                            "bottom": 1
+                          },
+                          "gap": 10,
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "f84cd1a8",
+                              "name": "State",
+                              "width": 28,
+                              "height": 28,
+                              "fill": "$color.success-soft",
+                              "cornerRadius": 999,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "i1dd6090",
+                                  "name": "Check",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "check",
+                                  "library": "lucide",
+                                  "fill": "$color.success"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ffafc73b",
+                              "name": "Copy",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "td2a9921",
+                                  "name": "Label",
+                                  "fill": "$color.text",
+                                  "content": "AI / manual review complete",
+                                  "fontFamily": "$font.family",
+                                  "fontSize": 12,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "t7af592f",
+                                  "name": "Value",
+                                  "fill": "$color.text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Manual outcome and product review are valid when AI is unavailable or still processing.",
+                                  "fontFamily": "$font.family",
+                                  "fontSize": 10,
                                   "fontWeight": "normal"
                                 }
                               ]
@@ -8562,7 +8928,7 @@
                           "fill": "$color.text",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Completing the visit records your checkout time and stops location tracking.",
+                          "content": "Completing the visit records checkout time and stops GPS tracking. AI failure or delayed processing does not block completion after manual review.",
                           "fontFamily": "$font.family",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -9856,29 +10222,69 @@
                 {
                   "id": "QFScC",
                   "type": "ref",
-                  "ref": "hADY9",
+                  "ref": "hu0UC",
                   "name": "Bottom Navigation",
                   "width": "fill_container",
                   "descendants": {
-                    "qKSYG": {
-                      "fill": "transparent"
+                    "zEDSg": {
+                      "fill": "#FFFFFF00"
                     },
-                    "oZouP": {
+                    "D9LPK": {
                       "fill": "$color.text-muted"
                     },
-                    "rcEsQ": {
+                    "L8d8lg": {
                       "fill": "$color.text-muted",
                       "fontWeight": "500"
                     },
-                    "wNieJ": {
+                    "zG1DS": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "fn3rL": {
+                      "fill": "$color.text-muted"
+                    },
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
                       "fill": "$color.primary-soft"
                     },
-                    "F4lBX": {
+                    "snm4U": {
                       "fill": "$color.primary"
                     },
-                    "L6Z4Y9": {
+                    "wCZD9": {
                       "fill": "$color.primary",
                       "fontWeight": "700"
+                    },
+                    "fjOTn": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.text-muted"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
                     }
                   }
                 }
@@ -10122,29 +10528,69 @@
                 {
                   "id": "KeUfN",
                   "type": "ref",
-                  "ref": "hADY9",
+                  "ref": "hu0UC",
                   "name": "Bottom Navigation",
                   "width": "fill_container",
                   "descendants": {
-                    "qKSYG": {
-                      "fill": "transparent"
+                    "zEDSg": {
+                      "fill": "#FFFFFF00"
                     },
-                    "oZouP": {
+                    "D9LPK": {
                       "fill": "$color.text-muted"
                     },
-                    "rcEsQ": {
+                    "L8d8lg": {
                       "fill": "$color.text-muted",
                       "fontWeight": "500"
                     },
-                    "wNieJ": {
+                    "zG1DS": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "fn3rL": {
+                      "fill": "$color.text-muted"
+                    },
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
                       "fill": "$color.primary-soft"
                     },
-                    "F4lBX": {
+                    "snm4U": {
                       "fill": "$color.primary"
                     },
-                    "L6Z4Y9": {
+                    "wCZD9": {
                       "fill": "$color.primary",
                       "fontWeight": "700"
+                    },
+                    "fjOTn": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.text-muted"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
                     }
                   }
                 }
@@ -11070,29 +11516,69 @@
                 {
                   "id": "hOa1f",
                   "type": "ref",
-                  "ref": "hADY9",
+                  "ref": "hu0UC",
                   "name": "Bottom Navigation",
                   "width": "fill_container",
                   "descendants": {
-                    "qKSYG": {
-                      "fill": "transparent"
+                    "zEDSg": {
+                      "fill": "#FFFFFF00"
                     },
-                    "oZouP": {
+                    "D9LPK": {
                       "fill": "$color.text-muted"
                     },
-                    "rcEsQ": {
+                    "L8d8lg": {
                       "fill": "$color.text-muted",
                       "fontWeight": "500"
                     },
-                    "wNieJ": {
+                    "zG1DS": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "fn3rL": {
+                      "fill": "$color.text-muted"
+                    },
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
                       "fill": "$color.primary-soft"
                     },
-                    "F4lBX": {
+                    "snm4U": {
                       "fill": "$color.primary"
                     },
-                    "L6Z4Y9": {
+                    "wCZD9": {
                       "fill": "$color.primary",
                       "fontWeight": "700"
+                    },
+                    "fjOTn": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.text-muted"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
                     }
                   }
                 }
@@ -13027,29 +13513,69 @@
                 {
                   "id": "LcgAr",
                   "type": "ref",
-                  "ref": "hADY9",
+                  "ref": "hu0UC",
                   "name": "Bottom Navigation",
                   "width": "fill_container",
                   "descendants": {
-                    "qKSYG": {
-                      "fill": "transparent"
+                    "zEDSg": {
+                      "fill": "#FFFFFF00"
                     },
-                    "oZouP": {
+                    "D9LPK": {
                       "fill": "$color.text-muted"
                     },
-                    "rcEsQ": {
+                    "L8d8lg": {
                       "fill": "$color.text-muted",
                       "fontWeight": "500"
                     },
-                    "KmIlB": {
+                    "zG1DS": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "fn3rL": {
+                      "fill": "$color.text-muted"
+                    },
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "snm4U": {
+                      "fill": "$color.text-muted"
+                    },
+                    "wCZD9": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "fjOTn": {
                       "fill": "$color.primary-soft"
                     },
-                    "rlyGC": {
+                    "rr7dn": {
                       "fill": "$color.primary"
                     },
-                    "PpPFx": {
+                    "Ta8Hr": {
                       "fill": "$color.primary",
                       "fontWeight": "700"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
                     }
                   }
                 }
@@ -13438,6 +13964,636 @@
                       "height": "fill_container"
                     }
                   ]
+                },
+                {
+                  "id": "ra848127",
+                  "type": "ref",
+                  "ref": "hu0UC",
+                  "name": "Bottom Navigation",
+                  "width": "fill_container",
+                  "descendants": {
+                    "zEDSg": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "D9LPK": {
+                      "fill": "$color.text-muted"
+                    },
+                    "L8d8lg": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "zG1DS": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "fn3rL": {
+                      "fill": "$color.text-muted"
+                    },
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "snm4U": {
+                      "fill": "$color.text-muted"
+                    },
+                    "wCZD9": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "fjOTn": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.text-muted"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "a6Jamk": {
+                      "fill": "$color.primary-soft"
+                    },
+                    "eeo42": {
+                      "fill": "$color.primary"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.primary",
+                      "fontWeight": "700"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fe7a78bf",
+          "name": "Employee Information Screens Row 2",
+          "width": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "f3eaec1a",
+              "name": "E05 ? Notification Event Examples",
+              "clip": true,
+              "width": 390,
+              "height": 844,
+              "fill": "$color.bg",
+              "cornerRadius": 28,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "children": [
+                {
+                  "id": "rd38802d",
+                  "type": "ref",
+                  "ref": "vOlnt",
+                  "name": "Status Bar",
+                  "width": "fill_container"
+                },
+                {
+                  "id": "ree180b1",
+                  "type": "ref",
+                  "ref": "lo18F",
+                  "name": "App Header",
+                  "width": "fill_container",
+                  "descendants": {
+                    "pLnDs": {
+                      "content": "Notification Events"
+                    }
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "f0984459",
+                  "name": "Content",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "gap": 9,
+                  "padding": [
+                    10,
+                    16,
+                    12,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f2fc9a25",
+                      "name": "Task updated or cancelled",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 12,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "f80e09fe",
+                          "name": "Icon Box",
+                          "width": 36,
+                          "height": 36,
+                          "fill": "$color.primary-soft",
+                          "cornerRadius": 18,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "ic52f813",
+                              "name": "Icon",
+                              "width": 18,
+                              "height": 18,
+                              "icon": "square-check",
+                              "library": "lucide",
+                              "fill": "$color.primary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "f7fd21b6",
+                          "name": "Copy",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "tbc16725",
+                              "name": "Title",
+                              "fill": "$color.text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Task updated or cancelled",
+                              "fontFamily": "$font.family",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "t4c3a0a7",
+                              "name": "Body",
+                              "fill": "$color.text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Deep-link to the latest task state.",
+                              "fontFamily": "$font.family",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "fb7d15a8",
+                      "name": "Visit rescheduled or cancelled",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 12,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "f4f135f0",
+                          "name": "Icon Box",
+                          "width": 36,
+                          "height": 36,
+                          "fill": "$color.primary-soft",
+                          "cornerRadius": 18,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "i8777365",
+                              "name": "Icon",
+                              "width": 18,
+                              "height": 18,
+                              "icon": "calendar-clock",
+                              "library": "lucide",
+                              "fill": "$color.primary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ff140a10",
+                          "name": "Copy",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "t0eb7130",
+                              "name": "Title",
+                              "fill": "$color.text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Visit rescheduled or cancelled",
+                              "fontFamily": "$font.family",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "ta6dd6e6",
+                              "name": "Body",
+                              "fill": "$color.text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Deep-link to Visit Details; obsolete check-in is blocked.",
+                              "fontFamily": "$font.family",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "fc60c80c",
+                      "name": "Opportunity approved or rejected",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 12,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "fee9c824",
+                          "name": "Icon Box",
+                          "width": 36,
+                          "height": 36,
+                          "fill": "$color.primary-soft",
+                          "cornerRadius": 18,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "i60c86b9",
+                              "name": "Icon",
+                              "width": 18,
+                              "height": 18,
+                              "icon": "badge-check",
+                              "library": "lucide",
+                              "fill": "$color.primary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "f58e7d25",
+                          "name": "Copy",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "t8c22b23",
+                              "name": "Title",
+                              "fill": "$color.text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Opportunity approved or rejected",
+                              "fontFamily": "$font.family",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "tb73b1b0",
+                              "name": "Body",
+                              "fill": "$color.text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Open the reviewed sales opportunity.",
+                              "fontFamily": "$font.family",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "f0c436af",
+                      "name": "Quotation changed / accepted / rejected / expired",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 12,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ffaf0dcf",
+                          "name": "Icon Box",
+                          "width": 36,
+                          "height": 36,
+                          "fill": "$color.primary-soft",
+                          "cornerRadius": 18,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "i0d74823",
+                              "name": "Icon",
+                              "width": 18,
+                              "height": 18,
+                              "icon": "file-text",
+                              "library": "lucide",
+                              "fill": "$color.primary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fd4b6e7d",
+                          "name": "Copy",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "t5523aa1",
+                              "name": "Title",
+                              "fill": "$color.text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Quotation changed / accepted / rejected / expired",
+                              "fontFamily": "$font.family",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "tbd0b880",
+                              "name": "Body",
+                              "fill": "$color.text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Open the latest quotation revision and current server state.",
+                              "fontFamily": "$font.family",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "f9fc8d24",
+                      "name": "Performance or salary ready",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 12,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "f26f79cb",
+                          "name": "Icon Box",
+                          "width": 36,
+                          "height": 36,
+                          "fill": "$color.primary-soft",
+                          "cornerRadius": 18,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "i60d89ce",
+                              "name": "Icon",
+                              "width": 18,
+                              "height": 18,
+                              "icon": "chart-no-axes-combined",
+                              "library": "lucide",
+                              "fill": "$color.primary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "f1be293a",
+                          "name": "Copy",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "tcab48d8",
+                              "name": "Title",
+                              "fill": "$color.text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Performance or salary ready",
+                              "fontFamily": "$font.family",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "t20631b1",
+                              "name": "Body",
+                              "fill": "$color.text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Open the read-only employee calculation.",
+                              "fontFamily": "$font.family",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "f141f13e",
+                      "name": "Security reset",
+                      "width": "fill_container",
+                      "fill": "$color.surface",
+                      "cornerRadius": 12,
+                      "stroke": "$color.border",
+                      "strokeWidth": 1,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "f65e52fb",
+                          "name": "Icon Box",
+                          "width": 36,
+                          "height": 36,
+                          "fill": "$color.primary-soft",
+                          "cornerRadius": 18,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "ia00b468",
+                              "name": "Icon",
+                              "width": 18,
+                              "height": 18,
+                              "icon": "shield-alert",
+                              "library": "lucide",
+                              "fill": "$color.primary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "f9ddef9e",
+                          "name": "Copy",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "td753150",
+                              "name": "Title",
+                              "fill": "$color.text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Security reset",
+                              "fontFamily": "$font.family",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "t64b513d",
+                              "name": "Body",
+                              "fill": "$color.text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Password or authorized-device reset requires a fresh sign-in.",
+                              "fontFamily": "$font.family",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "rebb5b95",
+                  "type": "ref",
+                  "ref": "hu0UC",
+                  "name": "Bottom Navigation",
+                  "width": "fill_container",
+                  "descendants": {
+                    "zEDSg": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "D9LPK": {
+                      "fill": "$color.text-muted"
+                    },
+                    "L8d8lg": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "zG1DS": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "fn3rL": {
+                      "fill": "$color.text-muted"
+                    },
+                    "a3GcdD": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "l0eXd0": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "dbInO": {
+                      "fill": "$color.text-muted"
+                    },
+                    "cq3u2": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "V1EIk5": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "snm4U": {
+                      "fill": "$color.text-muted"
+                    },
+                    "wCZD9": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    },
+                    "fjOTn": {
+                      "fill": "$color.primary-soft"
+                    },
+                    "rr7dn": {
+                      "fill": "$color.primary"
+                    },
+                    "Ta8Hr": {
+                      "fill": "$color.primary",
+                      "fontWeight": "700"
+                    },
+                    "a6Jamk": {
+                      "fill": "#FFFFFF00"
+                    },
+                    "eeo42": {
+                      "fill": "$color.text-muted"
+                    },
+                    "N8kxW1": {
+                      "fill": "$color.text-muted",
+                      "fontWeight": "500"
+                    }
+                  }
                 }
               ]
             }
@@ -14833,14 +15989,722 @@
               ]
             }
           ]
+        },
+        {
+          "type": "frame",
+          "id": "f072dc36",
+          "name": "Utility States Row 5",
+          "width": "fill_container",
+          "gap": 18,
+          "children": [
+            {
+              "type": "frame",
+              "id": "fd129f3b",
+              "name": "F21 ? AI Still Processing",
+              "width": 342,
+              "height": 260,
+              "fill": "$color.surface",
+              "cornerRadius": 16,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 9,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t30596ca",
+                  "name": "State Category",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "F21 ? AI STILL PROCESSING",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "febd5225",
+                  "name": "State Icon Box",
+                  "width": 54,
+                  "height": 54,
+                  "fill": "$color.warning-soft",
+                  "cornerRadius": 27,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "i5b74d42",
+                      "name": "State Icon",
+                      "width": 27,
+                      "height": 27,
+                      "icon": "loader-circle",
+                      "library": "lucide",
+                      "fill": "$color.warning"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "tf38959c",
+                  "name": "State Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "AI is still processing",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t00e765c",
+                  "name": "State Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "You can wait for the result or continue with a manual outcome and product review.",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "f1a0cc97",
+                  "name": "Continue Manually Action",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 14,
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "tbaf78f5",
+                      "name": "Button Label",
+                      "fill": "$color.primary",
+                      "content": "Continue Manually",
+                      "fontFamily": "$font.family",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f17afd4e",
+              "name": "F22 ? Opportunity Extraction Failed",
+              "width": 342,
+              "height": 260,
+              "fill": "$color.surface",
+              "cornerRadius": 16,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 9,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "te59eef7",
+                  "name": "State Category",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "F22 ? OPPORTUNITY EXTRACTION FAILED",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "f5a229e9",
+                  "name": "State Icon Box",
+                  "width": 54,
+                  "height": 54,
+                  "fill": "$color.warning-soft",
+                  "cornerRadius": 27,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "i82810ca",
+                      "name": "State Icon",
+                      "width": 27,
+                      "height": 27,
+                      "icon": "sparkles",
+                      "library": "lucide",
+                      "fill": "$color.warning"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "tce4010f",
+                  "name": "State Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Product analysis failed",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tb604ea7",
+                  "name": "State Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "The transcript is safe. Choose products manually or confirm No Opportunity.",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "fd59bb45",
+                  "name": "Review Manually Action",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 14,
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ta2f8a19",
+                      "name": "Button Label",
+                      "fill": "$color.primary",
+                      "content": "Review Manually",
+                      "fontFamily": "$font.family",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fdf3b86e",
+              "name": "F23 ? Task Cancelled by Admin",
+              "width": 342,
+              "height": 260,
+              "fill": "$color.surface",
+              "cornerRadius": 16,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 9,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t9db4a2c",
+                  "name": "State Category",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "F23 ? TASK CANCELLED",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "f0f6bf4e",
+                  "name": "State Icon Box",
+                  "width": 54,
+                  "height": 54,
+                  "fill": "$color.danger-soft",
+                  "cornerRadius": 27,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "i037f2dd",
+                      "name": "State Icon",
+                      "width": 27,
+                      "height": 27,
+                      "icon": "ban",
+                      "library": "lucide",
+                      "fill": "$color.danger"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "t8bdb45c",
+                  "name": "State Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Task cancelled by administration",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "ta0fc454",
+                  "name": "State Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "This task is read-only and no employee transition is available.",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "fb8fcd62",
+                  "name": "Back to Tasks Action",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 14,
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "te3e6238",
+                      "name": "Button Label",
+                      "fill": "$color.primary",
+                      "content": "Back to Tasks",
+                      "fontFamily": "$font.family",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f0aef993",
+              "name": "F24 ? Visit Rescheduled",
+              "width": 342,
+              "height": 260,
+              "fill": "$color.surface",
+              "cornerRadius": 16,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 9,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t10bbf7a",
+                  "name": "State Category",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "F24 ? VISIT RESCHEDULED",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "f4db2e79",
+                  "name": "State Icon Box",
+                  "width": 54,
+                  "height": 54,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 27,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "i2e91b54",
+                      "name": "State Icon",
+                      "width": 27,
+                      "height": 27,
+                      "icon": "calendar-clock",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "tdfbcc35",
+                  "name": "State Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Visit rescheduled",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tb2e9a68",
+                  "name": "State Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "The administration changed the visit time. Review the latest schedule before check-in.",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "f1f9b81a",
+                  "name": "View Visit Action",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 14,
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "t8d8807a",
+                      "name": "Button Label",
+                      "fill": "$color.primary",
+                      "content": "View Visit",
+                      "fontFamily": "$font.family",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f9682a71",
+          "name": "Utility States Row 6",
+          "width": "fill_container",
+          "gap": 18,
+          "children": [
+            {
+              "type": "frame",
+              "id": "f0be13ca",
+              "name": "F25 ? Visit Cancelled",
+              "width": 342,
+              "height": 260,
+              "fill": "$color.surface",
+              "cornerRadius": 16,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 9,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t51e9262",
+                  "name": "State Category",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "F25 ? VISIT CANCELLED",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "f056f2f8",
+                  "name": "State Icon Box",
+                  "width": 54,
+                  "height": 54,
+                  "fill": "$color.danger-soft",
+                  "cornerRadius": 27,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "iefdcfc7",
+                      "name": "State Icon",
+                      "width": 27,
+                      "height": 27,
+                      "icon": "calendar-x",
+                      "library": "lucide",
+                      "fill": "$color.danger"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "t18a9770",
+                  "name": "State Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Visit cancelled by administration",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tc6d1c1a",
+                  "name": "State Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Check-in is no longer available. Any previously displayed schedule is obsolete.",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "f4f5849b",
+                  "name": "Back to Visits Action",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 14,
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "tba626de",
+                      "name": "Button Label",
+                      "fill": "$color.primary",
+                      "content": "Back to Visits",
+                      "fontFamily": "$font.family",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f45073ec",
+              "name": "F26 ? Security Reset Required",
+              "width": 342,
+              "height": 260,
+              "fill": "$color.surface",
+              "cornerRadius": 16,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 9,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tdb6fa35",
+                  "name": "State Category",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "F26 ? SECURITY RESET",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "f70eb357",
+                  "name": "State Icon Box",
+                  "width": 54,
+                  "height": 54,
+                  "fill": "$color.warning-soft",
+                  "cornerRadius": 27,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "i924b1b6",
+                      "name": "State Icon",
+                      "width": 27,
+                      "height": 27,
+                      "icon": "shield-alert",
+                      "library": "lucide",
+                      "fill": "$color.warning"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "t3bc18fd",
+                  "name": "State Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Security settings changed",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t3072ae7",
+                  "name": "State Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your device or password binding was reset by administration. Sign in again to continue.",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "f90f9dae",
+                  "name": "Sign In Again Action",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 14,
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "t0f8fc8c",
+                      "name": "Button Label",
+                      "fill": "$color.primary",
+                      "content": "Sign In Again",
+                      "fontFamily": "$font.family",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fc0b9f81",
+              "name": "F27 ? Notification Coverage",
+              "width": 342,
+              "height": 260,
+              "fill": "$color.surface",
+              "cornerRadius": 16,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 9,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tf93ca04",
+                  "name": "State Category",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "F27 ? NOTIFICATION COVERAGE",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "f6634591",
+                  "name": "State Icon Box",
+                  "width": 54,
+                  "height": 54,
+                  "fill": "$color.primary-soft",
+                  "cornerRadius": 27,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "i23bf268",
+                      "name": "State Icon",
+                      "width": 27,
+                      "height": 27,
+                      "icon": "bell-ring",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "t9a0e6c8",
+                  "name": "State Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Notification events",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t14224bd",
+                  "name": "State Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Task and visit changes, admin review, opportunity decisions, quotation status, performance, salary and security events deep-link to the related record.",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
         }
       ]
     },
     {
       "type": "frame",
       "id": "rWc0s",
-      "x": 8443,
-      "y": 1361,
+      "x": 8561,
+      "y": 1881,
       "name": "Zone 8 — Navigation Comparison",
       "width": 980,
       "fill": "#FFFFFF",
@@ -15167,9 +17031,2882 @@
                   "fill": "$color.text",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Primary design keeps Profile behind the avatar to avoid crowding while preserving all six capabilities.",
+                  "content": "Approved implementation uses six persistent destinations: Home, Tasks, Visits, Sales, Alerts and Profile. The five-item component is legacy and must not be used.",
                   "fontFamily": "$font.family",
                   "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "f4e20edc",
+      "x": 10380,
+      "y": 46,
+      "name": "Zone 9 ? User Flows & Screen Navigation",
+      "width": 2700,
+      "fill": "#F3F6FA",
+      "layout": "vertical",
+      "gap": 20,
+      "padding": 36,
+      "children": [
+        {
+          "type": "text",
+          "id": "t61d07e0",
+          "name": "Zone Title",
+          "fill": "$color.text",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "9. User Flows & Screen Navigation",
+          "fontFamily": "$font.family",
+          "fontSize": 28,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "t852d1b3",
+          "name": "Zone Subtitle",
+          "fill": "$color.text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Developer handoff map. Connector labels are the CTA/condition that moves the employee to the next interface. These are visual flow connectors, not runtime prototype links.",
+          "fontFamily": "$font.family",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "f646c7e3",
+          "name": "Flow Legend",
+          "width": "fill_container",
+          "fill": "$color.primary-soft",
+          "cornerRadius": 12,
+          "gap": 10,
+          "padding": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "iab3cc0a",
+              "name": "Info Icon",
+              "width": 18,
+              "height": 18,
+              "icon": "route",
+              "library": "lucide",
+              "fill": "$color.primary"
+            },
+            {
+              "type": "frame",
+              "id": "fcc719fd",
+              "name": "Info Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 3,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tc559fdc",
+                  "name": "Info Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Connector legend",
+                  "fontFamily": "$font.family",
+                  "fontSize": 11,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tf0c26c6",
+                  "name": "Info Body",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Blue = user CTA/navigation. Amber = conditional/system branch. Screen IDs map directly to the full-size screens in Zones 2?7.",
+                  "fontFamily": "$font.family",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t6994a2a",
+          "name": "Section Title",
+          "fill": "$color.text",
+          "content": "Authentication & Security",
+          "fontFamily": "$font.family",
+          "fontSize": 18,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "fe4a93d3",
+          "name": "Authentication Happy Path",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fb3b3735",
+              "name": "A02 Login",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t0fdf91c",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "A02",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t02b574d",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Login",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t9e6aeca",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "No valid session",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f0e8e11b",
+              "name": "Connector ? Sign In",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t4fe1e3e",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Sign In",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f3f7f5b1",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l5e2c78d",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i357a0da",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f290436f",
+              "name": "A03 First Password Change",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t105bf1d",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "A03",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tf514ad9",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "First Password Change",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t6def937",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Temporary password",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "feca87c1",
+              "name": "Connector ? Save & Continue",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t0584d54",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Save & Continue",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "fc97d550",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l60a0a03",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i02fa720",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fffae4d6",
+              "name": "B01 Home",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t8dd39f8",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "B01",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t65006ae",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Home",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t8053ef6",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Bound device",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f88b2d66",
+          "name": "Authentication Device Branch",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "f67bd816",
+              "name": "A02 Login",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t51698c3",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "A02",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tb9fb77c",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Login",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t0993937",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid credentials",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f9b6d9d3",
+              "name": "Connector ? Different device",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t7dfe3a6",
+                  "name": "CTA Label",
+                  "fill": "$color.warning",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Different device",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "fe5e3c90",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l80c9a55",
+                      "name": "Line",
+                      "fill": "$color.warning",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "ie391b89",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.warning"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f0f64721",
+              "name": "A04 Device Rejected",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t31296c2",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "A04",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t1e47f6a",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Device Rejected",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tf065a4b",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Admin reset required",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f40f10f6",
+              "name": "Connector ? After admin reset",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t01956ff",
+                  "name": "CTA Label",
+                  "fill": "$color.warning",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "After admin reset",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f8989f48",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l6fee539",
+                      "name": "Line",
+                      "fill": "$color.warning",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "ib9d41a4",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.warning"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fd8089fc",
+              "name": "A02 Login",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t8c559f1",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "A02",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tbe1b000",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Login",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "ta2e6021",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Retry sign-in",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t34129b2",
+          "name": "Section Title",
+          "fill": "$color.text",
+          "content": "Tasks",
+          "fontFamily": "$font.family",
+          "fontSize": 18,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "f2588b1f",
+          "name": "Task Lifecycle",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fe29139c",
+              "name": "B03 Tasks List",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tbc7ea2d",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "B03",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t9ae5ff4",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Tasks List",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "td857628",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Today / Upcoming / Overdue",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fb840c2e",
+              "name": "Connector ? Open Task",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tdec670a",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Open Task",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f9811433",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l523776a",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i5fc91ca",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ff4364ae",
+              "name": "B04 Task Details",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t062f1b9",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "B04",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tee6ab78",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Task Details",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t27010d9",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Pending",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f9d32f7e",
+              "name": "Connector ? Start Task",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t93549ba",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Start Task",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f5f65bc9",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l7553337",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "icc18543",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ff478fe9",
+              "name": "B04 Task Details",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ta2b5dce",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "B04",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t227642e",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Task Details",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t3381f3a",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "In Progress",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f983feee",
+              "name": "Connector ? Complete Task",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tffdb4bf",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Complete Task",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f0a965e0",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "lf23e1c6",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i5036a8a",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ffb6035e",
+              "name": "B03 Tasks List",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tc3df7d2",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "B03",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t76a0b08",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Tasks List",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t212a64d",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Completed",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "ta07f893",
+          "name": "Section Title",
+          "fill": "$color.text",
+          "content": "Visit + GPS + Voice AI",
+          "fontFamily": "$font.family",
+          "fontSize": 18,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "f011c1b5",
+          "name": "Visit Start",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "f23e8a3a",
+              "name": "C01 Visits List",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t0065c0c",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C01",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "ta3d12ff",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Visits List",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "ta8e82a1",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Assigned visits only",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f66dd8a5",
+              "name": "Connector ? Open Visit",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t5053c6a",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Open Visit",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f8324a83",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l3086e5a",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "id29b3e1",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f39333ad",
+              "name": "C02 Visit Details",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tf0d9f32",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C02",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t03e64c2",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Visit Details",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "teaf048d",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Pre-check-in",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fdac07bd",
+              "name": "Connector ? Check In",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t33fe71f",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Check In",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f3c42a8e",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l6d8604e",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i62bad9e",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fc178e7e",
+              "name": "C03 Check-In Confirmation",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t3807d4b",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C03",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tdd31f5c",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Check-In Confirmation",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t485babe",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Geofence + network",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f66cbc93",
+              "name": "Connector ? Confirm",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "td79d21a",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Confirm",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f3a0808b",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l70251eb",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i752d8fe",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fa380957",
+              "name": "C04 Active Visit",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "te90782a",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C04",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t1cb878f",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Active Visit",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tc2b5227",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "GPS active",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fe9f77e8",
+          "name": "Voice AI Happy Path",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "f34151ab",
+              "name": "C04 Active Visit",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t96817d2",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C04",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t2d85975",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Active Visit",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t5d0f115",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Outcome / attachments",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f25e6300",
+              "name": "Connector ? Record Voice",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t15e2597",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Record Voice",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "fc980234",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "lb121dc1",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i8e34675",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fcd152f1",
+              "name": "C05 Voice Recorder",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "td941bfa",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C05",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t7c7bf10",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Voice Recorder",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t7fe9f86",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Upload private audio",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f94f284b",
+              "name": "Connector ? Upload",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t8a9c6ac",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Upload",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f0df674a",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l7cd36d2",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "iae24de1",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f8d6b027",
+              "name": "C06 AI Processing",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "te438bba",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C06",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t42d2604",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "AI Processing",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t04625fb",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Async pipeline",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fd86d394",
+              "name": "Connector ? Review Result",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "taf17f74",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Review Result",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f59e2d01",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l65616a8",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "ia96b5fb",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fb675189",
+              "name": "C07 Review & Confirm",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t3ab21ed",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C07",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "ta6fb274",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Review & Confirm",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tc0053aa",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Outcome + products",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fbb08772",
+          "name": "AI Failure / Delay Branch",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fe939d15",
+              "name": "C06 AI Processing",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t8f616ba",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C06",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tc14bfd6",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "AI Processing",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tf37f81a",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Failed or delayed",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fe90cce1",
+              "name": "Connector ? Continue Manually",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t6f11a60",
+                  "name": "CTA Label",
+                  "fill": "$color.warning",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Continue Manually",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f6c3f507",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "le93ee9d",
+                      "name": "Line",
+                      "fill": "$color.warning",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i19bc4cd",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.warning"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f3dedace",
+              "name": "C07 Manual Review",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t6e4ab38",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C07",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t33222fb",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Manual Review",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t46aa5c9",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Enter outcome + products / No Opportunity",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f7b9eae6",
+              "name": "Connector ? Continue",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t549fcdc",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Continue",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "fc4aefd9",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l53deddc",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i3e66b35",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f2df66e6",
+              "name": "C09 Check-Out Confirmation",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "te7b482f",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C09",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tcaa9fb0",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Check-Out Confirmation",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t72eb1d1",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "GPS sync + network",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f041be81",
+          "name": "Visit Completion",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "f708f737",
+              "name": "C07 Review & Confirm",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t1a16693",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C07",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tfb192bb",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Review & Confirm",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t4d32533",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Employee confirmed",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fb0f9023",
+              "name": "Connector ? Continue",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t768f425",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Continue",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f7a3a411",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l30de18f",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "id54d774",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f54d71bd",
+              "name": "C09 Check-Out Confirmation",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t7433c62",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C09",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t3cda06b",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Check-Out Confirmation",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tff353c7",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Final prerequisites",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f343ef87",
+              "name": "Connector ? Complete Visit",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "teb16224",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Complete Visit",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f176b12e",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l7dfb888",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i0bdc303",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fb6e0325",
+              "name": "C10 Completed Summary",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t258a8b1",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C10",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t8ed57f2",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Completed Summary",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tbc288af",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Read-only evidence",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f47247c0",
+              "name": "Connector ? Open Conversation",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tcc9baa2",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Open Conversation",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f9c36aba",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l0295e3b",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "iada1366",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f1032009",
+              "name": "C11 Visit Conversation",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t08725f6",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "C11",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t5ee0db8",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Visit Conversation",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tcfbdeed",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Reply to admin",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t09e725b",
+          "name": "Section Title",
+          "fill": "$color.text",
+          "content": "Sales",
+          "fontFamily": "$font.family",
+          "fontSize": 18,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "f6584215",
+          "name": "Opportunity to Quotation",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fd69b138",
+              "name": "D01 Sales Hub",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t5c9eb96",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "D01",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t4c600b1",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Sales Hub",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t6e8634a",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Pipeline",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f693e01a",
+              "name": "Connector ? Open Opportunities",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "td025b14",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Open Opportunities",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "fe292903",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "laf2214c",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i0d46d68",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f5e15966",
+              "name": "D02 Opportunities List",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t61b2139",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "D02",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t71c66c9",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Opportunities List",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t5bc24a4",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Server lifecycle",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fc9b206d",
+              "name": "Connector ? Open",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tcdb442e",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Open",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "fcf05b28",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l33f331e",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i724b24a",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fb097cd8",
+              "name": "D03 Opportunity Details",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "teb884c2",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "D03",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t5a5617b",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Opportunity Details",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t9f982cc",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Admin review state",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f21240fa",
+              "name": "Connector ? Create Quotation",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t5a01f8c",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Create Quotation",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f4315727",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "lfb7bf43",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "ie1202c4",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f608aed8",
+              "name": "D05 Create / Edit Quotation",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t9548ad6",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "D05",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tee4b868",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Create / Edit Quotation",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "t2a33f4f",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Server pricing",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f9f067d0",
+              "name": "Connector ? Send",
+              "width": 135,
+              "layout": "vertical",
+              "gap": 4,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t4ec2c81",
+                  "name": "CTA Label",
+                  "fill": "$color.primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Send",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "f10eb0fa",
+                  "name": "Connector Line",
+                  "width": "fill_container",
+                  "gap": 2,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "l223eda6",
+                      "name": "Line",
+                      "fill": "$color.primary",
+                      "width": 105,
+                      "height": 2
+                    },
+                    {
+                      "type": "icon",
+                      "id": "i044ad54",
+                      "name": "Arrow",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$color.primary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ff57f103",
+              "name": "D06 Quotation Details",
+              "width": 190,
+              "fill": "$color.surface",
+              "cornerRadius": 12,
+              "stroke": "$color.border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t9db3fd1",
+                  "name": "Screen Code",
+                  "fill": "$color.primary",
+                  "content": "D06",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tcc26ade",
+                  "name": "Screen Title",
+                  "fill": "$color.text",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Quotation Details",
+                  "fontFamily": "$font.family",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "tf4bb26e",
+                  "name": "Screen Note",
+                  "fill": "$color.text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Status timeline",
+                  "fontFamily": "$font.family",
+                  "fontSize": 9,
                   "fontWeight": "normal"
                 }
               ]

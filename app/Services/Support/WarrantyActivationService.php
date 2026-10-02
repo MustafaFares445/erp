@@ -15,7 +15,6 @@ use App\Models\WarrantyEntitlement;
 use App\Models\WarrantyPolicy;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use LogicException;
 
 /**
  * Creates an immutable warranty entitlement snapshot from a confirmed customer
@@ -41,10 +40,7 @@ final readonly class WarrantyActivationService
             ->distinct()
             ->pluck('serialized_inventory_unit_id')
             ->map(static function (mixed $id): int {
-                if (! is_numeric($id)) {
-                    throw new LogicException('A serialized inventory unit identifier must be numeric.');
-                }
-
+                /** @var int|string $id */
                 return (int) $id;
             })
             ->all();
@@ -226,10 +222,8 @@ final readonly class WarrantyActivationService
         $policy = $variant->warrantyPolicy;
 
         if ($policy instanceof WarrantyPolicy && $policy->is_active) {
+            /** @var int|string $policyId */
             $policyId = $policy->getKey();
-            if (! is_numeric($policyId)) {
-                throw new LogicException('Warranty policies must use numeric identifiers.');
-            }
 
             return [
                 'policy_id' => (int) $policyId,

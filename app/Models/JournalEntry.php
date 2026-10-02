@@ -33,7 +33,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * the morph from the other side.
  *
  * @see JournalPostingService
- * @see /specs/018-chart-of-accounts-journals/contracts/journal-posting.md §4
+ * @see /Docs/domains/accounting/BUSINESS_RULES.md §4
  */
 /**
  * @property int $id

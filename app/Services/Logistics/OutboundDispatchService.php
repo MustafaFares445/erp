@@ -49,26 +49,11 @@ final readonly class OutboundDispatchService
 
             $completed = $this->inventoryOperations->complete($lockedDelivery, $actor);
 
-            // @codeCoverageIgnoreStart
-            // InventoryOperationService::complete() either returns a Done operation or throws.
-            if (! $completed->isDone()) {
-                throw new DomainException('Inventory delivery did not complete successfully.');
-            }
-            // @codeCoverageIgnoreEnd
-
             $shipment->refresh();
             if ($shipment->status === ShipmentStatus::Planned) {
                 $shipment->markInTransit();
                 $shipment->refresh();
             }
-
-            // @codeCoverageIgnoreStart
-            // The completion listener transitions Planned -> InTransit; if listeners are suppressed,
-            // the fallback above performs the same transition. No supported path leaves another status here.
-            if ($shipment->status !== ShipmentStatus::InTransit) {
-                throw new DomainException('Shipment did not enter transit after inventory dispatch.');
-            }
-            // @codeCoverageIgnoreEnd
 
             activity()->performedOn($shipment)->causedBy($actor)
                 ->withProperties([

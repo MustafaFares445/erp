@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Gate;
  * make that unindexable; storing them also makes "the number that was approved
  * is the number that is stored" trivially true.
  *
- * @see /specs/017-purchasing-orders-suppliers/data-model.md §2
+ * @see /Docs/domains/purchasing/README.md §2
  */
 final readonly class PurchaseOrderService
 {

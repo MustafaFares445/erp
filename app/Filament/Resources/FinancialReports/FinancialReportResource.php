@@ -44,7 +44,6 @@ final class FinancialReportResource extends Resource
         return $schema->components([]);
     }
 
-    // @codeCoverageIgnoreStart
     // Required by the abstract Resource contract, but ViewFinancialReports is a
     // plain custom Page, so Filament never calls this.
     #[\Override]
@@ -52,8 +51,6 @@ final class FinancialReportResource extends Resource
     {
         return $table;
     }
-
-    // @codeCoverageIgnoreEnd
 
     #[\Override]
     public static function canAccess(): bool

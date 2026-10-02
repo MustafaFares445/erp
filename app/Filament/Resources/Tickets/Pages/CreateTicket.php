@@ -20,15 +20,8 @@ final class CreateTicket extends CreateRecord
     #[\Override]
     protected function handleRecordCreation(array $data): Model
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
-        if (! $actor instanceof User) {
-            abort(403);
-        }
-
-        // @codeCoverageIgnoreEnd
 
         return app(TicketIntakeService::class)->create($data, $actor);
     }

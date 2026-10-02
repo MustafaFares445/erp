@@ -24,7 +24,7 @@ use Filament\Support\Icons\Heroicon;
  * Neither does any work itself — each is a thin adapter over
  * {@see JournalPostingService}, which owns the validation and the transaction.
  *
- * @see /specs/018-chart-of-accounts-journals/contracts/journal-posting.md
+ * @see /Docs/domains/accounting/BUSINESS_RULES.md
  */
 final class JournalEntryActions
 {

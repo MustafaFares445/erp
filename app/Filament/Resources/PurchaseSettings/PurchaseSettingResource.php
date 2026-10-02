@@ -24,7 +24,7 @@ use UnitEnum;
  * threshold could approve their own spending by moving the line rather than by
  * breaking a rule, which would make the separation of duties decorative.
  *
- * @see /specs/017-purchasing-orders-suppliers/data-model.md §5
+ * @see /Docs/domains/purchasing/README.md §5
  */
 final class PurchaseSettingResource extends Resource
 {

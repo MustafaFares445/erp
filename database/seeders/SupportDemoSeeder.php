@@ -267,10 +267,10 @@ final class SupportDemoSeeder extends Seeder
             'description' => 'Every job on the PrograPrint PR5 aborts at roughly 90% completion with no error message. Blocking same-day case delivery.',
             'is_chargeable' => true,
             'amount' => 150.00,
-            'currency' => 'USD',
+            'currency' => 'AED',
         ], $admin);
 
-        $this->triage($ticket, $admin, TicketServicePath::RemoteSupport, 150.00, 'USD');
+        $this->triage($ticket, $admin, TicketServicePath::RemoteSupport, 150.00, 'AED');
 
         app(TicketPaymentService::class)->settle($ticket->paymentLink()->firstOrFail(), 'VISA-DEMO-4471', $admin);
 

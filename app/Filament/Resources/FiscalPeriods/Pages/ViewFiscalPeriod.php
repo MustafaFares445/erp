@@ -37,11 +37,8 @@ final class ViewFiscalPeriod extends ViewRecord
         $rows = app(PeriodCloseChecklistService::class)->statusRows($record);
 
         return response()->streamDownload(function () use ($rows): void {
+            /** @var resource $handle */
             $handle = fopen('php://output', 'wb');
-
-            if ($handle === false) {
-                return;
-            }
 
             fputcsv($handle, ['check', 'mandatory', 'passed', 'measured_at', 'detail'], escape: '\\');
 

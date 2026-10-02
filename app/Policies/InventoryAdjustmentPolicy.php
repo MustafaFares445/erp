@@ -19,7 +19,7 @@ use App\Policies\Concerns\ChecksInventoryPermissions;
  * prepare drafts may lack the ability to apply them, even for their own
  * draft. Hard delete is never permitted (FR-018).
  *
- * @see /specs/003-stock-adjustments/contracts/authorization.md
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md
  */
 final class InventoryAdjustmentPolicy
 {

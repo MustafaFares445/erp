@@ -483,30 +483,10 @@ final readonly class InventoryCorrectionService
             };
 
             $results = $this->inventoryPostingService->postMany($commands);
-
-            /** @var array<int, list<InventoryPostingResult>> $postingsByLineId */
-            $postingsByLineId = [];
-
-            foreach ($results as $posting) {
-                $movement = $posting->movement;
-
-                if (
-                    $movement->source_line_type !== 'inventory_correction_line'
-                    || ! is_int($movement->source_line_id)
-                ) {
-                    throw new DomainException('Every correction posting must retain correction-line provenance.');
-                }
-
-                $postingsByLineId[$movement->source_line_id][] = $posting;
-            }
+            $postingsByLineId = $this->indexCorrectionPostings($results);
 
             foreach ($lines as $line) {
-                $lineId = $line->getKey();
-                $postings = is_int($lineId) ? ($postingsByLineId[$lineId] ?? []) : [];
-
-                if ($postings === []) {
-                    throw new DomainException('Every correction line must receive one compensating movement.');
-                }
+                $postings = $this->postingsForCorrectionLine($postingsByLineId, $line);
 
                 // A transfer correction with a redirected destination produces two movements per
                 // line (one reversing the wrong warehouse, one establishing the right one); the
@@ -549,6 +529,48 @@ final readonly class InventoryCorrectionService
 
             return $locked->refresh();
         }, attempts: 5);
+    }
+
+    /**
+     * @param  list<InventoryPostingResult>  $results
+     * @return array<int, list<InventoryPostingResult>>
+     */
+    private function indexCorrectionPostings(array $results): array
+    {
+        $postingsByLineId = [];
+
+        foreach ($results as $posting) {
+            $movement = $posting->movement;
+
+            if (
+                $movement->source_line_type !== 'inventory_correction_line'
+                || ! is_int($movement->source_line_id)
+            ) {
+                throw new DomainException('Every correction posting must retain correction-line provenance.');
+            }
+
+            $postingsByLineId[$movement->source_line_id][] = $posting;
+        }
+
+        return $postingsByLineId;
+    }
+
+    /**
+     * @param  array<int, list<InventoryPostingResult>>  $postingsByLineId
+     * @return list<InventoryPostingResult>
+     */
+    private function postingsForCorrectionLine(
+        array $postingsByLineId,
+        InventoryCorrectionLine $line,
+    ): array {
+        $lineId = $line->getKey();
+        $postings = is_int($lineId) ? ($postingsByLineId[$lineId] ?? []) : [];
+
+        if ($postings === []) {
+            throw new DomainException('Every correction line must receive one compensating movement.');
+        }
+
+        return $postings;
     }
 
     public function cancel(

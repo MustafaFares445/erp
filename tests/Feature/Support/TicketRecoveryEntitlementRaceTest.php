@@ -36,6 +36,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    $this->paymentMethod = configurePaymentAccounting();
 });
 
 function raceTestManager(): User

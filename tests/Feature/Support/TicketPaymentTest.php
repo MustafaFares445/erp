@@ -36,6 +36,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    $this->paymentMethod = configurePaymentAccounting();
 });
 
 function makePaymentSupportManager(): User
@@ -47,7 +48,7 @@ function makePaymentSupportManager(): User
 }
 
 /** @return array<string, mixed> */
-function chargeableTriageData(float $amount = 150.50, string $currency = 'USD'): array
+function chargeableTriageData(float $amount = 150.50, string $currency = 'AED'): array
 {
     return [
         'equipment_source' => TicketEquipmentSource::External->value,
@@ -74,7 +75,7 @@ it('creates the pending payment link during triage rather than during intake', f
     expect($ticket->status)->toBe(TicketStatus::Pending)
         ->and($ticket->paymentLink()->exists())->toBeFalse();
 
-    app(TicketTriageService::class)->triage($ticket, chargeableTriageData(150.50, 'USD'), $manager);
+    app(TicketTriageService::class)->triage($ticket, chargeableTriageData(150.50, 'AED'), $manager);
     $ticket->refresh();
     $link = $ticket->paymentLink;
 
@@ -82,7 +83,7 @@ it('creates the pending payment link during triage rather than during intake', f
         ->and($ticket->pending_reason)->not->toBeNull()
         ->and($link)->not->toBeNull()
         ->and((float) $link->amount)->toBe(150.50)
-        ->and($link->currency)->toBe('USD')
+        ->and($link->currency)->toBe('AED')
         ->and($link->status)->toBe(PaymentLinkStatus::Pending)
         ->and($ticket->live_at)->toBeNull();
 });
@@ -230,15 +231,17 @@ it('rejects settling a ticket that was cancelled between page-load and submit, k
         ->and($link->refresh()->status)->toBe(PaymentLinkStatus::Cancelled);
 });
 
-it('produces zero rows in any accounting-adjacent table', function (): void {
+it('posts only the collection deposit at settlement and defers tax until invoice application', function (): void {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->chargeable()->create();
     $link = TicketPaymentLink::factory()->for($ticket)->create();
 
     app(TicketPaymentService::class)->settle($link, 'REF-999', $admin);
 
-    expect(DB::table('journal_entries')->count())->toBe(0)
-        ->and(DB::table('journal_entry_lines')->count())->toBe(0);
+    expect(DB::table('payments')->count())->toBe(1)
+        ->and(DB::table('journal_entries')->count())->toBe(1)
+        ->and(DB::table('journal_entry_lines')->count())->toBe(2)
+        ->and(DB::table('tax_recognition_entries')->count())->toBe(0);
 
     foreach (['tax_definitions', 'accounts_receivable', 'accounts_payable', 'bills', 'expenses'] as $table) {
         if (Schema::hasTable($table)) {

@@ -18,7 +18,7 @@ use Spatie\LaravelData\Data;
  * user input (FR-004/FR-007) — derived/finalized only by
  * {@see InventoryAdjustmentService::confirm()}.
  *
- * @see /specs/003-stock-adjustments/contracts/adjustment-resource.md
+ * @see /Docs/domains/inventory/BUSINESS_RULES.md
  */
 final class AdjustmentData extends Data
 {

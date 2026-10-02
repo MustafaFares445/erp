@@ -44,6 +44,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    $this->paymentMethod = configurePaymentAccounting();
 });
 
 function makeReportSupportManager(): User
@@ -177,7 +178,7 @@ it('produces a retrievable audit entry with actor, timestamp, and changed values
         'description' => 'Description',
         'is_chargeable' => true,
         'amount' => 50,
-        'currency' => 'USD',
+        'currency' => 'AED',
     ], $admin); // ticket creation
 
     app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Cancelled, $manager); // ticket transition (and closure-shaped event)

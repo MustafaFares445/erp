@@ -24,7 +24,7 @@ beforeEach(function (): void {
 });
 
 /**
- * Builds a completed delivery, with its own order and order line, ready to be consolidated.
+ * Builds a completed delivery and order line. Pass an order to model several deliveries from the same sale.
  *
  * @return array{delivery: InventoryOperation, order: Order, orderLine: OrderLine}
  */
@@ -34,8 +34,9 @@ function consolidatableDelivery(
     float $quantity,
     float $unitPrice,
     float $taxAmount = 0.0,
+    ?Order $order = null,
 ): array {
-    $order = Order::factory()->create(['customer_id' => $customer->getKey()]);
+    $order ??= Order::factory()->create(['customer_id' => $customer->getKey()]);
 
     $orderLine = OrderLine::factory()->create([
         'order_id' => $order->getKey(),
@@ -63,13 +64,14 @@ function consolidatableDelivery(
     return ['delivery' => $delivery->fresh(), 'order' => $order, 'orderLine' => $orderLine->fresh()];
 }
 
-it('consolidates three deliveries for one customer into one invoice with aggregated lines and three links', function (): void {
+it('consolidates several completed deliveries from the same order into one invoice', function (): void {
     $customer = CustomerProfile::factory()->create();
     $variant = ProductVariant::factory()->create();
+    $order = Order::factory()->create(['customer_id' => $customer->getKey()]);
 
-    $first = consolidatableDelivery($customer, $variant, 2.0, 10.0, 1.00);
-    $second = consolidatableDelivery($customer, $variant, 3.0, 10.0, 1.50);
-    $third = consolidatableDelivery($customer, $variant, 1.0, 10.0, 0.50);
+    $first = consolidatableDelivery($customer, $variant, 2.0, 10.0, 1.00, $order);
+    $second = consolidatableDelivery($customer, $variant, 3.0, 10.0, 1.50, $order);
+    $third = consolidatableDelivery($customer, $variant, 1.0, 10.0, 0.50, $order);
 
     $invoice = app(InvoiceService::class)->createFromDeliveries($this->actor, collect([
         $first['delivery'], $second['delivery'], $third['delivery'],
@@ -185,36 +187,18 @@ it('allows exactly one of two simultaneous consolidations sharing a delivery to 
         ->and(Invoice::query()->sole()->getKey())->toBe($competitorInvoice->getKey());
 });
 
-it('produces consolidated totals equal to the sum of three individually invoiced equivalents', function (): void {
+it('rejects cross-order consolidated invoicing even when the customer is the same', function (): void {
     $customer = CustomerProfile::factory()->create();
     $variantA = ProductVariant::factory()->create();
     $variantB = ProductVariant::factory()->create();
-    $variantC = ProductVariant::factory()->create();
 
-    // One set invoiced individually, one line item apiece.
-    $individualA = consolidatableDelivery($customer, $variantA, 2.0, 15.0, 1.20);
-    $individualB = consolidatableDelivery($customer, $variantB, 1.5, 20.0, 2.10);
-    $individualC = consolidatableDelivery($customer, $variantC, 4.0, 5.0, 0.80);
+    $first = consolidatableDelivery($customer, $variantA, 2.0, 15.0, 1.20);
+    $second = consolidatableDelivery($customer, $variantB, 1.5, 20.0, 2.10);
 
-    $invoiceA = app(InvoiceService::class)->createFromDelivery($this->actor, $individualA['delivery']);
-    $invoiceB = app(InvoiceService::class)->createFromDelivery($this->actor, $individualB['delivery']);
-    $invoiceC = app(InvoiceService::class)->createFromDelivery($this->actor, $individualC['delivery']);
+    expect(fn () => app(InvoiceService::class)->createFromDeliveries($this->actor, collect([
+        $first['delivery'], $second['delivery'],
+    ])))->toThrow(DomainException::class, 'Cross-order consolidated invoicing is not supported.');
 
-    $expectedSubtotal = round((float) $invoiceA->subtotal + (float) $invoiceB->subtotal + (float) $invoiceC->subtotal, 2);
-    $expectedTax = round((float) $invoiceA->tax_total + (float) $invoiceB->tax_total + (float) $invoiceC->tax_total, 2);
-    $expectedTotal = round((float) $invoiceA->total_amount + (float) $invoiceB->total_amount + (float) $invoiceC->total_amount, 2);
-
-    // An equivalent, independent set of deliveries consolidated onto a single invoice.
-    $consolidatedA = consolidatableDelivery($customer, $variantA, 2.0, 15.0, 1.20);
-    $consolidatedB = consolidatableDelivery($customer, $variantB, 1.5, 20.0, 2.10);
-    $consolidatedC = consolidatableDelivery($customer, $variantC, 4.0, 5.0, 0.80);
-
-    $consolidatedInvoice = app(InvoiceService::class)->createFromDeliveries($this->actor, collect([
-        $consolidatedA['delivery'], $consolidatedB['delivery'], $consolidatedC['delivery'],
-    ]));
-
-    expect((float) $consolidatedInvoice->subtotal)->toBe($expectedSubtotal)
-        ->and((float) $consolidatedInvoice->tax_total)->toBe($expectedTax)
-        ->and((float) $consolidatedInvoice->total_amount)->toBe($expectedTotal)
-        ->and($consolidatedInvoice->lines)->toHaveCount(3);
+    expect(Invoice::query()->count())->toBe(0)
+        ->and(InvoiceDeliveryLink::query()->count())->toBe(0);
 });

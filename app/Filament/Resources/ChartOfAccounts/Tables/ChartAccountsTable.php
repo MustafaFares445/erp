@@ -90,11 +90,8 @@ final class ChartAccountsTable
                     // posted history is refused with an explanation rather than a
                     // foreign-key error (FR-010, FR-011).
                     ->using(function (ChartAccount $record): bool {
+                        /** @var User $actor */
                         $actor = self::accountingActor();
-
-                        if (! $actor instanceof User) {
-                            return false;
-                        }
 
                         self::runAccountingOperation(
                             fn () => app(ChartOfAccountService::class)->delete($actor, $record),

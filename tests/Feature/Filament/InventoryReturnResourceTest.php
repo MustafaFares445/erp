@@ -144,7 +144,7 @@ it('shows create credit note only when a posted customer return has invoice evid
     // Both actors are given the Reviewer role before their permissions:
     // `User::factory()->admin()` defaults to an admin user type, and an admin
     // holding no fixed dashboard role keeps the blanket admin-bypass
-    // (specs/019-sales-lifecycle-payments-credits/contracts/permissions.md
+    // (Docs/product/ROLES_AND_PERMISSIONS.md
     // §4), which would make `CreditNoteResource::canCreate()` return true for
     // both regardless of the sales permission under test. Reviewer carries
     // CreditNoteView but not CreditNoteManage, so it narrows each actor down

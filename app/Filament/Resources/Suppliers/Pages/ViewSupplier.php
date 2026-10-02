@@ -21,21 +21,17 @@ final class ViewSupplier extends ViewRecord
     #[\Override]
     public function getTitle(): string
     {
+        /** @var Supplier $record */
         $record = $this->getRecord();
 
-        return $record instanceof Supplier
-            ? $record->name
-            : 'Supplier';
+        return $record->name;
     }
 
     #[\Override]
-    public function getSubheading(): ?string
+    public function getSubheading(): string
     {
+        /** @var Supplier $record */
         $record = $this->getRecord();
-
-        if (! $record instanceof Supplier) {
-            return null;
-        }
 
         return sprintf(
             '%s · %s · Confirmation %s',

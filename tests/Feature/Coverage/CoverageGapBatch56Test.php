@@ -198,3 +198,33 @@ it('marks fully received procurement demand fulfilled without requeueing it', fu
         ->and($requirement->refresh()->status)->toBe('fulfilled')
         ->and((float) $requirement->fulfilled_base_quantity)->toBe(5.0);
 });
+
+it('requeues the remaining procurement quantity when the linked purchase order line is gone', function (): void {
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $orderLine = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
+        'quantity' => 5,
+        'unit_id' => $variant->unit_id,
+    ]);
+    $purchaseOrder = PurchaseOrder::factory()->create();
+
+    $requirement = $order->procurementRequirements()->create([
+        'order_line_id' => $orderLine->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'purchase_order_id' => $purchaseOrder->getKey(),
+        'purchase_order_line_id' => null,
+        'required_base_quantity' => '5.000000',
+        'fulfilled_base_quantity' => '2.000000',
+        'status' => 'purchasing',
+    ]);
+
+    $requeued = app(SalesProcurementRequirementService::class)->requeueFromPurchaseOrder(
+        $purchaseOrder,
+        'Supplier line removed',
+    );
+
+    expect($requirement->refresh()->status)->toBe('superseded')
+        ->and((float) $requirement->fulfilled_base_quantity)->toBe(2.0)
+        ->and($requeued)->toHaveCount(1)
+        ->and((float) $requeued->first()->required_base_quantity)->toBe(3.0);
+});

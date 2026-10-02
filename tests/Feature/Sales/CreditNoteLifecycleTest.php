@@ -423,6 +423,33 @@ it('caps multiple confirmed credit notes at the remaining returned quantity', fu
     ))->toThrow(CreditExceedsReturn::class);
 });
 
+it('rechecks returned quantity at confirmation time when another credit consumed it first', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer, 100.0);
+    $invoiceLine->forceFill(['product_variant_id' => $variant->getKey()])->saveQuietly();
+    [$return, $returnLine] = postedCustomerReturnLine($customer, $variant, '1.000000');
+
+    $notes = collect([1, 2])->map(function (int $sequence) use ($actor, $customer, $invoice, $invoiceLine, $return, $returnLine): CreditNote {
+        $note = CreditNote::factory()->create([
+            'invoice_id' => $invoice->getKey(),
+            'inventory_return_id' => $return->getKey(),
+            'customer_id' => $customer->getKey(),
+            'reason_category' => CreditNoteReason::SalesReturn,
+            'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+        ]);
+        app(CreditNoteService::class)->addLine($actor, $note, 'Race credit '.$sequence, 1.0, 50.0, 0.0, $invoiceLine, $returnLine);
+
+        return $note;
+    });
+
+    app(CreditNoteService::class)->confirm($actor, $notes->first());
+
+    expect(fn () => app(CreditNoteService::class)->confirm($actor, $notes->last()))
+        ->toThrow(CreditExceedsReturn::class);
+});
+
 it('requires explicit stock consequence for a sales-return credit', function (): void {
     $actor = creditNoteActor();
     $customer = CustomerProfile::factory()->create();

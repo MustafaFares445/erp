@@ -201,11 +201,8 @@ final readonly class CustomerReturnRequestService
             );
 
             foreach ($lines as $line) {
+                /** @var InventoryOperationLine $deliveryLine */
                 $deliveryLine = $line->originalOperationLine;
-
-                if (! $deliveryLine instanceof InventoryOperationLine) {
-                    throw new InvalidCustomerReturnRequestTransition('A return request line no longer references a valid delivery line.');
-                }
 
                 $this->inventoryReturnService->addCustomerLine(
                     $inventoryReturn,

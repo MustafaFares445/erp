@@ -33,7 +33,7 @@ use UnitEnum;
  * tests/Unit/ArchTest.php, must never reference the read/write-model ledger
  * classes directly.
  *
- * @see /specs/003-stock-adjustments/contracts/adjustment-resource.md
+ * @see /Docs/domains/inventory/BUSINESS_RULES.md
  */
 final class AdjustmentResource extends Resource
 {

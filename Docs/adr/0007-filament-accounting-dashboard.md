@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/018-chart-of-accounts-journals/spec.md`, `Docs/PRD.md`, `Docs/SDD.md`, `Docs/database/ERD.md`, `Docs/IMPLEMENTATION_PLAN.md` §6, ADR 0001 (Inventory), ADR 0002 (CRM), ADR 0003 (Employees), ADR 0004 (Support), ADR 0006 (Purchasing), and the IERP Constitution Product Scope & Boundaries section
+**Related**: `Docs/domains/accounting/README.md`, `Docs/product/PRODUCT_OVERVIEW.md`, `Docs/architecture/SYSTEM_OVERVIEW.md`, `Docs/architecture/DATA_ARCHITECTURE.md`, historical global implementation plan (removed; Git history) §6, ADR 0001 (Inventory), ADR 0002 (CRM), ADR 0003 (Employees), ADR 0004 (Support), ADR 0006 (Purchasing), and the IERP Constitution Product Scope & Boundaries section
 
 ## Context
 
@@ -41,12 +41,12 @@ built. This ADR authorises building it.
 ### What the documentation asks for
 
 The documented requirement is unusually thin but unusually precise about the
-one thing that matters. `Docs/SDD.md` describes Chart of Accounts as
+one thing that matters. `Docs/architecture/SYSTEM_OVERVIEW.md` describes Chart of Accounts as
 "Maintain account hierarchy, account types, and posting targets" and Journal
 Entries as "Record accounting postings produced manually or by invoices,
 payments, credit notes, and tax recognition" — both with the generic
 boilerplate acceptance criteria the SDD applies to every feature.
-`Docs/IMPLEMENTATION_PLAN.md` §6 is the load-bearing source. It names four
+historical global implementation plan (removed; Git history) §6 is the load-bearing source. It names four
 tasks — COA CRUD, journal entry CRUD/confirmation, balance validation, and a
 "posting service interface for invoices, payments, tax, credit notes" — and
 exactly one acceptance criterion:
@@ -94,7 +94,7 @@ matter more than anything else in this module:
 
 Both are enforced in this decision at the service layer and again at the model
 layer, following the defense-in-depth precedent `MaintenanceRecord` and
-`MaintenanceTask` set in spec 016.
+`MaintenanceTask` set in historical Spec Kit 016.
 
 ### Alternatives considered
 
@@ -153,7 +153,7 @@ manual postings.
   exactly one of debit or credit, and an entry must have at least two lines.
 - **A posting service** (`App\Services\Accounting\JournalPostingService`)
   exposing `post()` and `reverse()` against the ERD's `source_type`/`source_id`
-  morph. This is the interface `Docs/IMPLEMENTATION_PLAN.md` §6 names for
+  morph. This is the interface historical global implementation plan (removed; Git history) §6 names for
   invoices, payments, tax recognition, and credit notes to call once those
   documents exist. This ADR authorises the interface and its manual caller
   only; it authorises **no** automatic posting, because none of those documents

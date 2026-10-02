@@ -15,7 +15,7 @@ use Database\Seeders\SupportPermissionSeeder;
  * `fixedRoleNames()` method of its own — only {@see DashboardRole::fixedRoleNames()}
  * is ever consulted for the cross-module admin-bypass check.
  *
- * @see /specs/016-support-maintenance-dashboard/contracts/permissions.md
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md
  */
 enum SupportPermission: string
 {

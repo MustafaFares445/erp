@@ -53,10 +53,8 @@ final class CampaignForm
                         ->orderBy('key')
                         ->get()
                         ->mapWithKeys(static function (NotificationTemplate $record): array {
+                            /** @var int $key */
                             $key = $record->getKey();
-                            if (! is_int($key) && ! is_string($key)) {
-                                return [];
-                            }
 
                             return [$key => self::templateLabel($record)];
                         })

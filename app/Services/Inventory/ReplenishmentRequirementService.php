@@ -56,17 +56,7 @@ final readonly class ReplenishmentRequirementService
                     return null;
                 }
 
-                $required = round(max(0.0, $maximum - $projectedStock), 6);
-
-                if ($required <= 0) {
-                    // @codeCoverageIgnoreStart
-                    // Defensive: this branch is only reached when $projectedStock <= $minimum
-                    // (the `> $minimum` case returns above), and the model enforces
-                    // max_quantity > min_quantity, so $maximum - $projectedStock is always
-                    // strictly positive here. Guards against that invariant changing later.
-                    return null;
-                    // @codeCoverageIgnoreEnd
-                }
+                $required = round($maximum - $projectedStock, 6);
 
                 return ReplenishmentRequirement::query()->create([
                     'warehouse_replenishment_policy_id' => $lockedPolicy->getKey(),

@@ -39,7 +39,7 @@ use Illuminate\Support\Facades\Gate;
  * Every transition locks the order row first, so two concurrent approvals
  * cannot both succeed — the second finds a status the matrix will not move from.
  *
- * @see /specs/017-purchasing-orders-suppliers/data-model.md §8
+ * @see /Docs/domains/purchasing/README.md §8
  */
 final readonly class PurchaseOrderApprovalService
 {

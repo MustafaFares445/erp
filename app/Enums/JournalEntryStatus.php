@@ -17,7 +17,7 @@ use App\Services\Accounting\JournalPostingService;
  * {@see JournalEntry::reversal()}, never by a status column.
  *
  * @see JournalPostingService
- * @see /specs/018-chart-of-accounts-journals/contracts/journal-posting.md
+ * @see /Docs/domains/accounting/BUSINESS_RULES.md
  */
 enum JournalEntryStatus: string
 {

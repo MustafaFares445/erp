@@ -25,7 +25,7 @@ use App\Services\Purchasing\PurchaseOrderApprovalService;
  * definition a receipt has already completed against it, so the short-close
  * path is the only way out.
  *
- * @see /specs/017-purchasing-orders-suppliers/data-model.md §8
+ * @see /Docs/domains/purchasing/README.md §8
  */
 enum PurchaseOrderStatus: string
 {

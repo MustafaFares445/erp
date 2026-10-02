@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Models\Quotation;
@@ -22,11 +23,13 @@ it('resolves the same actor on every call', function (): void {
         ->and(User::query()->where('email', 'system-integration@ierp.internal')->count())->toBe(1);
 });
 
-it('grants only the three narrow abilities the system actor needs', function (): void {
+it('grants only the narrow source-backed abilities the system actor needs', function (): void {
     $actor = app(SystemActorResolver::class)->resolve();
 
     expect($actor->hasRole(DashboardRole::SystemIntegration->value))->toBeTrue()
         ->and(Gate::forUser($actor)->allows('post', new Payment))->toBeTrue()
+        ->and(Gate::forUser($actor)->allows('create', Invoice::class))->toBeTrue()
+        ->and(Gate::forUser($actor)->allows('issue', new Invoice))->toBeTrue()
         ->and(Gate::forUser($actor)->allows('createFromSource', JournalEntry::class))->toBeTrue()
         ->and(Gate::forUser($actor)->allows('settlePayment', Ticket::class))->toBeTrue();
 });

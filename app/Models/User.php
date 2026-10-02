@@ -62,7 +62,7 @@ final class User extends Authenticatable implements FilamentUser
     /**
      * Resolves the staff record behind a dashboard user holding a
      * Support/Employees role, so an assignee-ownership check (e.g. "is this
-     * ticket assigned to me?", contracts/ticket-lifecycle.md, spec 016) can
+     * ticket assigned to me?", contracts/ticket-lifecycle.md, historical Spec Kit 016) can
      * compare `EmployeeProfile::getKey()` against `tickets.assigned_employee_id`
      * without assuming every dashboard user has one.
      *

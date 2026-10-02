@@ -280,22 +280,6 @@ final readonly class ServiceRecordPartService
             }
         }
 
-        // @codeCoverageIgnoreStart
-        // No ProductType tracks both batches and serials at once (tracksSerials()
-        // is true only for Machine, tracksBatches() is true for every other case),
-        // so $lot and $unit can never both be non-null from the checks above.
-        if (
-            $lot instanceof InventoryLot
-            && $unit instanceof SerializedInventoryUnit
-            && $unit->inventory_lot_id !== $lot->getKey()
-        ) {
-            throw ValidationException::withMessages([
-                'serialized_inventory_unit_id' => 'The serialized unit does not belong to the selected lot identity.',
-            ]);
-        }
-
-        // @codeCoverageIgnoreEnd
-
         return [$lot, $unit];
     }
 

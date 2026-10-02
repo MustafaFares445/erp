@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\DB;
  * a grouped row is not a `PurchaseOrderLine`, and hydrating one would invite
  * code to treat a sum as a model.
  *
- * @see /specs/017-purchasing-orders-suppliers/spec.md User Story 7
+ * @see /Docs/domains/purchasing/README.md User Story 7
  */
 final readonly class PurchasingReportService
 {
@@ -113,11 +113,8 @@ final readonly class PurchasingReportService
         $bySupplier = [];
 
         foreach ($confirmations as $confirmation) {
+            /** @var PurchaseOrder $order */
             $order = $purchaseOrders->get($confirmation->purchase_order_id);
-
-            if (! $order instanceof PurchaseOrder) {
-                continue;
-            }
 
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
 
@@ -125,17 +122,9 @@ final readonly class PurchasingReportService
                 continue;
             }
 
+            /** @var Supplier $supplier */
             $supplier = $suppliers->get($confirmation->supplier_id);
-
-            if (! $supplier instanceof Supplier) {
-                continue;
-            }
-
             $promisedAt = $confirmation->promised_at;
-
-            if ($promisedAt === null) {
-                continue;
-            }
 
             $supplierId = $confirmation->supplier_id;
 

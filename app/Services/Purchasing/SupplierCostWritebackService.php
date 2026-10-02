@@ -29,7 +29,7 @@ use App\Models\SupplierProductReference;
  * ADR 0005's log already captures old and new attribute values, so the table
  * would be schema without a reader.
  *
- * @see /specs/017-purchasing-orders-suppliers/research.md R-009
+ * @see /Docs/domains/purchasing/WORKFLOWS.md R-009
  */
 final readonly class SupplierCostWritebackService
 {

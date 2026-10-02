@@ -13,6 +13,7 @@ use App\Enums\WarrantyStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
 use App\Models\MaintenanceRecord;
+use App\Models\PaymentMethod;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Ticket;
 use App\Models\User;
@@ -26,6 +27,7 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -119,11 +121,26 @@ final class TicketsTable
                         ->icon(Heroicon::OutlinedBanknotes)
                         ->authorize('settlePayment')
                         ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::PendingPayment && $record->paymentLink?->status === PaymentLinkStatus::Pending)
-                        ->schema([TextInput::make('payment_method_reference')->label(__('Payment reference'))->required()->maxLength(255)])
+                        ->schema([
+                            Select::make('payment_method_id')
+                                ->label(__('Payment method'))
+                                ->options(fn (): array => PaymentMethod::query()
+                                    ->where('is_active', true)
+                                    ->where('requires_proof', false)
+                                    ->whereNotNull('chart_account_id')
+                                    ->where('type', '!=', 'stripe')
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->required(),
+                            TextInput::make('payment_method_reference')->label(__('Payment reference'))->required()->maxLength(255),
+                        ])
                         ->action(static function (Ticket $record, array $data): void {
                             $reference = $data['payment_method_reference'] ?? null;
-                            if (is_string($reference) && $reference !== '') {
-                                self::applySettlement($record, $reference);
+                            $paymentMethodId = $data['payment_method_id'] ?? null;
+                            if (is_string($reference) && $reference !== '' && is_numeric($paymentMethodId)) {
+                                self::applySettlement($record, $reference, (int) $paymentMethodId);
                             }
                         }),
                     self::transitionAction('startProgress', 'Start work', TicketStatus::InProgress)
@@ -274,7 +291,7 @@ final class TicketsTable
         }
     }
 
-    private static function applySettlement(Ticket $record, string $methodReference): void
+    private static function applySettlement(Ticket $record, string $methodReference, int $paymentMethodId): void
     {
         $link = $record->paymentLink;
 
@@ -285,7 +302,7 @@ final class TicketsTable
         }
 
         try {
-            app(TicketPaymentService::class)->settle($link, $methodReference, self::currentActor());
+            app(TicketPaymentService::class)->settle($link, $methodReference, self::currentActor(), $paymentMethodId);
         } catch (DomainException $domainException) {
             Notification::make()->danger()->title(__('Unable to settle payment'))->body($domainException->getMessage())->send();
         }

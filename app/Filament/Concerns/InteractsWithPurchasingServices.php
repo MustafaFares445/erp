@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
  * notification. It performs no writes and enforces no rules itself: the service
  * it wraps owns its transaction, so a throw leaves no partial state.
  *
- * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md R-G
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md R-G
  */
 trait InteractsWithPurchasingServices
 {

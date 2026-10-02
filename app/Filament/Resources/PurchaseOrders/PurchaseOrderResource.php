@@ -34,7 +34,7 @@ use UnitEnum;
  * so an operator who guesses the URL is refused by the same rule that hides the
  * button (R-C).
  *
- * @see /specs/017-purchasing-orders-suppliers/spec.md User Story 2
+ * @see /Docs/domains/purchasing/README.md User Story 2
  */
 final class PurchaseOrderResource extends Resource
 {

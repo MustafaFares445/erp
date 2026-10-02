@@ -26,7 +26,7 @@ use App\Services\Accounting\JournalPostingService;
  * {@see JournalPostingService::draft()} and
  * {@see JournalPostingService::post()} authorize
  * `create`/`post` when the entry carries no `source`, and
- * `createFromSource`/`postFromSource` when it does (spec 019, ADR 0008). This
+ * `createFromSource`/`postFromSource` when it does (historical Spec Kit 019, ADR 0008). This
  * is what lets a Sales role hold `accounting.journal-entry.post-from-source`
  * — enough to let their own document post — without also holding
  * `JournalEntryManage`, which would unlock this page's free-form "New Journal

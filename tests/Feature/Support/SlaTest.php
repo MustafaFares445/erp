@@ -30,6 +30,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    $this->paymentMethod = configurePaymentAccounting();
 });
 
 function makeSlaSupportManager(): User
@@ -355,4 +356,15 @@ it('reports a stored breach flag as breached without consulting the clock', func
 
     expect($onTime->isResponseBreached())->toBeFalse()
         ->and($onTime->isResolutionBreached())->toBeFalse();
+});
+
+it('keeps an already-started response SLA unchanged when intake is replayed', function (): void {
+    $dueAt = now()->startOfSecond()->addHour();
+    $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create([
+        'response_due_at' => $dueAt,
+    ]);
+
+    app(SlaService::class)->onTicketCreated($ticket);
+
+    expect($ticket->refresh()->response_due_at?->equalTo($dueAt))->toBeTrue();
 });

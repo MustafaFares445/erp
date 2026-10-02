@@ -329,3 +329,19 @@ it('renders legacy damage movements without a condition-change document as read-
 
     expect($isLegacy)->toBeTrue();
 });
+
+it('rejects disposal when the selected authoriser no longer exists', function (): void {
+    $actor = conditionChangeActor();
+    [$stock, $lot] = damageableStock();
+
+    expect(fn (): InventoryConditionChange => app(InventoryConditionChangeService::class)->draftDisposal(new DisposalDraftData(
+        productVariantId: (int) $stock->product_variant_id,
+        warehouseId: (int) $stock->warehouse_id,
+        inventoryLotId: $lot->getKey(),
+        serializedInventoryUnitId: null,
+        baseQuantity: '1.000000',
+        reasonCategory: ConditionChangeReason::Other,
+        reason: 'Beyond repair',
+        authorisedBy: 999_999_999,
+    ), $actor))->toThrow(DomainException::class, __('admin.inventory.damage.errors.disposal_authoriser_required'));
+});

@@ -14,7 +14,7 @@ use Database\Seeders\EmployeePermissionSeeder;
  * and by {@see ChecksEmployeePermissions} so the dashboard and
  * any other access channel share identical permission names.
  *
- * @see /specs/015-employees-plans-visits-dashboard/contracts/permissions.md
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md
  */
 enum EmployeePermission: string
 {

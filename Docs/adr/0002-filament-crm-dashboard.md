@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/013-crm-customers-subscriptions/spec.md`, `Docs/PRD.md`, `Docs/SDD.md`, and the IERP Constitution Product Scope & Boundaries section
+**Related**: `Docs/domains/crm/README.md`, `Docs/product/PRODUCT_OVERVIEW.md`, `Docs/architecture/SYSTEM_OVERVIEW.md`, and the IERP Constitution Product Scope & Boundaries section
 
 ## Context
 

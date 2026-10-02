@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * save: a draft is allowed to be incomplete, which is what makes it a draft
  * (research.md R-012).
  *
- * @see /specs/018-chart-of-accounts-journals/data-model.md §6
+ * @see /Docs/architecture/DATA_ARCHITECTURE.md §6
  */
 /**
  * @property int $id

@@ -24,7 +24,7 @@ use Illuminate\Foundation\Events\Dispatchable;
  * the two permanently divergent. A listener that throws rolls the completion
  * back with it.
  *
- * @see /specs/017-purchasing-orders-suppliers/research.md R-002
+ * @see /Docs/domains/purchasing/WORKFLOWS.md R-002
  */
 final class InventoryOperationCompleted
 {

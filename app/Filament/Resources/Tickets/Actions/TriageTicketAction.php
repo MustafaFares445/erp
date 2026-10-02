@@ -117,7 +117,7 @@ final class TriageTicketAction
                                     ->minValue(0.01)
                                     ->required(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required'))
                                     ->visible(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required')),
-                                CurrencySelect::make('diagnostic_fee_currency')
+                                CurrencySelect::makeBase('diagnostic_fee_currency')
                                     ->label(__('Currency'))
                                     ->required(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required'))
                                     ->visible(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required')),
@@ -242,11 +242,8 @@ final class TriageTicketAction
 
     private static function currentActor(): User
     {
+        /** @var User $actor */
         $actor = auth()->user();
-
-        if (! $actor instanceof User) {
-            throw new LogicException('An authenticated User is required.');
-        }
 
         return $actor;
     }

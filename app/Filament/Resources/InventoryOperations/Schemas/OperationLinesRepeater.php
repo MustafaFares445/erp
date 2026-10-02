@@ -185,23 +185,10 @@ final class OperationLinesRepeater
                             'status' => SerializedInventoryUnitStatus::Pending,
                         ]);
 
+                        /** @var int $unitId */
                         $unitId = $unit->getKey();
 
-                        if (is_int($unitId)) {
-                            return $unitId;
-                        }
-
-                        // @codeCoverageIgnoreStart
-                        // Unreachable in practice: SerializedInventoryUnit's primary key is an
-                        // auto-incrementing integer column, so getKey() is always an int here.
-                        // The guard exists only to satisfy static analysis, which types
-                        // getKey() as int|string.
-                        if (! is_string($unitId) || ! ctype_digit($unitId)) {
-                            throw new \LogicException('A newly registered serialized unit must have a numeric ID.');
-                        }
-
-                        return (int) $unitId;
-                        // @codeCoverageIgnoreEnd
+                        return $unitId;
                     })
                     ->createOptionAction(fn (Action $action, Get $get): Action => $action->visible(self::isReceipt($get))),
                 Select::make('package_id')
@@ -312,22 +299,10 @@ final class OperationLinesRepeater
         return $query->orderBy('name')
             ->get(['id', 'name'])
             ->mapWithKeys(static function (Product $product): array {
+                /** @var int $productId */
                 $productId = $product->getKey();
 
-                if (is_int($productId)) {
-                    return [$productId => $product->name];
-                }
-
-                // @codeCoverageIgnoreStart
-                // Unreachable in practice: Product's primary key is an auto-incrementing integer
-                // column, so getKey() is always an int here. The guard exists only to satisfy
-                // static analysis, which types getKey() as int|string.
-                if (! is_string($productId) || ! ctype_digit($productId)) {
-                    throw new \LogicException('An inventory operation product must have a numeric ID.');
-                }
-
-                return [(int) $productId => $product->name];
-                // @codeCoverageIgnoreEnd
+                return [$productId => $product->name];
             })
             ->all();
     }
@@ -498,22 +473,10 @@ final class OperationLinesRepeater
             ->orderBy('sku')
             ->get(['id', 'sku'])
             ->mapWithKeys(static function (ProductVariant $variant): array {
+                /** @var int $variantId */
                 $variantId = $variant->getKey();
 
-                if (is_int($variantId)) {
-                    return [$variantId => $variant->sku];
-                }
-
-                // @codeCoverageIgnoreStart
-                // Unreachable in practice: ProductVariant's primary key is an auto-incrementing
-                // integer column, so getKey() is always an int here. The guard exists only to
-                // satisfy static analysis, which types getKey() as int|string.
-                if (! is_string($variantId) || ! ctype_digit($variantId)) {
-                    throw new \LogicException('An inventory operation variant must have a numeric ID.');
-                }
-
-                return [(int) $variantId => $variant->sku];
-                // @codeCoverageIgnoreEnd
+                return [$variantId => $variant->sku];
             })
             ->all();
     }
@@ -545,11 +508,8 @@ final class OperationLinesRepeater
                 continue;
             }
 
-            $unitId = self::toInteger($unit->getKey());
-
-            if ($unitId === null) {
-                throw new \LogicException('A variant operation unit must have a numeric ID.');
-            }
+            /** @var int $unitId */
+            $unitId = $unit->getKey();
 
             $options[$unitId] = $unit->name;
         }

@@ -11,6 +11,7 @@ use DomainException;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
@@ -45,12 +46,8 @@ final class EditTask extends EditRecord
                 ->body($domainException->getMessage())
                 ->send();
 
-            $this->halt();
+            throw new Halt;
         }
 
-        // @codeCoverageIgnoreStart
-        // BasePage::halt() always throws Halt, so this fallback is unreachable at runtime.
-        return $record;
-        // @codeCoverageIgnoreEnd
     }
 }

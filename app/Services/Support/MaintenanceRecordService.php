@@ -6,6 +6,7 @@ namespace App\Services\Support;
 
 use App\Data\Support\WarrantyCoverage;
 use App\Enums\MaintenanceStatus;
+use App\Enums\QuotationStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
@@ -214,6 +215,16 @@ final readonly class MaintenanceRecordService
 
             if (! $from->canTransitionTo($to)) {
                 throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
+
+            if ($from === MaintenanceStatus::AwaitingApproval
+                && in_array($to, [MaintenanceStatus::ReadyForRepair, MaintenanceStatus::InProgress], true)
+                && (int) $locked->coverageLines()->sum('customer_amount_minor') > 0) {
+                $locked->loadMissing('quotation');
+
+                if ($locked->quotation?->status !== QuotationStatus::Accepted) {
+                    throw new InvalidStatusTransition('The customer quotation must be accepted before repair can begin.');
+                }
             }
 
             if ($to === MaintenanceStatus::Closed

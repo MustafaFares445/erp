@@ -49,6 +49,16 @@ final readonly class TicketProviderSettlementService
                 throw new DomainException('Only a Succeeded provider transaction can be settled.');
             }
 
+            $expectedAmountMinor = (int) round(((float) $link->amount) * 100);
+            $ticketCustomerId = $link->ticket?->customer_id;
+
+            if ((int) $locked->amount_minor !== $expectedAmountMinor
+                || mb_strtoupper((string) $locked->currency) !== mb_strtoupper((string) $link->currency)
+                || ! is_numeric($ticketCustomerId)
+                || (int) $locked->customer_id !== (int) $ticketCustomerId) {
+                throw new DomainException('The provider transaction does not match the ticket payment amount, currency, and customer.');
+            }
+
             $key = $locked->getKey();
             $reference = $locked->payment_intent_id ?? $locked->checkout_session_id ?? (is_numeric($key) ? (string) $key : '');
 
@@ -56,6 +66,11 @@ final readonly class TicketProviderSettlementService
                 $this->ticketPayments->settle($link, $reference, $this->systemActor->resolve(), sourceChannel: 'stripe');
             } catch (InvalidStatusTransition) {
                 // Already settled through a concurrent path (e.g. the dashboard) — idempotent no-op.
+            }
+
+            $settledPaymentId = $link->refresh()->payment_id;
+            if (is_numeric($settledPaymentId)) {
+                $locked->forceFill(['payment_id' => (int) $settledPaymentId])->save();
             }
 
             return $locked->refresh();

@@ -27,7 +27,7 @@ use Filament\Support\Icons\Heroicon;
  * work itself — each is a thin adapter over the service that owns the
  * validation and the transaction (R-G).
  *
- * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md §3
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md §3
  */
 final class PurchaseOrderActions
 {

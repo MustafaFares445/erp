@@ -17,7 +17,7 @@ use App\Models\User;
  * explicitly. Assigning a scoped role is a statement that this user's access is
  * scoped.
  *
- * @see /specs/018-chart-of-accounts-journals/contracts/permissions.md §4
+ * @see /Docs/product/ROLES_AND_PERMISSIONS.md §4
  */
 trait ChecksAccountingPermissions
 {

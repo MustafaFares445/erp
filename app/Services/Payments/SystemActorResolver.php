@@ -22,9 +22,11 @@ use Spatie\Permission\Models\Role;
  * Resolves the single trusted actor automated provider/settlement flows use
  * instead of `auth()` or a real admin (Customer App V1 plan §16).
  *
- * The {@see DashboardRole::SystemIntegration} role holds exactly three
- * abilities: `SalesPermission::PaymentRecord` (so it can create/post an ERP
- * {@see Payment} through {@see PaymentService}),
+ * The {@see DashboardRole::SystemIntegration} role holds only the source-backed
+ * abilities required by automated financial flows: payment recording, support
+ * settlement, support-origin invoice creation/issuance, and source-backed
+ * journal posting. `SalesPermission::PaymentRecord` lets it create/post an ERP
+ * {@see Payment} through {@see PaymentService},
  * `AccountingPermission::JournalEntryPostFromSource` (so
  * {@see JournalPostingService} lets it post only
  * source-backed entries — it can never open the free-form "New Journal
@@ -34,7 +36,7 @@ use Spatie\Permission\Models\Role;
  * see {@see TicketProviderSettlementService}, never
  * from an unverified manual reference). Being one of
  * {@see DashboardRole::fixedRoleNames()} is what actually confines it to
- * those three abilities: without that, the `isAdmin() && no fixed role`
+ * those source-backed abilities: without that, the `isAdmin() && no fixed role`
  * bypass every module's policy shares would grant this actor blanket access
  * instead. Both the user and the role are provisioned lazily and
  * idempotently, so no separate seeder run is required in any environment.
@@ -58,6 +60,8 @@ final readonly class SystemActorResolver
         $role = Role::findOrCreate(DashboardRole::SystemIntegration->value, 'web');
         $role->givePermissionTo([
             Permission::findOrCreate(SalesPermission::PaymentRecord->value, 'web'),
+            Permission::findOrCreate(SalesPermission::InvoiceManage->value, 'web'),
+            Permission::findOrCreate(SalesPermission::InvoiceIssue->value, 'web'),
             Permission::findOrCreate(AccountingPermission::JournalEntryPostFromSource->value, 'web'),
             Permission::findOrCreate(SupportPermission::TicketSettlePayment->value, 'web'),
         ]);

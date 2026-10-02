@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Model;
  * name/attributes — never `App\Models\InventoryStock` directly — because
  * this namespace is NOT excepted by the architecture guard in
  * tests/Unit/ArchTest.php (only StockLevels/StockMovements are). See
- * specs/002-warehouses-stock-visibility/research.md R1.
+ * Docs/domains/inventory/BUSINESS_RULES.md R1.
  */
 final class StockLevelsRelationManager extends RelationManager
 {

@@ -169,9 +169,9 @@ final readonly class MaintenanceCostService
     {
         $locked = MaintenanceRecord::query()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
 
-        if ($locked->isLockedForChanges()) {
+        if (! $locked->allowsActualCostRecording()) {
             throw ValidationException::withMessages([
-                'record' => 'Costs cannot be recorded against a closed, cancelled or already-billed maintenance request.',
+                'record' => 'Costs cannot be recorded against a closed, cancelled, unapproved quoted, or fully billed maintenance request.',
             ]);
         }
     }

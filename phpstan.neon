@@ -19,7 +19,7 @@ parameters:
         # line for App\Policies\Concerns\ChecksInventoryPermissions is
         # actually stale now (WarehousePolicy and friends already consume
         # it) but is left untouched here as a deliberate, separately-scoped
-        # cleanup — see specs/003-stock-adjustments/research.md R5. The
+        # cleanup — see Docs/onboarding/TESTING_AND_QUALITY.md R5. The
         # matching line for App\Filament\Concerns\InteractsWithInventoryServices
         # WAS removed in FI-3: its Confirm action (ViewAdjustment) is now a
         # real production consumer.
@@ -28,7 +28,7 @@ parameters:
         # Same reason as ChecksInventoryPermissionsTest above: no production
         # policy consumes App\Policies\Concerns\ChecksSalesPermissions yet
         # (its first real consumer, SalesSettingPolicy, arrives in a later
-        # phase of spec 019). Remove this line once one does.
+        # phase of historical Spec Kit 019). Remove this line once one does.
         - tests/Unit/ChecksSalesPermissionsTest.php
 
     tmpDir: storage/framework/cache/phpstan

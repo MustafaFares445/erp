@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 #[Fillable([
     'ticket_id',
+    'payment_id',
     'amount',
     'currency',
     'status',
@@ -56,6 +57,12 @@ final class TicketPaymentLink extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    /** @return BelongsTo<Payment, $this> */
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
     }
 
     /**

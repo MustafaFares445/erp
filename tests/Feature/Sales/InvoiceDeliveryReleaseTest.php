@@ -26,10 +26,10 @@ beforeEach(function (): void {
 /**
  * @return array{delivery: InventoryOperation, order: Order, orderLine: OrderLine}
  */
-function releasableDelivery(CustomerProfile $customer, float $quantity = 2.0, float $unitPrice = 10.0): array
+function releasableDelivery(CustomerProfile $customer, float $quantity = 2.0, float $unitPrice = 10.0, ?Order $order = null): array
 {
     $variant = ProductVariant::factory()->create();
-    $order = Order::factory()->create(['customer_id' => $customer->getKey()]);
+    $order ??= Order::factory()->create(['customer_id' => $customer->getKey()]);
     $orderLine = OrderLine::factory()->create([
         'order_id' => $order->getKey(),
         'product_variant_id' => $variant->getKey(),
@@ -85,8 +85,9 @@ it('releases the delivery when its draft invoice is deleted so it can be invoice
 
 it('releases every delivery of a consolidated draft that has no single-delivery pointer', function (): void {
     $customer = CustomerProfile::factory()->create();
-    $first = releasableDelivery($customer)['delivery'];
-    $second = releasableDelivery($customer)['delivery'];
+    $order = Order::factory()->create(['customer_id' => $customer->getKey()]);
+    $first = releasableDelivery($customer, order: $order)['delivery'];
+    $second = releasableDelivery($customer, order: $order)['delivery'];
 
     $draft = app(InvoiceService::class)->createFromDeliveries($this->actor, collect([$first, $second]));
     expect($draft->inventory_operation_id)->toBeNull();

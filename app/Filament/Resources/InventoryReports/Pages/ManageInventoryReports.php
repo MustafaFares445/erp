@@ -212,10 +212,8 @@ final class ManageInventoryReports extends ManageRecords
         $formatter = app(InventoryReportFormatter::class);
 
         return response()->streamDownload(function () use ($type, $filters, $includePricing, $formatter): void {
+            /** @var resource $handle */
             $handle = fopen('php://output', 'wb');
-            if ($handle === false) {
-                return;
-            }
 
             fputcsv($handle, $formatter->headings($type, $includePricing), escape: '\\');
             app(InventoryReportService::class)->query($type, $filters)->chunkById(500, function (Collection $records) use ($handle, $formatter, $type, $includePricing): void {

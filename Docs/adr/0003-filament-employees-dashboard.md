@@ -6,7 +6,7 @@
 
 **Deciders**: Project Owner
 
-**Related**: `specs/015-employees-plans-visits-dashboard/plan.md`, `Docs/PRD.md`, `Docs/SDD.md`, and the IERP Constitution Product Scope & Boundaries section
+**Related**: `Docs/domains/employees/README.md`, `Docs/product/PRODUCT_OVERVIEW.md`, `Docs/architecture/SYSTEM_OVERVIEW.md`, and the IERP Constitution Product Scope & Boundaries section
 
 ## Context
 
@@ -68,7 +68,7 @@ File storage for visit attachments and voice-note audio uses Media Library
 collections, not custom per-feature file tables.
 
 This approval is limited to English-only UI strings for this phase, following
-spec 013's precedent.
+historical Spec Kit 013's precedent.
 
 The constitution's Specification Governance extraction order lists this work
 as `011-employee-app-plans-visits-ai`; this ADR authorises only that entry's

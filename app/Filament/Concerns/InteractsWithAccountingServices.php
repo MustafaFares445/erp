@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
  * failure notification. It performs no writes and enforces no rules itself: the
  * service it wraps owns its transaction, so a throw leaves no partial state.
  *
- * @see /specs/018-chart-of-accounts-journals/contracts/journal-posting.md
+ * @see /Docs/domains/accounting/BUSINESS_RULES.md
  */
 trait InteractsWithAccountingServices
 {

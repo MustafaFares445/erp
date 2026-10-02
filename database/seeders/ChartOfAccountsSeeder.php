@@ -103,7 +103,7 @@ final class ChartOfAccountsSeeder extends Seeder
                     '2100' => 'Accounts Payable',
                     '2200' => 'Accrued Liabilities',
                     '2300' => 'Sales Tax Payable',
-                    // Added by spec 019 (ADR 0008, research.md R-007): tax that
+                    // Added by historical Spec Kit 019 (ADR 0008, research.md R-007): tax that
                     // has been invoiced but not yet collected. Without a
                     // separate account, invoice issuance would have nowhere
                     // to credit tax except 2300, which is what "recognising

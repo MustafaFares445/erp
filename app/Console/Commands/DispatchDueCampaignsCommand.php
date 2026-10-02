@@ -31,7 +31,6 @@ final class DispatchDueCampaignsCommand extends Command
                     $campaignId = $campaign->getKey();
                     $createdBy = $campaign->getAttribute('created_by');
 
-                    // @codeCoverageIgnoreStart
                     // Persisted campaigns use an integer primary key and a non-null integer foreign key for created_by.
                     if (! is_numeric($campaignId)) {
                         continue;
@@ -39,7 +38,6 @@ final class DispatchDueCampaignsCommand extends Command
                     if (! is_numeric($createdBy)) {
                         continue;
                     }
-                    // @codeCoverageIgnoreEnd
 
                     DispatchCampaignJob::dispatch((int) $campaignId, (int) $createdBy);
                     $queued++;
