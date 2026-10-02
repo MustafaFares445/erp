@@ -17,6 +17,8 @@ enum AccountingPermission: string
     case JournalEntryPost = 'accounting.journal-entry.post';
     case JournalEntryReverse = 'accounting.journal-entry.reverse';
     case JournalEntryPostFromSource = 'accounting.journal-entry.post-from-source';
+    case BankReconciliationView = 'accounting.bank-reconciliation.view';
+    case BankReconciliationManage = 'accounting.bank-reconciliation.manage';
     case LedgerView = 'accounting.ledger.view';
     case AuditView = 'accounting.audit.view';
     case ReportView = 'accounting.report.view';

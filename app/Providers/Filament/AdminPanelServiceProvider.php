@@ -20,6 +20,7 @@ use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
+use App\Filament\Resources\BankStatements\BankStatementResource;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
@@ -148,6 +149,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 AccountsReceivableResource::class,
                 AdjustmentResource::class,
                 AuditLogResource::class,
+                BankStatementResource::class,
                 BillResource::class,
                 CampaignResource::class,
                 ChartOfAccountResource::class,

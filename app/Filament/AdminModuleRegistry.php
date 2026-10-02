@@ -19,6 +19,7 @@ use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
+use App\Filament\Resources\BankStatements\BankStatementResource;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
@@ -148,6 +149,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.accounting_dashboard', 'link' => AccountingDashboard::class],
                     ['label' => 'admin.resources.chart_of_accounts', 'link' => ChartOfAccountResource::class],
                     ['label' => 'admin.resources.journal_entries', 'link' => JournalEntryResource::class],
+                    ['label' => 'admin.resources.bank_statements', 'link' => BankStatementResource::class],
                     ['label' => 'admin.resources.fiscal_periods', 'link' => FiscalPeriodResource::class],
                     ['label' => 'admin.resources.accounts_receivable', 'link' => AccountsReceivableResource::class],
                     ['label' => 'admin.resources.accounts_payable', 'link' => AccountsPayableResource::class],

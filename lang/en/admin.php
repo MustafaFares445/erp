@@ -2624,6 +2624,7 @@ return [
         'chart_of_account' => 'Account',
         'journal_entries' => 'Journal Entries',
         'journal_entry' => 'Journal Entry',
+        'bank_statements' => 'Bank Reconciliation',
         'fiscal_periods' => 'Fiscal Periods',
         'fiscal_period' => 'Fiscal Period',
         'accounts_receivable' => 'Accounts Receivable',

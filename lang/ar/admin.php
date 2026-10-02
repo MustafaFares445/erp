@@ -1462,6 +1462,7 @@ $translations = [
     ],
 
     'resources' => [
+        'bank_statements' => 'التسوية البنكية',
         'purchasing_dashboard' => 'لوحة تحكم المشتريات',
         'purchase_needs' => 'احتياجات الشراء',
         'purchase_rfqs' => 'طلبات عروض الأسعار',
