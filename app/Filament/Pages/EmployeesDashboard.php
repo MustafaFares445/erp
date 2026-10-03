@@ -5,13 +5,22 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\EmployeePermission;
+use App\Filament\Widgets\EmployeesOverdueTasks;
 use App\Filament\Widgets\EmployeesStatistics;
+use App\Filament\Widgets\EmployeesTaskStatusChart;
 use App\Filament\Widgets\EmployeesTaskTrend;
+use App\Filament\Widgets\EmployeesTopPerformers;
+use App\Models\EmployeeProfile;
 use BackedEnum;
-use Filament\Pages\Page;
+use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 
-final class EmployeesDashboard extends Page
+/**
+ * Employees' module landing page: field-work KPIs, task completion beside
+ * task status, then the top performers beside the overdue-task queue — all
+ * narrowable to one employee.
+ */
+final class EmployeesDashboard extends ModuleDashboard
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedIdentification;
 
@@ -27,23 +36,36 @@ final class EmployeesDashboard extends Page
     }
 
     #[\Override]
-    public static function getNavigationLabel(): string
-    {
-        return __('admin.dashboard');
-    }
-
-    #[\Override]
     public function getTitle(): string
     {
         return __('admin.resources.employees_dashboard');
     }
 
+    /** @return array<Select> */
     #[\Override]
-    protected function getHeaderWidgets(): array
+    protected function moduleFilters(): array
+    {
+        return [
+            Select::make('employeeId')
+                ->label(__('dashboards.employees.filters.employee'))
+                ->searchable()
+                ->native(false)
+                ->options(fn (): array => EmployeeProfile::query()
+                    ->where('is_active', true)
+                    ->with('user:id,name')
+                    ->get()
+                    ->mapWithKeys(static fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
+                    ->all()),
+        ];
+    }
+
+    #[\Override]
+    protected function getDashboardWidgets(): array
     {
         return [
             EmployeesStatistics::class,
-            EmployeesTaskTrend::class,
+            [EmployeesTaskTrend::class, EmployeesTaskStatusChart::class],
+            [EmployeesTopPerformers::class, EmployeesOverdueTasks::class],
         ];
     }
 }

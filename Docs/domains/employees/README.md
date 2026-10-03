@@ -19,6 +19,8 @@ EmployeeOnboardingService, EmployeeAccessService, SalesPlanService/DuplicationSe
 
 Employees, Monthly Plans, Tasks, Visits, Performance, Salary Calculations and Employee Reports.
 
+The Employees dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards). Its employee filter narrows tasks (through the sales plan's employee), visits and owned opportunities. It shows tasks completed beside tasks due by status, then top employees beside the overdue-task queue.
+
 ## Current Mobile/API Status
 
 Employee domain services exist, but the current runtime has no `api/*` routes. The active employee visit/AI API plan describes future exposure and must remain labeled planned until implemented.
