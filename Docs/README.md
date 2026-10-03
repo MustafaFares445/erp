@@ -120,9 +120,10 @@ ADRs are historical decision records. Current domain docs explain what is true n
 
 `Docs/plans/` is for active future work only.
 
-Current active plan:
+Current active plans:
 
 - [Employee Visit / AI API Implementation Plan](plans/EMPLOYEE_VISIT_AI_API_IMPLEMENTATION_PLAN.md)
+- [IERP Non-Technical User Guide Implementation Plan](plans/USER_GUIDE_VITEPRESS_IMPLEMENTATION_PLAN.md)
 
 Once a plan is implemented and its durable rules are merged into canonical docs/ADRs, remove it from the working tree. Git history is the archive.
 
