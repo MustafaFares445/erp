@@ -43,10 +43,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  */
 final class Invoice extends Model implements HasMedia
 {
+    use HasCollaboration;
+
     /** @use HasFactory<InvoiceFactory> */
     use HasFactory;
-
-    use HasCollaboration;
 
     use InteractsWithMedia;
     use SoftDeletes;

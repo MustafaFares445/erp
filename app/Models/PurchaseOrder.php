@@ -79,10 +79,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 ])]
 final class PurchaseOrder extends Model implements StoresDocumentUploads
 {
+    use HasCollaboration;
+
     /** @use HasFactory<PurchaseOrderFactory> */
     use HasFactory;
-
-    use HasCollaboration;
 
     use InteractsWithMedia;
     use SoftDeletes;
