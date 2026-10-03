@@ -42,7 +42,7 @@ final readonly class LogisticsInboundProjectionService
 
         $order = $inbound->purchaseOrder;
         $lines = array_values($inbound->lines
-            ->map(fn (PurchaseInboundLine $line): LogisticsInboundLineData => $this->projectLine($line))
+            ->map(fn (PurchaseInboundLine $line): LogisticsInboundLineData => $this->projectLine($line, $order))
             ->values()
             ->all());
 
@@ -72,7 +72,7 @@ final readonly class LogisticsInboundProjectionService
         );
     }
 
-    public function projectLine(PurchaseInboundLine $line): LogisticsInboundLineData
+    public function projectLine(PurchaseInboundLine $line, ?PurchaseOrder $order = null): LogisticsInboundLineData
     {
         $line->loadMissing([
             'purchaseOrderLine.productVariant.product',
@@ -81,7 +81,13 @@ final readonly class LogisticsInboundProjectionService
         ]);
 
         $poLine = $line->purchaseOrderLine;
-        $quantities = $this->commitments->quantities($poLine);
+
+        if ($order instanceof PurchaseOrder) {
+            // This inbound line *is* the PO line's inbound line; reuse it (and its loaded allocations).
+            $poLine->setRelation('purchaseInboundLine', $line);
+        }
+
+        $quantities = $this->commitments->quantities($poLine, $order);
         $allocations = array_values($line->allocations
             ->map(fn (PurchaseInboundAllocation $allocation): LogisticsInboundAllocationData => $this->allocationData($allocation))
             ->values()

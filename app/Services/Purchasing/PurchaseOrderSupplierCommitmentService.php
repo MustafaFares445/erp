@@ -9,6 +9,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
+use Illuminate\Database\Eloquent\Collection;
 use LogicException;
 
 /**
@@ -27,6 +28,10 @@ final readonly class PurchaseOrderSupplierCommitmentService
     }
 
     /**
+     * Passing the already-loaded `$order` is the read-path opt-in: the order, its eager-loaded
+     * `confirmations.items` and the inbound line's `allocations` are read from memory instead of
+     * issuing per-line queries. Without it every figure is read fresh from the database.
+     *
      * @return array{
      *   ordered: numeric-string,
      *   confirmed: numeric-string,
@@ -38,10 +43,11 @@ final readonly class PurchaseOrderSupplierCommitmentService
      *   awaiting_confirmation: bool
      * }
      */
-    public function quantities(PurchaseOrderLine $line): array
+    public function quantities(PurchaseOrderLine $line, ?PurchaseOrder $order = null): array
     {
         $ordered = $this->ordered($line);
-        $order = $line->purchaseOrder()->with('supplier')->first();
+        $preferLoaded = $order instanceof PurchaseOrder;
+        $order ??= $line->purchaseOrder()->with('supplier')->first();
 
         if (! $order instanceof PurchaseOrder) {
             throw new LogicException('Purchase order line has no purchase order.');
@@ -57,10 +63,10 @@ final readonly class PurchaseOrderSupplierCommitmentService
 
         if ($requiresConfirmation) {
             [$confirmed, $backordered, $unavailable, $awaitingConfirmation] =
-                $this->confirmationQuantities($order, $line, $ordered);
+                $this->confirmationQuantities($order, $line, $ordered, $preferLoaded);
         }
 
-        $allocated = $line->purchaseInboundLine?->allocatedBaseQuantity() ?? '0.000000';
+        $allocated = $line->purchaseInboundLine?->allocatedBaseQuantity($preferLoaded) ?? '0.000000';
         $currentlyAllocatable = bcsub($confirmed, $allocated, self::SCALE);
         $overAllocated = bccomp($currentlyAllocatable, '0.000000', self::SCALE) === -1;
 
@@ -108,19 +114,29 @@ final readonly class PurchaseOrderSupplierCommitmentService
         PurchaseOrder $order,
         PurchaseOrderLine $line,
         string $ordered,
+        bool $preferLoaded,
     ): array {
-        $items = SupplierConfirmationItem::query()
-            ->where('purchase_order_line_id', $line->id)
-            ->orderBy('id')
-            ->get([
-                'id',
-                'confirmation_status',
-                'requested_base_quantity',
-                'confirmed_base_quantity',
-            ]);
+        $loaded = $preferLoaded ? $this->loadedConfirmations($order) : null;
+
+        $items = $loaded instanceof \Illuminate\Database\Eloquent\Collection
+            ? $loaded->flatMap(static fn (SupplierConfirmation $confirmation): Collection => $confirmation->items)
+                ->where('purchase_order_line_id', $line->id)
+                ->sortBy('id')
+                ->values()
+            : SupplierConfirmationItem::query()
+                ->where('purchase_order_line_id', $line->id)
+                ->orderBy('id')
+                ->get([
+                    'id',
+                    'confirmation_status',
+                    'requested_base_quantity',
+                    'confirmed_base_quantity',
+                ]);
 
         if ($items->isEmpty()) {
-            $confirmation = $order->confirmations()->latest('id')->first();
+            $confirmation = $loaded instanceof \Illuminate\Database\Eloquent\Collection
+                ? $loaded->sortByDesc('id')->first()
+                : $order->confirmations()->latest('id')->first();
 
             if (! $confirmation instanceof SupplierConfirmation) {
                 return ['0.000000', '0.000000', '0.000000', true];
@@ -166,6 +182,26 @@ final readonly class PurchaseOrderSupplierCommitmentService
             && bccomp($confirmed, $ordered, self::SCALE) === -1;
 
         return [$confirmed, $backordered, $unavailable, $awaitingConfirmation];
+    }
+
+    /**
+     * The order's confirmations when they and their items were eager-loaded, otherwise null.
+     *
+     * @return Collection<int, SupplierConfirmation>|null
+     */
+    private function loadedConfirmations(PurchaseOrder $order): ?Collection
+    {
+        if (! $order->relationLoaded('confirmations')) {
+            return null;
+        }
+
+        foreach ($order->confirmations as $confirmation) {
+            if (! $confirmation->relationLoaded('items')) {
+                return null;
+            }
+        }
+
+        return $order->confirmations;
     }
 
     /**

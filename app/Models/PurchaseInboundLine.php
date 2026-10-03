@@ -88,9 +88,25 @@ final class PurchaseInboundLine extends Model
         return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
     }
 
-    /** @return numeric-string */
-    public function allocatedBaseQuantity(): string
+    /**
+     * Read paths that already eager-loaded `allocations` can opt into summing them in memory;
+     * the default always asks the database so write paths never see stale allocations.
+     *
+     * @return numeric-string
+     */
+    public function allocatedBaseQuantity(bool $preferLoaded = false): string
     {
+        if ($preferLoaded && $this->relationLoaded('allocations')) {
+            $total = '0.000000';
+
+            foreach ($this->allocations as $allocation) {
+                $total = bcadd($total, (string) ($allocation->allocated_base_quantity ?? '0'), self::QUANTITY_SCALE);
+            }
+
+            /** @var numeric-string $total */
+            return $total;
+        }
+
         $allocated = $this->allocations()->sum('allocated_base_quantity');
 
         /** @var numeric-string $quantity */

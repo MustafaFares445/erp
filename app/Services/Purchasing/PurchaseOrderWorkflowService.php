@@ -41,7 +41,7 @@ final readonly class PurchaseOrderWorkflowService
         $received = '0.000000';
 
         foreach ($order->lines as $line) {
-            $quantities = $this->commitments->quantities($line);
+            $quantities = $this->commitments->quantities($line, $order);
             $ordered = bcadd($ordered, $quantities['ordered'], self::SCALE);
             $confirmed = bcadd($confirmed, $quantities['confirmed'], self::SCALE);
             $backordered = bcadd($backordered, $quantities['backordered'], self::SCALE);
@@ -54,9 +54,11 @@ final readonly class PurchaseOrderWorkflowService
         $remainingConfirmed = $this->nonNegativeSubtract($confirmed, $received);
         [$billTotal, $paidTotal, $outstandingTotal, $financialState] = $this->financial($order);
         $supplierState = $this->supplierState($order, $confirmed, $backordered, $unavailable);
-        $logisticsState = $order->purchaseInbound === null
+        $inbound = $order->purchaseInbound;
+        $inbound?->setRelation('purchaseOrder', $order);
+        $logisticsState = $inbound === null
             ? 'Not activated'
-            : $this->inboundProjection->project($order->purchaseInbound)->businessState;
+            : $this->inboundProjection->project($inbound)->businessState;
 
         [$businessState, $blocker, $nextOwner, $nextAction] = $this->next(
             $order,
