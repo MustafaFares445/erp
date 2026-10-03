@@ -126,7 +126,7 @@ final class BarcodeWorkbench extends Page
                 $warehouseName = data_get($count, 'warehouse.name');
 
                 return [
-                    $count->id => $count->count_number.' · '.(is_string($warehouseName) ? $warehouseName : '—').' · '.str($count->status->value)->headline()->toString(),
+                    $count->id => $count->count_number.' · '.(is_string($warehouseName) ? $warehouseName : '—').' · '.$count->status->label(),
                 ];
             })
             ->all();

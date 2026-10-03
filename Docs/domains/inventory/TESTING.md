@@ -26,7 +26,7 @@ The suite covers:
 - replenishment;
 - package balance invariants;
 - UOM normalization/product types;
-- permissions/navigation;
+- permissions and workspace navigation (`InventoryNavigationTest`: seven-destination sidebar, deep links, permission-aware tabs);
 - reports/exports/reconciliation;
 - legacy inventory removal guards.
 

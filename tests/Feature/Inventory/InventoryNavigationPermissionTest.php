@@ -8,11 +8,12 @@ use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('inventory navigation omits forbidden sections instead of rendering empty menus', function (): void {
+test('inventory navigation omits forbidden workspaces instead of rendering dead entries', function (): void {
     (new InventoryPermissionSeeder)->run();
     $user = User::factory()->create();
     $user->givePermissionTo(InventoryPermission::StockView->value);
@@ -20,8 +21,8 @@ test('inventory navigation omits forbidden sections instead of rendering empty m
     $this->actingAs($user)->get(StockLevelResource::getUrl())->assertOk();
 
     $labels = collect(Filament::getPanel('admin')->buildNavigation())
-        ->filter(fn (NavigationGroup $group): bool => filled($group->getLabel()))
-        ->map(fn (NavigationGroup $group): string => $group->getLabel())
+        ->flatMap(fn (NavigationGroup $group): array => $group->getItems())
+        ->map(fn (NavigationItem $item): string => $item->getLabel())
         ->values()
         ->all();
 

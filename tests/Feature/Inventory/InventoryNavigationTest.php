@@ -4,30 +4,57 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\BarcodeWorkbench;
+use App\Filament\Pages\InventoryDashboard;
+use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
+use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
+use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
+use App\Filament\Resources\InventoryCounts\InventoryCountResource;
+use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
+use App\Filament\Resources\InventoryLots\InventoryLotResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryReports\InventoryReportResource;
+use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
+use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
+use App\Filament\Resources\Packages\PackageResource;
+use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
+use App\Filament\Resources\Returns\ReturnResource;
+use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
+use App\Filament\Resources\Shipments\ShipmentResource;
+use App\Filament\Resources\StockLevels\StockLevelResource;
+use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
+use App\Filament\Support\WorkspaceNavigation;
+use App\Models\InventoryOperation;
 use App\Models\User;
+use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
-use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 /**
- * A user with every `inventory.*` permission, so every current Inventory
- * navigation item resolves to a real link and none are hidden by policy —
- * see App\Policies\Concerns\ChecksInventoryPermissions.
+ * A user holding exactly the given `inventory.*` permissions (all of them by default), so each
+ * navigation item resolves or hides by policy — see App\Policies\Concerns\ChecksInventoryPermissions.
+ *
+ * @param  list<InventoryPermission>|null  $permissions
  */
-function actingAsFullInventoryUser(): User
+function actingAsInventoryUser(?array $permissions = null): User
 {
     (new InventoryPermissionSeeder)->run();
 
-    $role = Role::firstOrCreate(['name' => 'inventory-full-access', 'guard_name' => 'web']);
-    $role->syncPermissions(InventoryPermission::values());
+    $role = Role::firstOrCreate(['name' => 'inventory-role-'.uniqid(), 'guard_name' => 'web']);
+    $role->syncPermissions($permissions === null
+        ? InventoryPermission::values()
+        : array_map(static fn (InventoryPermission $permission): string => $permission->value, $permissions));
 
     $user = User::factory()->create();
     $user->assignRole($role);
@@ -35,71 +62,255 @@ function actingAsFullInventoryUser(): User
     return $user;
 }
 
-it('renders the inventory sidebar as one named NavigationGroup per declared section', function (): void {
-    $user = actingAsFullInventoryUser();
+/** @return list<string> */
+function renderedInventorySidebarLabels(): array
+{
+    return collect(Filament::getPanel('admin')->buildNavigation())
+        ->flatMap(fn (NavigationGroup $group): array => $group->getItems())
+        ->map(fn (NavigationItem $item): string => $item->getLabel())
+        ->values()
+        ->all();
+}
+
+it('renders the inventory sidebar as seven flat workspace destinations', function (): void {
+    $user = actingAsInventoryUser();
 
     $this->actingAs($user)->get(WarehouseResource::getUrl())->assertOk();
 
     expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory');
 
-    $inventoryGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $navigation = collect(Filament::getPanel('admin')->buildNavigation());
 
-    $renderedGroups = collect(Filament::getPanel('admin')->buildNavigation());
+    expect($navigation->filter(fn (NavigationGroup $group): bool => filled($group->getLabel())))->toBeEmpty()
+        ->and(renderedInventorySidebarLabels())->toBe([
+            __('admin.dashboard'),
+            __('admin.sections.stock'),
+            __('admin.sections.inbound'),
+            __('admin.sections.outbound'),
+            __('admin.sections.operations'),
+            __('admin.sections.planning_alerts'),
+            __('admin.resources.warehouses'),
+        ]);
+});
 
-    $namedGroups = $renderedGroups->filter(fn (NavigationGroup $group): bool => filled($group->getLabel()));
+it('no longer lists the fragmented inventory resources as sidebar entries', function (): void {
+    $user = actingAsInventoryUser();
 
-    expect($namedGroups)->toHaveCount(count($inventoryGroup['sections']));
+    $this->actingAs($user)->get(WarehouseResource::getUrl())->assertOk();
 
-    foreach ($inventoryGroup['sections'] as $section) {
-        $expectedCount = collect($inventoryGroup['items'])
-            ->where('section', $section['key'])
-            ->sum(static fn (array $item): int => isset($item['page']) ? 1 : count($item['link']::getNavigationItems()));
+    expect(renderedInventorySidebarLabels())
+        ->not->toContain(__('admin.resources.stock_levels'))
+        ->not->toContain(__('admin.resources.inventory_lots'))
+        ->not->toContain(__('admin.resources.serialized_inventory_units'))
+        ->not->toContain(__('admin.resources.stock_movements'))
+        ->not->toContain(__('admin.resources.reservations'))
+        ->not->toContain(__('admin.resources.adjustments'))
+        ->not->toContain(__('admin.resources.returns'))
+        ->not->toContain(__('admin.resources.barcode_workbench'))
+        ->not->toContain(__('admin.resources.catalog_imports'))
+        ->not->toContain(__('admin.resources.inventory_reports'))
+        ->not->toContain(__('admin.resources.package_types'))
+        ->not->toContain(__('admin.resources.catalog_setup'));
+});
 
-        $renderedGroup = $namedGroups->first(
-            fn (NavigationGroup $group): bool => $group->getLabel() === __($section['label'], [], 'ar'),
-        );
+it('declares no duplicate sidebar destination for any inventory class', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
 
-        expect($renderedGroup)->not->toBeNull()
-            ->and($renderedGroup->getItems())->toHaveCount($expectedCount);
+    $links = collect($inventory['items'])->pluck('link');
+
+    expect($inventory['items'])->toHaveCount(7)
+        ->and($links->all())->toBe($links->unique()->all());
+});
+
+it('highlights the owning workspace while one of its records is open', function (): void {
+    $user = actingAsInventoryUser();
+
+    $this->actingAs($user)->get(StockMovementResource::getUrl())->assertOk();
+
+    $stock = collect(AdminModuleRegistry::groups())
+        ->firstWhere('key', 'inventory')['items'][1];
+
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory')
+        ->and(WorkspaceNavigation::isActive($stock))->toBeTrue();
+});
+
+it('keeps every former inventory resource routable and owned by the inventory module', function (string $resource): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+
+    $user = actingAsInventoryUser();
+
+    $this->actingAs($user)->get($resource::getUrl())->assertOk();
+
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory')
+        ->and(AdminModuleRegistry::memberClassesOf($inventory))->toContain($resource);
+})->with([
+    StockLevelResource::class,
+    ProductResource::class,
+    InventoryLotResource::class,
+    SerializedInventoryUnitResource::class,
+    StockMovementResource::class,
+    PurchaseInboundResource::class,
+    OutboundFulfillmentResource::class,
+    ShipmentResource::class,
+    PackageResource::class,
+    AdjustmentResource::class,
+    InventoryCountResource::class,
+    ReturnResource::class,
+    InventoryCorrectionResource::class,
+    InventoryConditionChangeResource::class,
+    InventoryReservationResource::class,
+    InventoryAlertResource::class,
+    WarehouseReplenishmentPolicyResource::class,
+    WarehouseResource::class,
+    InventoryImportRunResource::class,
+]);
+
+it('keeps the operation list routes and the barcode workbench directly reachable', function (): void {
+    $user = actingAsInventoryUser();
+
+    foreach (['receipts', 'deliveries', 'transfers'] as $page) {
+        $this->actingAs($user)->get(InventoryOperationResource::getUrl($page))->assertOk();
+
+        expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory');
+    }
+
+    $this->actingAs($user)->get(BarcodeWorkbench::getUrl())->assertOk();
+
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory')
+        ->and(BarcodeWorkbench::getUrl())->toEndWith('/admin/inventory/barcode');
+});
+
+it('moves inventory reports to the shared reports module without breaking the url', function (): void {
+    $user = actingAsInventoryUser();
+
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $reports = collect(AdminModuleRegistry::groups())->firstWhere('key', 'reports');
+
+    expect(collect($inventory['items'])->pluck('link'))->not->toContain(InventoryReportResource::class)
+        ->and(collect($reports['items'])->pluck('link'))->toContain(InventoryReportResource::class);
+
+    $this->actingAs($user)->get(InventoryReportResource::getUrl())->assertOk();
+
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('reports');
+});
+
+it('moves inventory configuration to the system module', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $system = collect(AdminModuleRegistry::groups())->firstWhere('key', 'system');
+
+    expect(collect($inventory['items'])->pluck('label'))
+        ->not->toContain('admin.resources.catalog_setup')
+        ->not->toContain('admin.resources.package_types')
+        ->and(collect($system['items'])->pluck('label'))
+        ->toContain('admin.resources.catalog_setup')
+        ->toContain('admin.resources.package_types')
+        ->toContain('admin.resources.inventory_settings');
+});
+
+it('renders the workspace tab bar on a tab page with every permitted tab', function (): void {
+    $user = actingAsInventoryUser();
+
+    $response = $this->actingAs($user)->get(StockLevelResource::getUrl())->assertOk();
+
+    foreach (['stock_levels', 'products', 'inventory_lots', 'serialized_inventory_units', 'stock_movements'] as $tab) {
+        $response->assertSee(__('admin.resources.'.$tab), escape: false);
+    }
+
+    $response->assertSee(StockMovementResource::getUrl(), escape: false)
+        ->assertSee(__('admin.resources.catalog_imports'), escape: false);
+});
+
+it('offers the barcode workbench as a tool on the inbound, outbound and operations workspaces', function (): void {
+    $user = actingAsInventoryUser();
+
+    foreach ([PurchaseInboundResource::getUrl(), InventoryOperationResource::getUrl('deliveries'), AdjustmentResource::getUrl()] as $url) {
+        $this->actingAs($user)->get($url)->assertOk()
+            ->assertSee(BarcodeWorkbench::getUrl(), escape: false);
     }
 });
 
-it('does not lose any inventory navigation item when scoping the sidebar into sections', function (): void {
-    $user = actingAsFullInventoryUser();
+it('shows only the tabs a restricted user may open, and never a tab that would 403', function (): void {
+    $user = actingAsInventoryUser([
+        InventoryPermission::TransferView,
+        InventoryPermission::AdjustmentView,
+    ]);
 
-    $this->actingAs($user)->get(WarehouseResource::getUrl());
+    $response = $this->actingAs($user)->get(InventoryOperationResource::getUrl('transfers'))->assertOk();
 
-    expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory');
+    $response->assertSee(__('admin.resources.adjustments'), escape: false)
+        ->assertDontSee(__('admin.resources.reservations'), escape: false)
+        ->assertDontSee(__('admin.resources.returns'), escape: false)
+        ->assertDontSee(BarcodeWorkbench::getUrl(), escape: false);
 
-    $inventoryGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
-
-    $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
-        ->flatMap(fn (NavigationGroup $group): Arrayable|array => $group->getItems());
-
-    $expectedNavigationItems = collect(AdminModuleRegistry::registeredNavigationItemsFor($inventoryGroup));
-
-    expect($navigationItems)->toHaveCount($expectedNavigationItems->count());
-
-    expect($navigationItems->map(fn (NavigationItem $item): string => $item->getLabel()))
-        ->toContain(__('admin.resources.stock_levels'))
-        ->toContain(__('admin.resources.inventory_counts'))
-        ->not->toContain(__('admin.resources.scraps'));
+    $this->actingAs($user)->get(InventoryReservationResource::getUrl())->assertForbidden();
 });
 
-it('shows the section labels in the rendered sidebar HTML', function (): void {
-    $user = actingAsFullInventoryUser();
+it('lets a stock-only user reach the stock workspace but not the operations workspace', function (): void {
+    $user = actingAsInventoryUser([InventoryPermission::StockView, InventoryPermission::MovementView]);
 
-    $response = $this->actingAs($user)->get(WarehouseResource::getUrl());
+    $this->actingAs($user)->get(StockLevelResource::getUrl())->assertOk();
 
-    $response->assertOk();
-    $response->assertSee(__('admin.sections.inbound', [], 'ar'));
-    $response->assertSee(__('admin.sections.outbound', [], 'ar'));
-    $response->assertSee(__('admin.sections.stock', [], 'ar'));
-    $response->assertSee(__('admin.sections.operations', [], 'ar'));
-    $response->assertSee(__('admin.sections.planning', [], 'ar'));
-    $response->assertSee(__('admin.sections.warehouses', [], 'ar'));
-    $response->assertSee(__('admin.sections.reports', [], 'ar'));
-    $response->assertSee(__('admin.sections.configurations', [], 'ar'));
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $items = collect($inventory['items']);
+
+    $stock = $items->firstWhere('label', 'admin.sections.stock');
+    $operations = $items->firstWhere('label', 'admin.sections.operations');
+
+    expect(AdminModuleRegistry::resolveItemUrl($stock))->toBe(StockLevelResource::getUrl())
+        ->and(AdminModuleRegistry::resolveItemUrl($operations))->toBeNull()
+        ->and(AdminModuleRegistry::isItemAccessDenied($operations))->toBeTrue()
+        ->and(renderedInventorySidebarLabels())->not->toContain(__('admin.sections.operations'));
+});
+
+it('lands a user with a single operations permission on the first workspace tab they can open', function (): void {
+    $user = actingAsInventoryUser([InventoryPermission::CountView]);
+
+    $this->actingAs($user);
+
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $operations = collect($inventory['items'])->firstWhere('label', 'admin.sections.operations');
+
+    expect(AdminModuleRegistry::resolveItemUrl($operations))->toBe(InventoryCountResource::getUrl());
+});
+
+it('lets a transfer user into transfers and keeps the workspace entry visible', function (): void {
+    $user = actingAsInventoryUser([InventoryPermission::TransferView, InventoryPermission::TransferCreate]);
+
+    $this->actingAs($user)->get(InventoryOperationResource::getUrl('transfers'))->assertOk();
+
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $operations = collect($inventory['items'])->firstWhere('label', 'admin.sections.operations');
+
+    expect(AdminModuleRegistry::resolveItemUrl($operations))->toBe(InventoryOperationResource::getUrl('transfers'))
+        ->and(renderedInventorySidebarLabels())->toContain(__('admin.sections.operations'));
+});
+
+it('resolves the operation workspace tab from the record being viewed', function (): void {
+    $user = actingAsInventoryUser();
+
+    $transfer = InventoryOperation::factory()->internalTransfer()->create();
+    $delivery = InventoryOperation::factory()->delivery()->create();
+
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $items = collect($inventory['items']);
+
+    $this->actingAs($user)->get(InventoryOperationResource::getUrl('view', ['record' => $transfer]))->assertOk();
+
+    expect(WorkspaceNavigation::isActive($items->firstWhere('label', 'admin.sections.operations')))->toBeTrue()
+        ->and(WorkspaceNavigation::isActive($items->firstWhere('label', 'admin.sections.outbound')))->toBeFalse();
+
+    $this->actingAs($user)->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))->assertOk();
+
+    expect(WorkspaceNavigation::isActive($items->firstWhere('label', 'admin.sections.outbound')))->toBeTrue()
+        ->and(WorkspaceNavigation::isActive($items->firstWhere('label', 'admin.sections.operations')))->toBeFalse();
+});
+
+it('keeps the inventory dashboard as the overview entry', function (): void {
+    $user = actingAsInventoryUser();
+
+    $this->actingAs($user)->get(InventoryDashboard::getUrl())->assertOk();
+
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory');
 });
 
 it('leaves a module with no declared sections rendering as a single flat group', function (): void {
@@ -114,4 +325,36 @@ it('leaves a module with no declared sections rendering as a single flat group',
     $namedGroups = $renderedGroups->filter(fn (NavigationGroup $group): bool => filled($group->getLabel()));
 
     expect($namedGroups)->toBeEmpty();
+});
+
+it('offers high-value quick actions on the inventory overview, gated by permission', function (): void {
+    $full = actingAsInventoryUser();
+
+    $this->actingAs($full)->get(InventoryDashboard::getUrl())->assertOk()
+        ->assertSee(BarcodeWorkbench::getUrl(), escape: false)
+        ->assertSee(__('admin.inventory.operation.actions.create_internal_transfer'), escape: false);
+
+    $stockOnly = actingAsInventoryUser([InventoryPermission::StockView]);
+
+    $this->actingAs($stockOnly)->get(InventoryDashboard::getUrl())->assertOk()
+        ->assertDontSee(BarcodeWorkbench::getUrl(), escape: false)
+        ->assertDontSee(__('admin.inventory.operation.actions.create_internal_transfer'), escape: false);
+});
+
+it('links the planning workspace to the low stock view of stock levels', function (): void {
+    $user = actingAsInventoryUser();
+
+    $this->actingAs($user)->get(InventoryAlertResource::getUrl())->assertOk()
+        ->assertSee(urlencode('tableFilters[low_stock][isActive]'), escape: false)
+        ->assertSee(__('admin.inventory.stock.low_stock'), escape: false);
+});
+
+it('links a warehouse to its stock, movements and reservations', function (): void {
+    $user = actingAsInventoryUser();
+    $warehouse = Warehouse::factory()->create();
+
+    $this->actingAs($user)->get(WarehouseResource::getUrl('view', ['record' => $warehouse]))->assertOk()
+        ->assertSee(__('admin.inventory.warehouse.actions.view_stock'), escape: false)
+        ->assertSee(__('admin.inventory.warehouse.actions.view_movements'), escape: false)
+        ->assertSee(__('admin.inventory.warehouse.actions.view_reservations'), escape: false);
 });

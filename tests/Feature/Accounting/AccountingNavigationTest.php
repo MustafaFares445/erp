@@ -7,6 +7,7 @@ use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
+use App\Filament\Resources\BankStatements\BankStatementResource;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
@@ -25,6 +26,7 @@ const ACCOUNTING_IMPLEMENTED_ITEMS = [
     'admin.resources.accounting_dashboard' => AccountingDashboard::class,
     'admin.resources.chart_of_accounts' => ChartOfAccountResource::class,
     'admin.resources.journal_entries' => JournalEntryResource::class,
+    'admin.resources.bank_statements' => BankStatementResource::class,
     'admin.resources.fiscal_periods' => FiscalPeriodResource::class,
     'admin.resources.accounts_receivable' => AccountsReceivableResource::class,
     'admin.resources.accounts_payable' => AccountsPayableResource::class,
@@ -79,6 +81,7 @@ it('places accounting resources in the intended navigation slots', function (): 
     $nativeNavigationSorts = [
         ChartOfAccountResource::class => 201,
         JournalEntryResource::class => 202,
+        BankStatementResource::class => 150,
         FiscalPeriodResource::class => 203,
         AccountsReceivableResource::class => 204,
         AccountsPayableResource::class => 205,

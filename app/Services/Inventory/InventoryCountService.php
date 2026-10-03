@@ -602,8 +602,11 @@ final readonly class InventoryCountService
                 $stockConditionValue = $row->stock_condition;
                 /** @var int $lotId */
                 $lotId = $row->inventory_lot_id;
-                /** @var numeric-string $onHand */
-                $onHand = $row->on_hand_base_quantity;
+                $onHandValue = $row->on_hand_base_quantity;
+                if (! is_numeric($onHandValue)) {
+                    throw new LogicException('Inventory lot balance quantity must be numeric.');
+                }
+                $onHand = (string) $onHandValue;
                 $condition = StockCondition::from($stockConditionValue);
 
                 $this->createLine(

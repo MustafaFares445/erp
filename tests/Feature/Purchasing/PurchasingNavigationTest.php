@@ -6,7 +6,9 @@ use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Resources\PurchaseAgreements\PurchaseAgreementResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\PurchaseRfqs\PurchaseRfqResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
@@ -29,6 +31,8 @@ uses(RefreshDatabase::class);
 const PURCHASING_ITEMS = [
     'admin.resources.purchasing_dashboard' => PurchasingDashboard::class,
     'admin.resources.purchase_needs' => PurchaseNeeds::class,
+    'admin.resources.purchase_rfqs' => PurchaseRfqResource::class,
+    'admin.resources.purchase_agreements' => PurchaseAgreementResource::class,
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
     'admin.resources.suppliers' => SupplierResource::class,
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
@@ -95,6 +99,8 @@ it('opens every purchasing surface for a purchasing manager', function (): void 
     expect(PurchaseNeeds::canAccess())->toBeTrue();
 
     foreach ([
+        PurchaseRfqResource::class,
+        PurchaseAgreementResource::class,
         PurchaseOrderResource::class,
         SupplierConfirmationResource::class,
         SupplierProductReferenceResource::class,
@@ -120,6 +126,8 @@ it('closes every purchasing surface to a user with no purchasing permission', fu
     expect(PurchaseNeeds::canAccess())->toBeFalse();
 
     foreach ([
+        PurchaseRfqResource::class,
+        PurchaseAgreementResource::class,
         PurchaseOrderResource::class,
         SupplierConfirmationResource::class,
         SupplierProductSupportResource::class,

@@ -104,6 +104,7 @@ use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
+use App\Filament\Support\WorkspaceNavigation;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -115,9 +116,16 @@ use Throwable;
 /**
  * Single source of truth for the IERP admin domains.
  *
- * @phpstan-type ModuleItem array{label: string, link: string, page?: string, section?: string}
+ * A group item is either a direct link or a workspace: an item with `tabs` is one sidebar destination
+ * that fans out into several existing resources (see {@see WorkspaceNavigation}). A workspace's `link`
+ * is its default tab, `tools` are workspace-wide shortcuts shown beside the tabs, and a group's
+ * `contextual` classes belong to the module without having a sidebar entry of their own.
+ *
+ * @phpstan-type WorkspaceTab array{label: string, link: class-string<resource>, page?: string}
+ * @phpstan-type WorkspaceTool array{label: string, link: string, icon: Heroicon, filters?: array<string, array<string, mixed>>}
+ * @phpstan-type ModuleItem array{label: string, link: string, page?: string, section?: string, icon?: Heroicon, tabs?: list<WorkspaceTab>, tools?: list<WorkspaceTool>}
  * @phpstan-type ModuleSection array{key: string, label: string}
- * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>, sections?: list<ModuleSection>}
+ * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>, sections?: list<ModuleSection>, contextual?: list<class-string<resource|page>>}
  */
 final class AdminModuleRegistry
 {
@@ -160,51 +168,95 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.refunds', 'link' => RefundResource::class],
                     ['label' => 'admin.resources.taxes', 'link' => TaxResource::class],
                 ],
+                'contextual' => [
+                    ReceivableWriteOffResource::class,
+                ],
             ],
             [
                 'key' => 'inventory',
                 'label' => 'admin.groups.inventory',
                 'icon' => Heroicon::OutlinedCube,
                 'sort' => 3,
-                'sections' => [
-                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
-                    ['key' => 'inbound', 'label' => 'admin.sections.inbound'],
-                    ['key' => 'outbound', 'label' => 'admin.sections.outbound'],
-                    ['key' => 'stock', 'label' => 'admin.sections.stock'],
-                    ['key' => 'operations', 'label' => 'admin.sections.operations'],
-                    ['key' => 'planning', 'label' => 'admin.sections.planning'],
-                    ['key' => 'warehouses', 'label' => 'admin.sections.warehouses'],
-                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
-                    ['key' => 'configurations', 'label' => 'admin.sections.configurations'],
-                ],
                 'items' => [
-                    ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class, 'section' => 'overview'],
-                    ['label' => 'admin.resources.purchase_inbounds', 'link' => PurchaseInboundResource::class, 'section' => 'inbound'],
-                    ['label' => 'admin.resources.inventory_receipts_menu', 'link' => InventoryOperationResource::class, 'page' => 'receipts', 'section' => 'inbound'],
-                    ['label' => 'admin.resources.outbound_fulfillment', 'link' => OutboundFulfillmentResource::class, 'section' => 'outbound'],
-                    ['label' => 'admin.resources.inventory_deliveries', 'link' => InventoryOperationResource::class, 'page' => 'deliveries', 'section' => 'outbound'],
-                    ['label' => 'admin.resources.shipments', 'link' => ShipmentResource::class, 'section' => 'outbound'],
-                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.inventory.correction.resource_label_plural', 'link' => InventoryCorrectionResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.barcode_workbench', 'link' => BarcodeWorkbench::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.inventory_condition_changes', 'link' => InventoryConditionChangeResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.internal_transfers', 'link' => InventoryOperationResource::class, 'page' => 'transfers', 'section' => 'operations'],
-                    ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.inventory_counts', 'link' => InventoryCountResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.replenishment_policies', 'link' => WarehouseReplenishmentPolicyResource::class, 'section' => 'planning'],
-                    ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'planning'],
-                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'warehouses'],
-                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'section' => 'reports'],
-                    ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class, 'section' => 'configurations'],
-                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'section' => 'configurations'],
-                    ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class],
+                    [
+                        'label' => 'admin.sections.stock',
+                        'link' => StockLevelResource::class,
+                        'icon' => Heroicon::OutlinedChartBarSquare,
+                        'tabs' => [
+                            ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class],
+                            ['label' => 'admin.resources.products', 'link' => ProductResource::class],
+                            ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class],
+                            ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class],
+                            ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class],
+                        ],
+                        'tools' => [
+                            ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'icon' => Heroicon::OutlinedDocumentArrowUp],
+                            ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'icon' => Heroicon::OutlinedDocumentChartBar],
+                        ],
+                    ],
+                    [
+                        'label' => 'admin.sections.inbound',
+                        'link' => PurchaseInboundResource::class,
+                        'icon' => Heroicon::OutlinedInboxArrowDown,
+                        'tabs' => [
+                            ['label' => 'admin.resources.purchase_inbounds', 'link' => PurchaseInboundResource::class],
+                            ['label' => 'admin.resources.inventory_receipts_menu', 'link' => InventoryOperationResource::class, 'page' => 'receipts'],
+                        ],
+                        'tools' => [
+                            ['label' => 'admin.resources.barcode_workbench', 'link' => BarcodeWorkbench::class, 'icon' => Heroicon::OutlinedQrCode],
+                        ],
+                    ],
+                    [
+                        'label' => 'admin.sections.outbound',
+                        'link' => OutboundFulfillmentResource::class,
+                        'icon' => Heroicon::OutlinedArrowUpTray,
+                        'tabs' => [
+                            ['label' => 'admin.resources.outbound_fulfillment', 'link' => OutboundFulfillmentResource::class],
+                            ['label' => 'admin.resources.inventory_deliveries', 'link' => InventoryOperationResource::class, 'page' => 'deliveries'],
+                            ['label' => 'admin.resources.shipments', 'link' => ShipmentResource::class],
+                            ['label' => 'admin.resources.packages', 'link' => PackageResource::class],
+                        ],
+                        'tools' => [
+                            ['label' => 'admin.resources.barcode_workbench', 'link' => BarcodeWorkbench::class, 'icon' => Heroicon::OutlinedQrCode],
+                        ],
+                    ],
+                    [
+                        'label' => 'admin.sections.operations',
+                        'link' => InventoryOperationResource::class,
+                        'icon' => Heroicon::OutlinedArrowsRightLeft,
+                        'tabs' => [
+                            ['label' => 'admin.resources.internal_transfers', 'link' => InventoryOperationResource::class, 'page' => 'transfers'],
+                            ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class],
+                            ['label' => 'admin.resources.inventory_counts', 'link' => InventoryCountResource::class],
+                            ['label' => 'admin.resources.returns', 'link' => ReturnResource::class],
+                            ['label' => 'admin.inventory.correction.resource_label_plural', 'link' => InventoryCorrectionResource::class],
+                            ['label' => 'admin.resources.inventory_condition_changes', 'link' => InventoryConditionChangeResource::class],
+                            ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class],
+                        ],
+                        'tools' => [
+                            ['label' => 'admin.resources.barcode_workbench', 'link' => BarcodeWorkbench::class, 'icon' => Heroicon::OutlinedQrCode],
+                        ],
+                    ],
+                    [
+                        'label' => 'admin.sections.planning_alerts',
+                        'link' => InventoryAlertResource::class,
+                        'icon' => Heroicon::OutlinedBellAlert,
+                        'tabs' => [
+                            ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class],
+                            ['label' => 'admin.resources.replenishment_policies', 'link' => WarehouseReplenishmentPolicyResource::class],
+                        ],
+                        'tools' => [
+                            ['label' => 'admin.inventory.stock.low_stock', 'link' => StockLevelResource::class, 'icon' => Heroicon::OutlinedExclamationTriangle, 'filters' => ['low_stock' => ['isActive' => true]]],
+                            ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'icon' => Heroicon::OutlinedDocumentChartBar],
+                        ],
+                    ],
+                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class],
+                ],
+                'contextual' => [
+                    ProductVariantResource::class,
+                    InventoryImportRunResource::class,
+                    BarcodeWorkbench::class,
                 ],
             ],
             [
@@ -298,6 +350,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
                     ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class],
                     ['label' => 'admin.resources.purchasing_reports', 'link' => PurchasingReportResource::class],
+                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
                     ['label' => 'admin.resources.audit_logs', 'link' => AuditLogResource::class],
                 ],
             ],
@@ -311,6 +364,8 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.payment_methods', 'link' => PaymentMethodResource::class],
                     ['label' => 'admin.resources.sales_settings', 'link' => SalesSettingResource::class],
                     ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
+                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class],
+                    ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class],
                     ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
                     ['label' => 'admin.resources.tax_definitions', 'link' => SalesSettingResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
@@ -325,16 +380,49 @@ final class AdminModuleRegistry
     }
 
     /**
-     * Resources intentionally kept off the module sidebar because their normal entry point is contextual.
+     * Resources intentionally kept off the module sidebar because their normal entry point is contextual:
+     * a group's declared `contextual` classes plus every workspace tab that is not itself a sidebar link.
      *
      * @return list<class-string<resource>>
      */
     public static function contextualResources(): array
     {
-        return [
-            ProductVariantResource::class,
-            ReceivableWriteOffResource::class,
-        ];
+        $direct = [];
+        $contextual = [];
+        foreach (self::groups() as $group) {
+            foreach ($group['items'] as $item) {
+                $direct[] = $item['link'];
+                foreach ($item['tabs'] ?? [] as $tab) {
+                    $contextual[] = $tab['link'];
+                }
+            }
+            array_push($contextual, ...($group['contextual'] ?? []));
+        }
+
+        return array_values(array_unique(array_filter(
+            $contextual,
+            static fn (string $class): bool => is_subclass_of($class, Resource::class) && ! in_array($class, $direct, true),
+        )));
+    }
+
+    /**
+     * Every class that belongs to a module without necessarily being a visible sidebar link: the
+     * direct items, the tabs of each workspace item, and the group's declared contextual classes.
+     *
+     * @param  ModuleGroup  $group
+     * @return list<string>
+     */
+    public static function memberClassesOf(array $group): array
+    {
+        $members = [];
+        foreach ($group['items'] as $item) {
+            $members[] = $item['link'];
+            foreach ($item['tabs'] ?? [] as $tab) {
+                $members[] = $tab['link'];
+            }
+        }
+
+        return array_values(array_unique([...$members, ...($group['contextual'] ?? [])]));
     }
 
     public static function resolveLink(string $class): ?string
@@ -420,15 +508,15 @@ final class AdminModuleRegistry
         }
         $panelId = Filament::getCurrentOrDefaultPanel()?->getId();
         foreach ($groups ?? self::groups() as $group) {
-            foreach ($group['items'] as $item) {
-                if (is_subclass_of($item['link'], Resource::class)) {
-                    if (Str::startsWith($routeName, sprintf('filament.%s.resources.%s.', $panelId, $item['link']::getSlug()))) {
+            foreach (self::memberClassesOf($group) as $class) {
+                if (is_subclass_of($class, Resource::class)) {
+                    if (Str::startsWith($routeName, sprintf('filament.%s.resources.%s.', $panelId, $class::getSlug()))) {
                         return $group['key'];
                     }
 
                     continue;
                 }
-                if (is_subclass_of($item['link'], Page::class) && $routeName === $item['link']::getRouteName()) {
+                if (is_subclass_of($class, Page::class) && $routeName === $class::getRouteName()) {
                     return $group['key'];
                 }
             }
@@ -464,11 +552,11 @@ final class AdminModuleRegistry
     {
         $placeholderItem = null;
         foreach ($group['items'] as $item) {
-            $link = self::resolveLink($item['link']);
+            $link = self::resolveItemUrl($item);
             if ($link !== null) {
                 return $link;
             }
-            if (self::isAccessDenied($item['link'])) {
+            if (self::isItemAccessDenied($item)) {
                 continue;
             }
             $placeholderItem ??= $item;
@@ -491,7 +579,12 @@ final class AdminModuleRegistry
             if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
                 continue;
             }
-            if (self::resolveLink($item['link']) === null) {
+            if (self::resolveItemUrl($item) === null) {
+                continue;
+            }
+            if (isset($item['tabs'])) {
+                $items[] = WorkspaceNavigation::navigationItem($item);
+
                 continue;
             }
             if (isset($item['page']) && is_subclass_of($item['link'], Resource::class)) {
@@ -527,10 +620,10 @@ final class AdminModuleRegistry
                 if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
                     continue;
                 }
-                if (self::isAccessDenied($item['link'])) {
+                if (self::isItemAccessDenied($item)) {
                     continue;
                 }
-                if (self::resolveLink($item['link']) !== null) {
+                if (self::resolveItemUrl($item) !== null) {
                     continue;
                 }
                 $itemSlug = self::itemSlug($item['label']);
@@ -546,6 +639,25 @@ final class AdminModuleRegistry
         }
 
         return $items;
+    }
+
+    /**
+     * The landing URL of a group item: a workspace lands on its first tab the user may open, any
+     * other item on its own link.
+     *
+     * @param  ModuleItem  $item
+     */
+    public static function resolveItemUrl(array $item): ?string
+    {
+        return isset($item['tabs']) ? WorkspaceNavigation::firstUrl($item) : self::resolveLink($item['link']);
+    }
+
+    /**
+     * @param  ModuleItem  $item
+     */
+    public static function isItemAccessDenied(array $item): bool
+    {
+        return isset($item['tabs']) ? WorkspaceNavigation::firstUrl($item) === null : self::isAccessDenied($item['link']);
     }
 
     private static function itemSlug(string $labelKey): string

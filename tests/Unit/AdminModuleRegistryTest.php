@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Resources\CustomFieldDefinitions\CustomFieldDefinitionResource;
 use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
@@ -680,35 +681,34 @@ it('filters placeholder navigation items down to a single section', function ():
         ->and($catalogItems[0]->getLabel())->toBe(__('admin.resources.products'));
 });
 
-it('declares sections for the inventory group with unique keys and translated labels', function (): void {
+it('declares the inventory group as seven workspace destinations with translated labels', function (): void {
     $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
 
-    expect($inventory)->not->toBeNull();
+    expect($inventory)->not->toBeNull()
+        ->and($inventory['items'])->toHaveCount(7)
+        ->and($inventory)->not->toHaveKey('sections');
 
-    $sections = $inventory['sections'] ?? [];
+    foreach ($inventory['items'] as $item) {
+        expect(__($item['label'], [], 'en'))->not->toBe($item['label'])
+            ->and(__($item['label'], [], 'ar'))->not->toBe($item['label']);
 
-    expect($sections)->not->toBeEmpty();
-
-    $keys = array_column($sections, 'key');
-
-    expect($keys)->toBe(array_values(array_unique($keys)));
-
-    foreach ($sections as $section) {
-        expect($section)->toHaveKeys(['key', 'label'])
-            ->and(__($section['label'], [], 'en'))->not->toBe($section['label']);
+        foreach ($item['tabs'] ?? [] as $tab) {
+            expect(__($tab['label'], [], 'en'))->not->toBe($tab['label'])
+                ->and(is_subclass_of($tab['link'], Resource::class))->toBeTrue();
+        }
     }
 });
 
-it('assigns every inventory item to one of the groups declared sections', function (): void {
-    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+it('gives every workspace a default tab that is its own link and only tabs that exist', function (): void {
+    foreach (AdminModuleRegistry::groups() as $group) {
+        foreach ($group['items'] as $item) {
+            if (! isset($item['tabs'])) {
+                continue;
+            }
 
-    $sectionKeys = array_column($inventory['sections'] ?? [], 'key');
-
-    expect($sectionKeys)->not->toBeEmpty();
-
-    foreach ($inventory['items'] as $item) {
-        expect($item)->toHaveKey('section')
-            ->and($sectionKeys)->toContain($item['section']);
+            expect($item['tabs'])->not->toBeEmpty()
+                ->and($item['tabs'][0]['link'])->toBe($item['link']);
+        }
     }
 });
 
@@ -765,9 +765,11 @@ it('exposes confirmed operational resources in their owning modules', function (
     $maintenanceSchedule = AdminModuleRegistry::findItem('support', 'maintenance_schedules');
     $supplierPayment = AdminModuleRegistry::findItem('accounting', 'supplier_payments');
 
-    expect($inventoryCount)->not->toBeNull()
-        ->and($inventoryCount['item']['link'])->toBe(InventoryCountResource::class)
-        ->and($inventoryCount['item']['section'])->toBe('operations')
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $operations = collect($inventory['items'])->firstWhere('label', 'admin.sections.operations');
+
+    expect($inventoryCount)->toBeNull()
+        ->and(collect($operations['tabs'])->pluck('link'))->toContain(InventoryCountResource::class)
         ->and($maintenanceSchedule)->not->toBeNull()
         ->and($maintenanceSchedule['item']['link'])->toBe(MaintenanceScheduleResource::class)
         ->and($supplierPayment)->not->toBeNull()
@@ -785,10 +787,11 @@ it('keeps contextual screens contextual and supplier catalog resources directly 
         ->and($supplierReferences['item']['link'])->toBe(SupplierProductReferenceResource::class)
         ->and($supplierSupports)->not->toBeNull()
         ->and($supplierSupports['item']['link'])->toBe(SupplierProductSupportResource::class)
-        ->and(AdminModuleRegistry::contextualResources())->toBe([
+        ->and(AdminModuleRegistry::contextualResources())->toContain(
             ProductVariantResource::class,
             ReceivableWriteOffResource::class,
-        ]);
+            InventoryCountResource::class,
+        );
 });
 
 it('accounts for every Filament resource as direct navigation or an explicit contextual screen', function (): void {
@@ -796,8 +799,15 @@ it('accounts for every Filament resource as direct navigation or an explicit con
         ->flatMap(fn (array $group): array => array_column($group['items'], 'link'))
         ->filter(fn (string $class): bool => is_subclass_of($class, Resource::class));
 
+    // Settings-only resources are deliberately registered with Filament but omitted from
+    // the module sidebar: they are reached through the unified Settings hub instead.
+    $settingsOnlyResources = collect([
+        CustomFieldDefinitionResource::class,
+    ]);
+
     $accountedResources = $directResources
         ->merge(AdminModuleRegistry::contextualResources())
+        ->merge($settingsOnlyResources)
         ->unique()
         ->sort()
         ->values();
@@ -808,7 +818,8 @@ it('accounts for every Filament resource as direct navigation or an explicit con
         ->values();
 
     expect($accountedResources->all())->toBe($panelResources->all())
-        ->and($directResources->intersect(AdminModuleRegistry::contextualResources()))->toBeEmpty();
+        ->and($directResources->intersect(AdminModuleRegistry::contextualResources()))->toBeEmpty()
+        ->and($directResources->intersect($settingsOnlyResources))->toBeEmpty();
 });
 
 it('keeps module groups in normalized sort order', function (): void {
