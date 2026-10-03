@@ -12,7 +12,6 @@ use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
 use App\Filament\Widgets\InventoryOperationsPipeline;
-use App\Filament\Widgets\InventoryPendingDocuments;
 use App\Filament\Widgets\InventoryQuarantineAgeing;
 use App\Filament\Widgets\InventoryRecentMovements;
 use App\Filament\Widgets\InventoryStockStatistics;
@@ -30,6 +29,7 @@ use App\Models\ReconciliationRun;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
+use App\Support\MoneyFormatter;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -77,41 +77,91 @@ it('renders low-stock and recent-movement widget tables for authorized viewers',
         ->assertCanSeeTableRecords([$movement]);
 });
 
-it('shows pending document counts for either source permission', function (): void {
+it('counts open operations and draft adjustments as awaiting action', function (): void {
     InventoryAdjustment::factory()->create(['status' => 'draft']);
-    InventoryOperation::factory()->internalTransfer()->draft()->create();
-    $adjustmentViewer = User::factory()->create();
-    $adjustmentViewer->givePermissionTo(InventoryPermission::AdjustmentView->value);
-
-    $transferViewer = User::factory()->create();
-    $transferViewer->givePermissionTo(InventoryPermission::TransferView->value);
-
-    expect(InventoryPendingDocuments::canView())->toBeFalse();
-
-    $this->actingAs($adjustmentViewer);
-    expect(InventoryPendingDocuments::canView())->toBeTrue();
-
-    $this->actingAs($transferViewer);
-    $widget = app(InventoryPendingDocuments::class);
-    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
-
-    expect(InventoryPendingDocuments::canView())->toBeTrue()
-        ->and($stats)->toHaveCount(2);
-});
-
-it('counts dispatched transfers awaiting receipt as pending, alongside drafts', function (): void {
     InventoryOperation::factory()->internalTransfer()->draft()->create();
     InventoryOperation::factory()->internalTransfer()->inTransit()->create();
     InventoryOperation::factory()->internalTransfer()->done()->create();
 
     $viewer = User::factory()->create();
-    $viewer->givePermissionTo(InventoryPermission::TransferView->value);
+    $viewer->givePermissionTo([InventoryPermission::StockView->value, InventoryPermission::TransferView->value]);
     $this->actingAs($viewer);
 
-    $widget = app(InventoryPendingDocuments::class);
+    $widget = app(InventoryKeyMetrics::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
-    expect($stats[1]->getValue())->toBe('2');
+    expect($stats)->toHaveCount(3)
+        ->and($stats[2]->getValue())->toBe('3')
+        ->and((string) $stats[2]->getDescription())->toBe('1 draft adjustments · 2 open transfers')
+        ->and($stats[2]->getColor())->toBe('warning');
+});
+
+it('narrows the key metrics and tables to the selected warehouse', function (): void {
+    $variant = ProductVariant::factory()->create(['cost_price' => '10.00']);
+    $kept = InventoryStock::factory()->create(['product_variant_id' => $variant->id, 'on_hand_quantity' => 0, 'available_quantity' => 0]);
+    $other = InventoryStock::factory()->create(['product_variant_id' => $variant->id, 'on_hand_quantity' => 7, 'available_quantity' => 7]);
+    InventoryAdjustment::factory()->create(['status' => 'draft', 'warehouse_id' => $other->warehouse_id]);
+    InventoryOperation::factory()->internalTransfer()->draft()->create([
+        'source_warehouse_id' => $other->warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->id,
+    ]);
+
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo([
+        InventoryPermission::StockView->value,
+        InventoryPermission::MovementView->value,
+        InventoryPermission::AdjustmentView->value,
+    ]);
+    $this->actingAs($viewer);
+
+    $widget = app(InventoryKeyMetrics::class);
+    $widget->pageFilters = ['warehouseId' => $kept->warehouse_id];
+
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect($stats[0]->getValue())->toBe(MoneyFormatter::formatAmount(0))
+        ->and($stats[1]->getValue())->toBe('1')
+        ->and($stats[2]->getValue())->toBe('0')
+        ->and($stats[2]->getColor())->toBe('success');
+
+    $keptMovement = InventoryMovement::factory()->create(['warehouse_id' => $kept->warehouse_id]);
+    $otherMovement = InventoryMovement::factory()->create(['warehouse_id' => $other->warehouse_id]);
+
+    Livewire::test(InventoryRecentMovements::class, ['pageFilters' => ['warehouseId' => $kept->warehouse_id]])
+        ->assertCanSeeTableRecords([$keptMovement])
+        ->assertCanNotSeeTableRecords([$otherMovement]);
+
+    Livewire::test(InventoryLowStock::class, ['pageFilters' => ['warehouseId' => $other->warehouse_id]])
+        ->assertCanNotSeeTableRecords([$kept]);
+});
+
+it('shows unresolved alerts in place of replenishment for a viewer without replenishment access', function (): void {
+    InventoryAlert::factory()->create(['severity' => InventoryAlertSeverity::Warning]);
+
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo([InventoryPermission::StockView->value, InventoryPermission::AlertView->value]);
+    $this->actingAs($viewer);
+
+    $widget = app(InventoryKeyMetrics::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect($stats)->toHaveCount(3)
+        ->and($stats[2]->getValue())->toBe('1')
+        ->and($stats[2]->getColor())->toBe('warning');
+});
+
+it('labels stock value by warehouse in the default currency and filters by warehouse', function (): void {
+    $variant = ProductVariant::factory()->create(['cost_price' => '2.00']);
+    $first = InventoryStock::factory()->create(['product_variant_id' => $variant->id, 'available_quantity' => 5]);
+    InventoryStock::factory()->create(['product_variant_id' => $variant->id, 'available_quantity' => 3]);
+
+    $widget = app(InventoryStockValue::class);
+    $widget->pageFilters = ['warehouseId' => $first->warehouse_id];
+
+    $data = new ReflectionMethod($widget, 'getData')->invoke($widget);
+
+    expect($data['datasets'][0]['label'])->toStartWith('Stock value (')
+        ->and($data['datasets'][0]['data'])->toBe([10.0]);
 });
 
 it('uses a bar chart for usable stock valuation', function (): void {
@@ -174,10 +224,10 @@ it('computes headline stock metrics for a stock-view-only viewer', function (): 
     $widget = app(InventoryKeyMetrics::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
-    expect($stats)->toHaveCount(3)
-        ->and($stats[0]->getValue())->toBe(number_format(50.0, 2))
-        ->and($stats[1]->getValue())->toBe('1')
-        ->and($stats[2]->getValue())->toBe('1');
+    expect($stats)->toHaveCount(2)
+        ->and($stats[0]->getValue())->toBe(MoneyFormatter::formatAmount(50))
+        ->and((string) $stats[0]->getDescription())->toBe('1 stocked SKUs across 1 warehouses')
+        ->and($stats[1]->getValue())->toBe('1');
 });
 
 it('adds unresolved-alerts and awaiting-action stats once the viewer holds those permissions', function (): void {
@@ -195,9 +245,10 @@ it('adds unresolved-alerts and awaiting-action stats once the viewer holds those
     $widget = app(InventoryKeyMetrics::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
-    expect($stats)->toHaveCount(5)
-        ->and($stats[3]->getValue())->toBe('1')
-        ->and($stats[4]->getValue())->toBe('1');
+    expect($stats)->toHaveCount(4)
+        ->and($stats[2]->getValue())->toBe('1')
+        ->and($stats[2]->getColor())->toBe('danger')
+        ->and($stats[3]->getValue())->toBe('1');
 });
 
 it('hides the key metrics widget from a viewer without stock view', function (): void {
@@ -281,7 +332,8 @@ it('renders correction movements in the recent movements widget', function (): v
         ->test(InventoryRecentMovements::class)
         ->assertCanSeeTableRecords([$movement])
         ->assertSee('Correction')
-        ->assertSee('-2.000000');
+        ->assertSee('-2')
+        ->assertDontSee('-2.000000');
 });
 
 it('shows the latest persisted reconciliation result as pass or fail', function (): void {

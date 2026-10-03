@@ -5,22 +5,24 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\InventoryPermission;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\InventoryMovement;
 use App\Services\Support\ServiceRecordPartService;
 use Filament\Widgets\ChartWidget;
-use Illuminate\Support\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Inbound vs outbound movement quantity, trailing 30 days inclusive of today.
+ * Inbound vs outbound movement quantity per bucket of the selected window,
+ * optionally for one warehouse.
  *
- * Grouped in PHP with Carbon rather than a SQL date function — SQLite (the
- * test driver) has no `DATE_FORMAT` — mirroring {@see AccountingLedgerTrend}.
  * `InventoryMovement::quantity` is signed (see {@see ServiceRecordPartService}),
  * so direction is read straight off the sign rather than `movement_type`.
  */
 final class InventoryMovementsTrend extends ChartWidget
 {
-    protected ?string $heading = null;
+    use InteractsWithDashboardFilters;
+
+    protected ?string $maxHeight = '300px';
 
     #[\Override]
     public static function canView(): bool
@@ -37,45 +39,34 @@ final class InventoryMovementsTrend extends ChartWidget
     #[\Override]
     protected function getData(): array
     {
-        $start = now()->subDays(29)->startOfDay();
-
-        $days = collect(range(29, 0))
-            ->map(fn (int $offset): string => now()->subDays($offset)->format('Y-m-d'));
-
-        $inbound = $days->mapWithKeys(fn (string $day): array => [$day => 0.0]);
-        $outbound = $days->mapWithKeys(fn (string $day): array => [$day => 0.0]);
+        $period = $this->dashboardPeriod();
 
         $rows = InventoryMovement::query()
-            ->where('created_at', '>=', $start)
+            ->whereBetween('created_at', [$period->from, $period->to])
+            ->when($this->dashboardFilter('warehouseId'), static fn (Builder $query, int $warehouseId): Builder => $query->where('warehouse_id', $warehouseId))
             ->get(['created_at', 'quantity']);
 
-        foreach ($rows as $row) {
-            $day = Carbon::parse($row->created_at)->format('Y-m-d');
-            $quantity = (float) $row->quantity;
-
-            if (! $inbound->has($day)) {
-                continue;
-            }
-
-            if ($quantity >= 0) {
-                $inbound[$day] += $quantity;
-            } else {
-                $outbound[$day] += abs($quantity);
-            }
-        }
+        $inbound = $rows->filter(static fn (InventoryMovement $row): bool => (float) $row->quantity >= 0)
+            ->map(static fn (InventoryMovement $row): array => [$row->created_at, (float) $row->quantity]);
+        $outbound = $rows->filter(static fn (InventoryMovement $row): bool => (float) $row->quantity < 0)
+            ->map(static fn (InventoryMovement $row): array => [$row->created_at, abs((float) $row->quantity)]);
 
         return [
             'datasets' => [
                 [
                     'label' => __('admin.inventory.dashboard.inbound'),
-                    'data' => $inbound->values()->all(),
+                    'data' => $period->sumSeries($inbound),
+                    'borderColor' => '#22c55e',
+                    'backgroundColor' => 'transparent',
                 ],
                 [
                     'label' => __('admin.inventory.dashboard.outbound'),
-                    'data' => $outbound->values()->all(),
+                    'data' => $period->sumSeries($outbound),
+                    'borderColor' => '#ef4444',
+                    'backgroundColor' => 'transparent',
                 ],
             ],
-            'labels' => $days->map(fn (string $day): string => Carbon::parse($day)->format('M j'))->all(),
+            'labels' => $period->labels(),
         ];
     }
 

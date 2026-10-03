@@ -4,20 +4,17 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\Pages\InventoryDashboard;
-use App\Filament\Widgets\DamagedStockQueue;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
-use App\Filament\Widgets\InventoryOperationsPipeline;
-use App\Filament\Widgets\InventoryPendingDocuments;
-use App\Filament\Widgets\InventoryQuarantineAgeing;
 use App\Filament\Widgets\InventoryRecentMovements;
-use App\Filament\Widgets\InventoryStockStatistics;
 use App\Filament\Widgets\InventoryStockValue;
-use App\Filament\Widgets\ReconciliationStatus;
 use App\Models\User;
+use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -25,37 +22,40 @@ beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
 
-it('registers the redesigned widget set in the intended reading order', function (): void {
-    $widget = app(InventoryDashboard::class);
-    $widgets = new ReflectionMethod($widget, 'getHeaderWidgets')->invoke($widget);
+it('registers only the essential widgets as aligned pairs', function (): void {
+    $widgets = new ReflectionMethod(InventoryDashboard::class, 'getDashboardWidgets')->invoke(new InventoryDashboard);
 
     expect($widgets)->toBe([
         InventoryKeyMetrics::class,
-        InventoryPendingDocuments::class,
-        InventoryLowStock::class,
-        InventoryQuarantineAgeing::class,
-        DamagedStockQueue::class,
-        ReconciliationStatus::class,
-        InventoryOperationsPipeline::class,
-        InventoryStockValue::class,
-        InventoryMovementsTrend::class,
-        InventoryRecentMovements::class,
-        InventoryStockStatistics::class,
+        [InventoryMovementsTrend::class, InventoryStockValue::class],
+        [InventoryLowStock::class, InventoryRecentMovements::class],
     ]);
 });
 
-it('lays out the charts two per row on large screens', function (): void {
-    $widget = app(InventoryDashboard::class);
+it('gives the movements chart the full row when stock value pricing is hidden', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo([InventoryPermission::StockView->value, InventoryPermission::MovementView->value]);
+    $this->actingAs($user);
 
-    expect($widget->getHeaderWidgetsColumns())->toBe(['lg' => 2]);
+    $resolved = new ReflectionMethod(InventoryDashboard::class, 'resolveDashboardWidgets')->invoke(new InventoryDashboard);
+
+    expect($resolved[1])->toBeInstanceOf(WidgetConfiguration::class)
+        ->and($resolved[1]->widget)->toBe(InventoryMovementsTrend::class)
+        ->and($resolved[1]->getProperties())->toBe(['spansFullWidth' => true]);
 });
 
-it('renders for a viewer with stock view access', function (): void {
+it('renders for a viewer with stock view access, with a warehouse filter', function (): void {
     $user = User::factory()->create();
     $user->givePermissionTo(InventoryPermission::StockView->value);
+
+    $warehouse = Warehouse::factory()->create(['name' => 'Dubai Main']);
 
     $this->actingAs($user)
         ->get(InventoryDashboard::getUrl())
         ->assertOk()
         ->assertSeeText(__('admin.resources.inventory_dashboard'));
+
+    Livewire::test(InventoryDashboard::class)
+        ->set('filters.warehouseId', $warehouse->id)
+        ->assertSet('filters.warehouseId', $warehouse->id);
 });
