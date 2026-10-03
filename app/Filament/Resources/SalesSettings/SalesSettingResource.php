@@ -45,7 +45,7 @@ final class SalesSettingResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.accounting';
 
     #[\Override]
     public static function getNavigationLabel(): string

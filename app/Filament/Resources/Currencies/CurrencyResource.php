@@ -27,7 +27,7 @@ final class CurrencyResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCurrencyDollar;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.accounting';
 
     protected static ?int $navigationSort = 20;
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsSensitiveSettings;
 use App\Services\Sales\SalesAccountResolver;
 use Database\Factories\SalesSettingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -39,8 +40,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 final class SalesSetting extends Model
 {
+    use AuditsSensitiveSettings;
+
     /** @use HasFactory<SalesSettingFactory> */
     use HasFactory;
+
+    /** @return list<string> */
+    public static function sensitiveSettingColumns(): array
+    {
+        return ['default_tax_percent', 'receivable_account_id', 'revenue_account_id', 'deferred_tax_account_id', 'tax_payable_account_id', 'customer_deposits_account_id', 'bad_debt_expense_account_id', 'stripe_enabled'];
+    }
 
     #[\Override]
     public function casts(): array

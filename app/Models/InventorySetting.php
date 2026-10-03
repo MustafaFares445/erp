@@ -4,12 +4,21 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsSensitiveSettings;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 #[Fillable(['default_markup_percent', 'expiry_alert_days', 'max_price_floor_override_percent'])]
 final class InventorySetting extends Model
 {
+    use AuditsSensitiveSettings;
+
+    /** @return list<string> */
+    public static function sensitiveSettingColumns(): array
+    {
+        return ['max_price_floor_override_percent'];
+    }
+
     #[\Override]
     public function casts(): array
     {

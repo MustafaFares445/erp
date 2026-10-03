@@ -27,7 +27,7 @@ final class PaymentMethodResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.accounting';
 
     #[\Override]
     public static function getNavigationLabel(): string

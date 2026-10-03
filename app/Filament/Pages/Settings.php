@@ -14,6 +14,8 @@ final class Settings extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected string $view = 'filament.pages.settings';
 
     public string $search = '';

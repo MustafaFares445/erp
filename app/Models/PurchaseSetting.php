@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsSensitiveSettings;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\PurchaseSettingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -29,6 +30,14 @@ final class PurchaseSetting extends Model
     protected static function booted(): void
     {
         self::saving(static fn (self $record) => $record->validateActiveCurrency('approval_threshold_currency'));
+    }
+
+    use AuditsSensitiveSettings;
+
+    /** @return list<string> */
+    public static function sensitiveSettingColumns(): array
+    {
+        return ['approval_threshold_amount', 'approval_threshold_currency'];
     }
 
     #[\Override]

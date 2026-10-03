@@ -22,7 +22,7 @@ final class InventorySettingResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.inventory';
 
     #[\Override]
     public static function canCreate(): bool
