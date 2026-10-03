@@ -10,6 +10,7 @@ use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\BankStatements\BankStatementResource;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
+use App\Filament\Resources\Currencies\CurrencyResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
@@ -35,6 +36,7 @@ const ACCOUNTING_IMPLEMENTED_ITEMS = [
     'admin.resources.expenses' => ExpenseResource::class,
     'admin.resources.refunds' => RefundResource::class,
     'admin.resources.taxes' => TaxResource::class,
+    'admin.sections.accounting_setup' => CurrencyResource::class,
 ];
 
 beforeEach(function (): void {

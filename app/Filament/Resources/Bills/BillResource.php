@@ -10,9 +10,11 @@ use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Pages\ViewBill;
 use App\Filament\Resources\Bills\Schemas\BillInfolist;
 use App\Filament\Resources\Bills\Tables\BillsTable;
+use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use BackedEnum;
@@ -151,6 +153,24 @@ final class BillResource extends Resource
 
                 app(AccountingDocumentService::class)->approveBill($actor, $record);
             });
+    }
+
+    /**
+     * Opens the supplier-payment form prefilled with this bill, shared by the
+     * bill View page and the bills table so both use the same prefill route.
+     */
+    public static function recordSupplierPaymentAction(): Action
+    {
+        return Action::make('recordSupplierPayment')
+            ->label(__('Record supplier payment'))
+            ->icon(Heroicon::OutlinedBanknotes)
+            ->color('primary')
+            ->visible(fn (Bill $record): bool => $record->isOpen()
+                && $record->outstandingAmount() > 0.0
+                && (auth()->user()?->can('create', SupplierPayment::class) ?? false))
+            ->url(fn (Bill $record): string => SupplierPaymentResource::getUrl('index', [
+                'bill_id' => $record->id,
+            ]));
     }
 
     /**

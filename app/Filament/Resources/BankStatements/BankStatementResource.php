@@ -6,6 +6,7 @@ namespace App\Filament\Resources\BankStatements;
 
 use App\Enums\AccountingPermission;
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\BankStatements\Actions\BankStatementActions;
 use App\Filament\Resources\BankStatements\Pages\CreateBankStatement;
 use App\Filament\Resources\BankStatements\Pages\ListBankStatements;
 use App\Filament\Resources\BankStatements\Pages\ViewBankStatement;
@@ -158,7 +159,11 @@ final class BankStatementResource extends Resource
                 ]),
                 SelectFilter::make('payment_method_id')->relationship('paymentMethod', 'name')->searchable()->preload(),
             ])
-            ->recordActions([ViewAction::make()]);
+            ->recordActions([
+                BankStatementActions::continueReconciliation(),
+                BankStatementActions::closeFromList(),
+                ViewAction::make(),
+            ]);
     }
 
     /** @return array<string> */

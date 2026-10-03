@@ -62,7 +62,7 @@ it('offers the Reviewer no action that changes a record (FR-004)', function (): 
 });
 
 it('keeps the accounting permission catalogue complete after bank reconciliation was added', function (): void {
-    expect(AccountingPermission::values())->toHaveCount(32)
+    expect(AccountingPermission::values())->toHaveCount(34)
         ->and(AccountingPermission::ReportView->value)->toBe('accounting.report.view')
         ->and(AccountingPermission::BankReconciliationView->value)->toBe('accounting.bank-reconciliation.view')
         ->and(AccountingPermission::BankReconciliationManage->value)->toBe('accounting.bank-reconciliation.manage');

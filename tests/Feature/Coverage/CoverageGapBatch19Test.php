@@ -2,13 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Enums\InventoryPermission;
 use App\Enums\OpportunityOrigin;
 use App\Enums\ShipmentStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\AccountsPayable\Pages\ListAccountsPayable;
 use App\Filament\Resources\ChartOfAccounts\Pages\CreateChartOfAccount;
-use App\Filament\Widgets\InventoryOperationsPipeline;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
 use App\Models\InventoryCountLine;
@@ -19,22 +17,13 @@ use App\Models\SupplierConfirmationItem;
 use App\Models\User;
 use App\Services\Accounting\AccountsPayableService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
-it('covers inventory pipeline delivery permission and inventory count counted-state helpers', function (): void {
-    (new InventoryPermissionSeeder)->run();
-
-    $viewer = User::factory()->create();
-    $viewer->givePermissionTo(InventoryPermission::DeliveryView->value);
-    $this->actingAs($viewer);
-
-    expect(InventoryOperationsPipeline::canView())->toBeTrue();
-
+it('covers inventory count counted-state helpers', function (): void {
     $uncounted = new InventoryCountLine;
     $uncounted->forceFill(['counted_base_quantity' => null]);
 

@@ -4,20 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\BankStatements\Pages;
 
-use App\Enums\AccountingPermission;
-use App\Filament\Concerns\InteractsWithAccountingServices;
+use App\Filament\Resources\BankStatements\Actions\BankStatementActions;
 use App\Filament\Resources\BankStatements\BankStatementResource;
 use App\Models\BankStatement;
-use App\Models\User;
-use App\Services\Accounting\BankReconciliation\BankReconciliationService;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
 final class ViewBankStatement extends ViewRecord
 {
-    use InteractsWithAccountingServices;
-
     protected static string $resource = BankStatementResource::class;
 
     #[\Override]
@@ -30,25 +23,9 @@ final class ViewBankStatement extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('close')
-                ->label(__('Close reconciliation'))
-                ->icon('heroicon-o-lock-closed')
-                ->color('success')
-                ->visible(fn (): bool => $this->statement()->status === 'open'
-                    && (auth()->user()?->can(AccountingPermission::BankReconciliationManage->value) ?? false))
-                ->requiresConfirmation()
-                ->action(function (): void {
-                    $actor = self::accountingActor();
-                    if (! $actor instanceof User) {
-                        return;
-                    }
-
-                    self::runAccountingOperation(
-                        fn (): BankStatement => app(BankReconciliationService::class)->close($actor, $this->statement()),
-                    );
-                    $this->refreshFormData(['status', 'reconciled_at', 'reconciled_by']);
-                    Notification::make()->success()->title(__('Bank statement reconciled'))->send();
-                }),
+            BankStatementActions::close()
+                ->record(fn (): BankStatement => $this->statement())
+                ->after(fn () => $this->refreshFormData(['status', 'reconciled_at', 'reconciled_by'])),
         ];
     }
 

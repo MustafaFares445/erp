@@ -86,7 +86,8 @@ final class BillInfolist
         ]);
     }
 
-    private static function blocker(Bill $bill): ?string
+    /** The dominant reason a draft bill cannot be approved untouched, if any. */
+    public static function blocker(Bill $bill): ?string
     {
         if ($bill->status === BillStatus::Draft
             && str_starts_with($bill->supplier_reference, 'PO-AUTO:')) {

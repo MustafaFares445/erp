@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Enums\AccountElement;
+use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Enums\PaymentStatus;
+use App\Filament\Resources\BankStatements\Pages\ListBankStatements;
 use App\Models\BankStatement;
 use App\Models\ChartAccount;
 use App\Models\CustomerProfile;
@@ -19,6 +21,7 @@ use App\Services\Accounting\BankReconciliation\BankStatementImportService;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\CurrencySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -196,4 +199,46 @@ it('posts a reconciliation difference only through the journal posting service a
         ->and($line->refresh()->status)->toBe('matched')
         ->and($line->remainingMinor())->toBe(0)
         ->and($line->matches()->where('matchable_type', JournalEntry::class)->where('matchable_id', $entry->id)->exists())->toBeTrue();
+});
+
+it('offers continue reconciliation until every line is matched, then close reconciliation once', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $payment = reconPayment($customer, $this->method, '100.00', 'LIST-100');
+    $statement = importReconStatement($this->actor, $this->method, $this->imports, [[
+        'transaction_date' => today()->toDateString(),
+        'amount' => '100.00',
+        'reference' => 'LIST-100',
+    ]], '0.00', '100.00');
+
+    Livewire::test(ListBankStatements::class)
+        ->assertTableActionVisible('continue_reconciliation', $statement)
+        ->assertTableActionHidden('close', $statement);
+
+    $this->reconciliation->match($this->actor, $statement->lines()->firstOrFail(), $payment, '100.00');
+
+    Livewire::test(ListBankStatements::class)
+        ->assertTableActionHidden('continue_reconciliation', $statement)
+        ->assertTableActionVisible('close', $statement)
+        ->callTableAction('close', $statement)
+        ->assertTableActionHidden('close', $statement->refresh())
+        ->assertTableActionHidden('continue_reconciliation', $statement);
+
+    $firstClosedAt = $statement->refresh()->reconciled_at;
+    expect($statement->status)->toBe('reconciled')
+        ->and($firstClosedAt)->not->toBeNull();
+});
+
+it('hides reconciliation row actions from users without the manage permission', function (): void {
+    $statement = importReconStatement($this->actor, $this->method, $this->imports, [[
+        'transaction_date' => today()->toDateString(),
+        'amount' => '10.00',
+    ]], '0.00', '10.00');
+
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(AccountingPermission::BankReconciliationView->value);
+
+    Livewire::actingAs($viewer)
+        ->test(ListBankStatements::class)
+        ->assertTableActionHidden('continue_reconciliation', $statement)
+        ->assertTableActionHidden('close', $statement);
 });

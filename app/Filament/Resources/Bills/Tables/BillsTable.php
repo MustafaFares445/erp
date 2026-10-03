@@ -6,9 +6,12 @@ namespace App\Filament\Resources\Bills\Tables;
 
 use App\Enums\BillStatus;
 use App\Filament\Resources\Bills\BillResource;
+use App\Filament\Resources\Bills\Schemas\BillInfolist;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Bill;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -18,6 +21,7 @@ use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -30,7 +34,10 @@ final class BillsTable
             ->defaultSort('bill_date', 'desc')
             ->columns([
                 FavoriteColumn::make(),
-                TextColumn::make('bill_number')->searchable()->sortable(),
+                TextColumn::make('bill_number')
+                    ->searchable()
+                    ->sortable()
+                    ->description(fn (Bill $record): ?string => $record->isDraft() ? BillInfolist::blocker($record) : null),
                 TextColumn::make('resolvedSupplier.name')->label(__('Supplier'))->searchable()->sortable(),
                 TextColumn::make('supplier_reference')
                     ->label(__('Supplier reference'))
@@ -82,11 +89,28 @@ final class BillsTable
                 ]),
             ])
             ->recordActions([
-                ViewAction::make(),
-                BillResource::approveAction(),
-                BillResource::cancelAction(),
-                EditAction::make(),
-                DeleteAction::make(),
+                BillResource::approveAction()
+                    ->label(__('Approve bill'))
+                    ->icon(Heroicon::CheckCircle)
+                    ->button()
+                    ->color('primary')
+                    ->visible(fn (Bill $record): bool => $record->isDraft() && BillInfolist::blocker($record) === null),
+                Action::make('reviewBill')
+                    ->label(__('Review bill'))
+                    ->icon(Heroicon::MagnifyingGlass)
+                    ->button()
+                    ->color('warning')
+                    ->visible(fn (Bill $record): bool => $record->isDraft()
+                        && BillInfolist::blocker($record) !== null
+                        && BillResource::canView($record))
+                    ->url(fn (Bill $record): string => BillResource::getUrl('view', ['record' => $record])),
+                BillResource::recordSupplierPaymentAction()->button(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    BillResource::cancelAction(),
+                    DeleteAction::make(),
+                ])->icon(Heroicon::EllipsisVertical),
             ]);
     }
 

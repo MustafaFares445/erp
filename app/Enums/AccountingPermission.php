@@ -38,6 +38,8 @@ enum AccountingPermission: string
     case WriteOffRecord = 'accounting.write-off.record';
     case WriteOffApprove = 'accounting.write-off.approve';
     case TaxView = 'accounting.tax.view';
+    case CurrencyView = 'accounting.currency.view';
+    case CurrencyManage = 'accounting.currency.manage';
 
     /** @return list<string> */
     public static function values(): array
