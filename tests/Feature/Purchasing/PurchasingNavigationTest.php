@@ -38,6 +38,7 @@ const PURCHASING_ITEMS = [
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
     'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
     'admin.resources.supplier_product_supports' => SupplierProductSupportResource::class,
+    'admin.resources.purchase_settings' => PurchaseSettingResource::class,
 ];
 
 beforeEach(function (): void {

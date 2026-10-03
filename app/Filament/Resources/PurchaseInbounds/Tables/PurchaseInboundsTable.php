@@ -7,6 +7,7 @@ namespace App\Filament\Resources\PurchaseInbounds\Tables;
 use App\Data\Inventory\LogisticsInboundBlockerData;
 use App\Data\Inventory\LogisticsInboundData;
 use App\Enums\PurchaseInboundStatus;
+use App\Filament\Resources\PurchaseInbounds\Actions\PurchaseInboundActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\PurchaseInbound;
@@ -17,12 +18,14 @@ use Filament\QueryBuilder\Constraints\DateConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use WeakMap;
 
 final class PurchaseInboundsTable
 {
@@ -34,7 +37,9 @@ final class PurchaseInboundsTable
                 FavoriteColumn::make(),
                 TextColumn::make('id')->label(__('admin.logistics.inbound.number'))->prefix('INB-')->sortable(),
                 TextColumn::make('purchaseOrder.purchase_order_number')
-                    ->label(__('admin.logistics.inbound.purchase_order_reference'))->searchable()->sortable(),
+                    ->label(__('admin.logistics.inbound.purchase_order_reference'))
+                    ->description(fn (PurchaseInbound $record): ?string => self::blockerMessage($record))
+                    ->searchable()->sortable(),
                 TextColumn::make('purchaseOrder.supplier.name')
                     ->label(__('admin.logistics.inbound.supplier'))->searchable(),
                 TextColumn::make('purchaseOrder.expected_at')
@@ -69,15 +74,10 @@ final class PurchaseInboundsTable
                     ->getStateUsing(fn (PurchaseInbound $record): bool => self::projection($record)->overdue),
                 TextColumn::make('blocker')
                     ->label(__('admin.logistics.inbound.blocker'))
-                    ->getStateUsing(function (PurchaseInbound $record): ?string {
-                        $blocker = self::projection($record)->blockers[0] ?? null;
-
-                        return $blocker instanceof LogisticsInboundBlockerData
-                            ? (string) __('admin.logistics.inbound.blocker_messages.'.$blocker->code)
-                            : null;
-                    })
+                    ->getStateUsing(fn (PurchaseInbound $record): ?string => self::blockerMessage($record))
                     ->placeholder(__('admin.logistics.inbound.none'))
-                    ->wrap(),
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('next_action')
                     ->label(__('admin.logistics.fields.next_action'))
                     ->getStateUsing(fn (PurchaseInbound $record): string => __(sprintf(
@@ -108,15 +108,69 @@ final class PurchaseInboundsTable
                         ->whereHas('purchaseOrder', static fn (Builder $po): Builder => $po->whereDate('expected_at', '<', today()))
                         ->where('status', '!=', PurchaseInboundStatus::Received->value)),
             ])
-            ->recordActions([ViewAction::make()]);
+            ->recordActions([
+                PurchaseInboundActions::allocate()
+                    ->label(__('Allocate stock'))
+                    ->icon(Heroicon::BuildingStorefront)
+                    ->button()
+                    ->visible(fn (PurchaseInbound $record): bool => self::primaryAction($record) === 'allocate'),
+                PurchaseInboundActions::createOrOpenReceipt()
+                    ->icon(Heroicon::InboxArrowDown)
+                    ->button()
+                    ->visible(fn (PurchaseInbound $record): bool => self::primaryAction($record) === 'receive'),
+                ViewAction::make(),
+            ]);
+    }
+
+    /**
+     * The single next valid action for the inbound, or null when the record is
+     * terminal or the user is not authorised for it.
+     */
+    private static function primaryAction(PurchaseInbound $record): ?string
+    {
+        $state = self::projection($record)->businessState;
+
+        if (! in_array($state, ['Awaiting Allocation', 'Ready to Receive', 'Partially Received'], true)) {
+            return null;
+        }
+
+        if ($state === 'Awaiting Allocation' && PurchaseInboundActions::canAllocate($record)) {
+            return 'allocate';
+        }
+
+        if (PurchaseInboundActions::canReceive($record)) {
+            return 'receive';
+        }
+
+        return PurchaseInboundActions::canAllocate($record) ? 'allocate' : null;
+    }
+
+    private static function blockerMessage(PurchaseInbound $record): ?string
+    {
+        $blocker = self::projection($record)->blockers[0] ?? null;
+
+        return $blocker instanceof LogisticsInboundBlockerData
+            ? (string) __('admin.logistics.inbound.blocker_messages.'.$blocker->code)
+            : null;
     }
 
     private static function projection(PurchaseInbound $record): LogisticsInboundData
     {
-        /** @var array<int, LogisticsInboundData> $cache */
-        static $cache = [];
+        /** @var WeakMap<PurchaseInbound, LogisticsInboundData>|null $cache */
+        static $cache = null;
 
-        return $cache[$record->id] ??= app(LogisticsInboundProjectionService::class)->project($record);
+        $cache ??= new WeakMap;
+
+        $cached = $cache[$record] ?? null;
+
+        if ($cached instanceof LogisticsInboundData) {
+            return $cached;
+        }
+
+        $projection = app(LogisticsInboundProjectionService::class)->project($record);
+        $cache[$record] = $projection;
+
+        return $projection;
     }
 
     private static function stateColor(string $state): string

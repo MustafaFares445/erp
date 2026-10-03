@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseRfqs\Tables;
 
+use App\Enums\PurchasePermission;
 use App\Enums\PurchaseRfqStatus;
+use App\Filament\Resources\PurchaseRfqs\Actions\PurchaseRfqActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Models\PurchaseRfq;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -59,6 +65,24 @@ final class PurchaseRfqsTable
                     DateConstraint::make('closes_at')->label(__('Closes at')),
                     DateConstraint::make('created_at')->label(__('Created at')),
                 ]),
+            ])
+            ->recordActions([
+                PurchaseRfqActions::send()->button(),
+                PurchaseRfqActions::recordResponse()
+                    ->button()
+                    ->visible(fn (PurchaseRfq $record): bool => in_array($record->status, [PurchaseRfqStatus::Sent, PurchaseRfqStatus::AwaitingResponses], true)
+                        && (auth()->user()?->can(PurchasePermission::RfqManage->value) ?? false)),
+                PurchaseRfqActions::award()->button(),
+                PurchaseRfqActions::openPurchaseOrder()->button(),
+                ActionGroup::make([
+                    PurchaseRfqActions::recordResponse('recordAdditionalResponse')
+                        ->visible(fn (PurchaseRfq $record): bool => $record->status->isAwardable()
+                            && (auth()->user()?->can(PurchasePermission::RfqManage->value) ?? false)),
+                    PurchaseRfqActions::close(),
+                    PurchaseRfqActions::expire(),
+                    PurchaseRfqActions::cancel(),
+                    ViewAction::make(),
+                ])->icon(Heroicon::EllipsisVertical),
             ]);
     }
 }

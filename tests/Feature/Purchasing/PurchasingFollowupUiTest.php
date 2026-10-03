@@ -38,9 +38,9 @@ it('organizes Vendors navigation around overview planning suppliers and catalog 
     $group = collect(AdminModuleRegistry::groups())->firstWhere('key', 'vendors');
 
     expect(collect($group['sections'])->pluck('key')->all())
-        ->toBe(['overview', 'planning', 'suppliers', 'catalog'])
+        ->toBe(['overview', 'planning', 'suppliers', 'catalog', 'setup'])
         ->and(collect($group['items'])->pluck('section')->unique()->values()->all())
-        ->toBe(['overview', 'planning', 'suppliers', 'catalog']);
+        ->toBe(['overview', 'planning', 'suppliers', 'catalog', 'setup']);
 });
 
 it('renders the Supplier Capability Matrix as separate Purchasing master data', function (): void {

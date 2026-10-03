@@ -5,17 +5,22 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SupplierConfirmations;
 
 use App\Enums\PurchaseOrderStatus;
+use App\Enums\PurchasePermission;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
 use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierConfirmations\Schemas\SupplierConfirmationInfolist;
+use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Support\QuantityFormatter;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -184,8 +189,33 @@ final class SupplierConfirmationResource extends Resource
                         ]))),
             ])
             ->recordActions([
+                SupplierConfirmationActions::response()
+                    ->label(__('Record supplier response'))
+                    ->button(),
+                Action::make('reviewAndSendPurchaseOrder')
+                    ->label(__('Review & send PO'))
+                    ->icon(Heroicon::PaperAirplane)
+                    ->button()
+                    ->color('primary')
+                    ->visible(fn (SupplierConfirmation $record): bool => self::primaryLink($record) === 'send_po')
+                    ->url(fn (SupplierConfirmation $record): string => PurchaseOrderResource::getUrl('view', ['record' => $record->purchase_order_id])),
+                Action::make('reviewSupplierCommitment')
+                    ->label(__('Review supplier commitment'))
+                    ->icon(Heroicon::ExclamationTriangle)
+                    ->button()
+                    ->color('warning')
+                    ->visible(fn (SupplierConfirmation $record): bool => self::primaryLink($record) === 'commitment')
+                    ->url(fn (SupplierConfirmation $record): string => self::getUrl('view', ['record' => $record])),
+                Action::make('openInbound')
+                    ->label(__('Open inbound'))
+                    ->icon(Heroicon::Truck)
+                    ->button()
+                    ->color('primary')
+                    ->visible(fn (SupplierConfirmation $record): bool => self::primaryLink($record) === 'inbound')
+                    ->url(fn (SupplierConfirmation $record): ?string => $record->purchaseOrder?->purchaseInbound instanceof PurchaseInbound
+                        ? PurchaseInboundResource::getUrl('view', ['record' => $record->purchaseOrder->purchaseInbound])
+                        : null),
                 ViewAction::make(),
-                SupplierConfirmationActions::response(),
             ]);
     }
 
@@ -208,6 +238,47 @@ final class SupplierConfirmationResource extends Resource
             'items.productVariant.product',
             'items.purchaseOrderLine',
         ]);
+    }
+
+    /**
+     * The single navigation primary for a confirmation that needs no response
+     * form: send the PO, review an overdue commitment, or follow the inbound.
+     */
+    private static function primaryLink(SupplierConfirmation $confirmation): ?string
+    {
+        $user = auth()->user();
+        $order = $confirmation->purchaseOrder;
+
+        if ($order === null) {
+            return null;
+        }
+
+        if ($confirmation->confirmation_status === SupplierConfirmationStatus::Pending) {
+            return $order->sent_at === null
+                && ($user?->can(PurchasePermission::OrderSend->value) ?? false)
+                && self::canViewOrder($order)
+                    ? 'send_po'
+                    : null;
+        }
+
+        if (self::isOverdue($confirmation)) {
+            return self::canView($confirmation) ? 'commitment' : null;
+        }
+
+        if ($confirmation->confirmation_status === SupplierConfirmationStatus::Rejected) {
+            return null;
+        }
+
+        $inbound = $order->purchaseInbound;
+
+        return $inbound instanceof PurchaseInbound && PurchaseInboundResource::canView($inbound)
+            ? 'inbound'
+            : null;
+    }
+
+    private static function canViewOrder(PurchaseOrder $order): bool
+    {
+        return PurchaseOrderResource::canView($order);
     }
 
     private static function isOverdue(SupplierConfirmation $confirmation): bool

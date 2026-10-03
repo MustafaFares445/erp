@@ -104,7 +104,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
             ->description(__('dashboards.purchasing.kpis.awaiting_approval_detail'))
             ->icon(Heroicon::OutlinedShieldCheck)
             ->color($pendingApproval > 0 ? 'warning' : 'success')
-            ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'approval']));
+            ->url(PurchaseOrderResource::getUrl('index', ['tab' => 'approval']));
     }
 
     private function overdueStat(): Stat
@@ -122,7 +122,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
             ->description(__('dashboards.purchasing.kpis.overdue_detail'))
             ->icon(Heroicon::OutlinedClock)
             ->color($overdue > 0 ? 'danger' : 'success')
-            ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'overdue']));
+            ->url(PurchaseOrderResource::getUrl('index', ['tab' => 'overdue']));
     }
 
     /** @return Builder<PurchaseOrder> */
