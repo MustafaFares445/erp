@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\MaintenanceRequests\Pages;
 
 use App\Enums\MaintenanceStatus;
-use App\Enums\QuotationStatus;
 use App\Enums\SupportPermission;
 use App\Enums\WarrantyStatus;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\MaintenanceRequests\Actions\MaintenanceBillingActions;
+use App\Filament\Resources\MaintenanceRequests\Actions\MaintenanceTransitionActions;
 use App\Filament\Resources\MaintenanceRequests\Actions\WarrantyClaimActions;
 use App\Filament\Resources\MaintenanceRequests\Actions\WarrantyRecoveryActions;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
@@ -17,14 +17,12 @@ use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Services\Support\MaintenanceRecordService;
 use Carbon\Carbon;
-use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
@@ -39,12 +37,12 @@ final class ViewMaintenanceRequest extends ViewRecord
     {
         return [
             ...WarrantyClaimActions::make(),
-            $this->customerApprovalAction(),
-            $this->transitionAction('startRepair', 'Start Repair', MaintenanceStatus::InProgress)
+            MaintenanceTransitionActions::customerApproval(),
+            MaintenanceTransitionActions::transition('startRepair', 'Start Repair', MaintenanceStatus::InProgress)
                 ->visible(fn (): bool => $this->getMaintenanceRecord()->status === MaintenanceStatus::ReadyForRepair),
-            $this->transitionAction('sendToQa', 'Send to QA', MaintenanceStatus::QualityAssurance)
+            MaintenanceTransitionActions::transition('sendToQa', 'Send to QA', MaintenanceStatus::QualityAssurance)
                 ->visible(fn (): bool => $this->getMaintenanceRecord()->status === MaintenanceStatus::InProgress),
-            $this->transitionAction('completeMaintenance', 'Complete Maintenance', MaintenanceStatus::Closed)
+            MaintenanceTransitionActions::transition('completeMaintenance', 'Complete Maintenance', MaintenanceStatus::Closed)
                 ->visible(fn (): bool => $this->getMaintenanceRecord()->status === MaintenanceStatus::QualityAssurance),
             ...MaintenanceBillingActions::make(),
             ...WarrantyRecoveryActions::make(),
@@ -102,58 +100,6 @@ final class ViewMaintenanceRequest extends ViewRecord
                     ])),
             ]),
         ];
-    }
-
-    private function customerApprovalAction(): Action
-    {
-        return Action::make('customerApprovedRepair')
-            ->label(__('Customer Approved — Ready for Repair'))
-            ->icon(Heroicon::OutlinedCheckCircle)
-            ->color('success')
-            ->authorize('transition')
-            ->requiresConfirmation()
-            ->visible(fn (): bool => $this->getMaintenanceRecord()->status === MaintenanceStatus::AwaitingApproval)
-            ->action(function (): void {
-                try {
-                    $record = $this->getMaintenanceRecord();
-                    $customerAmount = (int) $record->coverageLines()->sum('customer_amount_minor');
-                    $record->loadMissing('quotation');
-
-                    if ($customerAmount > 0 && $record->quotation?->status !== QuotationStatus::Accepted) {
-                        throw new DomainException('The customer quotation must be accepted before repair can begin.');
-                    }
-
-                    app(MaintenanceRecordService::class)->transition(
-                        $record,
-                        MaintenanceStatus::ReadyForRepair,
-                        self::currentActor(),
-                    );
-                    Notification::make()->success()->title(__('Repair approved and ready to start'))->send();
-                } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title(__('Repair cannot start yet'))->body($domainException->getMessage())->send();
-                }
-            });
-    }
-
-    private function transitionAction(string $name, string $label, MaintenanceStatus $to): Action
-    {
-        return Action::make($name)
-            ->label($label)
-            ->icon(Heroicon::OutlinedArrowRight)
-            ->authorize('transition')
-            ->requiresConfirmation()
-            ->action(function () use ($to): void {
-                try {
-                    app(MaintenanceRecordService::class)->transition(
-                        $this->getMaintenanceRecord(),
-                        $to,
-                        self::currentActor(),
-                    );
-                    Notification::make()->success()->title(__('Maintenance request updated'))->send();
-                } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title(__('Unable to change maintenance status'))->body($domainException->getMessage())->send();
-                }
-            });
     }
 
     private function getMaintenanceRecord(): MaintenanceRecord

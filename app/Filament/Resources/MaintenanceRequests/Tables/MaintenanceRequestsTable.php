@@ -5,16 +5,21 @@ declare(strict_types=1);
 namespace App\Filament\Resources\MaintenanceRequests\Tables;
 
 use App\Enums\MaintenanceBillingType;
+use App\Enums\MaintenanceNextStep;
 use App\Enums\MaintenanceStatus;
-use App\Enums\QuotationStatus;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyStatus;
+use App\Filament\Resources\MaintenanceRequests\Actions\MaintenanceBillingActions;
+use App\Filament\Resources\MaintenanceRequests\Actions\MaintenanceTransitionActions;
+use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Services\Support\MaintenanceRecordService;
 use App\Services\Support\WarrantyClaimService;
+use Closure;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -29,6 +34,7 @@ use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Grouping\Group;
@@ -138,6 +144,7 @@ final class MaintenanceRequestsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                ...self::primaryActions(),
                 ViewAction::make(),
                 EditAction::make()
                     ->visible(static fn (MaintenanceRecord $record): bool => ! $record->isLockedForChanges()),
@@ -207,34 +214,94 @@ final class MaintenanceRequestsTable
     private static function nextAction(MaintenanceRecord $record): string
     {
         return match ($record->status) {
-            MaintenanceStatus::Open => 'Record diagnosis',
-            MaintenanceStatus::Diagnosing => 'Determine coverage',
-            MaintenanceStatus::AwaitingApproval => self::approvalNextAction($record),
-            MaintenanceStatus::ReadyForRepair => 'Start repair',
-            MaintenanceStatus::InProgress => 'Send to QA',
-            MaintenanceStatus::QualityAssurance => 'Complete QA',
             MaintenanceStatus::Closed => 'Commercial follow-up',
             MaintenanceStatus::Cancelled => 'Cancelled',
+            default => MaintenanceNextStep::forRecord($record)?->label() ?? '',
         };
     }
 
-    private static function approvalNextAction(MaintenanceRecord $record): string
+    /**
+     * The single emphasised row button for the request's next valid step. Form-heavy
+     * steps link to the detail page action; plain transitions run the shared
+     * transition action that the detail page also uses.
+     *
+     * @return list<Action>
+     */
+    private static function primaryActions(): array
     {
-        $customerAmount = self::coverage($record)['customer_amount_minor'];
+        $step = static fn (MaintenanceRecord $record): ?MaintenanceNextStep => MaintenanceNextStep::forRecord($record);
+        $is = static fn (MaintenanceNextStep $expected): Closure => static fn (MaintenanceRecord $record): bool => $step($record) === $expected;
+        $canAssess = static fn (MaintenanceRecord $record): bool => ! $record->isLockedForChanges();
+        $detailUrl = static fn (MaintenanceRecord $record, string $action): string => MaintenanceRequestResource::getUrl('view', [
+            'record' => $record,
+            'action' => $action,
+        ]);
 
-        if ($customerAmount <= 0) {
-            return 'Confirm approval';
-        }
-
-        if ($record->quotation_id === null) {
-            return 'Create quotation';
-        }
-
-        $record->loadMissing('quotation');
-
-        return $record->quotation?->status === QuotationStatus::Accepted
-            ? 'Mark ready for repair'
-            : 'Waiting quote approval';
+        return [
+            Action::make('recordDiagnosisRow')
+                ->label(__('Record diagnosis'))
+                ->icon(Heroicon::OutlinedClipboardDocumentCheck)
+                ->button()
+                ->color('primary')
+                ->authorize('diagnose')
+                ->visible(static fn (MaintenanceRecord $record): bool => $canAssess($record)
+                    && ($is(MaintenanceNextStep::RecordDiagnosis)($record)
+                        || ($is(MaintenanceNextStep::DetermineCoverage)($record) && $record->diagnosed_at === null)))
+                ->url(static fn (MaintenanceRecord $record): string => $detailUrl($record, 'recordDiagnosis')),
+            Action::make('determineCoverageRow')
+                ->label(__('Determine coverage'))
+                ->icon(Heroicon::OutlinedShieldCheck)
+                ->button()
+                ->color('primary')
+                ->authorize('decideCoverage')
+                ->visible(static fn (MaintenanceRecord $record): bool => $canAssess($record)
+                    && $is(MaintenanceNextStep::DetermineCoverage)($record)
+                    && $record->diagnosed_at !== null)
+                ->url(static fn (MaintenanceRecord $record): string => $detailUrl($record, 'determineCoverage')),
+            MaintenanceTransitionActions::customerApproval('confirmApprovalRow', __('Confirm approval'))
+                ->button()
+                ->color('primary')
+                ->visible($is(MaintenanceNextStep::ConfirmApproval)),
+            Action::make('createQuotationRow')
+                ->label(__('Create quotation'))
+                ->icon(Heroicon::OutlinedDocumentText)
+                ->button()
+                ->color('primary')
+                ->authorize(static fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
+                ->visible(static fn (MaintenanceRecord $record): bool => $is(MaintenanceNextStep::CreateQuotation)($record)
+                    && MaintenanceBillingActions::canCreateQuotation($record))
+                ->url(static fn (MaintenanceRecord $record): string => $detailUrl($record, 'create_quotation')),
+            Action::make('waitingForCustomerRow')
+                ->label(__('Waiting for customer'))
+                ->icon(Heroicon::OutlinedClock)
+                ->button()
+                ->color('gray')
+                ->authorize(static fn (MaintenanceRecord $record): bool => $record->quotation !== null
+                    && self::currentActor()->can('view', $record->quotation))
+                ->visible($is(MaintenanceNextStep::WaitingQuoteApproval))
+                ->url(static fn (MaintenanceRecord $record): ?string => $record->quotation_id === null
+                    ? null
+                    : QuotationResource::getUrl('view', ['record' => $record->quotation_id])),
+            MaintenanceTransitionActions::customerApproval('markReadyForRepairRow', __('Mark ready for repair'))
+                ->button()
+                ->color('primary')
+                ->visible($is(MaintenanceNextStep::MarkReadyForRepair)),
+            MaintenanceTransitionActions::transition('startRepairRow', __('Start repair'), MaintenanceStatus::InProgress)
+                ->icon(Heroicon::OutlinedWrench)
+                ->button()
+                ->color('primary')
+                ->visible($is(MaintenanceNextStep::StartRepair)),
+            MaintenanceTransitionActions::transition('sendToQaRow', __('Send to QA'), MaintenanceStatus::QualityAssurance)
+                ->icon(Heroicon::OutlinedClipboardDocumentCheck)
+                ->button()
+                ->color('primary')
+                ->visible($is(MaintenanceNextStep::SendToQa)),
+            MaintenanceTransitionActions::transition('completeQaRow', __('Complete QA'), MaintenanceStatus::Closed)
+                ->icon(Heroicon::OutlinedCheckBadge)
+                ->button()
+                ->color('primary')
+                ->visible($is(MaintenanceNextStep::CompleteQa)),
+        ];
     }
 
     /** @return array{total_amount_minor:int,covered_amount_minor:int,customer_amount_minor:int} */

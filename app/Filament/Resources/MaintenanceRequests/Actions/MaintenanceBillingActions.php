@@ -67,26 +67,7 @@ final class MaintenanceBillingActions
                 ? __('Create Revised Quotation')
                 : __('Create Customer Quotation'))
             ->requiresConfirmation()
-            ->visible(static fn (MaintenanceRecord $record): bool => in_array($record->status, [
-                MaintenanceStatus::AwaitingApproval,
-                MaintenanceStatus::Closed,
-            ], true)
-                && (
-                    $record->billing_type === MaintenanceBillingType::Unbilled
-                    || (
-                        $record->billing_type === MaintenanceBillingType::Quoted
-                        && in_array($record->quotation?->status, [
-                            QuotationStatus::Accepted,
-                            QuotationStatus::Rejected,
-                            QuotationStatus::Expired,
-                            QuotationStatus::Cancelled,
-                        ], true)
-                    )
-                )
-                && in_array($record->coverage_decision, [
-                    WarrantyClaimDecision::PartiallyCovered,
-                    WarrantyClaimDecision::Rejected,
-                ], true))
+            ->visible(static fn (MaintenanceRecord $record): bool => self::canCreateQuotation($record))
             ->authorize(fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
             ->action(function (MaintenanceRecord $record): void {
                 try {
@@ -96,6 +77,34 @@ final class MaintenanceBillingActions
                     Notification::make()->danger()->title(__('Unable to create the quotation'))->body($exception->getMessage())->send();
                 }
             });
+    }
+
+    /**
+     * Whether the customer quotation can be (re)created from the request, shared
+     * by the detail-page action and the list-table shortcut that links to it.
+     */
+    public static function canCreateQuotation(MaintenanceRecord $record): bool
+    {
+        return in_array($record->status, [
+            MaintenanceStatus::AwaitingApproval,
+            MaintenanceStatus::Closed,
+        ], true)
+            && (
+                $record->billing_type === MaintenanceBillingType::Unbilled
+                || (
+                    $record->billing_type === MaintenanceBillingType::Quoted
+                    && in_array($record->quotation?->status, [
+                        QuotationStatus::Accepted,
+                        QuotationStatus::Rejected,
+                        QuotationStatus::Expired,
+                        QuotationStatus::Cancelled,
+                    ], true)
+                )
+            )
+            && in_array($record->coverage_decision, [
+                WarrantyClaimDecision::PartiallyCovered,
+                WarrantyClaimDecision::Rejected,
+            ], true);
     }
 
     private static function createInvoice(): Action

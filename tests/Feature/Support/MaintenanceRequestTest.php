@@ -2,22 +2,29 @@
 
 declare(strict_types=1);
 
+use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
+use App\Enums\QuotationStatus;
+use App\Enums\SalesPermission;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
+use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
+use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
 use App\Models\CustomerProfile;
+use App\Models\MaintenanceCoverageLine;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
+use App\Models\Quotation;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Ticket;
 use App\Models\User;
@@ -30,6 +37,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
 
@@ -536,4 +544,154 @@ it('covers invalid selected equipment and implicit external warranty resolution'
 
     expect($external->is_equipment_unlinked)->toBeTrue()
         ->and($external->warranty_status)->toBe(WarrantyStatus::NotApplicable);
+});
+
+const MAINTENANCE_ROW_ACTIONS = [
+    'recordDiagnosisRow', 'determineCoverageRow', 'confirmApprovalRow', 'createQuotationRow',
+    'waitingForCustomerRow', 'markReadyForRepairRow', 'startRepairRow', 'sendToQaRow', 'completeQaRow',
+];
+
+function assertOnlyMaintenanceRowAction(mixed $list, MaintenanceRecord $record, ?string $expected): void
+{
+    foreach (MAINTENANCE_ROW_ACTIONS as $name) {
+        $name === $expected
+            ? $list->assertTableActionVisible($name, $record)
+            : $list->assertTableActionHidden($name, $record);
+    }
+}
+
+function maintenanceCustomerShare(MaintenanceRecord $record, int $minor): void
+{
+    MaintenanceCoverageLine::factory()->for($record)->create([
+        'amount_minor' => $minor,
+        'coverage_percent' => 0,
+        'covered_amount_minor' => 0,
+        'customer_amount_minor' => $minor,
+    ]);
+}
+
+it('exposes exactly one primary row action per maintenance state and none for terminal states', function (MaintenanceStatus $status, ?string $expected, bool $diagnosed): void {
+    $manager = makeMaintenanceSupportManager();
+    $record = MaintenanceRecord::factory()->create([
+        'status' => $status,
+        'diagnosed_at' => $diagnosed ? now() : null,
+    ]);
+
+    $list = Livewire::actingAs($manager)->test(ListMaintenanceRequests::class);
+
+    assertOnlyMaintenanceRowAction($list, $record, $expected);
+})->with([
+    'open' => [MaintenanceStatus::Open, 'recordDiagnosisRow', false],
+    'diagnosing without diagnosis' => [MaintenanceStatus::Diagnosing, 'recordDiagnosisRow', false],
+    'diagnosing diagnosed' => [MaintenanceStatus::Diagnosing, 'determineCoverageRow', true],
+    'ready for repair' => [MaintenanceStatus::ReadyForRepair, 'startRepairRow', false],
+    'in progress' => [MaintenanceStatus::InProgress, 'sendToQaRow', false],
+    'quality assurance' => [MaintenanceStatus::QualityAssurance, 'completeQaRow', false],
+    'closed' => [MaintenanceStatus::Closed, null, false],
+    'cancelled' => [MaintenanceStatus::Cancelled, null, false],
+]);
+
+it('resolves the awaiting-approval primary action from customer share and quotation state', function (): void {
+    $manager = makeMaintenanceSupportManager();
+
+    $free = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
+
+    $needsQuote = MaintenanceRecord::factory()->create([
+        'status' => MaintenanceStatus::AwaitingApproval,
+        'billing_type' => MaintenanceBillingType::Unbilled,
+        'coverage_decision' => WarrantyClaimDecision::PartiallyCovered,
+    ]);
+    maintenanceCustomerShare($needsQuote, 5000);
+
+    $waiting = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
+    maintenanceCustomerShare($waiting, 5000);
+    $draft = Quotation::factory()->create(['customer_id' => $waiting->customer_id, 'status' => QuotationStatus::Draft]);
+    $waiting->forceFill(['quotation_id' => $draft->getKey()])->save();
+
+    $accepted = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
+    maintenanceCustomerShare($accepted, 5000);
+    $acceptedQuote = Quotation::factory()->accepted()->create(['customer_id' => $accepted->customer_id, 'status' => QuotationStatus::Accepted]);
+    $accepted->forceFill(['quotation_id' => $acceptedQuote->getKey()])->save();
+
+    // The quotation link is only offered to users who may view quotations.
+    Livewire::actingAs($manager)->test(ListMaintenanceRequests::class)
+        ->assertTableActionHidden('waitingForCustomerRow', $waiting);
+
+    $manager->givePermissionTo(Permission::findOrCreate(SalesPermission::QuotationView->value, 'web'));
+    $manager->forgetCachedPermissions();
+
+    $list = Livewire::actingAs($manager)->test(ListMaintenanceRequests::class);
+
+    assertOnlyMaintenanceRowAction($list, $free, 'confirmApprovalRow');
+    assertOnlyMaintenanceRowAction($list, $needsQuote, 'createQuotationRow');
+    assertOnlyMaintenanceRowAction($list, $waiting, 'waitingForCustomerRow');
+    assertOnlyMaintenanceRowAction($list, $accepted, 'markReadyForRepairRow');
+
+    $list->assertTableActionHasUrl('waitingForCustomerRow', QuotationResource::getUrl('view', ['record' => $draft]), $waiting);
+});
+
+it('links form-heavy row actions to the matching detail-page action', function (): void {
+    $manager = makeMaintenanceSupportManager();
+    $open = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Open]);
+    $diagnosed = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Diagnosing, 'diagnosed_at' => now()]);
+
+    Livewire::actingAs($manager)
+        ->test(ListMaintenanceRequests::class)
+        ->assertTableActionHasUrl('recordDiagnosisRow', MaintenanceRequestResource::getUrl('view', ['record' => $open, 'action' => 'recordDiagnosis']), $open)
+        ->assertTableActionHasUrl('determineCoverageRow', MaintenanceRequestResource::getUrl('view', ['record' => $diagnosed, 'action' => 'determineCoverage']), $diagnosed);
+});
+
+it('runs the shared transition service once from the row action and moves the request forward', function (): void {
+    $manager = makeMaintenanceSupportManager();
+    $record = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::ReadyForRepair]);
+
+    $list = Livewire::actingAs($manager)->test(ListMaintenanceRequests::class);
+    $list->callTableAction('startRepairRow', $record);
+
+    expect($record->refresh()->status)->toBe(MaintenanceStatus::InProgress);
+
+    $list->assertTableActionHidden('startRepairRow', $record)
+        ->assertTableActionVisible('sendToQaRow', $record);
+
+    $list->callTableAction('sendToQaRow', $record);
+    expect($record->refresh()->status)->toBe(MaintenanceStatus::QualityAssurance);
+});
+
+it('moves approval rows to ready for repair when no customer share is owed or the quotation is accepted', function (): void {
+    $manager = makeMaintenanceSupportManager();
+    $record = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
+
+    Livewire::actingAs($manager)
+        ->test(ListMaintenanceRequests::class)
+        ->callTableAction('confirmApprovalRow', $record);
+
+    expect($record->refresh()->status)->toBe(MaintenanceStatus::ReadyForRepair);
+
+    $owing = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
+    maintenanceCustomerShare($owing, 5000);
+    $accepted = Quotation::factory()->accepted()->create(['customer_id' => $owing->customer_id, 'status' => QuotationStatus::Accepted]);
+    $owing->forceFill(['quotation_id' => $accepted->getKey()])->save();
+
+    Livewire::actingAs($manager)
+        ->test(ListMaintenanceRequests::class)
+        ->callTableAction('markReadyForRepairRow', $owing);
+
+    expect($owing->refresh()->status)->toBe(MaintenanceStatus::ReadyForRepair);
+});
+
+it('hides workflow row actions from a view-only reviewer and refuses to invoke them', function (): void {
+    $agent = User::factory()->admin()->create();
+    $agent->assignRole('Reviewer');
+    $ready = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::ReadyForRepair]);
+    $open = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Open]);
+
+    $list = Livewire::actingAs($agent)->test(ListMaintenanceRequests::class);
+
+    $list->assertTableActionHidden('startRepairRow', $ready)
+        ->assertTableActionHidden('recordDiagnosisRow', $open);
+
+    expect($agent->can('transition', $ready))->toBeFalse()
+        ->and(fn () => app(MaintenanceRecordService::class)->transition($ready, MaintenanceStatus::InProgress, $agent))
+        ->toThrow(AuthorizationException::class)
+        ->and($ready->refresh()->status)->toBe(MaintenanceStatus::ReadyForRepair);
 });
