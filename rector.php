@@ -6,6 +6,7 @@ use Rector\CodeQuality\Rector\ClassMethod\LocallyCalledStaticMethodToNonStaticRe
 use Rector\CodingStyle\Rector\ClassMethod\MakeInheritedMethodVisibilitySameAsParentRector;
 use Rector\CodingStyle\Rector\Stmt\NewlineAfterStatementRector;
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPublicMethodParameterRector;
 
 return RectorConfig::configure()
     ->withPaths([
@@ -36,4 +37,7 @@ return RectorConfig::configure()
         LocallyCalledStaticMethodToNonStaticRector::class,
         // Pint's Laravel preset removes these lines, which makes the lint pair non-convergent.
         NewlineAfterStatementRector::class,
+        // Laravel policies are framework callbacks: keep their canonical model parameter even
+        // when a specific policy method currently does not read it.
+        RemoveUnusedPublicMethodParameterRector::class => [__DIR__.'/app/Policies/*'],
     ]);
