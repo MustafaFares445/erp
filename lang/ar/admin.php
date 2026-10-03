@@ -735,6 +735,12 @@ $translations = [
                 'scopes' => ['inventory_lots' => 'دفعات المخزون', 'receivables' => 'الذمم المدينة', 'payables' => 'الذمم الدائنة', 'tax_register' => 'السجل الضريبي'],
                 'never_run' => 'لم يتم تشغيل المطابقة بعد',
                 'never_run_description' => 'شغّل المطابقة لحفظ نتائج قواعد التحقق والتشخيص قبل الاعتماد على هذا التقرير.',
+                'latest_run' => 'آخر مطابقة للمخزون',
+                'not_run' => 'لم تُشغَّل',
+                'pass' => 'ناجحة',
+                'fail' => 'فاشلة',
+                'all_checks_passed' => 'نجحت جميع القواعد (:checks) · انتهت :finished',
+                'checks_failed' => 'فشلت :failed من :checks قواعد، :divergences اختلافات · انتهت :finished',
             ],
             'types' => [
                 'catalog' => 'كتالوج المنتجات',
@@ -1147,7 +1153,7 @@ $translations = [
         'vendors' => 'المشتريات',
         'crm' => 'إدارة علاقات العملاء',
         'reports' => 'التقارير',
-        'system' => 'الإعدادات',
+        'system' => 'الإدارة',
     ],
 
     'crm' => [
@@ -1233,6 +1239,9 @@ $translations = [
         'configurations' => 'الإعدادات',
         'planning' => 'التخطيط',
         'planning_alerts' => 'التخطيط والتنبيهات',
+        'inventory_setup' => 'إعداد المخزون',
+        'accounting_setup' => 'إعداد المحاسبة',
+        'setup' => 'الإعداد',
         'suppliers' => 'المورّدون',
         'warehouses' => 'المستودعات',
         'reports' => 'التقارير',
@@ -1463,6 +1472,12 @@ $translations = [
             'title' => 'أمر شراء', 'print' => 'طباعة', 'supplier_details' => 'بيانات المورّد',
             'response_history' => 'سجل ردود المورّد', 'no_responses' => 'لا توجد ردود مورّد مسجلة.',
         ],
+    ],
+
+    'notification_deliveries' => [
+        'failed_last_day' => 'إشعارات فاشلة (24 ساعة)',
+        'failed_none' => 'لا توجد إشعارات أعمال فاشلة خلال آخر 24 ساعة.',
+        'failed_review' => 'افتح عمليات الإرسال الفاشلة لفحصها أو إعادة محاولتها.',
     ],
 
     'resources' => [

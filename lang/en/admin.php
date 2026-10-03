@@ -1293,7 +1293,7 @@ return [
         'employees' => 'Employees',
         'support' => 'Support and Maintenance',
         'reports' => 'Reports',
-        'system' => 'Settings',
+        'system' => 'Administration',
     ],
 
     'crm' => [
@@ -2289,6 +2289,9 @@ return [
         'workforce' => 'Workforce',
         'planning' => 'Planning',
         'planning_alerts' => 'Planning & Alerts',
+        'inventory_setup' => 'Inventory Setup',
+        'accounting_setup' => 'Accounting Setup',
+        'setup' => 'Setup',
         'suppliers' => 'Suppliers',
         'warehouses' => 'Warehouses',
         'reports' => 'Reports',
@@ -2753,7 +2756,8 @@ return [
 
         'payment_terms' => 'Payment Terms',
         'payment_methods' => 'Payment Methods',
-        'tax_definitions' => 'Tax Definitions',
+        'tax_definitions' => 'Tax & Posting Accounts',
+        'custom_fields' => 'Custom Fields',
         'units' => 'Units',
         'inventory_operations' => 'Inventory Operations',
         'shipment_attachments' => 'Shipments',
