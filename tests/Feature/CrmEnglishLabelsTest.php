@@ -11,7 +11,7 @@ uses(RefreshDatabase::class);
 
 it('uses Arabic pricing tier terminology without a product subscriptions surface', function (): void {
     (new CrmPermissionSeeder)->run();
-    $reviewer = User::factory()->admin()->create();
+    $reviewer = User::factory()->admin()->create(['locale' => 'ar']);
     $reviewer->assignRole('Reviewer');
 
     $this->actingAs($reviewer)

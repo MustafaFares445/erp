@@ -73,6 +73,8 @@ it('labels every enum case in English', function (): void {
 });
 
 it('renders the translated Arabic field labels on the chart of accounts list page', function (): void {
+    $this->chief->forceFill(['locale' => 'ar'])->save();
+
     ChartAccount::factory()->ofElement(AccountElement::Asset)->create(['code' => '1100', 'name' => 'Cash on Hand']);
 
     $this->actingAs($this->chief)
@@ -86,6 +88,8 @@ it('renders the translated Arabic field labels on the chart of accounts list pag
 });
 
 it('renders the translated Arabic field labels on the journal entries and fiscal periods list pages', function (): void {
+    $this->chief->forceFill(['locale' => 'ar'])->save();
+
     FiscalPeriod::factory()->create();
 
     $this->actingAs($this->chief)

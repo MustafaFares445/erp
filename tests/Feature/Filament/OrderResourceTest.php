@@ -19,7 +19,7 @@ it('renders the order creation wizard for an order creator', function (): void {
     $role = Role::findOrCreate('order-wizard-creator', 'web');
     $role->givePermissionTo([$viewPermission, $createPermission]);
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['locale' => 'ar']);
     $user->assignRole($role);
 
     $this->actingAs($user)
@@ -48,7 +48,7 @@ it('lists orders with their customer, delivery count, status, and created date',
     $role = Role::findOrCreate('order-list-viewer', 'web');
     $role->givePermissionTo($viewPermission);
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['locale' => 'ar']);
     $user->assignRole($role);
 
     $order = Order::factory()->create(['order_number' => 'SO-000042', 'status' => 'ready']);

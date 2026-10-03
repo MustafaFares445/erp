@@ -36,6 +36,17 @@ php artisan queue:work
 php artisan config:clear
 ```
 
+## Demo Month Dataset (local only)
+
+`database/seeders/Demo/` builds one deterministic month of company activity (2026-09-04 to 2026-10-03) through the real domain services. It is not part of `DatabaseSeeder`, refuses to run in production, and skips stages it has already seeded.
+
+```bash
+php artisan db:seed --class='Database\Seeders\Demo\DemoMonthSeeder'
+php artisan db:seed --class='Database\Seeders\Demo\DemoVerificationSeeder'
+```
+
+Run it on a freshly migrated database (`migrate:fresh`): the legacy `PO-DEMO` rows from `PurchasingDemoSeeder` break purchase-order numbering, and the legacy demo journals prevent the receivables control account from reconciling. The dashboards read the real clock, so select the custom range 2026-09-04 to 2026-10-03 once the date has moved past 2026-10-03. Demo staff log in as `demo.*@ierp.test` (password `password`).
+
 ## Current Domain Commands
 
 ```bash

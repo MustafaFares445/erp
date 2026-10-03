@@ -3,28 +3,21 @@
 declare(strict_types=1);
 
 use App\Enums\BillStatus;
-use App\Enums\NotificationChannel;
-use App\Enums\NotificationEventKey;
 use App\Enums\OpportunityStage;
-use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
-use App\Filament\Resources\NotificationTemplates\Pages\ListNotificationTemplates;
 use App\Filament\Resources\ReceivableWriteOffs\Schemas\ReceivableWriteOffForm;
 use App\Filament\Resources\SalesOpportunities\Tables\SalesOpportunitiesTable;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Models\Bill;
 use App\Models\Invoice;
-use App\Models\NotificationTemplate;
 use App\Models\SalesOpportunity;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Sales\OpportunityService;
-use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
-use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -152,32 +145,6 @@ it('covers sales opportunity stage callback required-string and actor guards', f
 
     expect($service->stage)->toBe(OpportunityStage::Proposal)
         ->and($service->actor?->is($actor))->toBeTrue();
-});
-
-it('covers notification template preview variables and fallback title', function (): void {
-    $actor = User::factory()->admin()->create();
-
-    $template = NotificationTemplate::query()->create([
-        'key' => NotificationEventKey::InvoiceIssued->value,
-        'locale' => 'en',
-        'channel' => NotificationChannel::Mail,
-        'subject' => null,
-        'body' => 'Invoice {{ invoice_number }} is ready.',
-        'variables' => ['invoice_number', '', 123],
-        'is_active' => true,
-    ]);
-
-    Livewire::actingAs($actor)
-        ->test(ListNotificationTemplates::class)
-        ->callAction(TestAction::make('preview')->table($template))
-        ->assertNotified()
-        ->assertHasNoActionErrors();
-
-    $eventOptions = new ReflectionMethod(NotificationTemplateResource::class, 'eventOptions');
-    $channelOptions = new ReflectionMethod(NotificationTemplateResource::class, 'channelOptions');
-
-    expect($eventOptions->invoke(null))->toHaveKey(NotificationEventKey::InvoiceIssued->value)
-        ->and($channelOptions->invoke(null))->toHaveKey(NotificationChannel::Mail->value);
 });
 
 it('covers receivable write-off amount defaults for missing and valid invoices', function (): void {

@@ -16,16 +16,24 @@ use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
 use App\Http\Middleware\SetAdminLocale;
+use App\Models\User;
 use Filament\Http\Middleware\Authenticate;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/admin');
 
-Route::get('/locale/{locale}', function (string $locale): RedirectResponse {
+Route::get('/locale/{locale}', function (Request $request, string $locale): RedirectResponse {
     abort_unless(in_array($locale, SetAdminLocale::SUPPORTED_LOCALES, true), 404);
 
     session([SetAdminLocale::SESSION_KEY => $locale]);
+
+    $user = $request->user();
+
+    if ($user instanceof User) {
+        $user->forceFill(['locale' => $locale])->save();
+    }
 
     return redirect()->back(fallback: '/admin');
 })->name('admin.locale.switch');

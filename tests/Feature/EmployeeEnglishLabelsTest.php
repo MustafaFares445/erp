@@ -45,7 +45,7 @@ it('renders English labels on every employees dashboard surface, with no untrans
 
 it('shows the correct Arabic navigation label for every employees dashboard item', function (): void {
     (new EmployeePermissionSeeder)->run();
-    $admin = User::factory()->admin()->create();
+    $admin = User::factory()->admin()->create(['locale' => 'ar']);
     $admin->assignRole('System Admin');
 
     $labels = [

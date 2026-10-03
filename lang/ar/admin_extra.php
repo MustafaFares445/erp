@@ -103,8 +103,6 @@ return [
         'document_templates' => 'قوالب المستندات',
         'users_and_permissions' => 'المستخدمون والصلاحيات',
         'notification_templates' => 'قوالب الإشعارات',
-        'notification_deliveries' => 'سجل إرسال الإشعارات',
-        'notification_preferences' => 'تفضيلات الإشعارات',
         'settings' => 'الإعدادات',
     ],
     'constraints' => [

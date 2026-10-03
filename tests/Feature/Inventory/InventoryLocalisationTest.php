@@ -12,7 +12,7 @@ uses(RefreshDatabase::class);
 
 test('inventory navigation renders translated right-to-left labels in Arabic', function (): void {
     (new InventoryPermissionSeeder)->run();
-    $user = User::factory()->create();
+    $user = User::factory()->create(['locale' => 'ar']);
     $user->givePermissionTo(InventoryPermission::StockView->value);
 
     app()->setLocale('ar');

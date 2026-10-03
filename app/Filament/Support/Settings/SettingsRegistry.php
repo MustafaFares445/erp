@@ -9,7 +9,6 @@ use App\Filament\Resources\Currencies\CurrencyResource;
 use App\Filament\Resources\CustomFieldDefinitions\CustomFieldDefinitionResource;
 use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
-use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
 use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
@@ -80,8 +79,7 @@ final class SettingsRegistry
             self::item(WarrantyPolicyResource::class, 'Support & Warranty', __('admin.resources.warranty_policies'), 'Warranty eligibility and coverage policy setup.', 'warranty support coverage claim', Heroicon::OutlinedShieldCheck),
 
             self::item(DocumentTemplateResource::class, 'Notifications & Documents', __('admin.resources.document_templates'), 'Document subject/body content by locale.', 'document invoice template pdf locale', Heroicon::OutlinedDocumentDuplicate),
-            self::item(NotificationTemplateResource::class, 'Notifications & Documents', __('admin.resources.notification_templates'), 'System notification content by channel and locale.', 'notification email database template channel', Heroicon::OutlinedBellAlert),
-            self::item(NotificationPreferenceResource::class, 'Notifications & Documents', __('admin.resources.notification_preferences'), 'Default channels and notification opt-outs.', 'notification preference channel opt out', Heroicon::OutlinedAdjustmentsHorizontal),
+            self::item(NotificationTemplateResource::class, 'Notifications & Documents', __('admin.resources.notification_templates'), 'The messages customers and staff receive, in English and Arabic.', 'notification message email template wording', Heroicon::OutlinedBellAlert),
 
             self::item(CustomFieldDefinitionResource::class, 'System', __('Custom fields'), 'Typed metadata fields for approved business records.', 'custom metadata field customer supplier product lead ticket maintenance', Heroicon::OutlinedAdjustmentsHorizontal),
         ];

@@ -2629,11 +2629,6 @@ return [
             'orders' => 'Orders',
         ],
     ],
-    'notification_deliveries' => [
-        'failed_last_day' => 'Failed notifications (24h)',
-        'failed_none' => 'No failed business notifications in the last 24 hours.',
-        'failed_review' => 'Open the failed deliveries to inspect or retry them.',
-    ],
     'resources' => [
         'sales_dashboard' => 'Sales Dashboard',
         'quotations' => 'Quotations',
@@ -2771,8 +2766,6 @@ return [
         'document_templates' => 'Document Templates',
         'users_and_permissions' => 'Users and Permissions',
         'notification_templates' => 'Notification templates',
-        'notification_deliveries' => 'Notification deliveries',
-        'notification_preferences' => 'Notification preferences',
         'settings' => 'Settings',
     ],
 

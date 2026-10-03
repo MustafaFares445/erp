@@ -166,7 +166,7 @@ it('resolves no link for a class that is not a resource or page', function (): v
 });
 
 it('renders arabic labels correctly under the forced admin locale', function (): void {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['locale' => 'ar']);
 
     $response = $this->followingRedirects()->actingAs($user)->get('/admin');
 

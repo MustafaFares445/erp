@@ -1474,12 +1474,6 @@ $translations = [
         ],
     ],
 
-    'notification_deliveries' => [
-        'failed_last_day' => 'إشعارات فاشلة (24 ساعة)',
-        'failed_none' => 'لا توجد إشعارات أعمال فاشلة خلال آخر 24 ساعة.',
-        'failed_review' => 'افتح عمليات الإرسال الفاشلة لفحصها أو إعادة محاولتها.',
-    ],
-
     'resources' => [
         'bank_statements' => 'التسوية البنكية',
         'barcode_workbench' => 'محطة الباركود',

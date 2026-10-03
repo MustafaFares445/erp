@@ -8,9 +8,13 @@ use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Http\Middleware\SetAdminLocale;
 use App\Models\Invoice;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Number;
 use Symfony\Component\HttpFoundation\Response;
+
+uses(RefreshDatabase::class);
 
 final class AdminLocalePluralLabelResource extends LocalizedResource
 {
@@ -23,11 +27,25 @@ final class AdminLocalePluralLabelResource extends LocalizedResource
     }
 }
 
-it('forces Arabic locale for the admin panel request', function (): void {
+it('defaults the admin panel to English', function (): void {
+    app()->setLocale('ar');
+
+    app(SetAdminLocale::class)->handle(
+        Request::create('/admin'),
+        static fn (): Response => response('ok'),
+    );
+
+    expect(app()->getLocale())->toBe('en');
+});
+
+it('applies Arabic locale for the admin panel request', function (): void {
     app()->setLocale('en');
 
+    $request = Request::create('/admin');
+    $request->setUserResolver(static fn (): User => User::factory()->make(['locale' => 'ar']));
+
     $response = app(SetAdminLocale::class)->handle(
-        Request::create('/admin'),
+        $request,
         static fn (): Response => response('ok'),
     );
 
@@ -43,6 +61,8 @@ it('forces Arabic locale for the admin panel request', function (): void {
 });
 
 it('renders the Filament admin login in Arabic RTL', function (): void {
+    $this->get(route('admin.locale.switch', 'ar'));
+
     $this->get(route('filament.admin.auth.login'))
         ->assertOk()
         ->assertSee('lang="ar"', escape: false)
@@ -61,6 +81,27 @@ it('switches the admin interface to English and back through the language switch
 
     $this->get(route('filament.admin.auth.login'))
         ->assertSee('dir="rtl"', escape: false);
+});
+
+it('saves the chosen language on the signed-in user and defaults new users to English', function (): void {
+    $user = User::factory()->create();
+
+    expect($user->fresh()->locale)->toBe('en');
+
+    $this->actingAs($user)->get(route('admin.locale.switch', 'ar'))->assertRedirect();
+
+    expect($user->fresh()->locale)->toBe('ar');
+
+    // A fresh session still gets the saved language.
+    app('session')->flush();
+    app()->setLocale('en');
+
+    $request = Request::create('/admin');
+    $request->setUserResolver(static fn (): User => $user->fresh());
+
+    app(SetAdminLocale::class)->handle($request, static fn (): Response => response('ok'));
+
+    expect(app()->getLocale())->toBe('ar');
 });
 
 it('rejects unsupported locales', function (): void {

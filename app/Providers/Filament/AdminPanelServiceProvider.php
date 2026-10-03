@@ -57,8 +57,6 @@ use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
-use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
-use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
 use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
@@ -208,8 +206,6 @@ final class AdminPanelServiceProvider extends PanelProvider
                 MaintenanceRequestResource::class,
                 MaintenanceScheduleResource::class,
                 MonthlyPlanResource::class,
-                NotificationDeliveryResource::class,
-                NotificationPreferenceResource::class,
                 NotificationTemplateResource::class,
                 OrderResource::class,
                 OutboundFulfillmentResource::class,
@@ -281,7 +277,9 @@ final class AdminPanelServiceProvider extends PanelProvider
                 AlpineComponent::make('customer-delivery-map', resource_path('js/filament/customer-delivery-map.js')),
                 AlpineComponent::make('customer-location-picker', resource_path('js/filament/customer-location-picker.js')),
                 AlpineComponent::make('visit-gps-trail-map', resource_path('js/filament/visit-gps-trail-map.js')),
+                AlpineComponent::make('notification-message-editor', resource_path('js/filament/notification-message-editor.js')),
                 Css::make('customer-delivery-map', resource_path('css/filament/customer-delivery-map.css')),
+                Css::make('notification-message-editor', resource_path('css/filament/notification-message-editor.css')),
                 Css::make('customer-location-picker', resource_path('css/filament/customer-location-picker.css')),
             ])
             ->navigation($this->navigation(...))

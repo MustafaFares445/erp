@@ -19,7 +19,7 @@ beforeEach(function (): void {
 });
 
 it('opens the page for a System Admin, Chief Accountant, Accountant, and Reviewer, each seeing every report type (SC-008)', function (DashboardRole $role): void {
-    $user = User::factory()->admin()->create();
+    $user = User::factory()->admin()->create(['locale' => 'ar']);
     $user->assignRole($role->value);
 
     $response = $this->actingAs($user)->get(FinancialReportResource::getUrl());
