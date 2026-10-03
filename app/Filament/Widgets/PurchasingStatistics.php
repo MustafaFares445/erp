@@ -4,29 +4,38 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
-use App\Enums\BillStatus;
-use App\Enums\PurchaseInboundStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
-use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Pages\PurchaseNeeds;
-use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
-use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
-use App\Models\PurchaseInbound;
+use App\Filament\Widgets\Concerns\BuildsTrendStats;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SalesProcurementRequirement;
-use App\Models\SupplierConfirmation;
-use App\Models\SupplierConfirmationItem;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
+use App\Services\Settings\CurrencyCatalogService;
+use App\Support\Dashboard\DashboardPeriod;
+use App\Support\MoneyFormatter;
 use App\Support\QuantityFormatter;
+use Carbon\CarbonImmutable;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
+/**
+ * Purchasing's four headline cards: spend in the selected window (default
+ * currency only — there is no cross-currency summation), the sourcing
+ * backlog, POs awaiting approval and overdue deliveries. The finer-grained
+ * work queues live in the attention table and the stage chart.
+ */
 final class PurchasingStatistics extends StatsOverviewWidget
 {
+    use BuildsTrendStats;
+    use InteractsWithDashboardFilters;
+
     #[\Override]
     public static function canView(): bool
     {
@@ -36,6 +45,37 @@ final class PurchasingStatistics extends StatsOverviewWidget
     #[\Override]
     protected function getStats(): array
     {
+        return [
+            $this->spendStat(),
+            $this->needsSourcingStat(),
+            $this->awaitingApprovalStat(),
+            $this->overdueStat(),
+        ];
+    }
+
+    private function spendStat(): Stat
+    {
+        $period = $this->dashboardPeriod();
+        $currency = app(CurrencyCatalogService::class)->defaultCode();
+
+        $current = $this->ordersInCurrency($currency, $period->from, $period->to)->get(['ordered_at', 'total_amount']);
+        $previous = DashboardPeriod::toFloat($this->ordersInCurrency($currency, $period->previousFrom, $period->previousTo)->sum('total_amount'));
+        $total = DashboardPeriod::toFloat($current->sum('total_amount'));
+
+        return $this->trendStat(
+            __('dashboards.purchasing.kpis.spend', ['currency' => $currency]),
+            MoneyFormatter::formatAmount($total, $currency),
+            $total,
+            $previous,
+            $period->sumSeries($current->map(static fn (PurchaseOrder $order): array => [$order->ordered_at, $order->total_amount])),
+            Heroicon::OutlinedBanknotes,
+            PurchaseOrderResource::getUrl('index'),
+            higherIsBetter: false,
+        );
+    }
+
+    private function needsSourcingStat(): Stat
+    {
         [$inventoryNeeds, $inventoryQuantity] = $this->inventoryPurchaseNeeds();
         $salesNeeds = SalesProcurementRequirement::query()
             ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
@@ -43,29 +83,33 @@ final class PurchasingStatistics extends StatsOverviewWidget
             ->count();
         $needsSourcing = $inventoryNeeds + $salesNeeds;
 
-        $pendingApproval = PurchaseOrder::query()
+        return Stat::make(__('dashboards.purchasing.kpis.needs_sourcing'), (string) $needsSourcing)
+            ->description(__('dashboards.purchasing.kpis.needs_sourcing_detail', [
+                'inventory' => $inventoryNeeds,
+                'sales' => $salesNeeds,
+                'quantity' => QuantityFormatter::display($inventoryQuantity),
+            ]))
+            ->icon(Heroicon::OutlinedMagnifyingGlass)
+            ->color($needsSourcing > 0 ? 'warning' : 'success')
+            ->url(PurchaseNeeds::getUrl());
+    }
+
+    private function awaitingApprovalStat(): Stat
+    {
+        $pendingApproval = $this->orders()
             ->where('status', PurchaseOrderStatus::PendingApproval->value)
             ->count();
 
-        $awaitingSupplier = SupplierConfirmation::query()
-            ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
-            ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query
-                ->whereNotNull('sent_at')
-                ->whereIn('status', [
-                    PurchaseOrderStatus::Accepted->value,
-                    PurchaseOrderStatus::PartiallyReceived->value,
-                ]))
-            ->count();
+        return Stat::make(__('dashboards.purchasing.kpis.awaiting_approval'), (string) $pendingApproval)
+            ->description(__('dashboards.purchasing.kpis.awaiting_approval_detail'))
+            ->icon(Heroicon::OutlinedShieldCheck)
+            ->color($pendingApproval > 0 ? 'warning' : 'success')
+            ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'approval']));
+    }
 
-        $expectedThisWeek = PurchaseOrder::query()
-            ->whereBetween('expected_at', [today(), now()->endOfWeek()->toDateString()])
-            ->whereIn('status', [
-                PurchaseOrderStatus::Accepted->value,
-                PurchaseOrderStatus::PartiallyReceived->value,
-            ])
-            ->count();
-
-        $overdue = PurchaseOrder::query()
+    private function overdueStat(): Stat
+    {
+        $overdue = $this->orders()
             ->whereDate('expected_at', '<', today())
             ->whereNotIn('status', [
                 PurchaseOrderStatus::Received->value,
@@ -74,121 +118,45 @@ final class PurchasingStatistics extends StatsOverviewWidget
             ])
             ->count();
 
-        $accountingExceptions = PurchaseOrder::query()
-            ->where('status', PurchaseOrderStatus::Received->value)
-            ->where(function (Builder $query): void {
-                $query->whereDoesntHave('bills')
-                    ->orWhereHas('bills', static fn (Builder $bills): Builder => $bills->where('status', BillStatus::Draft->value));
-            })
-            ->count();
-
-        $stats = [
-            Stat::make(__('Needs sourcing'), (string) $needsSourcing)
-                ->description($inventoryNeeds.' inventory · '.$salesNeeds.' sales needs · '.number_format($inventoryQuantity, 2).' inventory units')
-                ->color($needsSourcing > 0 ? 'warning' : 'success')
-                ->url(PurchaseNeeds::getUrl()),
-            Stat::make(__('Awaiting approval'), (string) $pendingApproval)
-                ->description(__('Purchasing Manager action required'))
-                ->color($pendingApproval > 0 ? 'warning' : 'success')
-                ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'approval'])),
-            Stat::make(__('Awaiting supplier'), (string) $awaitingSupplier)
-                ->description(__('Sent POs still waiting for a supplier response'))
-                ->color($awaitingSupplier > 0 ? 'warning' : 'success')
-                ->url(SupplierConfirmationResource::getUrl('index')),
-            Stat::make(__('Expected this week'), (string) $expectedThisWeek)
-                ->description(__('Open Purchase Orders due before week end'))
-                ->color('info')
-                ->url(PurchaseOrderResource::getUrl('index')),
-            Stat::make(__('Overdue deliveries'), (string) $overdue)
-                ->description(__('Expected date passed and receiving is still open'))
-                ->color($overdue > 0 ? 'danger' : 'success')
-                ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'overdue'])),
-            Stat::make(__('Accounting exceptions'), (string) $accountingExceptions)
-                ->description(__('Received goods with a missing or draft supplier bill'))
-                ->color($accountingExceptions > 0 ? 'warning' : 'success')
-                ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'accounting'])),
-            Stat::make(__('Supplier backorders'), SupplierConfirmationItem::query()
-                ->where('confirmation_status', SupplierConfirmationStatus::Partial->value)
-                ->where('backordered_base_quantity', '>', 0)
-                ->whereHas('confirmation.purchaseOrder', static fn (Builder $query): Builder => $query
-                    ->whereIn('status', [
-                        PurchaseOrderStatus::Accepted->value,
-                        PurchaseOrderStatus::PartiallyReceived->value,
-                    ]))
-                ->count())
-                ->description(__('Active Purchase Orders with supplier quantity still backordered'))
-                ->url(SupplierConfirmationResource::getUrl('index')),
-            $this->requirementsWaitingForPurchaseStat(),
-            Stat::make(__('Awaiting warehouse allocation'), PurchaseInbound::query()
-                ->where('status', PurchaseInboundStatus::AwaitingAllocation->value)
-                ->count())
-                ->description(__('Inventory must allocate confirmed inbound quantity'))
-                ->url(PurchaseInboundResource::getUrl('index')),
-            Stat::make(__('Overdue inbound'), PurchaseInbound::query()
-                ->whereNotIn('status', [PurchaseInboundStatus::Received->value, PurchaseInboundStatus::Cancelled->value])
-                ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereDate('expected_at', '<', today()))
-                ->count())
-                ->description(__('Expected date passed with inbound work still open'))
-                ->url(PurchaseInboundResource::getUrl('index')),
-            $this->salesNeedsStat(),
-        ];
-
-        $spendByCurrency = PurchaseOrder::query()
-            ->whereBetween('ordered_at', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
-            ->whereNotNull('currency_code')
-            ->where('currency_code', '!=', '')
-            ->selectRaw('currency_code, SUM(total_amount) AS amount')
-            ->groupBy('currency_code')
-            ->orderBy('currency_code')
-            ->get();
-
-        foreach ($spendByCurrency as $row) {
-            /** @var non-empty-string $currencyValue */
-            $currencyValue = $row->getAttribute('currency_code');
-            $currency = mb_strtoupper($currencyValue);
-            /** @var numeric-string|int|float $amount */
-            $amount = $row->getAttribute('amount');
-
-            $stats[] = Stat::make("PO spend this month · {$currency}", number_format((float) $amount, 2))
-                ->description(__('No cross-currency summation'));
-        }
-
-        return $stats;
+        return Stat::make(__('dashboards.purchasing.kpis.overdue'), (string) $overdue)
+            ->description(__('dashboards.purchasing.kpis.overdue_detail'))
+            ->icon(Heroicon::OutlinedClock)
+            ->color($overdue > 0 ? 'danger' : 'success')
+            ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'overdue']));
     }
 
-    private function salesNeedsStat(): Stat
+    /** @return Builder<PurchaseOrder> */
+    private function orders(): Builder
     {
-        $requirements = SalesProcurementRequirement::query()
-            ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
-            ->whereNull('purchase_order_id')
-            ->get();
-
-        $quantity = $requirements->sum(fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity());
-
-        return Stat::make(__('Sales purchase needs'), (string) $requirements->count())
-            ->description(QuantityFormatter::display($quantity).' base units still required')
-            ->url(PurchaseNeeds::getUrl());
+        return PurchaseOrder::query()
+            ->when($this->dashboardFilter('supplierId'), static fn (Builder $query, int $supplierId): Builder => $query->where('supplier_id', $supplierId));
     }
 
-    private function requirementsWaitingForPurchaseStat(): Stat
+    /** @return Builder<PurchaseOrder> */
+    private function ordersInCurrency(string $currency, CarbonImmutable $from, CarbonImmutable $to): Builder
     {
-        [$count, $quantity] = $this->inventoryPurchaseNeeds();
-
-        return Stat::make(__('replenishment.waiting_for_purchase'), (string) $count)
-            ->description(__('replenishment.waiting_for_purchase_description', [
-                'quantity' => QuantityFormatter::display($quantity),
-            ]))
-            ->url(PurchaseNeeds::getUrl());
+        return $this->orders()
+            ->where('currency_code', $currency)
+            ->whereDate('ordered_at', '>=', $from->toDateString())
+            ->whereDate('ordered_at', '<=', $to->toDateString());
     }
 
-    /** @return array{0:int,1:float} */
+    /**
+     * Active replenishment requirements whose uncovered quantity is not
+     * fully met by an internal transfer — the residual external need.
+     *
+     * @return array{0:int,1:float}
+     */
     private function inventoryPurchaseNeeds(): array
     {
         $transferSuggestions = app(ReplenishmentTransferSuggestionService::class);
         $count = 0;
         $quantity = 0.0;
 
-        foreach (ReplenishmentRequirement::query()->active()->get() as $requirement) {
+        /** @var Collection<int, ReplenishmentRequirement> $requirements */
+        $requirements = ReplenishmentRequirement::query()->active()->get();
+
+        foreach ($requirements as $requirement) {
             $remaining = $requirement->remainingUncoveredQuantity();
             $transferQuantity = 0.0;
 

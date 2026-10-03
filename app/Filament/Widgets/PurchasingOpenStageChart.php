@@ -7,13 +7,20 @@ namespace App\Filament\Widgets;
 use App\Enums\BillStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\PurchaseOrder;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Open purchase orders by the stage holding them up right now, optionally
+ * for one supplier. A current-state view, so it ignores the date range.
+ */
 final class PurchasingOpenStageChart extends ChartWidget
 {
-    protected ?string $heading = 'Open Purchase Orders by stage';
+    use InteractsWithDashboardFilters;
+
+    protected ?string $maxHeight = '300px';
 
     #[\Override]
     public static function canView(): bool
@@ -22,22 +29,29 @@ final class PurchasingOpenStageChart extends ChartWidget
     }
 
     #[\Override]
+    public function getHeading(): string
+    {
+        return __('dashboards.purchasing.charts.open_by_stage');
+    }
+
+    #[\Override]
     protected function getData(): array
     {
-        $approval = PurchaseOrder::query()
+        $approval = $this->orders()
             ->where('status', PurchaseOrderStatus::PendingApproval->value)
             ->count();
 
-        $readyToSend = PurchaseOrder::query()
+        $readyToSend = $this->orders()
             ->where('status', PurchaseOrderStatus::Accepted->value)
             ->whereNull('sent_at')
             ->count();
 
-        $awaitingSupplier = PurchaseOrder::query()
+        $awaitingSupplier = $this->orders()
             ->whereNotNull('sent_at')
             ->whereHas('confirmations', static fn (Builder $query): Builder => $query->where('confirmation_status', 'pending'))
             ->count();
-        $receiving = PurchaseOrder::query()
+
+        $receiving = $this->orders()
             ->whereNotNull('sent_at')
             ->whereIn('status', [
                 PurchaseOrderStatus::Accepted->value,
@@ -46,7 +60,7 @@ final class PurchasingOpenStageChart extends ChartWidget
             ->whereDoesntHave('confirmations', static fn (Builder $query): Builder => $query->where('confirmation_status', 'pending'))
             ->count();
 
-        $accounting = PurchaseOrder::query()
+        $accounting = $this->orders()
             ->where('status', PurchaseOrderStatus::Received->value)
             ->where(function (Builder $query): void {
                 $query->whereDoesntHave('bills')
@@ -59,10 +73,26 @@ final class PurchasingOpenStageChart extends ChartWidget
 
         return [
             'datasets' => [[
-                'label' => 'Purchase Orders',
+                'label' => __('dashboards.purchasing.charts.purchase_orders'),
                 'data' => [$approval, $readyToSend, $awaitingSupplier, $receiving, $accounting],
+                'backgroundColor' => ['#f59e0b', '#3b82f6', '#8b5cf6', '#22c55e', '#64748b'],
             ]],
-            'labels' => ['Approval', 'Ready to send', 'Supplier', 'Receiving', 'Accounting'],
+            'labels' => [
+                __('dashboards.purchasing.stages.approval'),
+                __('dashboards.purchasing.stages.ready_to_send'),
+                __('dashboards.purchasing.stages.supplier'),
+                __('dashboards.purchasing.stages.receiving'),
+                __('dashboards.purchasing.stages.accounting'),
+            ],
+        ];
+    }
+
+    #[\Override]
+    protected function getOptions(): array
+    {
+        return [
+            'plugins' => ['legend' => ['display' => false]],
+            'scales' => ['y' => ['beginAtZero' => true, 'ticks' => ['precision' => 0]]],
         ];
     }
 
@@ -70,5 +100,12 @@ final class PurchasingOpenStageChart extends ChartWidget
     protected function getType(): string
     {
         return 'bar';
+    }
+
+    /** @return Builder<PurchaseOrder> */
+    private function orders(): Builder
+    {
+        return PurchaseOrder::query()
+            ->when($this->dashboardFilter('supplierId'), static fn (Builder $query, int $supplierId): Builder => $query->where('supplier_id', $supplierId));
     }
 }

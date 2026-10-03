@@ -11,17 +11,18 @@ use App\Filament\Widgets\PurchasingOpenStageChart;
 use App\Filament\Widgets\PurchasingSpendTrend;
 use App\Filament\Widgets\PurchasingStatistics;
 use App\Filament\Widgets\PurchasingUpcomingReceipts;
+use App\Models\Supplier;
 use BackedEnum;
-use Filament\Pages\Page;
+use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * Purchasing's module landing page: open-order/approval/confirmation counts
- * plus the trailing six months of PO spend, gated the same as the
- * Purchasing navigation group itself (see
- * {@see AdminModuleRegistry}).
+ * Purchasing's module landing page: spend and backlog KPIs, spend trend
+ * beside open orders by stage, then the attention queue beside upcoming
+ * deliveries — narrowable to one supplier and gated the same as the
+ * Purchasing navigation group itself (see {@see AdminModuleRegistry}).
  */
-final class PurchasingDashboard extends Page
+final class PurchasingDashboard extends ModuleDashboard
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBarSquare;
 
@@ -32,26 +33,31 @@ final class PurchasingDashboard extends Page
     }
 
     #[\Override]
-    public static function getNavigationLabel(): string
-    {
-        return __('admin.dashboard');
-    }
-
-    #[\Override]
     public function getTitle(): string
     {
         return __('admin.resources.purchasing_dashboard');
     }
 
+    /** @return array<Select> */
     #[\Override]
-    protected function getHeaderWidgets(): array
+    protected function moduleFilters(): array
+    {
+        return [
+            Select::make('supplierId')
+                ->label(__('dashboards.purchasing.filters.supplier'))
+                ->searchable()
+                ->native(false)
+                ->options(fn (): array => Supplier::query()->orderBy('name')->pluck('name', 'id')->all()),
+        ];
+    }
+
+    #[\Override]
+    protected function getDashboardWidgets(): array
     {
         return [
             PurchasingStatistics::class,
-            PurchasingAttentionQueue::class,
-            PurchasingUpcomingReceipts::class,
-            PurchasingOpenStageChart::class,
-            PurchasingSpendTrend::class,
+            [PurchasingSpendTrend::class, PurchasingOpenStageChart::class],
+            [PurchasingAttentionQueue::class, PurchasingUpcomingReceipts::class],
         ];
     }
 }

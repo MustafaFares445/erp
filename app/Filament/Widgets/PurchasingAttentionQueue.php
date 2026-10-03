@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Data\Purchasing\PurchaseOrderWorkflowData;
 use App\Enums\BillStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
@@ -11,6 +12,8 @@ use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Widgets\Concerns\BuildsDashboardTables;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
@@ -19,12 +22,21 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use WeakMap;
 
+/**
+ * Open purchase orders someone has to act on — approval, sending, supplier
+ * response, overdue delivery, receiving or billing — soonest-expected
+ * first, optionally for one supplier. A current-state work queue, so it
+ * ignores the date range.
+ */
 final class PurchasingAttentionQueue extends TableWidget
 {
-    protected static ?string $heading = 'Needs your attention';
+    use BuildsDashboardTables;
+    use InteractsWithDashboardFilters;
 
-    protected int|string|array $columnSpan = 'full';
+    /** @var WeakMap<PurchaseOrder, PurchaseOrderWorkflowData>|null */
+    private static ?WeakMap $projections = null;
 
     #[\Override]
     public static function canView(): bool
@@ -35,35 +47,33 @@ final class PurchasingAttentionQueue extends TableWidget
     #[\Override]
     public function table(Table $table): Table
     {
-        return $table
-            ->query(self::query())
+        return $this->dashboardTable($table)
+            ->heading(__('dashboards.purchasing.tables.attention'))
+            ->query(fn (): Builder => self::query()
+                ->when($this->dashboardFilter('supplierId'), static fn (Builder $query, int $supplierId): Builder => $query->where('supplier_id', $supplierId)))
             ->defaultSort('expected_at', 'asc')
             ->columns([
                 TextColumn::make('purchase_order_number')
-                    ->label(__('Purchase Order'))
+                    ->label(__('dashboards.purchasing.columns.purchase_order'))
                     ->description(fn (PurchaseOrder $record): string => $record->supplier->name)
-                    ->badge(),
+                    ->weight('medium'),
                 TextColumn::make('attention')
-                    ->label(__('Why it needs attention'))
+                    ->label(__('dashboards.purchasing.columns.reason'))
                     ->state(fn (PurchaseOrder $record): string => self::attentionReason($record))
                     ->badge()
                     ->color(fn (PurchaseOrder $record): string => self::attentionColor($record)),
                 TextColumn::make('expected_at')
-                    ->label(__('Expected'))
+                    ->label(__('dashboards.purchasing.columns.expected'))
                     ->date()
-                    ->placeholder(__('Not specified'))
+                    ->placeholder(__('dashboards.purchasing.columns.not_specified'))
                     ->color(fn (PurchaseOrder $record): string => self::isOverdue($record) ? 'danger' : 'gray'),
-                TextColumn::make('owner')
-                    ->label(__('Owner'))
-                    ->state(fn (PurchaseOrder $record): string => app(PurchaseOrderWorkflowService::class)->project($record)->nextOwner),
                 TextColumn::make('action')
-                    ->label(__('Action'))
-                    ->state(fn (PurchaseOrder $record): string => app(PurchaseOrderWorkflowService::class)->project($record)->nextAction)
-                    ->color('primary')
-                    ->url(fn (PurchaseOrder $record): string => self::actionUrl($record)),
+                    ->label(__('dashboards.purchasing.columns.next_action'))
+                    ->state(fn (PurchaseOrder $record): string => self::projection($record)->nextAction)
+                    ->description(fn (PurchaseOrder $record): string => self::projection($record)->nextOwner)
+                    ->color('primary'),
             ])
-            ->recordUrl(fn (PurchaseOrder $record): string => self::actionUrl($record))
-            ->paginated([5, 10]);
+            ->recordUrl(fn (PurchaseOrder $record): string => self::actionUrl($record));
     }
 
     /** @return Builder<PurchaseOrder> */
@@ -108,13 +118,24 @@ final class PurchasingAttentionQueue extends TableWidget
             });
     }
 
+    /**
+     * The workflow projection is needed by several columns and the row URL;
+     * build it once per loaded row.
+     */
+    private static function projection(PurchaseOrder $record): PurchaseOrderWorkflowData
+    {
+        self::$projections ??= new WeakMap;
+
+        return self::$projections[$record] ??= app(PurchaseOrderWorkflowService::class)->project($record);
+    }
+
     private static function attentionReason(PurchaseOrder $record): string
     {
         if (self::isOverdue($record)) {
-            return 'Overdue delivery';
+            return __('dashboards.purchasing.attention.overdue');
         }
 
-        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
+        $projection = self::projection($record);
 
         return $projection->blocker ?? $projection->businessState;
     }
@@ -125,7 +146,7 @@ final class PurchasingAttentionQueue extends TableWidget
             return 'danger';
         }
 
-        return app(PurchaseOrderWorkflowService::class)->project($record)->blocker === null
+        return self::projection($record)->blocker === null
             ? 'info'
             : 'warning';
     }
@@ -139,7 +160,7 @@ final class PurchasingAttentionQueue extends TableWidget
 
     private static function actionUrl(PurchaseOrder $record): string
     {
-        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
+        $projection = self::projection($record);
 
         if ($projection->nextOwner === 'Inventory' && $record->purchaseInbound !== null) {
             return PurchaseInboundResource::getUrl('view', ['record' => $record->purchaseInbound]);

@@ -11,13 +11,16 @@ use App\Filament\Widgets\PurchasingOpenStageChart;
 use App\Filament\Widgets\PurchasingSpendTrend;
 use App\Filament\Widgets\PurchasingStatistics;
 use App\Filament\Widgets\PurchasingUpcomingReceipts;
-use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
+use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
+use App\Support\MoneyFormatter;
 use Database\Seeders\PurchasePermissionSeeder;
+use Filament\Widgets\StatsOverviewWidget\Stat;
+use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -65,67 +68,76 @@ it('shows operational dashboard widgets to buyers and manager analytics only to 
     expect(PurchasingSpendTrend::canView())->toBeTrue();
 });
 
-it('reports the operational purchasing KPIs the employee needs to act on', function (): void {
-    // Open (non-terminal) orders.
-    PurchaseOrder::factory()->count(2)->create();
-    PurchaseOrder::factory()->count(3)->pendingApproval()->create();
-    PurchaseOrder::factory()->accepted()->create();
-    PurchaseOrder::factory()->sent()->create();
+it('reports spend, sourcing backlog, approvals and overdue deliveries', function (): void {
+    PurchaseOrder::factory()->count(3)->pendingApproval()->create(['total_amount' => '0']);
+    PurchaseOrder::factory()->create(['status' => PurchaseOrderStatus::Accepted, 'expected_at' => today()->subDay(), 'total_amount' => '0']);
+    PurchaseOrder::factory()->received()->create(['expected_at' => today()->subDay(), 'total_amount' => '0']);
 
-    // Terminal orders, excluded from the open count.
-    PurchaseOrder::factory()->received()->create();
-    PurchaseOrder::factory()->create(['status' => PurchaseOrderStatus::Closed, 'closed_at' => now()]);
-    PurchaseOrder::factory()->cancelled()->create();
-
-    // This-month spend: two orders dated this month with a non-zero amount,
-    // and one dated last month that must be excluded from the sum.
+    // Spend in the default currency only: two orders this period, one in the
+    // previous window, and one in another currency that is never summed.
     PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '1000.00']);
-    PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '500.50']);
-    PurchaseOrder::factory()->create(['ordered_at' => now()->subMonth()->startOfMonth()->toDateString(), 'total_amount' => '999.00']);
+    PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '500.00']);
+    PurchaseOrder::factory()->create(['ordered_at' => now()->subDays(40)->toDateString(), 'total_amount' => '750.00']);
+    PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '999.00', 'currency_code' => 'USD']);
 
-    PurchaseOrder::factory()->sent()->count(2)->create()->each(function (PurchaseOrder $order): void {
-        SupplierConfirmation::factory()->create([
-            'purchase_order_id' => $order->getKey(),
-            'supplier_id' => $order->supplier_id,
-        ]);
-    });
-    SupplierConfirmation::factory()->confirmed()->create();
-    SupplierConfirmation::factory()->rejected()->create();
+    $stats = purchasingStats();
 
-    $widget = app(PurchasingStatistics::class);
-    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
-    $values = array_map(fn ($stat): mixed => $stat->getValue(), $stats);
-
-    expect(array_slice($values, 0, 6))->toBe(['0', '3', '2', '0', '0', '1'])
-        ->and($stats[0]->getDescription())->toBe('0 inventory · 0 sales needs · 0.00 inventory units')
-        ->and($stats[5]->getDescription())->toBe('Received goods with a missing or draft supplier bill')
-        ->and(count($stats))->toBeGreaterThanOrEqual(11);
+    expect($stats)->toHaveCount(4)
+        ->and(array_map(fn (Stat $stat): mixed => $stat->getValue(), $stats))->toBe([
+            MoneyFormatter::formatAmount(1500, 'AED'),
+            '0',
+            '3',
+            '1',
+        ])
+        ->and($stats[0]->getLabel())->toBe('PO spend (AED)')
+        ->and((string) $stats[0]->getDescription())->toBe('100.0% increase')
+        ->and($stats[0]->getColor())->toBe('danger')
+        ->and(array_sum($stats[0]->getChart() ?? []))->toBe(1500.0)
+        ->and($stats[1]->getDescription())->toBe('0 inventory · 0 sales needs · 0 inventory units')
+        ->and($stats[2]->getColor())->toBe('warning')
+        ->and($stats[3]->getColor())->toBe('danger');
 });
 
-it('uses a line chart for the six-month spend trend', function (): void {
-    $widget = app(PurchasingSpendTrend::class);
+it('narrows purchasing KPIs, charts and tables to the selected supplier', function (): void {
+    $supplier = Supplier::factory()->create();
+    $mine = PurchaseOrder::factory()->pendingApproval()->create(['supplier_id' => $supplier->id, 'total_amount' => '200.00']);
+    $theirs = PurchaseOrder::factory()->pendingApproval()->create(['total_amount' => '900.00']);
 
-    expect(new ReflectionMethod($widget, 'getType')->invoke($widget))->toBe('line');
+    $stats = purchasingStats(['supplierId' => $supplier->id]);
+
+    expect($stats[0]->getValue())->toBe(MoneyFormatter::formatAmount(200, 'AED'))
+        ->and($stats[2]->getValue())->toBe('1');
+
+    $chart = app(PurchasingOpenStageChart::class);
+    $chart->pageFilters = ['supplierId' => $supplier->id];
+
+    expect(new ReflectionMethod($chart, 'getData')->invoke($chart)['datasets'][0]['data'][0])->toBe(1);
+
+    $this->actingAs(purchasingViewer(PurchasePermission::OrderView));
+
+    Livewire::test(PurchasingAttentionQueue::class, ['pageFilters' => ['supplierId' => $supplier->id]])
+        ->assertSee('Needs your attention')
+        ->assertCanSeeTableRecords([$mine])
+        ->assertCanNotSeeTableRecords([$theirs]);
 });
 
-it('buckets PO spend by month for the trailing six months', function (): void {
-    PurchaseOrder::factory()->create(['ordered_at' => Carbon::now()->startOfMonth()->toDateString(), 'total_amount' => '100.00']);
-    PurchaseOrder::factory()->create(['ordered_at' => Carbon::now()->startOfMonth()->toDateString(), 'total_amount' => '50.00']);
-    PurchaseOrder::factory()->create(['ordered_at' => Carbon::now()->startOfMonth()->subMonths(2)->toDateString(), 'total_amount' => '75.00']);
-    PurchaseOrder::factory()->create(['ordered_at' => Carbon::now()->startOfMonth()->subMonths(9)->toDateString(), 'total_amount' => '999.00']);
+it('charts default-currency spend for the selected and previous period', function (): void {
+    PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '100.00']);
+    PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '50.00']);
+    PurchaseOrder::factory()->create(['ordered_at' => now()->subDays(35)->toDateString(), 'total_amount' => '75.00']);
+    PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '999.00', 'currency_code' => 'USD']);
 
     $widget = app(PurchasingSpendTrend::class);
     $data = new ReflectionMethod($widget, 'getData')->invoke($widget);
 
-    expect($data['labels'])->toHaveCount(6)
-        ->and($data['labels'][5])->toBe(Carbon::now()->startOfMonth()->format('M Y'))
-        ->and($data['datasets'][0]['label'])->toBe('PO spend · AED')
-        ->and($data['datasets'][0]['data'][5])->toBe(150.0)
-        ->and($data['datasets'][0]['data'][3])->toBe(75.0)
-        ->and(array_sum($data['datasets'][0]['data']))->toBe(225.0);
+    expect(new ReflectionMethod($widget, 'getType')->invoke($widget))->toBe('line')
+        ->and($widget->getHeading())->toBe('Purchase spend (AED)')
+        ->and($data['labels'])->toHaveCount(30)
+        ->and(array_sum($data['datasets'][0]['data']))->toBe(150.0)
+        ->and(array_sum($data['datasets'][1]['data']))->toBe(75.0);
 });
 
-it('counts only actionable sent supplier responses and active backorders', function (): void {
+it('counts only sent purchase orders as waiting on the supplier', function (): void {
     $unsent = PurchaseOrder::factory()->accepted()->create();
     SupplierConfirmation::factory()->create([
         'purchase_order_id' => $unsent->getKey(),
@@ -140,42 +152,50 @@ it('counts only actionable sent supplier responses and active backorders', funct
         'confirmation_status' => SupplierConfirmationStatus::Pending,
     ]);
 
-    $activeBackorder = SupplierConfirmation::factory()->create([
-        'purchase_order_id' => $sent->getKey(),
-        'supplier_id' => $sent->supplier_id,
-        'confirmation_status' => SupplierConfirmationStatus::Partial,
-    ]);
-    $activeBackorderItem = $activeBackorder->items()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'requested_quantity' => '2.000',
-        'requested_base_quantity' => '2.000000',
-        'confirmed_base_quantity' => '1.000000',
-        'backordered_base_quantity' => '1.000000',
-    ]);
-    $activeBackorderItem->forceFill(['confirmation_status' => SupplierConfirmationStatus::Partial])->save();
+    $chart = app(PurchasingOpenStageChart::class);
+    $data = new ReflectionMethod($chart, 'getData')->invoke($chart);
 
-    $closed = PurchaseOrder::factory()->create([
-        'status' => PurchaseOrderStatus::Closed,
-        'closed_at' => now(),
-    ]);
-    $closedBackorder = SupplierConfirmation::factory()->create([
-        'purchase_order_id' => $closed->getKey(),
-        'supplier_id' => $closed->supplier_id,
-        'confirmation_status' => SupplierConfirmationStatus::Partial,
-    ]);
-    $closedBackorderItem = $closedBackorder->items()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'requested_quantity' => '2.000',
-        'requested_base_quantity' => '2.000000',
-        'confirmed_base_quantity' => '1.000000',
-        'backordered_base_quantity' => '1.000000',
-    ]);
-    $closedBackorderItem->forceFill(['confirmation_status' => SupplierConfirmationStatus::Partial])->save();
-
-    $stats = new ReflectionMethod(app(PurchasingStatistics::class), 'getStats')->invoke(app(PurchasingStatistics::class));
-
-    expect((int) $stats[2]->getValue())->toBe(1)
-        ->and($stats[2]->getDescription())->toBe('Sent POs still waiting for a supplier response')
-        ->and((int) $stats[6]->getValue())->toBe(1)
-        ->and($stats[6]->getDescription())->toBe('Active Purchase Orders with supplier quantity still backordered');
+    expect($data['labels'])->toBe(['Approval', 'Ready to send', 'Supplier', 'Receiving', 'Accounting'])
+        ->and($data['datasets'][0]['data'][1])->toBe(1)
+        ->and($data['datasets'][0]['data'][2])->toBe(1);
 });
+
+it('lays out the purchasing dashboard in aligned pairs and gives the stage chart the row without approve access', function (): void {
+    expect(new ReflectionMethod(PurchasingDashboard::class, 'getDashboardWidgets')->invoke(new PurchasingDashboard))->toBe([
+        PurchasingStatistics::class,
+        [PurchasingSpendTrend::class, PurchasingOpenStageChart::class],
+        [PurchasingAttentionQueue::class, PurchasingUpcomingReceipts::class],
+    ]);
+
+    $this->actingAs(purchasingViewer(PurchasePermission::OrderView));
+
+    $resolved = new ReflectionMethod(PurchasingDashboard::class, 'resolveDashboardWidgets')->invoke(new PurchasingDashboard);
+
+    expect($resolved[1])->toBeInstanceOf(WidgetConfiguration::class)
+        ->and($resolved[1]->widget)->toBe(PurchasingOpenStageChart::class);
+
+    Livewire::test(PurchasingDashboard::class)
+        ->assertSuccessful()
+        ->assertSee('Supplier');
+});
+
+/**
+ * @param  array<string, mixed>  $filters
+ * @return list<Stat>
+ */
+function purchasingStats(array $filters = []): array
+{
+    $widget = app(PurchasingStatistics::class);
+    $widget->pageFilters = $filters;
+
+    /** @var list<Stat> */
+    return new ReflectionMethod($widget, 'getStats')->invoke($widget);
+}
+
+function purchasingViewer(PurchasePermission ...$permissions): User
+{
+    $user = User::factory()->create();
+    $user->givePermissionTo(array_map(static fn (PurchasePermission $permission): string => $permission->value, $permissions));
+
+    return $user;
+}

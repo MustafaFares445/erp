@@ -104,11 +104,15 @@ it('covers purchasing attention reason and color branches', function (): void {
 
     bindCoverage55Workflow(coverage55Workflow(businessState: 'Awaiting response'));
 
+    // The queue caches each row's projection, so every rebinding gets a freshly loaded row.
+    $normal = $normal->fresh();
+
     expect($overdue->invoke(null, $normal))->toBeFalse()
         ->and($reason->invoke(null, $normal))->toBe('Awaiting response')
         ->and($color->invoke(null, $normal))->toBe('info');
 
     bindCoverage55Workflow(coverage55Workflow(blocker: 'Supplier response pending'));
+    $normal = $normal->fresh();
 
     expect($reason->invoke(null, $normal))->toBe('Supplier response pending')
         ->and($color->invoke(null, $normal))->toBe('warning');

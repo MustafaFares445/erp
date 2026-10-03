@@ -8,17 +8,23 @@ use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Widgets\Concerns\BuildsDashboardTables;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\PurchaseOrder;
 use App\Services\Purchasing\PurchaseOrderWorkflowService;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Sent, still-receiving purchase orders by expected date, optionally for
+ * one supplier; each row opens its inbound (or the PO when none exists).
+ */
 final class PurchasingUpcomingReceipts extends TableWidget
 {
-    protected static ?string $heading = 'Upcoming deliveries';
-
-    protected int|string|array $columnSpan = 'full';
+    use BuildsDashboardTables;
+    use InteractsWithDashboardFilters;
 
     #[\Override]
     public static function canView(): bool
@@ -29,8 +35,9 @@ final class PurchasingUpcomingReceipts extends TableWidget
     #[\Override]
     public function table(Table $table): Table
     {
-        return $table
-            ->query(PurchaseOrder::query()
+        return $this->dashboardTable($table)
+            ->heading(__('dashboards.purchasing.tables.upcoming'))
+            ->query(fn (): Builder => PurchaseOrder::query()
                 ->with(['supplier', 'purchaseInbound.lines.allocations.warehouse', 'lines.purchaseInboundLine.allocations'])
                 ->whereNotNull('sent_at')
                 ->whereNotNull('expected_at')
@@ -38,35 +45,28 @@ final class PurchasingUpcomingReceipts extends TableWidget
                     PurchaseOrderStatus::Accepted->value,
                     PurchaseOrderStatus::PartiallyReceived->value,
                 ])
+                ->when($this->dashboardFilter('supplierId'), static fn (Builder $query, int $supplierId): Builder => $query->where('supplier_id', $supplierId))
                 ->orderBy('expected_at'))
             ->columns([
                 TextColumn::make('purchase_order_number')
-                    ->label(__('Purchase Order'))
+                    ->label(__('dashboards.purchasing.columns.purchase_order'))
                     ->description(fn (PurchaseOrder $record): string => $record->supplier->name)
-                    ->badge(),
+                    ->weight('medium'),
                 TextColumn::make('expected_at')
-                    ->label(__('Expected'))
+                    ->label(__('dashboards.purchasing.columns.expected'))
                     ->date()
                     ->sinceTooltip()
                     ->color(fn (PurchaseOrder $record): string => $record->expected_at?->isPast() ? 'danger' : 'gray'),
                 TextColumn::make('receiving_state')
-                    ->label(__('Receiving'))
+                    ->label(__('dashboards.purchasing.columns.receiving'))
                     ->state(fn (PurchaseOrder $record): string => app(PurchaseOrderWorkflowService::class)->project($record)->logisticsState)
                     ->badge(),
                 TextColumn::make('total_amount')
-                    ->label(__('PO value'))
+                    ->label(__('dashboards.purchasing.columns.value'))
                     ->money(fn (PurchaseOrder $record): string => $record->currency_code),
-                TextColumn::make('open')
-                    ->label('')
-                    ->state(__('Open inbound'))
-                    ->color('primary')
-                    ->url(fn (PurchaseOrder $record): string => $record->purchaseInbound !== null
-                        ? PurchaseInboundResource::getUrl('view', ['record' => $record->purchaseInbound])
-                        : PurchaseOrderResource::getUrl('view', ['record' => $record])),
             ])
             ->recordUrl(fn (PurchaseOrder $record): string => $record->purchaseInbound !== null
                 ? PurchaseInboundResource::getUrl('view', ['record' => $record->purchaseInbound])
-                : PurchaseOrderResource::getUrl('view', ['record' => $record]))
-            ->paginated([5, 10]);
+                : PurchaseOrderResource::getUrl('view', ['record' => $record]));
     }
 }

@@ -219,13 +219,13 @@ it('covers purchasing upcoming-receipts inbound URLs', function (): void {
 
     $widget = app(PurchasingUpcomingReceipts::class);
     $table = $widget->table(Table::make($widget));
-    $column = $table->getColumn('open');
 
-    $columnUrl = batch75Property($column, 'url');
     $recordUrl = batch75Property($table, 'recordUrl');
+    $withoutInbound = PurchaseOrder::factory()->create();
+    $withoutInbound->setRelation('purchaseInbound', null);
 
-    expect($columnUrl($order))->toContain((string) $inbound->getKey())
-        ->and($recordUrl($order))->toContain((string) $inbound->getKey());
+    expect($recordUrl($order))->toContain((string) $inbound->getKey())
+        ->and($recordUrl($withoutInbound))->toContain((string) $withoutInbound->getKey());
 });
 
 it('covers adjustment enum and digit-string normalization helpers', function (): void {

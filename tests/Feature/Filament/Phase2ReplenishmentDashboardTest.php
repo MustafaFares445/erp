@@ -31,9 +31,9 @@ it('shows zero replenishment work queues to an authorized inventory viewer', fun
     $widget = app(InventoryKeyMetrics::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
-    expect($stats)->toHaveCount(5)
-        ->and($stats[3]->getValue())->toBe('0')
-        ->and($stats[4]->getValue())->toBe('0');
+    expect($stats)->toHaveCount(3)
+        ->and($stats[2]->getValue())->toBe('0')
+        ->and((string) $stats[2]->getDescription())->toContain('transfer suggestions: 0');
 });
 
 it('shows open requirements and internal transfer suggestions on inventory and only residual external need on purchasing', function (): void {
@@ -119,17 +119,15 @@ it('shows open requirements and internal transfer suggestions on inventory and o
     $inventoryWidget = app(InventoryKeyMetrics::class);
     $inventoryStats = new ReflectionMethod($inventoryWidget, 'getStats')->invoke($inventoryWidget);
 
-    expect($inventoryStats)->toHaveCount(5)
-        ->and($inventoryStats[3]->getValue())->toBe('2')
-        ->and($inventoryStats[3]->getDescription())->toContain('80')
-        ->and($inventoryStats[4]->getValue())->toBe('2')
-        ->and($inventoryStats[4]->getDescription())->toContain('70');
+    expect($inventoryStats)->toHaveCount(3)
+        ->and($inventoryStats[2]->getValue())->toBe('2')
+        ->and((string) $inventoryStats[2]->getDescription())->toBe('Uncovered: 80 · transfer suggestions: 2 · transferable: 70');
 
     $purchasingWidget = app(PurchasingStatistics::class);
     $purchasingStats = new ReflectionMethod($purchasingWidget, 'getStats')->invoke($purchasingWidget);
 
-    expect($purchasingStats[0]->getValue())->toBe('1')
-        ->and($purchasingStats[0]->getDescription())->toContain('10');
+    expect($purchasingStats[1]->getValue())->toBe('1')
+        ->and($purchasingStats[1]->getDescription())->toContain('10');
 });
 
 it('resynchronizes the durable requirement when a stock position changes', function (): void {
