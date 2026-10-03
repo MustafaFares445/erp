@@ -47,7 +47,7 @@ final class PurchaseRfqResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return __('Requests for quotation');
+        return __('admin.resources.purchase_rfqs');
     }
 
     #[\Override]

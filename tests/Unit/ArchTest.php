@@ -17,6 +17,8 @@ use App\Http\Controllers\VoiceNoteMediaController;
 use App\Models\AccountType;
 use App\Models\AiKeywordRule;
 use App\Models\AuditLog;
+use App\Models\BankStatement;
+use App\Models\BankStatementLine;
 use App\Models\Bill;
 use App\Models\BillLine;
 use App\Models\BusinessConstraint;
@@ -28,11 +30,14 @@ use App\Models\ConstraintOverride;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
 use App\Models\Currency;
+use App\Models\CustomFieldDefinition;
+use App\Models\CustomFieldValue;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
+use App\Models\FiscalPeriodCloseCheck;
 use App\Models\Interaction;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryConditionChange;
@@ -274,6 +279,11 @@ arch()->preset()->strict()->ignoring([
     ReceivableWriteOff::class,
     SalesOpportunity::class,
     SalesProcurementRequirement::class,
+    BankStatement::class,
+    BankStatementLine::class,
+    CustomFieldDefinition::class,
+    CustomFieldValue::class,
+    FiscalPeriodCloseCheck::class,
     'Database',
 ]);
 // These stream a private Spatie MediaLibrary collection behind Gate::authorize

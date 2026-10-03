@@ -55,7 +55,7 @@ final class PurchaseAgreementResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return __('Purchase agreements');
+        return __('admin.resources.purchase_agreements');
     }
 
     #[\Override]
