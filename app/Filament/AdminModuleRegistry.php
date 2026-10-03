@@ -55,8 +55,6 @@ use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
-use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
-use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
 use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
@@ -106,13 +104,17 @@ use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishment
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
 use App\Filament\Support\WorkspaceNavigation;
+use Closure;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Throwable;
+use WeakMap;
 
 /**
  * Single source of truth for the IERP admin domains.
@@ -130,8 +132,62 @@ use Throwable;
  */
 final class AdminModuleRegistry
 {
-    /** @return list<ModuleGroup> */
+    /** @var WeakMap<Request, array<string, mixed>>|null */
+    private static ?WeakMap $requestMemo = null;
+
+    /**
+     * Request-scoped memoization for navigation facts that cannot change while one HTTP request is
+     * being served (what the signed-in user may open, and where each module lands).
+     *
+     * Entries hang off the current Request object, so they vanish with it and can never leak into
+     * another request, and they are additionally keyed by the authenticated user so a permission
+     * result is never shared between users.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $compute
+     * @return T
+     */
+    private static function remember(string $key, Closure $compute): mixed
+    {
+        $request = request();
+        $key = (Auth::id() ?? 'guest').'|'.$key;
+        $memo = self::$requestMemo ??= new WeakMap;
+
+        $bucket = $memo[$request] ?? [];
+
+        if (! array_key_exists($key, $bucket)) {
+            $value = $compute();
+            $bucket = $memo[$request] ?? [];
+            $bucket[$key] = $value;
+            $memo[$request] = $bucket;
+        }
+
+        return $bucket[$key];
+    }
+
+    /** Drops every memoized navigation fact (for code that changes access mid-request). */
+    public static function forgetMemoized(): void
+    {
+        self::$requestMemo = null;
+    }
+
+    /** @var list<ModuleGroup>|null */
+    private static ?array $groupDefinitions = null;
+
+    /**
+     * The module definitions are static configuration (no user or request input), so they are
+     * built once per process rather than on each of the many calls a single page render makes.
+     *
+     * @return list<ModuleGroup>
+     */
     public static function groups(): array
+    {
+        return self::$groupDefinitions ??= self::buildGroups();
+    }
+
+    /** @return list<ModuleGroup> */
+    private static function buildGroups(): array
     {
         return [
             [
@@ -387,8 +443,6 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.notification_templates', 'link' => NotificationTemplateResource::class],
-                    ['label' => 'admin.resources.notification_deliveries', 'link' => NotificationDeliveryResource::class],
-                    ['label' => 'admin.resources.notification_preferences', 'link' => NotificationPreferenceResource::class],
                     ['label' => 'admin.resources.custom_fields', 'link' => CustomFieldDefinitionResource::class],
                 ],
             ],
@@ -443,6 +497,11 @@ final class AdminModuleRegistry
 
     public static function resolveLink(string $class): ?string
     {
+        return self::remember('link|'.$class, static fn (): ?string => self::computeLink($class));
+    }
+
+    private static function computeLink(string $class): ?string
+    {
         if (! class_exists($class)) {
             return null;
         }
@@ -477,6 +536,11 @@ final class AdminModuleRegistry
     }
 
     public static function isAccessDenied(string $class): bool
+    {
+        return self::remember('denied|'.$class, static fn (): bool => self::computeAccessDenied($class));
+    }
+
+    private static function computeAccessDenied(string $class): bool
     {
         if (! class_exists($class)) {
             return false;
@@ -554,17 +618,23 @@ final class AdminModuleRegistry
      */
     public static function accessibleGroups(): array
     {
-        return array_values(array_filter(
+        return self::remember('accessible-groups', static fn (): array => array_values(array_filter(
             self::groups(),
             static fn (array $group): bool => self::registeredNavigationItemsFor($group) !== []
                 || self::navigationItems(onlyGroupKey: $group['key']) !== [],
-        ));
+        )));
     }
 
     /**
      * @param  ModuleGroup  $group
      */
     public static function firstUrlFor(array $group): string
+    {
+        return self::remember('first-url|'.$group['key'], static fn (): string => self::computeFirstUrl($group));
+    }
+
+    /** @param ModuleGroup $group */
+    private static function computeFirstUrl(array $group): string
     {
         $placeholderItem = null;
         foreach ($group['items'] as $item) {
@@ -589,6 +659,18 @@ final class AdminModuleRegistry
      * @return list<NavigationItem>
      */
     public static function registeredNavigationItemsFor(array $group, ?string $onlySection = null): array
+    {
+        return self::remember(
+            'registered-items|'.$group['key'].'|'.($onlySection ?? ''),
+            static fn (): array => self::computeRegisteredNavigationItems($group, $onlySection),
+        );
+    }
+
+    /**
+     * @param  ModuleGroup  $group
+     * @return list<NavigationItem>
+     */
+    private static function computeRegisteredNavigationItems(array $group, ?string $onlySection): array
     {
         $items = [];
         foreach ($group['items'] as $item) {

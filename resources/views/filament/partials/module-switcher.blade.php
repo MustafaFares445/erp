@@ -3,6 +3,11 @@
 
     /** @var list<array{key: string, label: string, icon: \Filament\Support\Icons\Heroicon, sort: int, items: array}> $groups */
     $activeGroup = collect($groups)->firstWhere('key', $activeKey) ?? Arr::first($groups);
+
+    // Resolved once: both the wide tab strip and the compact dropdown below render every group.
+    $urls = collect($groups)->mapWithKeys(
+        static fn (array $group): array => [$group['key'] => \App\Filament\AdminModuleRegistry::firstUrlFor($group)],
+    );
 @endphp
 
 {{--
@@ -16,7 +21,7 @@
         <x-filament-panels::topbar.item
             :active="$activeKey === $group['key']"
             :icon="$group['icon']"
-            :url="\App\Filament\AdminModuleRegistry::firstUrlFor($group)"
+            :url="$urls[$group['key']]"
         >
             {{ __($group['label']) }}
         </x-filament-panels::topbar.item>
@@ -37,7 +42,7 @@
                     :icon="$group['icon']"
                     :color="$activeKey === $group['key'] ? 'primary' : 'gray'"
                     tag="a"
-                    :href="\App\Filament\AdminModuleRegistry::firstUrlFor($group)"
+                    :href="$urls[$group['key']]"
                 >
                     {{ __($group['label']) }}
                 </x-filament::dropdown.list.item>

@@ -161,6 +161,7 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->spa(hasPrefetching: true)
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->databaseNotifications()
             ->unsavedChangesAlerts()
