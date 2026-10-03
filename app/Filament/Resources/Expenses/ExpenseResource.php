@@ -8,6 +8,8 @@ use App\Enums\ExpenseStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ManageExpenses;
+use App\Filament\Resources\Expenses\Pages\ViewExpense;
+use App\Filament\Resources\Expenses\Schemas\ExpenseInfolist;
 use App\Models\Expense;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
@@ -16,6 +18,7 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -95,6 +98,12 @@ final class ExpenseResource extends Resource
     }
 
     #[\Override]
+    public static function infolist(Schema $schema): Schema
+    {
+        return ExpenseInfolist::configure($schema);
+    }
+
+    #[\Override]
     public static function table(Table $table): Table
     {
         return $table
@@ -114,6 +123,7 @@ final class ExpenseResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
+                ViewAction::make(),
                 self::approveAction(),
                 self::payAction(),
                 self::cancelAction(),
@@ -127,6 +137,7 @@ final class ExpenseResource extends Resource
     {
         return [
             'index' => ManageExpenses::route('/'),
+            'view' => ViewExpense::route('/{record}'),
             'edit' => EditExpense::route('/{record}/edit'),
         ];
     }

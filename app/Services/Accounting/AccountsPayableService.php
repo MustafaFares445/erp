@@ -26,10 +26,12 @@ use Illuminate\Support\Facades\DB;
  * @phpstan-type AgingBucket 'current'|'1_30'|'31_60'|'61_90'|'over_90'
  * @phpstan-type DocumentRow array{
  *     type: string,
+ *     document_id: int,
  *     supplier_id: int,
  *     number: string,
  *     supplier_reference: ?string,
  *     date: string,
+ *     recognised_on: string,
  *     due_date: string,
  *     total_minor: int,
  *     paid_minor: int,
@@ -43,6 +45,16 @@ use Illuminate\Support\Facades\DB;
  *     paid_minor: int,
  *     outstanding_minor: int,
  *     buckets: array{current: int, '1_30': int, '31_60': int, '61_90': int, over_90: int}
+ * }
+ * @phpstan-type SupplierStatementEntry array{date: string, type: string, reference: string, charge_minor: int, payment_minor: int}
+ * @phpstan-type SupplierStatement array{
+ *     supplier_id: int,
+ *     supplier_name: string,
+ *     from: string,
+ *     to: string,
+ *     brought_forward_minor: int,
+ *     entries: list<SupplierStatementEntry>,
+ *     carried_forward_minor: int
  * }
  */
 final readonly class AccountsPayableService
@@ -175,6 +187,7 @@ final readonly class AccountsPayableService
         foreach ($documents as $document) {
             $summary['documents'][] = [
                 'type' => $document['type'],
+                'document_id' => $document['document_id'],
                 'number' => $document['number'],
                 'supplier_reference' => $document['supplier_reference'],
                 'date' => $document['date'],
@@ -187,6 +200,93 @@ final readonly class AccountsPayableService
         }
 
         return $summary;
+    }
+
+    /** @return SupplierStatement */
+    public function statement(Supplier $supplier, CarbonInterface $from, CarbonInterface $to): array
+    {
+        $fromDate = CarbonImmutable::instance($from)->startOfDay();
+        $toDate = CarbonImmutable::instance($to)->endOfDay();
+        if ($toDate->lessThan($fromDate)) {
+            throw new \LogicException('Statement end date must not be before the start date.');
+        }
+
+        $entries = [];
+        foreach ($this->documents($toDate) as $document) {
+            if ($document['supplier_id'] !== (int) $supplier->id) {
+                continue;
+            }
+
+            $recognisedOn = CarbonImmutable::parse($document['recognised_on']);
+            if ($recognisedOn->lessThan($fromDate) || $recognisedOn->greaterThan($toDate)) {
+                continue;
+            }
+
+            $entries[] = [
+                'date' => $document['recognised_on'],
+                'type' => $document['type'],
+                'reference' => $document['number'],
+                'charge_minor' => $document['total_minor'],
+                'payment_minor' => 0,
+            ];
+        }
+
+        SupplierPayment::query()
+            ->with('allocations')
+            ->where('supplier_id', $supplier->id)
+            ->where('status', SupplierPaymentStatus::Paid->value)
+            ->whereBetween('payment_date', [$fromDate->toDateString(), $toDate->toDateString()])
+            ->get()
+            ->each(function (SupplierPayment $payment) use (&$entries): void {
+                $allocatedMinor = $payment->allocations->sum(
+                    static fn (SupplierPaymentAllocation $allocation): int => JournalEntryLine::toMinorUnits($allocation->amount),
+                );
+                if ($allocatedMinor <= 0) {
+                    return;
+                }
+
+                $entries[] = [
+                    'date' => $payment->payment_date->toDateString(),
+                    'type' => 'supplier_payment',
+                    'reference' => $payment->supplier_payment_number,
+                    'charge_minor' => 0,
+                    'payment_minor' => $allocatedMinor,
+                ];
+            });
+
+        Expense::query()
+            ->withTrashed()
+            ->where('supplier_id', $supplier->id)
+            ->whereNotNull('payment_date')
+            ->whereBetween('payment_date', [$fromDate->toDateString(), $toDate->toDateString()])
+            ->whereIn('status', [ExpenseStatus::Approved->value, ExpenseStatus::Paid->value])
+            ->get()
+            ->each(function (Expense $expense) use (&$entries): void {
+                $paymentMinor = JournalEntryLine::toMinorUnits($expense->amount_paid);
+                if ($paymentMinor <= 0) {
+                    return;
+                }
+
+                $entries[] = [
+                    'date' => $expense->payment_date?->toDateString() ?? $expense->expense_date->toDateString(),
+                    'type' => 'expense_payment',
+                    'reference' => (string) $expense->expense_number,
+                    'charge_minor' => 0,
+                    'payment_minor' => $paymentMinor,
+                ];
+            });
+
+        usort($entries, static fn (array $left, array $right): int => [$left['date'], $left['type'], $left['reference']] <=> [$right['date'], $right['type'], $right['reference']]);
+
+        return [
+            'supplier_id' => (int) $supplier->id,
+            'supplier_name' => (string) $supplier->name,
+            'from' => $fromDate->toDateString(),
+            'to' => $toDate->toDateString(),
+            'brought_forward_minor' => $this->supplierOutstandingAt($supplier, $fromDate->subDay()->endOfDay()),
+            'entries' => $entries,
+            'carried_forward_minor' => $this->supplierOutstandingAt($supplier, $toDate),
+        ];
     }
 
     public function payableControlAccountMinor(?CarbonInterface $asOf = null): int
@@ -247,10 +347,14 @@ final readonly class AccountsPayableService
 
             $documents[] = [
                 'type' => 'bill',
+                'document_id' => (int) $bill->id,
                 'supplier_id' => (int) $bill->resolved_supplier_id,
                 'number' => (string) $bill->bill_number,
                 'supplier_reference' => $bill->supplier_reference,
                 'date' => $bill->bill_date->toDateString(),
+                'recognised_on' => $bill->journalEntry instanceof JournalEntry
+                    ? $bill->journalEntry->entry_date->toDateString()
+                    : $bill->bill_date->toDateString(),
                 'due_date' => ($bill->due_date ?? $bill->bill_date)->toDateString(),
                 'total_minor' => $totalMinor,
                 'paid_minor' => min($totalMinor, $paidMinor),
@@ -280,10 +384,14 @@ final readonly class AccountsPayableService
 
             $documents[] = [
                 'type' => 'expense',
+                'document_id' => (int) $expense->id,
                 'supplier_id' => (int) $expense->supplier_id,
                 'number' => (string) $expense->expense_number,
                 'supplier_reference' => null,
                 'date' => $expense->expense_date->toDateString(),
+                'recognised_on' => $expense->journalEntry instanceof JournalEntry
+                    ? $expense->journalEntry->entry_date->toDateString()
+                    : $expense->expense_date->toDateString(),
                 'due_date' => ($expense->due_date ?? $expense->expense_date)->toDateString(),
                 'total_minor' => $totalMinor,
                 'paid_minor' => $paidMinor,
@@ -359,6 +467,16 @@ final readonly class AccountsPayableService
             'outstanding_minor' => $outstandingMinor,
             'buckets' => $buckets,
         ];
+    }
+
+    private function supplierOutstandingAt(Supplier $supplier, CarbonImmutable $asOf): int
+    {
+        $supplierId = (int) $supplier->id;
+
+        return array_sum(array_map(
+            static fn (array $document): int => $document['supplier_id'] === $supplierId ? (int) $document['remaining_minor'] : 0,
+            $this->documents($asOf),
+        ));
     }
 
     private function daysOverdue(?string $dueDate, CarbonImmutable $asOf): int

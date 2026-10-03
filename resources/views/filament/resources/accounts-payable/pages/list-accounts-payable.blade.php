@@ -95,7 +95,10 @@
                             <h2 class="text-lg font-semibold">{{ $selectedSupplierName }} detail</h2>
                             <p class="text-sm text-gray-500">Open documents as of {{ $summary['as_of'] }}.</p>
                         </div>
-                        <button type="button" wire:click="clearSupplier" class="text-sm text-primary-600 hover:underline">Back to all suppliers</button>
+                        <div class="flex gap-3 text-sm">
+                            <button type="button" wire:click="downloadStatement" class="text-primary-600 hover:underline">Download statement CSV</button>
+                            <button type="button" wire:click="clearSupplier" class="text-primary-600 hover:underline">Back to all suppliers</button>
+                        </div>
                     </div>
                     <div class="mt-4 overflow-x-auto">
                         <table class="w-full text-left text-sm">
@@ -116,7 +119,14 @@
                                 @foreach($detail['documents'] ?? [] as $document)
                                     <tr class="border-b">
                                         <td class="px-3 py-2">{{ ucfirst($document['type']) }}</td>
-                                        <td class="px-3 py-2">{{ $document['number'] }}</td>
+                                        <td class="px-3 py-2">
+                                            @php($documentUrl = $this->documentUrl((string) $document['type'], (int) $document['document_id']))
+                                            @if($documentUrl)
+                                                <a href="{{ $documentUrl }}" class="font-medium text-primary-600 hover:underline">{{ $document['number'] }}</a>
+                                            @else
+                                                {{ $document['number'] }}
+                                            @endif
+                                        </td>
                                         <td class="px-3 py-2">{{ $document['supplier_reference'] ?? '—' }}</td>
                                         <td class="px-3 py-2">{{ $document['date'] }}</td>
                                         <td class="px-3 py-2">{{ $document['due_date'] }}</td>

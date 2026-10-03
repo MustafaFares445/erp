@@ -7,6 +7,7 @@ namespace App\Filament\Resources\AccountsReceivable\Pages;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\CustomerProfile;
 use App\Models\User;
 use App\Services\Accounting\AccountsReceivableService;
@@ -62,6 +63,11 @@ final class ListAccountsReceivable extends Page
     {
         $this->customerId = null;
         $this->loadReport();
+    }
+
+    public function invoiceUrl(int $invoiceId): string
+    {
+        return InvoiceResource::getUrl('view', ['record' => $invoiceId]);
     }
 
     #[\Override]

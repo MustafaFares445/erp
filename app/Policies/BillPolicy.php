@@ -15,12 +15,14 @@ final class BillPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeAccountingAbility($user, 'viewAny');
+        return $this->authorizeAccountingAbility($user, 'viewAny')
+            || $user->can(AccountingPermission::PayableView->value);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeAccountingAbility($user, 'view');
+        return $this->authorizeAccountingAbility($user, 'view')
+            || $user->can(AccountingPermission::PayableView->value);
     }
 
     public function create(User $user): bool

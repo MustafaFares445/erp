@@ -7,6 +7,8 @@ namespace App\Filament\Resources\AccountsPayable\Pages;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
+use App\Filament\Resources\Bills\BillResource;
+use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Accounting\AccountsPayableService;
@@ -61,6 +63,15 @@ final class ListAccountsPayable extends Page
         $this->loadReport();
     }
 
+    public function documentUrl(string $type, int $documentId): ?string
+    {
+        return match ($type) {
+            'bill' => BillResource::getUrl('view', ['record' => $documentId]),
+            'expense' => ExpenseResource::getUrl('view', ['record' => $documentId]),
+            default => null,
+        };
+    }
+
     #[\Override]
     public function getTitle(): string
     {
@@ -93,6 +104,51 @@ final class ListAccountsPayable extends Page
                     );
                 }),
         ];
+    }
+
+    public function downloadStatement(): StreamedResponse
+    {
+        $this->authorizePayableAccess();
+        if ($this->supplierId === null) {
+            throw new LogicException('Choose a supplier before downloading a statement.');
+        }
+
+        $supplier = Supplier::withTrashed()->find($this->supplierId);
+        if (! $supplier instanceof Supplier) {
+            throw new LogicException('The selected supplier no longer exists.');
+        }
+
+        $to = CarbonImmutable::parse($this->asOf ?? CarbonImmutable::today()->toDateString());
+        $from = $to->subYear()->addDay();
+        $statement = app(AccountsPayableService::class)->statement($supplier, $from, $to);
+        /** @var resource $stream */
+        $stream = fopen('php://temp', 'w+');
+
+        fputcsv($stream, ['Supplier', $statement['supplier_name']], escape: '\\');
+        fputcsv($stream, ['Period', $statement['from'].' to '.$statement['to']], escape: '\\');
+        fputcsv($stream, ['Brought forward', number_format(((int) $statement['brought_forward_minor']) / 100, 2, '.', '')], escape: '\\');
+        fputcsv($stream, ['Date', 'Type', 'Reference', 'Charge', 'Payment'], escape: '\\');
+        foreach ($statement['entries'] as $entry) {
+            fputcsv($stream, [
+                $entry['date'],
+                $entry['type'],
+                $entry['reference'],
+                number_format(((int) $entry['charge_minor']) / 100, 2, '.', ''),
+                number_format(((int) $entry['payment_minor']) / 100, 2, '.', ''),
+            ], escape: '\\');
+        }
+        fputcsv($stream, ['Carried forward', number_format(((int) $statement['carried_forward_minor']) / 100, 2, '.', '')], escape: '\\');
+        rewind($stream);
+        $csv = stream_get_contents($stream);
+        fclose($stream);
+
+        return response()->streamDownload(
+            static function () use ($csv): void {
+                echo is_string($csv) ? $csv : '';
+            },
+            'supplier-statement-'.$supplier->id.'.csv',
+            ['Content-Type' => 'text/csv; charset=UTF-8'],
+        );
     }
 
     private function loadReport(): void

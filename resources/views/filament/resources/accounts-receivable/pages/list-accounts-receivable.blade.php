@@ -134,7 +134,11 @@
                             <tbody>
                                 @foreach($detail['documents'] ?? [] as $document)
                                     <tr class="border-b">
-                                        <td class="px-3 py-2">{{ $document['number'] }}</td>
+                                        <td class="px-3 py-2">
+                                            <a href="{{ $this->invoiceUrl((int) $document['invoice_id']) }}" class="font-medium text-primary-600 hover:underline">
+                                                {{ $document['number'] }}
+                                            </a>
+                                        </td>
                                         <td class="px-3 py-2">{{ $document['invoice_date'] }}</td>
                                         <td class="px-3 py-2">{{ $document['due_date'] }}</td>
                                         <td class="px-3 py-2">{{ $document['days_overdue'] }}</td>
