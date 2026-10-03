@@ -1,8 +1,8 @@
 <x-filament-widgets::widget>
-    <x-filament::section heading="Requires attention">
+    <x-filament::section :heading="__('dashboards.sales.cards.requires_attention')">
         @if (empty($items))
             <p class="text-sm text-gray-500 dark:text-gray-400">
-                Nothing needs attention right now.
+                {{ __('dashboards.sales.empty.attention') }}
             </p>
         @else
             <ul class="flex flex-col divide-y divide-gray-100 dark:divide-white/10">
@@ -27,7 +27,7 @@
 
                         @if ($item['url'])
                             <x-filament::button tag="a" :href="$item['url']" color="gray" size="sm" outlined>
-                                View
+                                {{ __('dashboards.view') }}
                             </x-filament::button>
                         @endif
                     </li>

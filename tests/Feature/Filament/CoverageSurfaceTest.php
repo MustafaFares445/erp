@@ -314,13 +314,9 @@ it('covers sales dashboard access branches, labels, and widget rendering', funct
     $widgets = new ReflectionMethod(SalesDashboard::class, 'getDashboardWidgets');
     expect($widgets->invoke(new SalesDashboard))->toBe([
         SalesKpiCards::class,
-        SalesPerformanceChart::class,
-        SalesFunnelWidget::class,
-        RequiresAttentionWidget::class,
-        QuotationPerformanceWidget::class,
-        TopProductsChart::class,
-        TopCustomersWidget::class,
-        SalespersonPerformanceWidget::class,
-        RecentSalesActivityWidget::class,
+        [SalesPerformanceChart::class, TopProductsChart::class],
+        [TopCustomersWidget::class, SalespersonPerformanceWidget::class],
+        [SalesFunnelWidget::class, QuotationPerformanceWidget::class],
+        [RequiresAttentionWidget::class, RecentSalesActivityWidget::class],
     ]);
 });

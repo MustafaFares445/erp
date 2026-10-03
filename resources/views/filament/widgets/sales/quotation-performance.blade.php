@@ -1,9 +1,9 @@
 @php use Illuminate\Support\Number; @endphp
 <x-filament-widgets::widget>
-    <x-filament::section heading="Quotation performance">
+    <x-filament::section :heading="__('dashboards.sales.cards.quotation_performance')">
         <div class="flex flex-col gap-y-4">
             <div class="flex items-center justify-between gap-x-2 text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Open quotation value</span>
+                <span class="text-gray-500 dark:text-gray-400">{{ __('dashboards.sales.cards.open_quotation_value') }}</span>
                 <span class="font-medium text-gray-950 dark:text-white">
                     {{ $open['count'] }} · {{ Number::currency($open['value'], $currency) }}
                 </span>
@@ -11,7 +11,7 @@
 
             @if ($totalCount === 0)
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    No quotations exist for the selected period.
+                    {{ __('dashboards.sales.empty.quotations') }}
                 </p>
             @else
                 <div>
@@ -45,16 +45,16 @@
             @endif
 
             <div class="flex items-center justify-between gap-x-2 text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Quote → order conversion</span>
+                <span class="text-gray-500 dark:text-gray-400">{{ __('dashboards.sales.kpis.conversion') }}</span>
                 <span class="font-medium text-gray-950 dark:text-white">
                     {{ $conversionPercent !== null ? number_format($conversionPercent, 1) . '%' : '—' }}
                 </span>
             </div>
 
             <div class="flex items-center justify-between gap-x-2 text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Median days to decision</span>
+                <span class="text-gray-500 dark:text-gray-400">{{ __('dashboards.sales.cards.median_days') }}</span>
                 <span class="font-medium text-gray-950 dark:text-white">
-                    {{ $medianDaysToDecision > 0 ? number_format($medianDaysToDecision, 0) . ' days' : '—' }}
+                    {{ $medianDaysToDecision > 0 ? __('dashboards.sales.cards.days', ['days' => number_format($medianDaysToDecision, 0)]) : '—' }}
                 </span>
             </div>
         </div>

@@ -5,18 +5,16 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
 
 final class RecentSalesActivityWidget extends Widget
 {
-    use InteractsWithPageFilters;
+    use InteractsWithDashboardFilters;
 
     protected string $view = 'filament.widgets.sales.recent-sales-activity';
-
-    protected int|string|array $columnSpan = ['default' => 1, 'lg' => 12];
 
     #[\Override]
     public static function canView(): bool

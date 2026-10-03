@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
 
 /**
@@ -18,11 +18,9 @@ use Filament\Widgets\Widget;
  */
 final class RequiresAttentionWidget extends Widget
 {
-    use InteractsWithPageFilters;
+    use InteractsWithDashboardFilters;
 
     protected string $view = 'filament.widgets.sales.requires-attention';
-
-    protected int|string|array $columnSpan = ['default' => 1, 'lg' => 7];
 
     #[\Override]
     public static function canView(): bool

@@ -1,9 +1,9 @@
 @php use Illuminate\Support\Number; @endphp
 <x-filament-widgets::widget>
-    <x-filament::section heading="Sales funnel">
+    <x-filament::section :heading="__('dashboards.sales.cards.funnel')">
         @if (collect($stages)->sum('count') === 0)
             <p class="text-sm text-gray-500 dark:text-gray-400">
-                No quotations exist for the selected period.
+                {{ __('dashboards.sales.empty.quotations') }}
             </p>
         @else
             <div class="flex flex-col gap-y-3">
@@ -25,7 +25,7 @@
 
                         @if ($stage['conversion_percent'] !== null)
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                {{ number_format($stage['conversion_percent'], 1) }}% of the previous stage
+                                {{ __('dashboards.sales.cards.of_previous_stage', ['percent' => number_format($stage['conversion_percent'], 1)]) }}
                             </p>
                         @endif
                     </div>

@@ -83,11 +83,11 @@ final readonly class SalesDashboardMetricsService
         ];
     }
 
-    /** @return array{granularity: string, currency: string, labels: list<string>, current: list<float>, previous: list<float>} */
+    /** @return array{granularity: string, currency: string, labels: list<string>, current: list<float>, previous: list<float>, current_counts: list<int>} */
     public function salesTrend(SalesDashboardFilters $filters): array
     {
-        $current = $this->trendSeries($filters, $filters->from, $filters->to);
-        $previous = $this->trendSeries($filters, $filters->previousFrom, $filters->previousTo);
+        $current = $this->trendSeries($filters, previous: false);
+        $previous = $this->trendSeries($filters, previous: true);
 
         return [
             'granularity' => $filters->granularity,
@@ -95,6 +95,7 @@ final readonly class SalesDashboardMetricsService
             'labels' => $current['labels'],
             'current' => $current['values'],
             'previous' => $previous['values'],
+            'current_counts' => $current['counts'],
         ];
     }
 
@@ -134,11 +135,11 @@ final readonly class SalesDashboardMetricsService
         });
 
         $stages = [
-            ['key' => 'quotations', 'label' => 'Quotations', 'count' => $quotations->count(), 'value' => self::sumDecimal($quotations, 'grand_total'), 'conversion_percent' => null],
-            ['key' => 'accepted', 'label' => 'Accepted', 'count' => $acceptedOrBeyond->count(), 'value' => self::sumDecimal($acceptedOrBeyond, 'grand_total'), 'conversion_percent' => null],
-            ['key' => 'orders', 'label' => 'Orders', 'count' => $ordered->count(), 'value' => self::sumConvertedOrderValue($ordered), 'conversion_percent' => null],
-            ['key' => 'delivered', 'label' => 'Delivered', 'count' => $delivered->count(), 'value' => self::sumConvertedOrderValue($delivered), 'conversion_percent' => null],
-            ['key' => 'invoiced', 'label' => 'Invoiced', 'count' => $invoiced->count(), 'value' => self::sumConvertedOrderValue($invoiced), 'conversion_percent' => null],
+            ['key' => 'quotations', 'label' => __('dashboards.sales.funnel.quotations'), 'count' => $quotations->count(), 'value' => self::sumDecimal($quotations, 'grand_total'), 'conversion_percent' => null],
+            ['key' => 'accepted', 'label' => __('dashboards.sales.funnel.accepted'), 'count' => $acceptedOrBeyond->count(), 'value' => self::sumDecimal($acceptedOrBeyond, 'grand_total'), 'conversion_percent' => null],
+            ['key' => 'orders', 'label' => __('dashboards.sales.funnel.orders'), 'count' => $ordered->count(), 'value' => self::sumConvertedOrderValue($ordered), 'conversion_percent' => null],
+            ['key' => 'delivered', 'label' => __('dashboards.sales.funnel.delivered'), 'count' => $delivered->count(), 'value' => self::sumConvertedOrderValue($delivered), 'conversion_percent' => null],
+            ['key' => 'invoiced', 'label' => __('dashboards.sales.funnel.invoiced'), 'count' => $invoiced->count(), 'value' => self::sumConvertedOrderValue($invoiced), 'conversion_percent' => null],
         ];
 
         $previousCount = null;
@@ -204,7 +205,7 @@ final readonly class SalesDashboardMetricsService
                 'priority' => 10,
                 'key' => 'blocked',
                 'count' => $blocked->count(),
-                'label' => 'Orders blocked by stock',
+                'label' => (string) __('dashboards.sales.attention.blocked'),
                 'detail' => null,
                 'color' => 'danger',
                 'url' => SalesDashboardLinks::orders('requires_attention', $filters->customerId),
@@ -219,8 +220,8 @@ final readonly class SalesDashboardMetricsService
                 'priority' => 20,
                 'key' => 'accepted_not_converted',
                 'count' => $acceptedNotConverted->count(),
-                'label' => 'Accepted quotations not converted',
-                'detail' => 'Potential value: '.self::formatMoney(self::sumDecimal($acceptedNotConverted, 'grand_total'), $this->currency->defaultCode()),
+                'label' => (string) __('dashboards.sales.attention.accepted_not_converted'),
+                'detail' => (string) __('dashboards.sales.attention.potential_value', ['value' => self::formatMoney(self::sumDecimal($acceptedNotConverted, 'grand_total'), $this->currency->defaultCode())]),
                 'color' => 'warning',
                 'url' => SalesDashboardLinks::quotations('accepted', $filters->customerId, $filters->employeeId),
             ];
@@ -236,7 +237,7 @@ final readonly class SalesDashboardMetricsService
                 'priority' => 30,
                 'key' => 'delivered_not_invoiced',
                 'count' => $deliveredNotInvoiced->count(),
-                'label' => 'Delivered but not invoiced',
+                'label' => (string) __('dashboards.sales.attention.delivered_not_invoiced'),
                 'detail' => null,
                 'color' => 'warning',
                 'url' => SalesDashboardLinks::deliveryNotes('delivered_not_invoiced'),
@@ -250,7 +251,7 @@ final readonly class SalesDashboardMetricsService
                 'priority' => 40,
                 'key' => 'awaiting_fulfillment',
                 'count' => $awaitingFulfillment->count(),
-                'label' => 'Orders awaiting fulfillment',
+                'label' => (string) __('dashboards.sales.attention.awaiting_fulfillment'),
                 'detail' => self::formatMoney(self::sumDecimal($awaitingFulfillment, 'grand_total'), $this->currency->defaultCode()),
                 'color' => 'warning',
                 'url' => SalesDashboardLinks::orders('awaiting_fulfillment', $filters->customerId),
@@ -266,8 +267,8 @@ final readonly class SalesDashboardMetricsService
                 'priority' => 50,
                 'key' => 'awaiting_decision',
                 'count' => $awaitingDecision->count(),
-                'label' => 'Quotations awaiting customer decision',
-                'detail' => $oldestDays !== null ? "Oldest waiting: {$oldestDays} days" : null,
+                'label' => (string) __('dashboards.sales.attention.awaiting_decision'),
+                'detail' => $oldestDays !== null ? (string) __('dashboards.sales.attention.oldest_waiting', ['days' => $oldestDays]) : null,
                 'color' => 'info',
                 'url' => SalesDashboardLinks::quotations('awaiting_decision', $filters->customerId, $filters->employeeId),
             ];
@@ -280,7 +281,7 @@ final readonly class SalesDashboardMetricsService
                 'priority' => 60,
                 'key' => 'expiring_soon',
                 'count' => $expiringSoon->count(),
-                'label' => 'Quotations expiring in the next 7 days',
+                'label' => (string) __('dashboards.sales.attention.expiring_soon'),
                 'detail' => self::formatMoney(self::sumDecimal($expiringSoon, 'grand_total'), $this->currency->defaultCode()),
                 'color' => 'info',
                 'url' => SalesDashboardLinks::quotations('expiring_soon', $filters->customerId, $filters->employeeId),
@@ -317,7 +318,7 @@ final readonly class SalesDashboardMetricsService
 
             return [
                 'product_variant_id' => (int) $line->product_variant_id,
-                'label' => $line->productVariant->name ?? "Variant #{$line->product_variant_id}",
+                'label' => $line->productVariant->name ?? __('dashboards.fallback.variant', ['id' => $line->product_variant_id]),
                 'value' => is_numeric($totalValue) ? (float) $totalValue : 0.0,
                 'quantity' => is_numeric($totalQuantity) ? (float) $totalQuantity : 0.0,
             ];
@@ -376,7 +377,7 @@ final readonly class SalesDashboardMetricsService
 
                 return [
                     'employee_id' => (int) $employeeId,
-                    'label' => ($employee instanceof EmployeeProfile ? $employee->user?->name : null) ?? "Employee #{$employeeId}",
+                    'label' => ($employee instanceof EmployeeProfile ? $employee->user?->name : null) ?? __('dashboards.fallback.employee', ['id' => $employeeId]),
                     'quotations' => $quotationCount,
                     'orders' => $orderCount,
                     'conversion_percent' => $quotationCount > 0 ? round($orderCount / $quotationCount * 100, 1) : 0.0,
@@ -407,7 +408,7 @@ final readonly class SalesDashboardMetricsService
         foreach ($acceptedQuotations as $quotation) {
             $events->push([
                 'timestamp' => $quotation->decided_at,
-                'label' => "Quotation {$quotation->quotation_number} accepted",
+                'label' => __('dashboards.sales.activity.quotation_accepted', ['number' => $quotation->quotation_number]),
                 'detail' => self::customerLabel($quotation->customer, $quotation->customer_id),
                 'url' => SalesDashboardLinks::quotations(null, $filters->customerId, $filters->employeeId),
             ]);
@@ -419,7 +420,7 @@ final readonly class SalesDashboardMetricsService
         foreach ($confirmedOrders as $order) {
             $events->push([
                 'timestamp' => $order->confirmed_at,
-                'label' => "Order {$order->order_number} confirmed",
+                'label' => __('dashboards.sales.activity.order_confirmed', ['number' => $order->order_number]),
                 'detail' => self::customerLabel($order->customer, $order->customer_id),
                 'url' => SalesDashboardLinks::orders(null, $filters->customerId),
             ]);
@@ -437,7 +438,7 @@ final readonly class SalesDashboardMetricsService
         foreach ($deliveries as $delivery) {
             $events->push([
                 'timestamp' => $delivery->completed_at,
-                'label' => "Delivery {$delivery->operation_number} completed",
+                'label' => __('dashboards.sales.activity.delivery_completed', ['number' => $delivery->operation_number]),
                 'detail' => self::customerLabel($delivery->customer, $delivery->customer_id),
                 'url' => SalesDashboardLinks::deliveryNotes(),
             ]);
@@ -455,7 +456,7 @@ final readonly class SalesDashboardMetricsService
         foreach ($invoices as $invoice) {
             $events->push([
                 'timestamp' => $invoice->issued_at,
-                'label' => "Invoice {$invoice->invoice_number} issued",
+                'label' => __('dashboards.sales.activity.invoice_issued', ['number' => $invoice->invoice_number]),
                 'detail' => self::formatMoney((float) $invoice->total_amount, $this->currency->defaultCode()),
                 'url' => SalesDashboardLinks::invoices(null, $filters->customerId),
             ]);
@@ -521,63 +522,21 @@ final readonly class SalesDashboardMetricsService
         ];
     }
 
-    /** @return array{labels: list<string>, values: list<float>} */
-    private function trendSeries(SalesDashboardFilters $filters, CarbonImmutable $from, CarbonImmutable $to): array
+    /** @return array{labels: list<string>, values: list<float>, counts: list<int>} */
+    private function trendSeries(SalesDashboardFilters $filters, bool $previous): array
     {
+        $from = $previous ? $filters->previousFrom : $filters->from;
+        $to = $previous ? $filters->previousTo : $filters->to;
         $orders = $this->confirmedOrdersQuery($filters, $from, $to)->get(['confirmed_at', 'grand_total']);
-        $buckets = self::bucketBoundaries($from, $to, $filters->granularity);
-        $totals = array_fill_keys(array_map(static fn (array $bucket): string => $bucket['key'], $buckets), 0.0);
-
-        foreach ($orders as $order) {
-            $confirmedAt = $order->confirmed_at;
-            /** @var CarbonInterface $confirmedAt */
-            $key = self::bucketKey($confirmedAt, $filters->granularity);
-            if (array_key_exists($key, $totals)) {
-                $totals[$key] += (float) ($order->grand_total ?? 0);
-            }
-        }
 
         return [
-            'labels' => array_map(static fn (array $bucket): string => $bucket['label'], $buckets),
-            'values' => array_values($totals),
+            'labels' => $filters->period->labels($previous),
+            'values' => $filters->period->sumSeries(
+                $orders->map(static fn (Order $order): array => [$order->confirmed_at, $order->grand_total]),
+                $previous,
+            ),
+            'counts' => $filters->period->countSeries($orders->pluck('confirmed_at'), $previous),
         ];
-    }
-
-    /** @return list<array{key: string, label: string}> */
-    private static function bucketBoundaries(CarbonImmutable $from, CarbonImmutable $to, string $granularity): array
-    {
-        $boundaries = [];
-        $cursor = $from;
-        $guard = 0;
-
-        while ($cursor->lessThanOrEqualTo($to) && $guard < 400) {
-            $boundaries[] = match ($granularity) {
-                SalesDashboardFilters::GRANULARITY_HOURLY => ['key' => $cursor->format('Y-m-d H:00'), 'label' => $cursor->format('g A')],
-                SalesDashboardFilters::GRANULARITY_WEEKLY => ['key' => $cursor->startOfWeek()->format('Y-m-d'), 'label' => 'Wk of '.$cursor->startOfWeek()->format('M j')],
-                SalesDashboardFilters::GRANULARITY_MONTHLY => ['key' => $cursor->format('Y-m'), 'label' => $cursor->format('M Y')],
-                default => ['key' => $cursor->format('Y-m-d'), 'label' => $cursor->format('M j')],
-            };
-
-            $cursor = match ($granularity) {
-                SalesDashboardFilters::GRANULARITY_HOURLY => $cursor->addHour(),
-                SalesDashboardFilters::GRANULARITY_WEEKLY => $cursor->addWeek(),
-                SalesDashboardFilters::GRANULARITY_MONTHLY => $cursor->addMonthNoOverflow(),
-                default => $cursor->addDay(),
-            };
-            $guard++;
-        }
-
-        return $boundaries;
-    }
-
-    private static function bucketKey(CarbonInterface $timestamp, string $granularity): string
-    {
-        return match ($granularity) {
-            SalesDashboardFilters::GRANULARITY_HOURLY => $timestamp->format('Y-m-d H:00'),
-            SalesDashboardFilters::GRANULARITY_WEEKLY => CarbonImmutable::instance($timestamp)->startOfWeek()->format('Y-m-d'),
-            SalesDashboardFilters::GRANULARITY_MONTHLY => $timestamp->format('Y-m'),
-            default => $timestamp->format('Y-m-d'),
-        };
     }
 
     /**
@@ -655,10 +614,10 @@ final readonly class SalesDashboardMetricsService
     private static function customerLabel(?CustomerProfile $customer, ?int $customerId): string
     {
         if ($customer instanceof CustomerProfile) {
-            return $customer->company_name ?: ($customer->customer_code ?: "Customer #{$customerId}");
+            return $customer->company_name ?: ($customer->customer_code ?: __('dashboards.fallback.customer', ['id' => $customerId]));
         }
 
-        return $customerId !== null ? "Customer #{$customerId}" : 'Unknown customer';
+        return $customerId !== null ? __('dashboards.fallback.customer', ['id' => $customerId]) : __('dashboards.fallback.unknown_customer');
     }
 
     private static function formatMoney(float $amount, string $currency): string

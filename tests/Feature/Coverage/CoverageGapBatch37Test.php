@@ -254,7 +254,7 @@ it('covers order prepayment projection with and without posted provider payments
     expect($projection->customerDepositCollected)->toBe(50.0);
 });
 
-it('covers sales dashboard activity filters and private bucket helpers', function (): void {
+it('covers sales dashboard activity filters and private helpers', function (): void {
     $service = app(SalesDashboardMetricsService::class);
     $customer = CustomerProfile::factory()->create(['company_name' => 'Coverage Dental']);
     $employee = EmployeeProfile::factory()->create();
@@ -302,23 +302,10 @@ it('covers sales dashboard activity filters and private bucket helpers', functio
         ->toContain('Delivery')
         ->toContain('Invoice');
 
-    $boundaries = new ReflectionMethod(SalesDashboardMetricsService::class, 'bucketBoundaries');
-    $bucketKey = new ReflectionMethod(SalesDashboardMetricsService::class, 'bucketKey');
     $percentChange = new ReflectionMethod(SalesDashboardMetricsService::class, 'percentChange');
     $customerLabel = new ReflectionMethod(SalesDashboardMetricsService::class, 'customerLabel');
 
-    $from = CarbonImmutable::parse('2026-01-01 00:00:00');
-    $to = CarbonImmutable::parse('2026-01-01 03:00:00');
-
-    expect($boundaries->invoke($service, $from, $to, SalesDashboardFilters::GRANULARITY_HOURLY))->toHaveCount(4)
-        ->and($boundaries->invoke($service, $from, $from->addWeeks(2), SalesDashboardFilters::GRANULARITY_WEEKLY))->not->toBeEmpty()
-        ->and($boundaries->invoke($service, $from, $from->addMonths(2), SalesDashboardFilters::GRANULARITY_MONTHLY))->not->toBeEmpty()
-        ->and($boundaries->invoke($service, $from, $from->addDays(2), SalesDashboardFilters::GRANULARITY_DAILY))->toHaveCount(3)
-        ->and($bucketKey->invoke($service, $from, SalesDashboardFilters::GRANULARITY_HOURLY))->toBe('2026-01-01 00:00')
-        ->and($bucketKey->invoke($service, $from, SalesDashboardFilters::GRANULARITY_WEEKLY))->toBeString()
-        ->and($bucketKey->invoke($service, $from, SalesDashboardFilters::GRANULARITY_MONTHLY))->toBe('2026-01')
-        ->and($bucketKey->invoke($service, $from, SalesDashboardFilters::GRANULARITY_DAILY))->toBe('2026-01-01')
-        ->and($percentChange->invoke($service, 0.0, 0.0))->toBeNull()
+    expect($percentChange->invoke($service, 0.0, 0.0))->toBeNull()
         ->and($percentChange->invoke($service, 0.0, 5.0))->toBe(100.0)
         ->and($percentChange->invoke($service, 10.0, 15.0))->toBe(50.0)
         ->and($customerLabel->invoke($service, null, null))->toBe('Unknown customer')

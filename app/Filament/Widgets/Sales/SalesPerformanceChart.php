@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
 use Filament\Widgets\ChartWidget;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 /**
  * Line chart of confirmed order value (see
@@ -18,15 +18,21 @@ use Filament\Widgets\Concerns\InteractsWithPageFilters;
  */
 final class SalesPerformanceChart extends ChartWidget
 {
-    use InteractsWithPageFilters;
+    use InteractsWithDashboardFilters;
 
-    protected ?string $heading = 'Sales performance';
+    protected ?string $maxHeight = '300px';
 
-    protected int|string|array $columnSpan = ['default' => 1, 'lg' => 8];
+    #[\Override]
+    public function getHeading(): string
+    {
+        return __('dashboards.sales.charts.performance');
+    }
 
-    protected ?string $maxHeight = '340px';
-
-    protected ?string $emptyStateHeading = 'No sales activity exists for the selected period.';
+    #[\Override]
+    public function getEmptyStateHeading(): string
+    {
+        return __('dashboards.sales.empty.sales');
+    }
 
     #[\Override]
     public static function canView(): bool
@@ -43,13 +49,13 @@ final class SalesPerformanceChart extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label' => 'Selected period',
+                    'label' => __('dashboards.charts.selected_period'),
                     'data' => $trend['current'],
                     'borderColor' => '#22c55e',
                     'backgroundColor' => 'transparent',
                 ],
                 [
-                    'label' => 'Previous period',
+                    'label' => __('dashboards.charts.previous_period'),
                     'data' => $trend['previous'],
                     'borderColor' => '#94a3b8',
                     'backgroundColor' => 'transparent',

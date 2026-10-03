@@ -5,22 +5,28 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
 use Filament\Widgets\ChartWidget;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 final class TopProductsChart extends ChartWidget
 {
-    use InteractsWithPageFilters;
+    use InteractsWithDashboardFilters;
 
-    protected ?string $heading = 'Top products';
+    protected ?string $maxHeight = '300px';
 
-    protected int|string|array $columnSpan = ['default' => 1, 'lg' => 4];
+    #[\Override]
+    public function getHeading(): string
+    {
+        return __('dashboards.sales.charts.top_products');
+    }
 
-    protected ?string $maxHeight = '280px';
-
-    protected ?string $emptyStateHeading = 'No product sales exist for the selected period.';
+    #[\Override]
+    public function getEmptyStateHeading(): string
+    {
+        return __('dashboards.sales.empty.products');
+    }
 
     #[\Override]
     public static function canView(): bool
@@ -36,7 +42,7 @@ final class TopProductsChart extends ChartWidget
 
         return [
             'datasets' => [[
-                'label' => 'Sales value',
+                'label' => __('dashboards.sales.charts.sales_value'),
                 'data' => array_column($products, 'value'),
                 'backgroundColor' => '#22c55e',
             ]],

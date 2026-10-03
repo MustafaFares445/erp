@@ -32,6 +32,10 @@ Physical stock remains Inventory-owned; money movement remains Payments-owned; l
 
 Quotations, Customer Quotation Requests, Orders, Delivery Notes, Invoices, Credit Notes, Sales Opportunities, Sales Settings, Payment Terms and Sales Reports.
 
+The Sales dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards). It has salesperson and customer filters. Top customers and salesperson performance are paginated tables. When no quotation carries a salesperson, top customers takes the full row.
+
+The Invoices list uses the standard list-table experience ([ADR 0014](../../adr/0014-standard-list-table-experience.md)): a view tab bar (status presets, Starred, saved views), per-user favorites, Group by (status, customer, invoice date, due date) and slide-over rule filters. Trashed stays a separate filter.
+
 ## Related Decisions
 
 - [ADR 0008](../../adr/0008-filament-sales-payments-dashboard.md)

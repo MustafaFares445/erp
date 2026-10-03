@@ -5,24 +5,26 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Widgets\Concerns\BuildsTrendStats;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardLinks;
 use App\Services\Sales\SalesDashboardMetricsService;
+use App\Support\MoneyFormatter;
 use Filament\Support\Icons\Heroicon;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Number;
 
 /**
  * The four primary KPI cards: confirmed order value (the dashboard's
  * canonical "Sales" figure, see {@see SalesDashboardMetricsService}),
  * confirmed order count, average order value, and quote-to-order
- * conversion.
+ * conversion. Value and count carry the selected window's sparkline.
  */
 final class SalesKpiCards extends StatsOverviewWidget
 {
-    use InteractsWithPageFilters;
+    use BuildsTrendStats;
+    use InteractsWithDashboardFilters;
 
     #[\Override]
     public static function canView(): bool
@@ -34,67 +36,51 @@ final class SalesKpiCards extends StatsOverviewWidget
     protected function getStats(): array
     {
         $filters = SalesDashboardFilters::fromPageFilters($this->pageFilters ?? []);
-        $kpis = app(SalesDashboardMetricsService::class)->kpis($filters);
+        $metrics = app(SalesDashboardMetricsService::class);
+        $kpis = $metrics->kpis($filters);
+        $trend = $metrics->salesTrend($filters);
         $currency = $kpis['currency'];
+        $ordersUrl = SalesDashboardLinks::orders('active', $filters->customerId);
+
+        $averageOrderValue = $kpis['average_order_value'] ?? 0.0;
+        $previousAverageOrderValue = $kpis['count_previous'] > 0 ? $kpis['value_previous'] / $kpis['count_previous'] : 0.0;
 
         return [
-            Stat::make(__('Confirmed order value'), self::money($kpis['value'], $currency))
-                ->description(self::changeDescription($kpis['value_change_percent']))
-                ->descriptionIcon(self::changeIcon($kpis['value_change_percent']))
-                ->color(self::changeColor($kpis['value_change_percent']))
-                ->icon(Heroicon::OutlinedBanknotes)
-                ->url(SalesDashboardLinks::orders('active', $filters->customerId)),
-            Stat::make(__('Confirmed orders'), (string) $kpis['count'])
-                ->description(self::changeDescription($kpis['count_change_percent']))
-                ->descriptionIcon(self::changeIcon($kpis['count_change_percent']))
-                ->color(self::changeColor($kpis['count_change_percent']))
-                ->icon(Heroicon::OutlinedShoppingCart)
-                ->url(SalesDashboardLinks::orders('active', $filters->customerId)),
-            Stat::make(__('Average order value'), $kpis['average_order_value'] !== null ? self::money($kpis['average_order_value'], $currency) : '—')
-                ->description($kpis['average_order_value'] !== null ? 'Per confirmed order, selected period' : 'No confirmed orders in this period')
-                ->icon(Heroicon::OutlinedCalculator),
-            Stat::make(__('Quote → order conversion'), $kpis['conversion_percent'] !== null ? number_format($kpis['conversion_percent'], 1).'%' : '—')
-                ->description("{$kpis['conversion_numerator']} of {$kpis['conversion_denominator']} decided quotations converted")
+            $this->trendStat(
+                __('dashboards.sales.kpis.confirmed_value'),
+                MoneyFormatter::formatAmount($kpis['value'], $currency),
+                $kpis['value'],
+                $kpis['value_previous'],
+                $trend['current'],
+                Heroicon::OutlinedBanknotes,
+                $ordersUrl,
+            ),
+            $this->trendStat(
+                __('dashboards.sales.kpis.confirmed_orders'),
+                (string) $kpis['count'],
+                $kpis['count'],
+                $kpis['count_previous'],
+                $trend['current_counts'],
+                Heroicon::OutlinedShoppingCart,
+                $ordersUrl,
+            ),
+            $this->trendStat(
+                __('dashboards.sales.kpis.average_order_value'),
+                $kpis['average_order_value'] !== null ? MoneyFormatter::formatAmount($averageOrderValue, $currency) : '—',
+                $averageOrderValue,
+                $previousAverageOrderValue,
+                icon: Heroicon::OutlinedCalculator,
+            ),
+            Stat::make(
+                __('dashboards.sales.kpis.conversion'),
+                $kpis['conversion_percent'] !== null ? number_format($kpis['conversion_percent'], 1).'%' : '—',
+            )
+                ->description(__('dashboards.sales.kpis.conversion_detail', [
+                    'converted' => $kpis['conversion_numerator'],
+                    'decided' => $kpis['conversion_denominator'],
+                ]))
                 ->icon(Heroicon::OutlinedArrowTrendingUp)
                 ->url(SalesDashboardLinks::quotations('accepted', $filters->customerId, $filters->employeeId)),
         ];
-    }
-
-    private static function money(float $amount, string $currency): string
-    {
-        $formatted = Number::currency($amount, $currency);
-
-        return $formatted === false ? "{$currency} {$amount}" : $formatted;
-    }
-
-    private static function changeDescription(?float $percent): string
-    {
-        if ($percent === null) {
-            return 'No comparable data for the previous period';
-        }
-
-        $sign = $percent > 0 ? '+' : '';
-
-        return "{$sign}".number_format($percent, 1).'% vs previous period';
-    }
-
-    private static function changeIcon(?float $percent): ?Heroicon
-    {
-        return match (true) {
-            $percent === null => null,
-            $percent > 0 => Heroicon::OutlinedArrowTrendingUp,
-            $percent < 0 => Heroicon::OutlinedArrowTrendingDown,
-            default => null,
-        };
-    }
-
-    private static function changeColor(?float $percent): string
-    {
-        return match (true) {
-            $percent === null => 'gray',
-            $percent > 0 => 'success',
-            $percent < 0 => 'danger',
-            default => 'gray',
-        };
     }
 }

@@ -5,19 +5,27 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Widgets\Concerns\BuildsDashboardTables;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
 use App\Services\Settings\CurrencyCatalogService;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
-use Filament\Widgets\Widget;
+use App\Support\Dashboard\DashboardPeriod;
+use App\Support\MoneyFormatter;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Filament\Widgets\TableWidget;
+use Illuminate\Pagination\LengthAwarePaginator;
 
-final class TopCustomersWidget extends Widget
+/**
+ * Customers ranked by confirmed order value in the selected period.
+ */
+final class TopCustomersWidget extends TableWidget
 {
-    use InteractsWithPageFilters;
+    use BuildsDashboardTables;
+    use InteractsWithDashboardFilters;
 
-    protected string $view = 'filament.widgets.sales.top-customers';
-
-    protected int|string|array $columnSpan = ['default' => 1, 'lg' => 4];
+    private const int LIMIT = 50;
 
     #[\Override]
     public static function canView(): bool
@@ -25,15 +33,36 @@ final class TopCustomersWidget extends Widget
         return auth()->user()?->can(SalesPermission::OrderView->value) ?? false;
     }
 
-    /** @return array<string, mixed> */
     #[\Override]
-    protected function getViewData(): array
+    public function table(Table $table): Table
     {
-        $filters = SalesDashboardFilters::fromPageFilters($this->pageFilters ?? []);
+        $currency = app(CurrencyCatalogService::class)->defaultCode();
 
-        return [
-            'customers' => app(SalesDashboardMetricsService::class)->topCustomers($filters),
-            'currency' => app(CurrencyCatalogService::class)->defaultCode(),
-        ];
+        return $this->dashboardTable($table)
+            ->heading(__('dashboards.sales.tables.top_customers'))
+            ->records(function (int $page, int $recordsPerPage): LengthAwarePaginator {
+                $filters = SalesDashboardFilters::fromPageFilters($this->pageFilters ?? []);
+                $customers = app(SalesDashboardMetricsService::class)->topCustomers($filters, self::LIMIT);
+
+                return self::paginateRows(
+                    collect($customers)->keyBy('customer_id')->all(),
+                    $page,
+                    $recordsPerPage,
+                );
+            })
+            ->columns([
+                TextColumn::make('label')
+                    ->label(__('dashboards.sales.columns.customer'))
+                    ->weight('medium'),
+                TextColumn::make('orders_count')
+                    ->label(__('dashboards.sales.columns.orders'))
+                    ->numeric(),
+                TextColumn::make('value')
+                    ->label(__('dashboards.sales.columns.sales_value'))
+                    ->money($currency)
+                    ->description(fn (array $record): string => __('dashboards.sales.columns.average', [
+                        'value' => MoneyFormatter::formatAmount(DashboardPeriod::toFloat($record['average_value']), $currency),
+                    ])),
+            ]);
     }
 }

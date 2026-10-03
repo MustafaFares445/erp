@@ -1,8 +1,8 @@
 <x-filament-widgets::widget>
-    <x-filament::section heading="Recent sales activity">
+    <x-filament::section :heading="__('dashboards.sales.cards.recent_activity')">
         @if (empty($events))
             <p class="text-sm text-gray-500 dark:text-gray-400">
-                No sales activity exists for the selected period.
+                {{ __('dashboards.sales.empty.sales') }}
             </p>
         @else
             <ul class="flex flex-col divide-y divide-gray-100 dark:divide-white/10">
