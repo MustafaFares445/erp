@@ -32,12 +32,12 @@ final class DeliveryNotesOverview extends StatsOverviewWidget
         return [
             Stat::make(__('Ready to dispatch'), $readyToDispatch)
                 ->description(__('Prepared, waiting to leave the warehouse'))
-                ->url(DeliveryNoteResource::getUrl('index', ['activeTab' => 'ready'])),
+                ->url(DeliveryNoteResource::getUrl('index', ['tab' => 'ready'])),
             Stat::make(__('Delivered today'), $deliveredToday)
                 ->description(__('Completed today')),
             Stat::make(__('Delivered, not invoiced'), $deliveredNotInvoiced)
                 ->description(__('Needs an invoice'))
-                ->url(DeliveryNoteResource::getUrl('index', ['activeTab' => 'delivered_not_invoiced'])),
+                ->url(DeliveryNoteResource::getUrl('index', ['tab' => 'delivered_not_invoiced'])),
         ];
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\DeliveryNotes\Tables;
 
 use App\Enums\OperationStage;
+use App\Filament\Resources\DeliveryNotes\Actions\DeliveryNoteActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\InventoryOperation;
@@ -25,6 +26,7 @@ final class DeliveryNotesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(static fn (Builder $query): Builder => $query->with('invoiceDeliveryLink'))
             ->defaultSort('created_at', 'desc')
             ->searchPlaceholder(__('Search by delivery note number or customer name'))
             ->columns([
@@ -76,6 +78,7 @@ final class DeliveryNotesTable
                         ->whereDoesntHave('invoiceDeliveryLink')),
             ])
             ->recordActions([
+                DeliveryNoteActions::createInvoice()->button(),
                 ViewAction::make(),
             ]);
     }

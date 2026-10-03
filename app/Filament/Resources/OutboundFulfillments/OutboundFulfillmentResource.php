@@ -9,6 +9,7 @@ use App\Enums\OrderStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\OutboundFulfillments\Actions\OutboundFulfillmentActions;
 use App\Filament\Resources\OutboundFulfillments\Pages\ListOutboundFulfillments;
 use App\Filament\Resources\OutboundFulfillments\Pages\ViewOutboundFulfillment;
 use App\Filament\Resources\Shipments\ShipmentResource;
@@ -29,6 +30,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 final class OutboundFulfillmentResource extends Resource
@@ -89,7 +91,12 @@ final class OutboundFulfillmentResource extends Resource
         return $table
             ->defaultSort('scheduled_at')
             ->columns([
-                TextColumn::make('order_number')->label(__('admin.inventory.outbound.fields.order'))->searchable()->sortable(),
+                TextColumn::make('order_number')
+                    ->label(__('admin.inventory.outbound.fields.order'))
+                    ->description(fn (Order $record): ?string => self::blockerSummary($record))
+                    ->tooltip(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.inventory.outbound.fields.customer'))->searchable(),
                 TextColumn::make('scheduled_at')->label(__('admin.inventory.outbound.fields.requested_date'))->date()->sortable(),
                 TextColumn::make('logistics_milestone')
@@ -99,11 +106,6 @@ final class OutboundFulfillmentResource extends Resource
                 TextColumn::make('remaining')
                     ->label(__('admin.inventory.outbound.fields.remaining'))
                     ->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->remainingBase)),
-                TextColumn::make('blocker')
-                    ->label(__('admin.inventory.outbound.fields.blocker'))
-                    ->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
-                    ->placeholder(__('—'))
-                    ->limit(45),
             ])
             ->filters([
                 SelectFilter::make('queue')
@@ -124,7 +126,21 @@ final class OutboundFulfillmentResource extends Resource
                         default => $query,
                     }),
             ])
-            ->recordActions([ViewAction::make()]);
+            ->recordActions([
+                OutboundFulfillmentActions::reviewSupply(),
+                OutboundFulfillmentActions::createDeliveryPlan(tableRow: true),
+                OutboundFulfillmentActions::prepareDelivery(tableRow: true),
+                OutboundFulfillmentActions::dispatchGoods(tableRow: true),
+                OutboundFulfillmentActions::confirmArrival(tableRow: true),
+                ViewAction::make(),
+            ]);
+    }
+
+    private static function blockerSummary(Order $record): ?string
+    {
+        $message = app(OrderWorkflowService::class)->project($record)->blockerMessage;
+
+        return $message === null ? null : Str::limit($message, 80);
     }
 
     #[\Override]

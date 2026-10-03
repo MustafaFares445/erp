@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\ShipmentStatus;
+use App\Filament\Resources\OutboundFulfillments\Actions\OutboundFulfillmentActions;
 use App\Filament\Resources\OutboundFulfillments\Pages\ViewOutboundFulfillment;
 use App\Models\InventoryOperation;
 use App\Models\Order;
@@ -150,12 +151,12 @@ it('covers outbound page actor input and arrival authorization guards', function
     $page = app(ViewOutboundFulfillment::class);
 
     $this->actingAs($actor);
-    $actorMethod = new ReflectionMethod(ViewOutboundFulfillment::class, 'actor');
-    $inputMethod = new ReflectionMethod(ViewOutboundFulfillment::class, 'integerInput');
+    $actorMethod = new ReflectionMethod(OutboundFulfillmentActions::class, 'actor');
+    $inputMethod = new ReflectionMethod(OutboundFulfillmentActions::class, 'integerInput');
 
-    expect($actorMethod->invoke($page)->is($actor))->toBeTrue()
-        ->and($inputMethod->invoke($page, '42'))->toBe(42)
-        ->and(fn (): mixed => $inputMethod->invoke($page, 'not-numeric'))
+    expect($actorMethod->invoke(null)->is($actor))->toBeTrue()
+        ->and($inputMethod->invoke(null, '42'))->toBe(42)
+        ->and(fn (): mixed => $inputMethod->invoke(null, 'not-numeric'))
         ->toThrow(LogicException::class, 'numeric record identifier');
 
     $actions = collect($page->getHeaderActions())->keyBy(fn ($action): string => $action->getName());
@@ -165,6 +166,6 @@ it('covers outbound page actor input and arrival authorization guards', function
     ]))->toThrow(LogicException::class, 'not authorized');
 
     auth()->logout();
-    expect(fn (): mixed => $actorMethod->invoke($page))
+    expect(fn (): mixed => $actorMethod->invoke(null))
         ->toThrow(LogicException::class, 'authenticated Logistics user');
 });

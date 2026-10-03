@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Enums\InventoryPermission;
+use App\Filament\Resources\DeliveryNotes\Pages\ListDeliveryNotes;
 use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
 use App\Jobs\GeneratePackingListDocument;
 use App\Models\CustomerProfile;
@@ -17,6 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
 
@@ -97,4 +100,47 @@ it('offers Generate Packing List from the delivery note view page too', function
         ->assertHasNoActionErrors();
 
     Queue::assertPushed(GeneratePackingListDocument::class);
+});
+
+it('creates the invoice exactly once from the delivery note list row', function (): void {
+    Gate::before(static fn (): bool => true);
+    $actor = User::factory()->create();
+    $delivery = coverageDeliveryReadyForInvoice();
+
+    Livewire::actingAs($actor)
+        ->test(ListDeliveryNotes::class)
+        ->assertTableActionVisible('create_invoice', $delivery)
+        ->callTableAction('create_invoice', $delivery)
+        ->assertHasNoTableActionErrors();
+
+    expect(Invoice::query()->count())->toBe(1)
+        ->and(Invoice::query()->sole()->inventory_operation_id)->toBe($delivery->getKey())
+        ->and($delivery->refresh()->isInvoiced())->toBeTrue();
+
+    Livewire::actingAs($actor)
+        ->test(ListDeliveryNotes::class)
+        ->assertTableActionHidden('create_invoice', $delivery)
+        ->assertTableActionVisible('view', $delivery);
+
+    expect(Invoice::query()->count())->toBe(1);
+});
+
+it('hides the row invoice action for undone deliveries and users who cannot create invoices', function (): void {
+    $ready = InventoryOperation::factory()->delivery()->ready()->create();
+    $done = coverageDeliveryReadyForInvoice();
+
+    $viewer = User::factory()->employee()->create();
+    $viewer->givePermissionTo(Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web'));
+
+    Livewire::actingAs($viewer)
+        ->test(ListDeliveryNotes::class)
+        ->assertTableActionHidden('create_invoice', $done)
+        ->assertTableActionHidden('create_invoice', $ready);
+
+    Gate::before(static fn (): bool => true);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(ListDeliveryNotes::class)
+        ->assertTableActionVisible('create_invoice', $done)
+        ->assertTableActionHidden('create_invoice', $ready);
 });
