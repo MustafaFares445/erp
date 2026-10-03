@@ -31,6 +31,8 @@ Operational domains may request approved postings, but they do not write ledger 
 
 Chart of Accounts, Journal Entries, Fiscal Periods, Accounts Receivable, Accounts Payable, Bills, Expenses, Supplier Payments, Refunds, Taxes, Receivable Write-Offs and Financial Reports.
 
+The Accounting dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards). It shows posted journal activity next to the tax position for the selected window. Below them, the open period's close checklist (last measured results; viewing never re-runs a check) sits beside the customers with the largest outstanding balance.
+
 ## Related Decisions
 
 - [ADR 0007](../../adr/0007-filament-accounting-dashboard.md)

@@ -17,13 +17,13 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 uses(RefreshDatabase::class);
 
 it('renders period-close readiness with and without an open period', function (): void {
-    $widget = app(PeriodCloseReadiness::class);
-    $method = new ReflectionMethod(PeriodCloseReadiness::class, 'getStats');
+    $rows = new ReflectionMethod(PeriodCloseReadiness::class, 'rows');
 
-    expect($method->invoke($widget))->toHaveCount(1);
+    expect($rows->invoke(null, null))->toBe([]);
 
-    FiscalPeriod::factory()->create(['name' => 'Coverage Period', 'is_closed' => false]);
-    expect($method->invoke($widget))->toHaveCount(3);
+    $period = FiscalPeriod::factory()->create(['name' => 'Coverage Period', 'is_closed' => false]);
+    expect($rows->invoke(null, $period))->not->toBeEmpty()
+        ->each(fn ($row) => $row->status->toBe('not_measured'));
 
     expect(PeriodCloseReadiness::canView())->toBeFalse();
     $this->actingAs(User::factory()->admin()->create());

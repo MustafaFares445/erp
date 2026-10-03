@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Enums\AccountingPermission;
 use App\Filament\Resources\InventoryLots\Schemas\InventoryLotInfolist;
 use App\Filament\Widgets\TaxPositionThisPeriod;
-use App\Models\FiscalPeriod;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\User;
@@ -77,13 +76,13 @@ it('covers tax-position widget access and current-period fallbacks', function ()
     CarbonImmutable::setTestNow('2026-09-30 12:00:00');
 
     $widget = new ReflectionClass(TaxPositionThisPeriod::class)->newInstanceWithoutConstructor();
-    $stats = new ReflectionMethod(TaxPositionThisPeriod::class, 'getStats');
+    $data = new ReflectionMethod(TaxPositionThisPeriod::class, 'getData');
 
-    expect($stats->invoke($widget))->toHaveCount(5);
+    expect($data->invoke($widget)['datasets'][0]['data'])->toHaveCount(5);
 
-    FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-09-01'))->create();
+    $widget->pageFilters = ['period' => 'this_month'];
 
-    expect($stats->invoke($widget))->toHaveCount(5);
+    expect($data->invoke($widget)['labels'])->toHaveCount(5);
 
     CarbonImmutable::setTestNow();
 });

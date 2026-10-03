@@ -6,13 +6,16 @@ namespace App\Filament\Widgets;
 
 use App\Enums\AccountingPermission;
 use App\Enums\JournalEntryStatus;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
+use Carbon\CarbonImmutable;
 use Filament\Widgets\ChartWidget;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 final class AccountingLedgerTrend extends ChartWidget
 {
-    protected ?string $heading = 'Posted journal activity, last 6 months';
+    use InteractsWithDashboardFilters;
+
+    protected ?string $maxHeight = '300px';
 
     #[\Override]
     public static function canView(): bool
@@ -28,57 +31,63 @@ final class AccountingLedgerTrend extends ChartWidget
         return (bool) ($user?->can(AccountingPermission::PayableView->value) ?? false);
     }
 
+    #[\Override]
+    public function getHeading(): string
+    {
+        return __('dashboards.accounting.charts.ledger');
+    }
+
     /**
-     * Posted debit activity per month, trailing six months inclusive of the
-     * current one.
+     * Posted debit activity per bucket of the selected window, with the
+     * equal-length previous window for comparison.
      *
      * `JournalEntry` carries no entry-level amount and no `posted_at` column
      * (see database/migrations/2026_08_18_180335_create_journal_entries_table.php),
-     * so the total is built by joining `journal_entry_lines` and grouping in
-     * PHP with Carbon — SQLite (the test driver) has no `DATE_FORMAT`.
-     * Grouping by `entry_date` reflects the entry's business date; only
-     * `posted` entries are included, so draft activity never appears.
+     * so the total is built by joining `journal_entry_lines`. Grouping by
+     * `entry_date` reflects the entry's business date; only `posted` entries
+     * are included, so draft activity never appears.
      */
     #[\Override]
     protected function getData(): array
     {
-        $start = now()->subMonths(5)->startOfMonth();
-
-        $totals = collect(range(5, 0))
-            ->mapWithKeys(fn (int $offset): array => [now()->subMonths($offset)->format('Y-m') => 0.0]);
-
-        $rows = DB::table('journal_entry_lines')
-            ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
-            ->where('journal_entries.status', JournalEntryStatus::Posted->value)
-            ->where('journal_entries.entry_date', '>=', $start->toDateString())
-            ->get(['journal_entries.entry_date as entry_date', 'journal_entry_lines.debit as debit']);
-
-        foreach ($rows as $row) {
-            /** @var string $entryDate */
-            $entryDate = $row->entry_date;
-            /** @var numeric-string|int|float $debit */
-            $debit = $row->debit;
-
-            $month = Carbon::parse($entryDate)->format('Y-m');
-
-            if ($totals->has($month)) {
-                $totals[$month] += (float) $debit;
-            }
-        }
+        $period = $this->dashboardPeriod();
 
         return [
-            'datasets' => [[
-                'label' => 'Posted journal activity',
-                'data' => $totals->values()->all(),
-            ]],
-            'labels' => collect(range(5, 0))
-                ->map(fn (int $offset): string => now()->subMonths($offset)->format('M Y'))
-                ->all(),
+            'datasets' => [
+                [
+                    'label' => __('dashboards.charts.selected_period'),
+                    'data' => $period->sumSeries(self::postedDebits($period->from, $period->to)),
+                    'borderColor' => '#22c55e',
+                    'backgroundColor' => 'transparent',
+                ],
+                [
+                    'label' => __('dashboards.charts.previous_period'),
+                    'data' => $period->sumSeries(self::postedDebits($period->previousFrom, $period->previousTo), previous: true),
+                    'borderColor' => '#94a3b8',
+                    'backgroundColor' => 'transparent',
+                    'borderDash' => [6, 4],
+                ],
+            ],
+            'labels' => $period->labels(),
         ];
     }
 
     protected function getType(): string
     {
         return 'line';
+    }
+
+    /** @return list<array{0: string, 1: numeric-string|int|float}> */
+    private static function postedDebits(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        /** @var list<array{0: string, 1: numeric-string|int|float}> */
+        return DB::table('journal_entry_lines')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
+            ->where('journal_entries.status', JournalEntryStatus::Posted->value)
+            ->whereDate('journal_entries.entry_date', '>=', $from->toDateString())
+            ->whereDate('journal_entries.entry_date', '<=', $to->toDateString())
+            ->get(['journal_entries.entry_date as entry_date', 'journal_entry_lines.debit as debit'])
+            ->map(static fn (object $row): array => [$row->entry_date, $row->debit])
+            ->all();
     }
 }
