@@ -14,8 +14,12 @@ it('does not register the removed standalone dashboard and keeps the full panel 
         ->and($panel->getPages())->not->toContain('App\\Filament\\Pages\\Dashboard');
 });
 
-it('makes the recent stock movements widget span the dashboard grid', function (): void {
-    $property = new ReflectionProperty(InventoryRecentMovements::class, 'columnSpan');
+it('sits the recent stock movements widget in one half of a dashboard row unless its partner is hidden', function (): void {
+    $widget = new InventoryRecentMovements;
 
-    expect($property->getValue(new InventoryRecentMovements))->toBe('full');
+    expect($widget->getColumnSpan())->toBe(1);
+
+    $widget->spansFullWidth = true;
+
+    expect($widget->getColumnSpan())->toBe('full');
 });

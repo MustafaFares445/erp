@@ -1,0 +1,347 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'date_range' => 'Date range',
+    'from' => 'From',
+    'until' => 'Until',
+    'reset_filters' => 'Reset filters',
+    'week_of' => 'Week of :date',
+    'empty' => 'Nothing to show for the selected filters.',
+    'view' => 'View',
+
+    'periods' => [
+        'today' => 'Today',
+        'last_7_days' => 'Last 7 days',
+        'last_30_days' => 'Last 30 days',
+        'this_month' => 'This month',
+        'last_month' => 'Last month',
+        'this_quarter' => 'This quarter',
+        'this_year' => 'This year',
+        'custom' => 'Custom range',
+    ],
+
+    'trend' => [
+        'increase' => ':percent% increase',
+        'decrease' => ':percent% decrease',
+        'no_change' => 'No change vs previous period',
+        'new_this_period' => 'New this period',
+        'no_activity' => 'No activity in this period',
+    ],
+
+    'charts' => [
+        'selected_period' => 'Selected period',
+        'previous_period' => 'Previous period',
+    ],
+
+    'fallback' => [
+        'customer' => 'Customer #:id',
+        'unknown_customer' => 'Unknown customer',
+        'employee' => 'Employee #:id',
+        'variant' => 'Variant #:id',
+    ],
+
+    'crm' => [
+        'filters' => [
+            'lead_source' => 'Lead source',
+        ],
+        'kpis' => [
+            'new_customers' => 'New customers',
+            'active_customers' => 'Active customers',
+            'total_customers' => ':count customers in total',
+            'new_leads' => 'New leads',
+            'lead_conversion' => 'Lead conversion',
+        ],
+        'charts' => [
+            'customer_growth' => 'Customer growth',
+            'leads_by_status' => 'New leads by status',
+            'leads' => 'Leads',
+        ],
+        'tables' => [
+            'dormant_leads' => 'Dormant leads',
+            'dormant_leads_description' => 'Open leads with no interaction in 14+ days',
+            'campaigns' => 'Campaign performance',
+        ],
+        'columns' => [
+            'lead' => 'Lead',
+            'status' => 'Status',
+            'owner' => 'Owner',
+            'last_interaction' => 'Last interaction',
+            'never' => 'Never',
+            'campaign' => 'Campaign',
+            'sent' => 'Sent',
+            'failed' => 'Failed / suppressed',
+            'leads' => 'Leads',
+        ],
+    ],
+
+    'employees' => [
+        'filters' => [
+            'employee' => 'Employee',
+        ],
+        'kpis' => [
+            'tasks_completed' => 'Tasks completed',
+            'visits' => 'Customer visits',
+            'open_tasks' => 'Open tasks',
+            'overdue' => ':count overdue',
+            'opportunities_awaiting_review' => 'Opportunities awaiting review',
+        ],
+        'charts' => [
+            'tasks_completed' => 'Tasks completed',
+            'tasks_by_status' => 'Tasks due by status',
+            'tasks' => 'Tasks',
+        ],
+        'tables' => [
+            'top_employees' => 'Top employees',
+            'overdue_tasks' => 'Overdue tasks',
+        ],
+        'columns' => [
+            'employee' => 'Employee',
+            'tasks_completed' => 'Tasks completed',
+            'visits' => 'Visits',
+            'task' => 'Task',
+            'due' => 'Due',
+            'status' => 'Status',
+        ],
+    ],
+
+    'inventory' => [
+        'kpis' => [
+            'active_skus' => ':skus stocked SKUs across :warehouses warehouses',
+            'replenishment_detail' => 'Uncovered: :quantity · transfer suggestions: :suggestions · transferable: :transferable',
+            'awaiting_detail' => ':adjustments draft adjustments · :transfers open transfers',
+        ],
+        'charts' => [
+            'stock_value' => 'Stock value (:currency)',
+        ],
+    ],
+
+    'purchasing' => [
+        'filters' => [
+            'supplier' => 'Supplier',
+        ],
+        'kpis' => [
+            'spend' => 'PO spend (:currency)',
+            'needs_sourcing' => 'Needs sourcing',
+            'needs_sourcing_detail' => ':inventory inventory · :sales sales needs · :quantity inventory units',
+            'awaiting_approval' => 'Awaiting approval',
+            'awaiting_approval_detail' => 'Purchasing Manager action required',
+            'overdue' => 'Overdue deliveries',
+            'overdue_detail' => 'Expected date passed and receiving is still open',
+        ],
+        'charts' => [
+            'spend' => 'Purchase spend (:currency)',
+            'open_by_stage' => 'Open purchase orders by stage',
+            'purchase_orders' => 'Purchase orders',
+        ],
+        'stages' => [
+            'approval' => 'Approval',
+            'ready_to_send' => 'Ready to send',
+            'supplier' => 'Supplier',
+            'receiving' => 'Receiving',
+            'accounting' => 'Accounting',
+        ],
+        'tables' => [
+            'attention' => 'Needs your attention',
+            'upcoming' => 'Upcoming deliveries',
+        ],
+        'columns' => [
+            'purchase_order' => 'Purchase order',
+            'reason' => 'Why it needs attention',
+            'expected' => 'Expected',
+            'not_specified' => 'Not specified',
+            'next_action' => 'Next action',
+            'receiving' => 'Receiving',
+            'value' => 'PO value',
+        ],
+        'attention' => [
+            'overdue' => 'Overdue delivery',
+        ],
+    ],
+
+    'support' => [
+        'filters' => [
+            'assignee' => 'Assignee',
+            'priority' => 'Priority',
+        ],
+        'kpis' => [
+            'opened' => 'Tickets opened',
+            'resolved' => 'Tickets resolved',
+            'open' => 'Open tickets',
+            'waiting_customer' => ':count waiting on the customer',
+            'sla_at_risk' => 'SLA at risk',
+            'sla_at_risk_detail' => 'Breached or due within the next hour',
+        ],
+        'charts' => [
+            'ticket_trend' => 'Ticket trend',
+            'opened' => 'Opened',
+            'resolved' => 'Resolved',
+            'service_economics' => 'Service economics (:currency)',
+            'amount' => 'Amount',
+        ],
+        'economics' => [
+            'warranty_cost' => 'Warranty cost',
+            'goodwill_cost' => 'Goodwill cost',
+            'customer_paid' => 'Customer-paid service',
+            'recovery_received' => 'Recovery received',
+            'recovery_outstanding' => 'Recovery outstanding',
+        ],
+        'tables' => [
+            'attention' => 'Tickets needing attention',
+            'maintenance' => 'Maintenance requiring action',
+            'upcoming_maintenance' => 'Upcoming maintenance',
+        ],
+        'columns' => [
+            'ticket' => 'Ticket',
+            'customer' => 'Customer',
+            'unassigned' => 'Unassigned',
+            'blocked_by' => 'Blocked by',
+            'sla' => 'SLA',
+            'job' => 'Job',
+            'stage' => 'Stage',
+            'customer_pays' => 'Customer pays',
+            'next_action' => 'Next action',
+            'schedule' => 'Schedule',
+            'serial' => 'Serial',
+            'due' => 'Due',
+            'status' => 'Status',
+        ],
+        'blocked' => [
+            'triage' => 'Awaiting triage',
+            'diagnostic_fee' => 'Diagnostic fee',
+            'payment' => 'Payment',
+            'assignment' => 'Assignment',
+            'customer' => 'Customer',
+            'sla_breach' => 'SLA breach',
+            'action_required' => 'Action required',
+        ],
+        'next' => [
+            'record_diagnosis' => 'Record diagnosis',
+            'determine_coverage' => 'Determine coverage',
+            'start_repair' => 'Start repair',
+            'complete_qa' => 'Complete QA',
+            'review' => 'Review maintenance job',
+            'confirm_approval' => 'Confirm approval',
+            'create_quotation' => 'Create quotation',
+            'mark_ready' => 'Mark ready for repair',
+            'waiting_quote' => 'Waiting quote approval',
+        ],
+    ],
+
+    'accounting' => [
+        'kpis' => [
+            'receivables' => 'Receivables outstanding',
+            'bad_debt' => 'Bad debt in period: :value',
+            'payables' => 'Payables outstanding',
+            'billed' => 'Billed in period: :value',
+            'net_tax' => 'Net tax position',
+            'awaiting_action' => 'Awaiting action',
+            'awaiting_detail' => ':entries draft entries · :bills bills to approve',
+        ],
+        'charts' => [
+            'ledger' => 'Posted journal activity',
+            'tax_position' => 'Tax position',
+            'tax_amount' => 'Tax amount',
+        ],
+        'tax' => [
+            'deferred' => 'Output charged (deferred)',
+            'payable' => 'Output recognised (payable)',
+            'reversed' => 'Output reversed',
+            'input' => 'Input recognised',
+            'net' => 'Net position',
+        ],
+        'tables' => [
+            'close_readiness' => 'Period close readiness',
+            'close_readiness_period' => 'Last measured checks for :period',
+            'top_receivables' => 'Top outstanding customers',
+        ],
+        'columns' => [
+            'check' => 'Check',
+            'optional' => 'Optional',
+            'status' => 'Status',
+            'measured' => 'Measured',
+            'customer' => 'Customer',
+            'open_invoices' => 'Open invoices',
+            'outstanding' => 'Outstanding',
+        ],
+        'close_status' => [
+            'passed' => 'Passed',
+            'failed' => 'Failing',
+            'not_measured' => 'Not measured',
+        ],
+    ],
+
+    'sales' => [
+        'filters' => [
+            'salesperson' => 'Salesperson',
+            'customer' => 'Customer',
+        ],
+        'kpis' => [
+            'confirmed_value' => 'Confirmed order value',
+            'confirmed_orders' => 'Confirmed orders',
+            'average_order_value' => 'Average order value',
+            'conversion' => 'Quote → order conversion',
+            'conversion_detail' => ':converted of :decided decided quotations converted',
+        ],
+        'charts' => [
+            'performance' => 'Sales performance',
+            'top_products' => 'Top products',
+            'sales_value' => 'Sales value',
+        ],
+        'tables' => [
+            'top_customers' => 'Top customers',
+            'salesperson_performance' => 'Salesperson performance',
+        ],
+        'columns' => [
+            'customer' => 'Customer',
+            'salesperson' => 'Salesperson',
+            'orders' => 'Orders',
+            'sales_value' => 'Sales value',
+            'average' => 'Avg :value',
+            'conversion_detail' => ':quotations quotations · :percent% converted',
+        ],
+        'cards' => [
+            'funnel' => 'Sales funnel',
+            'of_previous_stage' => ':percent% of the previous stage',
+            'quotation_performance' => 'Quotation performance',
+            'open_quotation_value' => 'Open quotation value',
+            'median_days' => 'Median days to decision',
+            'days' => ':days days',
+            'accepted' => 'Accepted',
+            'awaiting_decision' => 'Awaiting decision',
+            'rejected_or_expired' => 'Rejected / expired',
+            'requires_attention' => 'Requires attention',
+            'recent_activity' => 'Recent sales activity',
+        ],
+        'funnel' => [
+            'quotations' => 'Quotations',
+            'accepted' => 'Accepted',
+            'orders' => 'Orders',
+            'delivered' => 'Delivered',
+            'invoiced' => 'Invoiced',
+        ],
+        'attention' => [
+            'blocked' => 'Orders blocked by stock',
+            'accepted_not_converted' => 'Accepted quotations not converted',
+            'potential_value' => 'Potential value: :value',
+            'delivered_not_invoiced' => 'Delivered but not invoiced',
+            'awaiting_fulfillment' => 'Orders awaiting fulfillment',
+            'awaiting_decision' => 'Quotations awaiting customer decision',
+            'oldest_waiting' => 'Oldest waiting: :days days',
+            'expiring_soon' => 'Quotations expiring in the next 7 days',
+        ],
+        'activity' => [
+            'quotation_accepted' => 'Quotation :number accepted',
+            'order_confirmed' => 'Order :number confirmed',
+            'delivery_completed' => 'Delivery :number completed',
+            'invoice_issued' => 'Invoice :number issued',
+        ],
+        'empty' => [
+            'sales' => 'No sales activity exists for the selected period.',
+            'products' => 'No product sales exist for the selected period.',
+            'quotations' => 'No quotations exist for the selected period.',
+            'attention' => 'Nothing needs attention right now.',
+        ],
+    ],
+];
