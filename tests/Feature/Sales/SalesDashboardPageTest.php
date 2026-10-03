@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\SalesPermission;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Widgets\Sales\QuotationPerformanceWidget;
 use App\Filament\Widgets\Sales\RecentSalesActivityWidget;
@@ -177,4 +178,17 @@ it('renders the sales dashboard in Arabic', function (): void {
     Livewire::actingAs(salesDashboardViewer())
         ->test(SalesDashboard::class)
         ->assertSee('الفترة الزمنية');
+});
+
+it('translates chart empty states and gates widgets on the matching permission', function (): void {
+    expect(app(SalesPerformanceChart::class)->getEmptyStateHeading())->toBe('No sales activity exists for the selected period.')
+        ->and(app(TopProductsChart::class)->getEmptyStateHeading())->toBe('No product sales exist for the selected period.');
+
+    $orderViewer = User::factory()->create();
+    $orderViewer->givePermissionTo(SalesPermission::OrderView->value);
+    $this->actingAs($orderViewer);
+
+    expect(RequiresAttentionWidget::canView())->toBeTrue()
+        ->and(RecentSalesActivityWidget::canView())->toBeTrue()
+        ->and(SalespersonPerformanceWidget::canView())->toBeFalse();
 });
