@@ -14,7 +14,6 @@ use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
-use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
@@ -26,9 +25,11 @@ use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\CrmReports\CrmReportResource;
+use App\Filament\Resources\Currencies\CurrencyResource;
 use App\Filament\Resources\CustomerQuotationRequests\CustomerQuotationRequestResource;
 use App\Filament\Resources\CustomerReturnRequests\CustomerReturnRequestResource;
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\CustomFieldDefinitions\CustomFieldDefinitionResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
@@ -167,6 +168,17 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.expenses', 'link' => ExpenseResource::class],
                     ['label' => 'admin.resources.refunds', 'link' => RefundResource::class],
                     ['label' => 'admin.resources.taxes', 'link' => TaxResource::class],
+                    [
+                        'label' => 'admin.sections.accounting_setup',
+                        'link' => CurrencyResource::class,
+                        'icon' => Heroicon::OutlinedCog6Tooth,
+                        'tabs' => [
+                            ['label' => 'admin.resources.currencies', 'link' => CurrencyResource::class],
+                            ['label' => 'admin.resources.payment_terms', 'link' => PaymentTermResource::class],
+                            ['label' => 'admin.resources.payment_methods', 'link' => PaymentMethodResource::class],
+                            ['label' => 'admin.resources.tax_definitions', 'link' => SalesSettingResource::class],
+                        ],
+                    ],
                 ],
                 'contextual' => [
                     ReceivableWriteOffResource::class,
@@ -252,6 +264,16 @@ final class AdminModuleRegistry
                         ],
                     ],
                     ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class],
+                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'icon' => Heroicon::OutlinedWrenchScrewdriver],
+                    [
+                        'label' => 'admin.sections.inventory_setup',
+                        'link' => PackageTypeResource::class,
+                        'icon' => Heroicon::OutlinedCog6Tooth,
+                        'tabs' => [
+                            ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class],
+                            ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
+                        ],
+                    ],
                 ],
                 'contextual' => [
                     ProductVariantResource::class,
@@ -269,6 +291,7 @@ final class AdminModuleRegistry
                     ['key' => 'planning', 'label' => 'admin.sections.planning'],
                     ['key' => 'suppliers', 'label' => 'admin.sections.suppliers'],
                     ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+                    ['key' => 'setup', 'label' => 'admin.sections.setup'],
                 ],
                 'items' => [
                     ['label' => 'admin.resources.purchasing_dashboard', 'link' => PurchasingDashboard::class, 'section' => 'overview'],
@@ -280,6 +303,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class, 'section' => 'suppliers'],
                     ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class, 'section' => 'catalog'],
                     ['label' => 'admin.resources.supplier_product_supports', 'link' => SupplierProductSupportResource::class, 'section' => 'catalog'],
+                    ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class, 'section' => 'setup'],
                 ],
             ],
             [
@@ -360,20 +384,12 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedCog6Tooth,
                 'sort' => 9,
                 'items' => [
-                    ['label' => 'admin.resources.payment_terms', 'link' => PaymentTermResource::class],
-                    ['label' => 'admin.resources.payment_methods', 'link' => PaymentMethodResource::class],
-                    ['label' => 'admin.resources.sales_settings', 'link' => SalesSettingResource::class],
-                    ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
-                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class],
-                    ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class],
-                    ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
-                    ['label' => 'admin.resources.tax_definitions', 'link' => SalesSettingResource::class],
-                    ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
+                    ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.notification_templates', 'link' => NotificationTemplateResource::class],
                     ['label' => 'admin.resources.notification_deliveries', 'link' => NotificationDeliveryResource::class],
                     ['label' => 'admin.resources.notification_preferences', 'link' => NotificationPreferenceResource::class],
-                    ['label' => 'admin.resources.settings', 'link' => Settings::class],
+                    ['label' => 'admin.resources.custom_fields', 'link' => CustomFieldDefinitionResource::class],
                 ],
             ],
         ];

@@ -19,18 +19,18 @@ use Throwable;
  */
 final class SavedTableViewFilterMigrator
 {
-    private const SELECT = 'select';
+    private const string SELECT = 'select';
 
-    private const RELATION = 'relation';
+    private const string RELATION = 'relation';
 
-    private const BOOLEAN = 'boolean';
+    private const string BOOLEAN = 'boolean';
 
-    private const TEXT = 'text';
+    private const string TEXT = 'text';
 
-    private const DATE_RANGE = 'date_range';
+    private const string DATE_RANGE = 'date_range';
 
     /** @var array<string, array<string, array{0: string, 1: string}>> */
-    private const FILTERS = [
+    private const array FILTERS = [
         'purchasing.purchase-orders' => [
             'supplier_id' => [self::RELATION, 'supplier'],
             'status' => [self::SELECT, 'status'],

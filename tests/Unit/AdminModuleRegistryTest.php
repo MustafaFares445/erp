@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\ModulePlaceholder;
-use App\Filament\Resources\CustomFieldDefinitions\CustomFieldDefinitionResource;
 use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
@@ -681,11 +680,11 @@ it('filters placeholder navigation items down to a single section', function ():
         ->and($catalogItems[0]->getLabel())->toBe(__('admin.resources.products'));
 });
 
-it('declares the inventory group as seven workspace destinations with translated labels', function (): void {
+it('declares the inventory group as nine workspace destinations with translated labels', function (): void {
     $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
 
     expect($inventory)->not->toBeNull()
-        ->and($inventory['items'])->toHaveCount(7)
+        ->and($inventory['items'])->toHaveCount(9)
         ->and($inventory)->not->toHaveKey('sections');
 
     foreach ($inventory['items'] as $item) {
@@ -733,12 +732,14 @@ it('registers no navigation label in more than one group', function (): void {
 // `SalesSettingResource`, which genuinely owns the default tax rate and the
 // four posting accounts (MD-07).
 it('resolves the tax definitions entry to a real resource, not the placeholder', function (): void {
-    $resolved = AdminModuleRegistry::findItem('system', 'tax_definitions');
+    $accounting = collect(AdminModuleRegistry::groups())->firstWhere('key', 'accounting');
+    $setup = collect($accounting['items'])->firstWhere('label', 'admin.sections.accounting_setup');
+    $tab = collect($setup['tabs'])->firstWhere('label', 'admin.resources.tax_definitions');
 
-    expect($resolved)->not->toBeNull()
-        ->and($resolved['item']['link'])->toBe(SalesSettingResource::class)
-        ->and(class_exists($resolved['item']['link']))->toBeTrue()
-        ->and($resolved['item']['link'])->not->toBe(ModulePlaceholder::class);
+    expect($tab)->not->toBeNull()
+        ->and($tab['link'])->toBe(SalesSettingResource::class)
+        ->and(class_exists($tab['link']))->toBeTrue()
+        ->and($tab['link'])->not->toBe(ModulePlaceholder::class);
 });
 
 // Intent: WP-3.7 (GAP-UI-07). This test is inverted from its pre-WP-3.7 form,
@@ -799,15 +800,8 @@ it('accounts for every Filament resource as direct navigation or an explicit con
         ->flatMap(fn (array $group): array => array_column($group['items'], 'link'))
         ->filter(fn (string $class): bool => is_subclass_of($class, Resource::class));
 
-    // Settings-only resources are deliberately registered with Filament but omitted from
-    // the module sidebar: they are reached through the unified Settings hub instead.
-    $settingsOnlyResources = collect([
-        CustomFieldDefinitionResource::class,
-    ]);
-
     $accountedResources = $directResources
         ->merge(AdminModuleRegistry::contextualResources())
-        ->merge($settingsOnlyResources)
         ->unique()
         ->sort()
         ->values();
@@ -818,8 +812,7 @@ it('accounts for every Filament resource as direct navigation or an explicit con
         ->values();
 
     expect($accountedResources->all())->toBe($panelResources->all())
-        ->and($directResources->intersect(AdminModuleRegistry::contextualResources()))->toBeEmpty()
-        ->and($directResources->intersect($settingsOnlyResources))->toBeEmpty();
+        ->and($directResources->intersect(AdminModuleRegistry::contextualResources()))->toBeEmpty();
 });
 
 it('keeps module groups in normalized sort order', function (): void {
