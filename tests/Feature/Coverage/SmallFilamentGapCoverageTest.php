@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
@@ -93,10 +94,8 @@ it('covers campaign template labels and dormant lead widget branches', function 
         'created_by' => $actor->getKey(),
     ])->save();
 
-    $widget = app(CrmDormantLeads::class);
-    $getStats = new ReflectionMethod(CrmDormantLeads::class, 'getStats');
-    $stats = $getStats->invoke($widget);
-    expect($stats)->toHaveCount(1);
+    Livewire::test(CrmDormantLeads::class)
+        ->assertCanSeeTableRecords([$lead]);
 });
 
 it('streams populated purchasing open commitments rows', function (): void {

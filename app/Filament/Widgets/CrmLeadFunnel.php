@@ -6,13 +6,29 @@ namespace App\Filament\Widgets;
 
 use App\Enums\CrmPermission;
 use App\Enums\LeadStatus;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\Lead;
-use Filament\Widgets\StatsOverviewWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
+use App\Support\Dashboard\DashboardPeriod;
+use Filament\Widgets\ChartWidget;
+use Illuminate\Database\Eloquent\Builder;
 
-final class CrmLeadFunnel extends StatsOverviewWidget
+/**
+ * Where the leads captured in the selected window (and lead source) stand
+ * today, one doughnut slice per lifecycle status.
+ */
+final class CrmLeadFunnel extends ChartWidget
 {
-    protected int|string|array $columnSpan = 'full';
+    use InteractsWithDashboardFilters;
+
+    protected ?string $maxHeight = '300px';
+
+    private const array STATUS_COLORS = [
+        'gray' => '#9ca3af',
+        'info' => '#3b82f6',
+        'warning' => '#f59e0b',
+        'success' => '#22c55e',
+        'danger' => '#ef4444',
+    ];
 
     #[\Override]
     public static function canView(): bool
@@ -21,20 +37,49 @@ final class CrmLeadFunnel extends StatsOverviewWidget
     }
 
     #[\Override]
-    protected function getStats(): array
+    public function getHeading(): string
     {
-        $counts = Lead::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate', 'status');
+        return __('dashboards.crm.charts.leads_by_status');
+    }
 
-        return array_map(
-            function (LeadStatus $status) use ($counts): Stat {
-                $count = $counts->get($status->value, 0);
+    #[\Override]
+    protected function getData(): array
+    {
+        $period = $this->dashboardPeriod();
 
-                return Stat::make(
-                    __(str($status->value)->headline()->toString()),
-                    is_numeric($count) ? (string) (int) $count : '0',
-                )->color($status->color());
-            },
-            LeadStatus::cases(),
-        );
+        $counts = Lead::query()
+            ->whereBetween('created_at', [$period->from, $period->to])
+            ->when($this->dashboardStringFilter('leadSource'), static fn (Builder $query, string $source): Builder => $query->where('source', $source))
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $statuses = LeadStatus::cases();
+
+        return [
+            'datasets' => [[
+                'label' => __('dashboards.crm.charts.leads'),
+                'data' => array_map(static fn (LeadStatus $status): int => DashboardPeriod::toInt($counts->get($status->value)), $statuses),
+                'backgroundColor' => array_map(static fn (LeadStatus $status): string => self::STATUS_COLORS[$status->color()], $statuses),
+            ]],
+            'labels' => array_map(static fn (LeadStatus $status): string => $status->label(), $statuses),
+        ];
+    }
+
+    #[\Override]
+    protected function getOptions(): array
+    {
+        return [
+            'plugins' => ['legend' => ['position' => 'bottom']],
+            'scales' => [
+                'x' => ['display' => false],
+                'y' => ['display' => false],
+            ],
+        ];
+    }
+
+    protected function getType(): string
+    {
+        return 'doughnut';
     }
 }

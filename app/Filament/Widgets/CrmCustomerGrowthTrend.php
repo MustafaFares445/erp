@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\CrmPermission;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\CustomerProfile;
 use Filament\Widgets\ChartWidget;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 final class CrmCustomerGrowthTrend extends ChartWidget
 {
-    protected ?string $heading = 'Customer growth';
+    use InteractsWithDashboardFilters;
+
+    protected ?string $maxHeight = '300px';
 
     #[\Override]
     public static function canView(): bool
@@ -21,31 +22,39 @@ final class CrmCustomerGrowthTrend extends ChartWidget
     }
 
     #[\Override]
+    public function getHeading(): string
+    {
+        return __('dashboards.crm.charts.customer_growth');
+    }
+
+    /** New customers per bucket of the selected window and of the previous one. */
+    #[\Override]
     protected function getData(): array
     {
-        /** @var Collection<int, Carbon> $months */
-        $months = collect(range(5, 0))
-            ->map(fn (int $offset): Carbon => Carbon::today()->startOfMonth()->subMonths($offset));
-
-        /** @var Collection<int, Carbon> $createdAt */
-        $createdAt = CustomerProfile::query()
-            ->pluck('created_at')
-            ->filter()
-            ->map(function (mixed $value): Carbon {
-                /** @var string|\DateTimeInterface $value */
-                return Carbon::parse($value);
-            });
-
-        $counts = $months->map(fn (Carbon $month): int => $createdAt
-            ->filter(fn (Carbon $date): bool => $date->isSameMonth($month) && $date->isSameYear($month))
-            ->count());
+        $period = $this->dashboardPeriod();
 
         return [
-            'datasets' => [[
-                'label' => 'New customers',
-                'data' => $counts->values()->all(),
-            ]],
-            'labels' => $months->map(fn (Carbon $month): string => $month->format('M Y'))->all(),
+            'datasets' => [
+                [
+                    'label' => __('dashboards.charts.selected_period'),
+                    'data' => $period->countSeries(
+                        CustomerProfile::query()->whereBetween('created_at', [$period->from, $period->to])->pluck('created_at'),
+                    ),
+                    'borderColor' => '#22c55e',
+                    'backgroundColor' => 'transparent',
+                ],
+                [
+                    'label' => __('dashboards.charts.previous_period'),
+                    'data' => $period->countSeries(
+                        CustomerProfile::query()->whereBetween('created_at', [$period->previousFrom, $period->previousTo])->pluck('created_at'),
+                        previous: true,
+                    ),
+                    'borderColor' => '#94a3b8',
+                    'backgroundColor' => 'transparent',
+                    'borderDash' => [6, 4],
+                ],
+            ],
+            'labels' => $period->labels(),
         ];
     }
 

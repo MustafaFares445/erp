@@ -6,12 +6,24 @@ namespace App\Filament\Widgets;
 
 use App\Enums\CrmPermission;
 use App\Filament\Resources\Leads\LeadResource;
+use App\Filament\Widgets\Concerns\BuildsDashboardTables;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\Lead;
-use Filament\Widgets\StatsOverviewWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Filament\Widgets\TableWidget;
+use Illuminate\Database\Eloquent\Builder;
 
-final class CrmDormantLeads extends StatsOverviewWidget
+/**
+ * Open leads with no interaction in the last 14 days, longest-silent first.
+ * A current-state work queue, so it ignores the date range but respects the
+ * lead source filter.
+ */
+final class CrmDormantLeads extends TableWidget
 {
+    use BuildsDashboardTables;
+    use InteractsWithDashboardFilters;
+
     #[\Override]
     public static function canView(): bool
     {
@@ -19,10 +31,34 @@ final class CrmDormantLeads extends StatsOverviewWidget
     }
 
     #[\Override]
-    protected function getStats(): array
+    public function table(Table $table): Table
     {
-        $count = Lead::query()->dormant()->count();
-
-        return [Stat::make(__('Dormant leads (14+ days)'), (string) $count)->description(__('Open leads with no recent interaction.'))->color($count > 0 ? 'warning' : 'success')->url(LeadResource::getUrl())];
+        return $this->dashboardTable($table)
+            ->heading(__('dashboards.crm.tables.dormant_leads'))
+            ->description(__('dashboards.crm.tables.dormant_leads_description'))
+            ->query(fn (): Builder => Lead::query()
+                ->dormant()
+                ->with('assignee:id,name')
+                ->when($this->dashboardStringFilter('leadSource'), static fn (Builder $query, string $source): Builder => $query->where('source', $source))
+                ->orderByRaw('last_interaction_at IS NOT NULL')
+                ->orderBy('last_interaction_at'))
+            ->recordUrl(fn (Lead $record): string => LeadResource::getUrl('view', ['record' => $record]))
+            ->columns([
+                TextColumn::make('lead_number')
+                    ->label(__('dashboards.crm.columns.lead'))
+                    ->formatStateUsing(fn (Lead $record): string => $record->displayName())
+                    ->description(fn (Lead $record): string => $record->lead_number)
+                    ->weight('medium'),
+                TextColumn::make('status')
+                    ->label(__('dashboards.crm.columns.status'))
+                    ->badge(),
+                TextColumn::make('assignee.name')
+                    ->label(__('dashboards.crm.columns.owner'))
+                    ->placeholder('—'),
+                TextColumn::make('last_interaction_at')
+                    ->label(__('dashboards.crm.columns.last_interaction'))
+                    ->since()
+                    ->placeholder(__('dashboards.crm.columns.never')),
+            ]);
     }
 }
