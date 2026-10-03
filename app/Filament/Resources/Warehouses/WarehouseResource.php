@@ -99,6 +99,13 @@ final class WarehouseResource extends Resource
     }
 
     #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        // WarehousePolicy::delete() reads this instead of querying movements once per row.
+        return parent::getEloquentQuery()->withExists('movements');
+    }
+
+    #[\Override]
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()

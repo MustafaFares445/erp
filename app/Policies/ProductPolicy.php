@@ -7,9 +7,12 @@ namespace App\Policies;
 use App\Enums\InventoryPermission;
 use App\Models\Product;
 use App\Models\User;
+use App\Policies\Concerns\ReadsPreloadedRelationState;
 
 final class ProductPolicy
 {
+    use ReadsPreloadedRelationState;
+
     public function viewAny(User $user): bool
     {
         return $this->canViewCatalog($user);
@@ -33,7 +36,7 @@ final class ProductPolicy
     public function delete(User $user, Product $product): bool
     {
         return $this->canManageCatalog($user)
-            && ! $product->variants()->exists();
+            && ! $this->hasRelated($product, 'variants');
     }
 
     public function restore(User $user): bool

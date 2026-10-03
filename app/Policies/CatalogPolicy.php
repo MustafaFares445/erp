@@ -12,11 +12,13 @@ use App\Models\Supplier;
 use App\Models\Unit;
 use App\Models\User;
 use App\Policies\Concerns\ChecksInventoryPermissions;
+use App\Policies\Concerns\ReadsPreloadedRelationState;
 use Illuminate\Database\Eloquent\Model;
 
 final class CatalogPolicy
 {
     use ChecksInventoryPermissions;
+    use ReadsPreloadedRelationState;
 
     public function viewAny(User $user): bool
     {
@@ -69,9 +71,9 @@ final class CatalogPolicy
     private function isReferenced(Model $model): bool
     {
         return match ($model::class) {
-            Product::class => $model->variants()->exists(),
-            ProductVariant::class => $model->stocks()->exists() || $model->movements()->exists(),
-            Unit::class => $model->variants()->exists(),
+            Product::class => $this->hasRelated($model, 'variants'),
+            ProductVariant::class => $this->hasRelated($model, 'stocks') || $this->hasRelated($model, 'movements'),
+            Unit::class => $this->hasRelated($model, 'variants'),
             Supplier::class => $model->productReferences()->exists()
                 || $model->inventoryOperations()->where('operation_type', OperationType::Receipt)->exists(),
             default => false,

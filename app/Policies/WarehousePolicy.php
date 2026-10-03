@@ -8,6 +8,7 @@ use App\Enums\InventoryPermission;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Policies\Concerns\ChecksInventoryPermissions;
+use App\Policies\Concerns\ReadsPreloadedRelationState;
 
 /**
  * Authorizes {@see Warehouse} master-data management (FI-1).
@@ -21,6 +22,7 @@ use App\Policies\Concerns\ChecksInventoryPermissions;
 final class WarehousePolicy
 {
     use ChecksInventoryPermissions;
+    use ReadsPreloadedRelationState;
 
     public function viewAny(User $user): bool
     {
@@ -78,10 +80,10 @@ final class WarehousePolicy
 
     private function isReferenced(Warehouse $warehouse): bool
     {
-        if ($warehouse->stocks()->exists()) {
+        if ($this->hasRelated($warehouse, 'stocks')) {
             return true;
         }
 
-        return $warehouse->movements()->exists();
+        return $this->hasRelated($warehouse, 'movements');
     }
 }

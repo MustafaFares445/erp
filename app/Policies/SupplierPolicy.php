@@ -6,11 +6,10 @@ namespace App\Policies;
 
 use App\Enums\OperationType;
 use App\Enums\PurchasePermission;
-use App\Models\Bill;
 use App\Models\Supplier;
-use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Policies\Concerns\ChecksPurchasePermissions;
+use App\Policies\Concerns\ReadsPreloadedRelationState;
 
 /**
  * Supplier administration is owned by Purchasing. Logistics consumes safe
@@ -19,6 +18,7 @@ use App\Policies\Concerns\ChecksPurchasePermissions;
 final class SupplierPolicy
 {
     use ChecksPurchasePermissions;
+    use ReadsPreloadedRelationState;
 
     public function viewAny(User $user): bool
     {
@@ -53,34 +53,42 @@ final class SupplierPolicy
 
     private function isReferenced(Supplier $supplier): bool
     {
-        if ($supplier->productReferences()->exists()) {
+        if ($this->hasRelated($supplier, 'productReferences')) {
             return true;
         }
 
-        if ($supplier->productSupports()->exists()) {
+        if ($this->hasRelated($supplier, 'productSupports')) {
             return true;
         }
 
-        if ($supplier->inventoryOperations()
+        if ($this->hasReceiptOperations($supplier)) {
+            return true;
+        }
+
+        if ($this->hasRelated($supplier, 'purchaseOrders')) {
+            return true;
+        }
+
+        if ($this->hasRelated($supplier, 'confirmations')) {
+            return true;
+        }
+
+        if ($this->hasRelated($supplier, 'bills')) {
+            return true;
+        }
+
+        return $this->hasRelated($supplier, 'supplierPayments');
+    }
+
+    /** Only receipt operations pin a supplier, so the preloaded flag is a constrained `withExists()`. */
+    private function hasReceiptOperations(Supplier $supplier): bool
+    {
+        if (array_key_exists(Supplier::RECEIPT_OPERATIONS_EXISTS, $supplier->getAttributes())) {
+            return (bool) $supplier->getAttribute(Supplier::RECEIPT_OPERATIONS_EXISTS);
+        }
+
+        return $supplier->inventoryOperations()
             ->where('operation_type', OperationType::Receipt)
-            ->exists()) {
-            return true;
-        }
-
-        if ($supplier->purchaseOrders()->exists()) {
-            return true;
-        }
-
-        if ($supplier->confirmations()->exists()) {
-            return true;
-        }
-
-        if (Bill::query()->where('resolved_supplier_id', $supplier->getKey())->exists()) {
-            return true;
-        }
-
-        return SupplierPayment::query()
-            ->where('supplier_id', $supplier->getKey())
             ->exists();
     }
 

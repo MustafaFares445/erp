@@ -699,6 +699,9 @@ final class ProductVariantResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['media', 'product.media', 'weightUnit']);
+        // ProductVariantPolicy::delete() reads these flags instead of querying once per row.
+        return parent::getEloquentQuery()
+            ->withExists(['stocks', 'movements'])
+            ->with(['media', 'product.media', 'weightUnit']);
     }
 }
