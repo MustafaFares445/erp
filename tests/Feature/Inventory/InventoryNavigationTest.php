@@ -72,7 +72,7 @@ function renderedInventorySidebarLabels(): array
         ->all();
 }
 
-it('renders the inventory sidebar as seven flat workspace destinations', function (): void {
+it('renders the inventory sidebar as nine flat workspace destinations', function (): void {
     $user = actingAsInventoryUser();
 
     $this->actingAs($user)->get(WarehouseResource::getUrl())->assertOk();
@@ -90,6 +90,8 @@ it('renders the inventory sidebar as seven flat workspace destinations', functio
             __('admin.sections.operations'),
             __('admin.sections.planning_alerts'),
             __('admin.resources.warehouses'),
+            __('admin.resources.catalog_setup'),
+            __('admin.sections.inventory_setup'),
         ]);
 });
 
@@ -109,8 +111,7 @@ it('no longer lists the fragmented inventory resources as sidebar entries', func
         ->not->toContain(__('admin.resources.barcode_workbench'))
         ->not->toContain(__('admin.resources.catalog_imports'))
         ->not->toContain(__('admin.resources.inventory_reports'))
-        ->not->toContain(__('admin.resources.package_types'))
-        ->not->toContain(__('admin.resources.catalog_setup'));
+        ->not->toContain(__('admin.resources.package_types'));
 });
 
 it('declares no duplicate sidebar destination for any inventory class', function (): void {
@@ -118,7 +119,7 @@ it('declares no duplicate sidebar destination for any inventory class', function
 
     $links = collect($inventory['items'])->pluck('link');
 
-    expect($inventory['items'])->toHaveCount(7)
+    expect($inventory['items'])->toHaveCount(9)
         ->and($links->all())->toBe($links->unique()->all());
 });
 
@@ -194,17 +195,20 @@ it('moves inventory reports to the shared reports module without breaking the ur
     expect(AdminModuleRegistry::activeGroupKey())->toBe('reports');
 });
 
-it('moves inventory configuration to the system module', function (): void {
+it('keeps inventory configuration inside the inventory module', function (): void {
     $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
     $system = collect(AdminModuleRegistry::groups())->firstWhere('key', 'system');
+    $setup = collect($inventory['items'])->firstWhere('label', 'admin.sections.inventory_setup');
 
     expect(collect($inventory['items'])->pluck('label'))
+        ->toContain('admin.resources.catalog_setup')
+        ->and(collect($setup['tabs'])->pluck('label'))
+        ->toContain('admin.resources.package_types')
+        ->toContain('admin.resources.inventory_settings')
+        ->and(collect($system['items'])->pluck('label'))
         ->not->toContain('admin.resources.catalog_setup')
         ->not->toContain('admin.resources.package_types')
-        ->and(collect($system['items'])->pluck('label'))
-        ->toContain('admin.resources.catalog_setup')
-        ->toContain('admin.resources.package_types')
-        ->toContain('admin.resources.inventory_settings');
+        ->not->toContain('admin.resources.inventory_settings');
 });
 
 it('renders the workspace tab bar on a tab page with every permitted tab', function (): void {

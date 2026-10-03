@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Widgets;
+namespace App\Filament\Resources\InventoryReports\Widgets;
 
 use App\Enums\InventoryPermission;
-use App\Enums\InventoryReportType;
 use App\Enums\StockCondition;
-use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryMovement;
 use App\Support\QuantityFormatter;
@@ -15,9 +13,17 @@ use Carbon\CarbonImmutable;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Number;
 
+/**
+ * Header card on the Quarantine ageing report tab. The report below is
+ * lot-grain; this card ages every warehouse/variant quarantine balance,
+ * untracked stock included, against a 30-day threshold.
+ */
 final class InventoryQuarantineAgeing extends StatsOverviewWidget
 {
+    protected ?string $pollingInterval = null;
+
     protected int|string|array $columnSpan = 'full';
 
     #[\Override]
@@ -65,15 +71,12 @@ final class InventoryQuarantineAgeing extends StatsOverviewWidget
         );
 
         return [
-            Stat::make(__('admin.inventory.dashboard.quarantine_aged_count'), (string) $aged->count())
+            Stat::make(__('admin.inventory.dashboard.quarantine_aged_count'), Number::format($aged->count()))
                 ->description(__('admin.inventory.dashboard.quarantine_aged_quantity', [
                     'quantity' => QuantityFormatter::display($quantity),
                 ]))
                 ->icon(Heroicon::OutlinedShieldExclamation)
-                ->color($aged->isEmpty() ? 'success' : 'warning')
-                ->url(InventoryReportResource::getUrl('index', [
-                    'activeTab' => InventoryReportType::QuarantineAgeing->value,
-                ])),
+                ->color($aged->isEmpty() ? 'success' : 'warning'),
         ];
     }
 }

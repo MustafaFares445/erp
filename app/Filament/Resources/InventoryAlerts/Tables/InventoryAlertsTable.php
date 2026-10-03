@@ -23,6 +23,7 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -81,10 +82,44 @@ final class InventoryAlertsTable
             ->recordActions([
                 ViewAction::make(),
                 Action::make('open_origin')
-                    ->label(__('admin.inventory.alert.open_origin'))
+                    ->label(fn (InventoryAlert $record): string => self::originActionLabel($record))
+                    ->icon(fn (InventoryAlert $record): Heroicon => self::reviewLabel($record) !== null
+                        ? Heroicon::OutlinedMagnifyingGlass
+                        : Heroicon::OutlinedArrowTopRightOnSquare)
+                    ->button()
+                    ->color(fn (InventoryAlert $record): string => self::reviewLabel($record) !== null ? 'primary' : 'gray')
                     ->url(fn (InventoryAlert $record): ?string => self::subjectUrl($record))
                     ->visible(fn (InventoryAlert $record): bool => self::subjectUrl($record) !== null),
             ]);
+    }
+
+    /**
+     * Navigation-only label: a type-specific "Review ..." wording when the alert type
+     * and its subject safely map to the record to review, otherwise the generic fallback.
+     */
+    public static function originActionLabel(InventoryAlert $alert): string
+    {
+        $key = self::reviewLabel($alert) ?? 'admin.inventory.alert.open_origin';
+        $label = __($key);
+
+        return is_string($label) ? $label : $key;
+    }
+
+    private static function reviewLabel(InventoryAlert $alert): ?string
+    {
+        if (! $alert->isActive()) {
+            return null;
+        }
+
+        return match (true) {
+            $alert->type === InventoryAlertType::LowStock
+                && in_array($alert->subject_type, [InventoryStock::class, ProductVariant::class], true) => 'Review replenishment',
+            $alert->type === InventoryAlertType::TransferDiscrepancy
+                && $alert->subject_type === InventoryOperation::class => 'Review transfer',
+            $alert->type === InventoryAlertType::ImportError
+                && $alert->subject_type === InventoryImportRun::class => 'Review import',
+            default => null,
+        };
     }
 
     public static function subjectUrl(InventoryAlert $alert): ?string

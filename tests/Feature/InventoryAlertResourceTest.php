@@ -7,7 +7,10 @@ use App\Enums\InventoryAlertType;
 use App\Enums\InventoryPermission;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryAlerts\Pages\ListInventoryAlerts;
+use App\Filament\Resources\InventoryAlerts\Tables\InventoryAlertsTable;
 use App\Models\InventoryAlert;
+use App\Models\InventoryImportRun;
+use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
@@ -115,3 +118,49 @@ function alertViewer(bool $withStockView = false): User
 
     return $viewer;
 }
+
+it('labels the origin action by alert type when the subject safely maps and falls back otherwise', function (): void {
+    $viewer = alertViewer(withStockView: true);
+    $stock = InventoryStock::factory()->create();
+    $lowStock = InventoryAlert::factory()->create([
+        'type' => InventoryAlertType::LowStock,
+        'subject_type' => InventoryStock::class,
+        'subject_id' => $stock->getKey(),
+    ]);
+    $outOfStock = InventoryAlert::factory()->create([
+        'type' => InventoryAlertType::OutOfStock,
+        'subject_type' => InventoryStock::class,
+        'subject_id' => $stock->getKey(),
+    ]);
+    $resolved = InventoryAlert::factory()->create([
+        'type' => InventoryAlertType::LowStock,
+        'subject_type' => InventoryStock::class,
+        'subject_id' => InventoryStock::factory()->create()->getKey(),
+        'resolved_at' => now(),
+    ]);
+
+    Livewire::actingAs($viewer)
+        ->test(ListInventoryAlerts::class)
+        ->assertActionHasLabel(TestAction::make('open_origin')->table($lowStock), 'Review replenishment')
+        ->assertActionHasLabel(TestAction::make('open_origin')->table($outOfStock), __('admin.inventory.alert.open_origin'))
+        ->assertActionHasLabel(TestAction::make('open_origin')->table($resolved), __('admin.inventory.alert.open_origin'));
+});
+
+it('maps transfer and import alerts to review labels only for their own subject types', function (): void {
+    $operation = InventoryAlert::factory()->make([
+        'type' => InventoryAlertType::TransferDiscrepancy,
+        'subject_type' => InventoryOperation::class,
+    ]);
+    $importRun = InventoryAlert::factory()->make([
+        'type' => InventoryAlertType::ImportError,
+        'subject_type' => InventoryImportRun::class,
+    ]);
+    $mismatched = InventoryAlert::factory()->make([
+        'type' => InventoryAlertType::TransferDiscrepancy,
+        'subject_type' => InventoryStock::class,
+    ]);
+
+    expect(InventoryAlertsTable::originActionLabel($operation))->toBe('Review transfer')
+        ->and(InventoryAlertsTable::originActionLabel($importRun))->toBe('Review import')
+        ->and(InventoryAlertsTable::originActionLabel($mismatched))->toBe(__('admin.inventory.alert.open_origin'));
+});

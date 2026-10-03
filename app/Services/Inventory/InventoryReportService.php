@@ -253,7 +253,8 @@ final readonly class InventoryReportService
     /**
      * Quarantine ageing is intentionally lot-grain where lot identity exists.
      * Aggregate/untracked quarantine remains visible on Stock Levels and the
-     * dashboard widget; this report provides the auditable lot chronology.
+     * report tab's InventoryQuarantineAgeing header widget; this report
+     * provides the auditable lot chronology.
      *
      * @param  array<string, bool|int|string>  $filters
      * @return Builder<InventoryLotBalance>

@@ -2,14 +2,34 @@
 
 declare(strict_types=1);
 
+use App\Enums\InventoryPermission;
 use App\Enums\StockCondition;
-use App\Filament\Widgets\DamagedStockQueue;
+use App\Filament\Resources\InventoryConditionChanges\Pages\ListInventoryConditionChanges;
+use App\Filament\Resources\InventoryConditionChanges\Widgets\DamagedStockQueue;
 use App\Models\InventoryConditionBalance;
 use App\Models\ProductVariant;
+use App\Models\User;
 use App\Models\Warehouse;
+use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+it('sits above the condition-change list for users who can view stock', function (): void {
+    (new InventoryPermissionSeeder)->run();
+
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo([
+        InventoryPermission::ConditionChangeView->value,
+        InventoryPermission::StockView->value,
+    ]);
+
+    Livewire::actingAs($viewer)
+        ->test(ListInventoryConditionChanges::class)
+        ->assertSuccessful()
+        ->assertSeeLivewire(DamagedStockQueue::class);
+});
 
 /**
  * WP-3.3 (GAP-UI-06, IN-07) — the damaged-stock work queue counts every

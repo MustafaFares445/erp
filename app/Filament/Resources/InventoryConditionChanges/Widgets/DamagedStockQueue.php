@@ -2,25 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Widgets;
+namespace App\Filament\Resources\InventoryConditionChanges\Widgets;
 
 use App\Enums\InventoryPermission;
-use App\Enums\InventoryReportType;
 use App\Enums\StockCondition;
-use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Models\InventoryConditionBalance;
 use App\Support\QuantityFormatter;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Number;
 
 /**
  * The damaged-stock work queue (WP-3.3, GAP-UI-06, IN-07) — every warehouse
- * currently holding damaged quantity, so it stays visible as work to
- * recover or dispose rather than sitting unnoticed in a condition column.
+ * currently holding damaged quantity, shown above the condition-change list
+ * where recovery and disposal documents are raised, so it stays visible as
+ * work rather than sitting unnoticed in a condition column.
  */
 final class DamagedStockQueue extends StatsOverviewWidget
 {
+    protected ?string $pollingInterval = null;
+
     #[\Override]
     public static function canView(): bool
     {
@@ -40,15 +42,12 @@ final class DamagedStockQueue extends StatsOverviewWidget
         );
 
         return [
-            Stat::make(__('admin.inventory.dashboard.damaged_stock_count'), (string) $rows->count())
+            Stat::make(__('admin.inventory.dashboard.damaged_stock_count'), Number::format($rows->count()))
                 ->description(__('admin.inventory.dashboard.damaged_stock_quantity', [
                     'quantity' => QuantityFormatter::display($quantity),
                 ]))
                 ->icon(Heroicon::OutlinedExclamationTriangle)
-                ->color($rows->isEmpty() ? 'success' : 'danger')
-                ->url(InventoryReportResource::getUrl('index', [
-                    'activeTab' => InventoryReportType::ConditionChanges->value,
-                ])),
+                ->color($rows->isEmpty() ? 'success' : 'danger'),
         ];
     }
 }

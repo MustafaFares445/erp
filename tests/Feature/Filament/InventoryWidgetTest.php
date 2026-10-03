@@ -8,15 +8,15 @@ use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\ReconciliationScope;
 use App\Enums\StockCondition;
+use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
+use App\Filament\Resources\InventoryReports\Widgets\InventoryQuarantineAgeing;
+use App\Filament\Resources\InventoryReports\Widgets\ReconciliationStatus;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
-use App\Filament\Widgets\InventoryOperationsPipeline;
-use App\Filament\Widgets\InventoryQuarantineAgeing;
 use App\Filament\Widgets\InventoryRecentMovements;
 use App\Filament\Widgets\InventoryStockStatistics;
 use App\Filament\Widgets\InventoryStockValue;
-use App\Filament\Widgets\ReconciliationStatus;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAlert;
 use App\Models\InventoryConditionBalance;
@@ -258,32 +258,6 @@ it('hides the key metrics widget from a viewer without stock view', function ():
     expect(InventoryKeyMetrics::canView())->toBeFalse();
 });
 
-it('counts inventory operations per non-terminal stage', function (): void {
-    InventoryOperation::factory()->draft()->create();
-    InventoryOperation::factory()->draft()->create();
-    InventoryOperation::factory()->waiting()->create();
-    InventoryOperation::factory()->internalTransfer()->ready()->create();
-    InventoryOperation::factory()->internalTransfer()->inTransit()->create();
-    InventoryOperation::factory()->done()->create();
-
-    $viewer = User::factory()->create();
-    $viewer->givePermissionTo(InventoryPermission::ReceiptView->value);
-    $this->actingAs($viewer);
-
-    $widget = app(InventoryOperationsPipeline::class);
-    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
-    $values = array_map(fn ($stat): string => $stat->getValue(), $stats);
-
-    expect($values)->toBe(['2', '1', '1', '1', '0']);
-});
-
-it('hides the operations pipeline widget without any operation view permission', function (): void {
-    $viewer = User::factory()->create();
-    $this->actingAs($viewer);
-
-    expect(InventoryOperationsPipeline::canView())->toBeFalse();
-});
-
 it('uses a line chart for the movements trend', function (): void {
     $widget = app(InventoryMovementsTrend::class);
 
@@ -336,17 +310,12 @@ it('renders correction movements in the recent movements widget', function (): v
         ->assertDontSee('-2.000000');
 });
 
-it('shows the latest persisted reconciliation result as pass or fail', function (): void {
-    $viewer = User::factory()->create();
-    $viewer->givePermissionTo(InventoryPermission::StockView->value);
-    $this->actingAs($viewer);
-
+it('shows inventory reconciliation as not run when only other scopes have runs', function (): void {
     ReconciliationRun::query()->create([
-        'scope' => ReconciliationScope::InventoryLots,
-        'invariant' => 'aggregate_equals_lot_sum',
+        'scope' => ReconciliationScope::Receivables,
+        'invariant' => 'ledger_equals_subledger',
         'passed' => false,
-        'divergence_count' => 2,
-        'detail' => ['two aggregate divergences'],
+        'divergence_count' => 1,
         'started_at' => now(),
         'finished_at' => now(),
         'trigger_source' => 'manual',
@@ -355,32 +324,62 @@ it('shows the latest persisted reconciliation result as pass or fail', function 
     $widget = app(ReconciliationStatus::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
-    expect(ReconciliationStatus::canView())->toBeTrue()
-        ->and($stats)->toHaveCount(1)
-        ->and($stats[0]->getValue())->toBe('Fail');
+    expect($stats)->toHaveCount(1)
+        ->and($stats[0]->getValue())->toBe('Not run')
+        ->and($stats[0]->getColor())->toBe('warning');
 });
 
-it('marks a passing reconciliation run without a divergence count', function (): void {
-    $viewer = User::factory()->create();
-    $viewer->givePermissionTo(InventoryPermission::StockView->value);
-    $this->actingAs($viewer);
+it('summarises only the latest reconciliation run when one of its checks failed', function (): void {
+    $this->freezeTime();
 
-    ReconciliationRun::query()->create([
-        'scope' => ReconciliationScope::InventoryLots,
-        'invariant' => 'aggregate_equals_lot_sum',
-        'passed' => true,
-        'divergence_count' => 0,
-        'detail' => [],
-        'started_at' => now(),
-        'finished_at' => now(),
-        'trigger_source' => 'manual',
-    ]);
+    foreach ([
+        ['invariant' => 'aggregate_equals_lot_sum', 'passed' => false, 'divergence_count' => 9, 'finished_at' => now()->subDay()],
+        ['invariant' => 'aggregate_equals_lot_sum', 'passed' => false, 'divergence_count' => 2, 'finished_at' => now()->subHours(2)],
+        ['invariant' => 'reserved_equals_allocations', 'passed' => true, 'divergence_count' => 0, 'finished_at' => now()->subHours(2)],
+    ] as $run) {
+        ReconciliationRun::query()->create([...$run, 'scope' => ReconciliationScope::InventoryLots, 'started_at' => $run['finished_at'], 'trigger_source' => 'schedule']);
+    }
+
+    $widget = app(ReconciliationStatus::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect($stats)->toHaveCount(1)
+        ->and($stats[0]->getValue())->toBe('Fail')
+        ->and($stats[0]->getDescription())->toBe('1 of 2 checks failed, 2 divergences · finished 2 hours ago')
+        ->and($stats[0]->getColor())->toBe('danger');
+});
+
+it('reports a pass when every check in the latest reconciliation run passed', function (): void {
+    $this->freezeTime();
+
+    foreach ([
+        ['invariant' => 'aggregate_equals_lot_sum', 'passed' => false, 'divergence_count' => 3, 'finished_at' => now()->subDay()],
+        ['invariant' => 'aggregate_equals_lot_sum', 'passed' => true, 'divergence_count' => 0, 'finished_at' => now()->subHours(2)],
+        ['invariant' => 'reserved_equals_allocations', 'passed' => true, 'divergence_count' => 0, 'finished_at' => now()->subHours(2)],
+    ] as $run) {
+        ReconciliationRun::query()->create([...$run, 'scope' => ReconciliationScope::InventoryLots, 'started_at' => $run['finished_at'], 'trigger_source' => 'schedule']);
+    }
 
     $widget = app(ReconciliationStatus::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
     expect($stats[0]->getValue())->toBe('Pass')
-        ->and($stats[0]->getDescription())->toContain('No divergence detected');
+        ->and($stats[0]->getDescription())->toBe('All 2 checks passed · finished 2 hours ago')
+        ->and($stats[0]->getColor())->toBe('success');
+});
+
+it('shows the reconciliation status only to users who can open the reconciliation report', function (): void {
+    $movementViewer = User::factory()->create();
+    $movementViewer->givePermissionTo(InventoryPermission::MovementView->value);
+    $this->actingAs($movementViewer);
+
+    expect(ReconciliationStatus::canView())->toBeFalse();
+
+    $stockViewer = User::factory()->create();
+    $stockViewer->givePermissionTo(InventoryPermission::StockView->value);
+    $this->actingAs($stockViewer);
+
+    expect(ReconciliationStatus::canView())->toBeTrue();
 });
 
 it('ages quarantined stock using the timeline of its oldest matching quarantine movement', function (): void {
@@ -446,3 +445,28 @@ it('shows quarantined stock aged over thirty days with total quantity', function
 
     expect($old->fresh()?->on_hand_base_quantity)->toBe('4.500000');
 });
+
+it('shows each inventory report summary card only on its own report tab', function (string $tab, array $shown, array $hidden): void {
+    $viewer = User::factory()->admin()->create();
+    $viewer->givePermissionTo([
+        InventoryPermission::ReportView->value,
+        InventoryPermission::StockView->value,
+    ]);
+
+    $page = Livewire::actingAs($viewer)
+        ->withQueryParams(['tab' => $tab])
+        ->test(ManageInventoryReports::class)
+        ->assertSuccessful();
+
+    foreach ($shown as $widget) {
+        $page->assertSeeLivewire($widget);
+    }
+
+    foreach ($hidden as $widget) {
+        $page->assertDontSeeLivewire($widget);
+    }
+})->with([
+    'reconciliation' => ['reconciliation', [ReconciliationStatus::class], [InventoryQuarantineAgeing::class]],
+    'quarantine ageing' => ['quarantine_ageing', [InventoryQuarantineAgeing::class], [ReconciliationStatus::class]],
+    'other reports' => ['stock_levels', [], [ReconciliationStatus::class, InventoryQuarantineAgeing::class]],
+]);

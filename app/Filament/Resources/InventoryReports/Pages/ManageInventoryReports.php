@@ -9,6 +9,8 @@ use App\Enums\InventoryReportType;
 use App\Enums\ReconciliationScope;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventoryReports\Tables\InventoryReportsTable;
+use App\Filament\Resources\InventoryReports\Widgets\InventoryQuarantineAgeing;
+use App\Filament\Resources\InventoryReports\Widgets\ReconciliationStatus;
 use App\Models\User;
 use App\Services\Inventory\InventoryReportFormatter;
 use App\Services\Inventory\InventoryReportService;
@@ -130,6 +132,21 @@ final class ManageInventoryReports extends ManageRecords
         }
 
         return $filters;
+    }
+
+    /**
+     * A summary card above the reports whose table does not answer the
+     * headline question by itself: the latest reconciliation verdict, and
+     * quarantine ageing for stock the lot-grain report cannot see.
+     */
+    #[\Override]
+    protected function getHeaderWidgets(): array
+    {
+        return match ($this->reportType()) {
+            InventoryReportType::Reconciliation => [ReconciliationStatus::class],
+            InventoryReportType::QuarantineAgeing => [InventoryQuarantineAgeing::class],
+            default => [],
+        };
     }
 
     #[\Override]

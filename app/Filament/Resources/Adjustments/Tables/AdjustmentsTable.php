@@ -6,8 +6,10 @@ namespace App\Filament\Resources\Adjustments\Tables;
 
 use App\Enums\AdjustmentStatus;
 use App\Enums\StockCondition;
+use App\Filament\Resources\Adjustments\Actions\AdjustmentActions;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Models\InventoryAdjustment;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -140,11 +142,16 @@ final class AdjustmentsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                AdjustmentActions::confirm()
+                    ->button(),
                 ViewAction::make(),
                 EditAction::make()
                     ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()),
                 DeleteAction::make()
                     ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()),
+                ActionGroup::make([
+                    AdjustmentActions::createCorrection(),
+                ]),
             ]);
     }
 }

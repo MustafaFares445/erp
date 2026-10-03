@@ -601,3 +601,92 @@ it('covers adjustment item lot serial and live quantity helper branches', functi
         ->and($nullableInteger->invoke(null, (string) $lot->getKey()))->toBe($lot->getKey())
         ->and($selectedCondition->invoke($manager, $batchGet))->toBe(StockCondition::Saleable);
 });
+
+it('offers a primary confirm row action only to an authorized checker on a draft', function (): void {
+    $approver = createAdjustmentApprover();
+    $maker = createAdjustmentPreparer();
+    $draft = InventoryAdjustment::factory()->create(['created_by' => $maker->getKey()]);
+    $own = InventoryAdjustment::factory()->create(['created_by' => $approver->getKey()]);
+    $confirmed = InventoryAdjustment::factory()->confirmed()->create();
+
+    Livewire::actingAs($approver)
+        ->test(ListAdjustments::class)
+        ->assertTableActionVisible('confirm', $draft)
+        ->assertTableActionHidden('confirm', $own)
+        ->assertTableActionHidden('confirm', $confirmed);
+
+    Livewire::actingAs($maker)
+        ->test(ListAdjustments::class)
+        ->assertTableActionHidden('confirm', $draft);
+});
+
+it('confirms a draft from the list row action exactly once and posts the ledger once', function (): void {
+    $approver = createAdjustmentApprover();
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $lot = adjustmentLot($variant, $warehouse);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '10.000000',
+    ]);
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->id,
+        'stock_condition' => StockCondition::Saleable,
+        'inventory_lot_id' => $lot->id,
+        'new_quantity' => '5.000',
+    ]);
+
+    $list = Livewire::actingAs($approver)->test(ListAdjustments::class);
+    $list->callTableAction('confirm', $adjustment)->assertNotified();
+
+    $movements = InventoryMovement::query()->count();
+
+    expect($adjustment->fresh()->status->value)->toBe('confirmed')
+        ->and($movements)->toBeGreaterThan(0);
+
+    $list->assertTableActionHidden('confirm', $adjustment);
+
+    expect(InventoryMovement::query()->count())->toBe($movements);
+});
+
+it('does not confirm a draft from the list when the actor is its creator', function (): void {
+    $maker = createAdjustmentApprover();
+    $adjustment = InventoryAdjustment::factory()->create(['created_by' => $maker->getKey()]);
+
+    Livewire::actingAs($maker)
+        ->test(ListAdjustments::class)
+        ->assertTableActionHidden('confirm', $adjustment);
+
+    expect($adjustment->fresh()->status->value)->toBe('draft')
+        ->and(InventoryMovement::query()->count())->toBe(0);
+});
+
+it('offers a secondary create-correction row action on confirmed adjustments only', function (): void {
+    $preparer = createAdjustmentPreparer();
+    $original = InventoryAdjustment::factory()->confirmed()->create();
+    $draft = InventoryAdjustment::factory()->create();
+
+    $list = Livewire::actingAs($preparer)->test(ListAdjustments::class);
+    $list->assertTableActionVisible('createCorrection', $original)
+        ->assertTableActionHidden('createCorrection', $draft)
+        ->callTableAction('createCorrection', $original, ['reason' => 'Documented correction from the list.']);
+
+    $correction = InventoryAdjustment::query()->where('corrects_adjustment_id', $original->getKey())->sole();
+
+    expect($correction->status->value)->toBe('draft')
+        ->and(InventoryMovement::query()->count())->toBe(0);
+});
+
+it('hides the correction row action from a read-only viewer', function (): void {
+    $role = Role::firstOrCreate(['name' => 'adjustment-list-viewer', 'guard_name' => 'web']);
+    $role->givePermissionTo(InventoryPermission::AdjustmentView->value);
+    $viewer = User::factory()->create();
+    $viewer->assignRole($role);
+    $confirmed = InventoryAdjustment::factory()->confirmed()->create();
+
+    Livewire::actingAs($viewer)
+        ->test(ListAdjustments::class)
+        ->assertTableActionHidden('createCorrection', $confirmed);
+});
