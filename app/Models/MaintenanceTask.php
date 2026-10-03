@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\MaintenanceStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\MaintenanceTaskFactory;
 use DomainException;
@@ -31,11 +33,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'completion_notes',
     'status',
 ])]
-final class MaintenanceTask extends Model
+final class MaintenanceTask extends Model implements Favoritable
 {
     /** @use HasFactory<MaintenanceTaskFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use SoftDeletes;
     use TracksBlameable;
 

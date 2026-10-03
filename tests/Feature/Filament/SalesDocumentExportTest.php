@@ -58,7 +58,14 @@ it('exports only the invoices matching the active status filter, not the whole t
 
     $component = Livewire::actingAs($exporter)
         ->test(ListInvoices::class)
-        ->filterTable('status', InvoiceStatus::Sent->value)
+        ->filterTable('queryBuilder', [
+            'rules' => [
+                'status-rule' => [
+                    'type' => 'status',
+                    'data' => ['operator' => 'is', 'settings' => ['values' => [InvoiceStatus::Sent->value]]],
+                ],
+            ],
+        ])
         ->assertOk();
 
     $reflection = new ReflectionMethod($component->instance(), 'exportSalesDocumentsCsv');
@@ -79,7 +86,14 @@ it('records who exported, when, and which filters were active', function (): voi
 
     $component = Livewire::actingAs($exporter)
         ->test(ListInvoices::class)
-        ->filterTable('status', InvoiceStatus::Sent->value)
+        ->filterTable('queryBuilder', [
+            'rules' => [
+                'status-rule' => [
+                    'type' => 'status',
+                    'data' => ['operator' => 'is', 'settings' => ['values' => [InvoiceStatus::Sent->value]]],
+                ],
+            ],
+        ])
         ->assertOk();
 
     $reflection = new ReflectionMethod($component->instance(), 'exportSalesDocumentsCsv');
@@ -88,7 +102,7 @@ it('records who exported, when, and which filters were active', function (): voi
     $log = AuditLog::query()->where('description', 'sales.invoice.exported')->where('causer_id', $exporter->getKey())->first();
 
     expect($log)->not->toBeNull()
-        ->and($log->getProperty('filters'))->toHaveKey('status')
+        ->and($log->getProperty('filters'))->toHaveKey('queryBuilder')
         ->and($log->created_at)->not->toBeNull();
 });
 

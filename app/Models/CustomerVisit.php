@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\VisitStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CustomerVisitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -30,11 +32,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'reviewed_at',
     'status',
 ])]
-final class CustomerVisit extends Model implements HasMedia
+final class CustomerVisit extends Model implements Favoritable, HasMedia
 {
     /** @use HasFactory<CustomerVisitFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Bills\Pages;
 
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Bills\BillResource;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
@@ -12,12 +14,28 @@ use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRecords;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Support\Arr;
 use LogicException;
 
 final class ManageBills extends ManageRecords
 {
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
+
     protected static string $resource = BillResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'accounting.bills';
+    }
+
+    /** @return array<string, Tab> */
+    #[\Override]
+    public function getTabs(): array
+    {
+        return ['all' => Tab::make(__('All'))];
+    }
 
     #[\Override]
     protected function getHeaderActions(): array

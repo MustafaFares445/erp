@@ -22,6 +22,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Support\Contracts\HasLabel;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Carbon;
 use LogicException;
 use Throwable;
@@ -44,8 +46,8 @@ final class LeadActions
                 Select::make('next_status')
                     ->label(__('Advance stage after logging'))
                     ->options([
-                        LeadStatus::Contacted->value => 'Contacted',
-                        LeadStatus::Qualified->value => 'Qualified',
+                        LeadStatus::Contacted->value => LeadStatus::Contacted->label(),
+                        LeadStatus::Qualified->value => LeadStatus::Qualified->label(),
                     ])
                     ->placeholder(__('Keep current stage')),
             ])
@@ -174,7 +176,7 @@ final class LeadActions
     }
 
     /**
-     * @param  list<BackedEnum>  $cases
+     * @param  list<BackedEnum&HasLabel>  $cases
      * @return array<string, string>
      */
     private static function enumOptions(array $cases): array
@@ -184,7 +186,12 @@ final class LeadActions
         foreach ($cases as $case) {
             $value = $case->value;
             $key = is_string($value) ? $value : (string) $value;
-            $options[$key] = __(str($key)->replace('_', ' ')->headline()->toString());
+            $label = $case->getLabel();
+            $options[$key] = match (true) {
+                is_string($label) => $label,
+                $label instanceof Htmlable => $label->toHtml(),
+                default => $key,
+            };
         }
 
         return $options;

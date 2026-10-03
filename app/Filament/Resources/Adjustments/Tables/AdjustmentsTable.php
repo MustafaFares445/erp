@@ -65,7 +65,7 @@ final class AdjustmentsTable
                 TextColumn::make('status')
                     ->label(__('admin.inventory.adjustment.status'))
                     ->badge()
-                    ->formatStateUsing(fn (AdjustmentStatus $state): string => Str::headline($state->value))
+                    ->formatStateUsing(fn (AdjustmentStatus $state): string => $state->label())
                     ->color(fn (AdjustmentStatus $state): string => match ($state) {
                         AdjustmentStatus::Draft => 'warning',
                         AdjustmentStatus::Confirmed => 'success',
@@ -84,7 +84,7 @@ final class AdjustmentsTable
                 SelectFilter::make('status')
                     ->label(__('admin.inventory.adjustment.status'))
                     ->options(collect(AdjustmentStatus::cases())
-                        ->mapWithKeys(fn (AdjustmentStatus $status): array => [$status->value => Str::headline($status->value)])
+                        ->mapWithKeys(fn (AdjustmentStatus $status): array => [$status->value => $status->label()])
                         ->all()),
                 SelectFilter::make('warehouse_id')
                     ->label(__('admin.inventory.stock.warehouse'))
@@ -94,9 +94,9 @@ final class AdjustmentsTable
                 SelectFilter::make('stock_condition')
                     ->label(__('admin.inventory.adjustment.stock_condition'))
                     ->options([
-                        StockCondition::Saleable->value => 'Saleable',
-                        StockCondition::Quarantine->value => 'Quarantine',
-                        StockCondition::Damaged->value => 'Damaged',
+                        StockCondition::Saleable->value => StockCondition::Saleable->label(),
+                        StockCondition::Quarantine->value => StockCondition::Quarantine->label(),
+                        StockCondition::Damaged->value => StockCondition::Damaged->label(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         $condition = $data['value'] ?? null;

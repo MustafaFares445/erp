@@ -247,7 +247,14 @@ it('filters stock by warehouse and searches by variant SKU', function (): void {
 
     Livewire::actingAs($admin)
         ->test(ListStockLevels::class)
-        ->filterTable('warehouse_id', $warehouse->id)
+        ->filterTable('queryBuilder', [
+            'rules' => [
+                'warehouse-rule' => [
+                    'type' => 'warehouse',
+                    'data' => ['operator' => 'isRelatedTo', 'settings' => ['value' => [$warehouse->id]]],
+                ],
+            ],
+        ])
         ->searchTable('SKU-MATCH')
         ->assertCanSeeTableRecords([$matchingStock])
         ->assertCanNotSeeTableRecords([$otherStock]);

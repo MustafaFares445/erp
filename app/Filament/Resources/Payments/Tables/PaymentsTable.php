@@ -5,17 +5,21 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Payments\Tables;
 
 use App\Enums\PaymentStatus;
-use App\Models\CustomerProfile;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Payment;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 final class PaymentsTable
 {
@@ -25,6 +29,7 @@ final class PaymentsTable
             ->defaultSort('payment_date', 'desc')
             ->searchPlaceholder(__('admin.sales.payment_ui.search_placeholder'))
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('payment_number')->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
                 TextColumn::make('source')
@@ -53,27 +58,34 @@ final class PaymentsTable
                     ->sortable(),
                 TextColumn::make('payment_date')->label(__('admin.sales.fields.date'))->date()->sortable(),
             ])
+            ->groups([
+                Group::make('status')
+                    ->label(__('Status'))
+                    ->getTitleFromRecordUsing(static fn (Payment $record): string => $record->status->label()),
+                Group::make('customer.company_name')->label(__('admin.sales.fields.customer')),
+                Group::make('currency')->label(__('admin.sales.fields.currency')),
+                Group::make('payment_date')->label(__('admin.sales.fields.date'))->date(),
+            ])
             ->filters([
-                SelectFilter::make('status')->options(
-                    collect(PaymentStatus::cases())
-                        ->mapWithKeys(fn (PaymentStatus $status): array => [$status->value => $status->label()])
-                        ->all(),
-                ),
-                SelectFilter::make('customer_id')
-                    ->label(__('admin.sales.fields.customer'))
-                    ->searchable()
-                    ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
-                SelectFilter::make('currency')
-                    ->label(__('admin.sales.fields.currency'))
-                    ->options(fn (): array => Payment::query()->distinct()->orderBy('currency')->pluck('currency', 'currency')->all()),
-                Filter::make('payment_date_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Paid from')),
-                        DatePicker::make('until')->label(__('Paid until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('payment_date', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('payment_date', '<=', $date))),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Status'))
+                        ->options(static fn (): array => collect(PaymentStatus::cases())
+                            ->mapWithKeys(static fn (PaymentStatus $status): array => [$status->value => $status->label()])
+                            ->all())
+                        ->multiple(),
+                    TextConstraint::make('payment_number')->label(__('Reference')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('admin.sales.fields.customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    RelationshipConstraint::make('paymentMethod')
+                        ->label(__('Payment method'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('name')->searchable()->multiple()),
+                    NumberConstraint::make('amount')->label(__('admin.sales.payment_ui.received')),
+                    TextConstraint::make('currency')->label(__('admin.sales.fields.currency')),
+                    DateConstraint::make('payment_date')->label(__('admin.sales.fields.date')),
+                    DateConstraint::make('posted_at')->label(__('Posted at')),
+                ]),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -81,10 +93,5 @@ final class PaymentsTable
                 EditAction::make()->visible(fn (Payment $record): bool => ! $record->isPosted()),
             ])
             ->toolbarActions([]);
-    }
-
-    private static function dateFrom(mixed $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
     }
 }

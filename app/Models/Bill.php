@@ -8,6 +8,8 @@ use App\Enums\BillStatus;
 use App\Exceptions\Domain\DuplicateSupplierReference;
 use App\Exceptions\Domain\SupplierOwnershipConflict;
 use App\Exceptions\Domain\SupplierReferenceRequired;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use App\Services\Accounting\AccountingDocumentService;
@@ -55,11 +57,12 @@ use Illuminate\Support\Carbon;
     'expense_account_id', 'bill_date', 'due_date', 'description', 'subtotal', 'tax_total',
     'total_amount', 'amount_paid', 'grand_total', 'paid_amount', 'status', 'notes',
 ])]
-final class Bill extends Model
+final class Bill extends Model implements Favoritable
 {
     /** @use HasFactory<BillFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use SoftDeletes;
     use TracksBlameable;
     use TransitionsDocumentStatus;

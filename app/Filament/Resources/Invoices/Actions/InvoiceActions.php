@@ -71,7 +71,7 @@ final class InvoiceActions
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('warning')
             ->requiresConfirmation()
-            ->modalDescription("Re-checks this customer's posted deposits and applies any that are still unallocated to this invoice.")
+            ->modalDescription(__("Re-checks this customer's posted deposits and applies any that are still unallocated to this invoice."))
             ->visible(fn (Invoice $record): bool => $record->isIssued()
                 && $record->depositApplicationIssues()->whereNull('resolved_at')->exists()
                 && self::can('issue', $record))

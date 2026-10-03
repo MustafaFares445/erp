@@ -96,7 +96,7 @@ final class PricingTierResource extends Resource
                 ->label(__('Discount type'))
                 ->options(fn (Get $get): array => $get('tier_type') === PricingTierType::ProductScoped->value
                     ? self::discountTypeOptions()
-                    : [PricingTierDiscountType::Percentage->value => 'Percentage'])
+                    : [PricingTierDiscountType::Percentage->value => PricingTierDiscountType::Percentage->label()])
                 ->default(PricingTierDiscountType::Percentage->value)
                 ->required()
                 ->live(),
@@ -136,7 +136,7 @@ final class PricingTierResource extends Resource
                     ? $record->discount_value.'%'
                     : '$'.$record->discount_value),
                 TextColumn::make('customer.name')->label(__('Specific customer'))->placeholder(__('—'))->searchable(),
-                TextColumn::make('visibility')->formatStateUsing(fn (mixed $state): string => $state instanceof PricingTierVisibility ? $state->value : '—')->badge(),
+                TextColumn::make('visibility')->formatStateUsing(fn (mixed $state): string => $state instanceof PricingTierVisibility ? $state->label() : '—')->badge(),
                 TextColumn::make('status')->state(fn (PricingTier $record): string => ucfirst($record->status()))->badge(),
                 TextColumn::make('valid_from')->date()->placeholder(__('—'))->sortable(),
                 TextColumn::make('valid_until')->date()->placeholder(__('—'))->sortable(),
@@ -655,22 +655,22 @@ final class PricingTierResource extends Resource
     private static function tierTypeOptions(): array
     {
         return [
-            PricingTierType::General->value => 'General',
-            PricingTierType::CustomerSpecific->value => 'Customer-specific',
-            PricingTierType::ProductScoped->value => 'Product-scoped',
+            PricingTierType::General->value => PricingTierType::General->label(),
+            PricingTierType::CustomerSpecific->value => PricingTierType::CustomerSpecific->label(),
+            PricingTierType::ProductScoped->value => PricingTierType::ProductScoped->label(),
         ];
     }
 
     /** @return array<string, string> */
     private static function discountTypeOptions(): array
     {
-        return [PricingTierDiscountType::Percentage->value => 'Percentage', PricingTierDiscountType::Fixed->value => 'Fixed amount'];
+        return [PricingTierDiscountType::Percentage->value => PricingTierDiscountType::Percentage->label(), PricingTierDiscountType::Fixed->value => PricingTierDiscountType::Fixed->label()];
     }
 
     /** @return array<string, string> */
     private static function visibilityOptions(): array
     {
-        return [PricingTierVisibility::Public->value => 'Public', PricingTierVisibility::Restricted->value => 'Restricted'];
+        return [PricingTierVisibility::Public->value => PricingTierVisibility::Public->label(), PricingTierVisibility::Restricted->value => PricingTierVisibility::Restricted->label()];
     }
 
     /** @return array<int, string> */

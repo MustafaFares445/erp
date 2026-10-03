@@ -66,7 +66,7 @@ final class MaintenanceScheduleForm
                         Select::make('interval_type')
                             ->label(__('Recurrence unit'))
                             ->options(collect(MaintenanceIntervalType::cases())
-                                ->mapWithKeys(static fn (MaintenanceIntervalType $type): array => [$type->value => __(str($type->value)->headline()->toString())]))
+                                ->mapWithKeys(static fn (MaintenanceIntervalType $type): array => [$type->value => $type->label()]))
                             ->required(),
                         TextInput::make('interval_value')
                             ->label(__('Recurrence value'))
@@ -88,7 +88,7 @@ final class MaintenanceScheduleForm
                             ->label(__('Default Service Billing'))
                             ->helperText(__('The generated maintenance request remains unbilled until completion. This value records the intended settlement path.'))
                             ->options(collect(MaintenanceBillingType::cases())
-                                ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => __(str($type->value)->headline()->toString())]))
+                                ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => $type->label()]))
                             ->default(MaintenanceBillingType::Unbilled->value)
                             ->required(),
                     ])

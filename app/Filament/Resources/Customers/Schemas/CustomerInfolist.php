@@ -61,7 +61,7 @@ final class CustomerInfolist
                         TextEntry::make('map_link')
                             ->label(__('Map'))
                             ->state(static fn (CustomerProfile $record): ?string => $record->latitude !== null && $record->longitude !== null
-                                ? 'View on OpenStreetMap'
+                                ? __('View on OpenStreetMap')
                                 : null)
                             ->placeholder(__('Not provided'))
                             ->url(static fn (CustomerProfile $record): ?string => $record->latitude !== null && $record->longitude !== null
@@ -71,9 +71,9 @@ final class CustomerInfolist
                     ->columns(3),
                 Section::make(__('Accountant'))
                     ->schema([
-                        TextEntry::make('accountant_name')->label("Accountant's name")->placeholder(__('Not provided')),
-                        TextEntry::make('accountant_phone')->label("Accountant's phone")->placeholder(__('Not provided')),
-                        TextEntry::make('accountant_email')->label("Accountant's email")->placeholder(__('Not provided')),
+                        TextEntry::make('accountant_name')->label(__("Accountant's name"))->placeholder(__('Not provided')),
+                        TextEntry::make('accountant_phone')->label(__("Accountant's phone"))->placeholder(__('Not provided')),
+                        TextEntry::make('accountant_email')->label(__("Accountant's email"))->placeholder(__('Not provided')),
                     ])
                     ->columns(3),
                 Section::make(__('Contact person'))

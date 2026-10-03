@@ -68,6 +68,7 @@ namespace {
         (new AccountingPermissionSeeder)->run();
         $actor = User::factory()->create();
         $actor->assignRole(DashboardRole::Accountant->value);
+
         $supplier = Supplier::factory()->create();
         $expenseAccount = ChartAccount::factory()->create();
 

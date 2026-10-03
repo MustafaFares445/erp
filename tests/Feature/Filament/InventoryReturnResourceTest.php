@@ -112,12 +112,13 @@ it('registers returns in the inventory operations module section', function (): 
 
     expect($inventory)->toBeArray();
 
-    $returns = collect($inventory['items'])
-        ->first(fn (array $item): bool => $item['link'] === ReturnResource::class);
+    $operations = collect($inventory['items'])->firstWhere('label', 'admin.sections.operations');
+
+    $returns = collect($operations['tabs'])
+        ->first(fn (array $tab): bool => $tab['link'] === ReturnResource::class);
 
     expect($returns)->toBeArray()
-        ->and($returns['label'])->toBe('admin.resources.returns')
-        ->and($returns['section'])->toBe('operations');
+        ->and($returns['label'])->toBe('admin.resources.returns');
 });
 
 it('shows create credit note only when a posted customer return has invoice evidence and sales permission', function (): void {

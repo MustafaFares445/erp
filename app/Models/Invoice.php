@@ -7,7 +7,9 @@ namespace App\Models;
 use App\Enums\InvoiceConfirmationType;
 use App\Enums\InvoiceStatus;
 use App\Enums\WriteOffStatus;
+use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCollaboration;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\InvoiceFactory;
@@ -41,13 +43,14 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $amount_paid
  * @property string $credited_amount
  */
-final class Invoice extends Model implements HasMedia
+final class Invoice extends Model implements Favoritable, HasMedia
 {
     use HasCollaboration;
 
     /** @use HasFactory<InvoiceFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

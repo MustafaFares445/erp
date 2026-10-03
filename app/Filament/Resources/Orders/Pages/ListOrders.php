@@ -6,6 +6,8 @@ namespace App\Filament\Resources\Orders\Pages;
 
 use App\Enums\OrderStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Orders\Widgets\OrdersOverview;
 use App\Models\Order;
@@ -18,8 +20,15 @@ use Illuminate\Database\Eloquent\Model;
 final class ListOrders extends ListRecords
 {
     use ExportsSalesDocuments;
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
 
     protected static string $resource = OrderResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'sales.orders';
+    }
 
     #[\Override]
     protected function getHeaderActions(): array

@@ -37,7 +37,7 @@ final class TicketForm
                         Select::make('type')
                             ->label(__('Type'))
                             ->options(collect(TicketType::cases())
-                                ->mapWithKeys(static fn (TicketType $type): array => [$type->value => __(str($type->value)->headline()->toString())]))
+                                ->mapWithKeys(static fn (TicketType $type): array => [$type->value => $type->label()]))
                             ->live()
                             ->afterStateUpdated(static fn (Set $set, Get $get): mixed => $set('priority', self::proposedPriority($get)->value))
                             ->required(),
@@ -53,7 +53,7 @@ final class TicketForm
                             ->label(__('Priority'))
                             ->helperText(__('Proposed from type and customer impact — support can override.'))
                             ->options(collect(TicketPriority::cases())
-                                ->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => __(str($priority->value)->headline()->toString())]))
+                                ->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => $priority->label()]))
                             ->default(TicketPriority::Normal->value)
                             ->required(),
                         TextInput::make('title')

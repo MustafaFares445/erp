@@ -95,7 +95,7 @@ final class SalesPlanStageBar
             $wrapperStyle,
             $class,
             $clipPath,
-            e($stage->value),
+            e($stage->label()),
         );
     }
 }

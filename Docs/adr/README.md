@@ -30,6 +30,7 @@ They do not replace canonical domain documentation, which states **what the syst
 | 0011 Payables/Expenses/Bills | Accepted | Current; explicitly amends Purchasing boundary. |
 | 0012 Origin Domain Owns Business Facts | Accepted | Current core cross-domain ownership rule. |
 | 0013 Warehouse-Level Stock Identity and Putaway Gate | Accepted | Current; location/bin/putaway features remain gated until Inventory custody is redesigned below warehouse level. |
+| 0014 Standard List-Table Experience | Accepted | Current; global table defaults apply to all lists, and main document lists adopt the view tab bar, favorites and rule filters incrementally. |
 
 ## Reading Rule
 

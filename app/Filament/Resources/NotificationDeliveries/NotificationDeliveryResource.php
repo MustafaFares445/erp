@@ -81,7 +81,7 @@ final class NotificationDeliveryResource extends Resource
         $options = [];
 
         foreach (NotificationDeliveryStatus::cases() as $case) {
-            $options[$case->value] = __(str($case->value)->headline()->toString());
+            $options[$case->value] = $case->label();
         }
 
         return $options;
@@ -93,7 +93,7 @@ final class NotificationDeliveryResource extends Resource
         $options = [];
 
         foreach (NotificationChannel::cases() as $case) {
-            $options[$case->value] = __(str($case->value)->headline()->toString());
+            $options[$case->value] = $case->label();
         }
 
         return $options;

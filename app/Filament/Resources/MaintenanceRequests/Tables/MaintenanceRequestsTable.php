@@ -9,6 +9,8 @@ use App\Enums\MaintenanceStatus;
 use App\Enums\QuotationStatus;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyStatus;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Services\Support\MaintenanceRecordService;
@@ -21,9 +23,15 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
 use LogicException;
@@ -35,6 +43,7 @@ final class MaintenanceRequestsTable
         return $table
             ->defaultSort('updated_at', 'desc')
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('id')->label(__('Job #'))->sortable(),
                 TextColumn::make('customer.company_name')
                     ->label(__('Customer'))
@@ -75,27 +84,57 @@ final class MaintenanceRequestsTable
                     ->label(__('Updated'))
                     ->since()
                     ->sortable(),
+                TextColumn::make('warranty_expiry_date')
+                    ->label(__('Warranty expiry'))
+                    ->date()
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                SelectFilter::make('status')
-                    ->options(collect(MaintenanceStatus::cases())
-                        ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => $status->label()])),
-                SelectFilter::make('warranty_status')
+            ->groups([
+                Group::make('status')
+                    ->label(__('Stage'))
+                    ->getTitleFromRecordUsing(static fn (MaintenanceRecord $record): string => $record->status->label()),
+                Group::make('customer.company_name')->label(__('Customer')),
+                Group::make('warranty_status')
                     ->label(__('Warranty eligibility'))
-                    ->options(collect(WarrantyStatus::cases())
-                        ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => $status->label()])),
-                SelectFilter::make('coverage_decision')
-                    ->label(__('Repair coverage'))
-                    ->options(collect(WarrantyClaimDecision::cases())
-                        ->mapWithKeys(static fn (WarrantyClaimDecision $decision): array => [$decision->value => $decision->label()])),
-                SelectFilter::make('billing_type')
+                    ->getTitleFromRecordUsing(static fn (MaintenanceRecord $record): string => $record->warranty_status->label()),
+                Group::make('billing_type')
                     ->label(__('Commercial status'))
-                    ->options(collect(MaintenanceBillingType::cases())
-                        ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => __(str($type->value)->headline()->toString())])),
+                    ->getTitleFromRecordUsing(static fn (MaintenanceRecord $record): string => $record->billing_type->label()),
+                Group::make('created_at')->label(__('Created at'))->date(),
+            ])
+            ->filters([
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Stage'))
+                        ->options(self::enumOptions(MaintenanceStatus::cases()))
+                        ->multiple(),
+                    SelectConstraint::make('warranty_status')
+                        ->label(__('Warranty eligibility'))
+                        ->options(self::enumOptions(WarrantyStatus::cases()))
+                        ->multiple(),
+                    SelectConstraint::make('coverage_decision')
+                        ->label(__('Repair coverage'))
+                        ->options(self::enumOptions(WarrantyClaimDecision::cases()))
+                        ->multiple(),
+                    SelectConstraint::make('billing_type')
+                        ->label(__('Commercial status'))
+                        ->options(self::enumOptions(MaintenanceBillingType::cases()))
+                        ->multiple(),
+                    NumberConstraint::make('id')->label(__('Job #'))->integer(),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('Customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    TextConstraint::make('serial_number')->label(__('Serial number')),
+                    DateConstraint::make('warranty_expiry_date')->label(__('Warranty expiry')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                    DateConstraint::make('updated_at')->label(__('Updated')),
+                ]),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -152,6 +191,17 @@ final class MaintenanceRequestsTable
                         }),
                 ]),
             ]);
+    }
+
+    /**
+     * @param  list<MaintenanceBillingType|MaintenanceStatus|WarrantyClaimDecision|WarrantyStatus>  $cases
+     * @return array<string, string>
+     */
+    private static function enumOptions(array $cases): array
+    {
+        return collect($cases)
+            ->mapWithKeys(static fn (MaintenanceBillingType|MaintenanceStatus|WarrantyClaimDecision|WarrantyStatus $case): array => [$case->value => $case->label()])
+            ->all();
     }
 
     private static function nextAction(MaintenanceRecord $record): string

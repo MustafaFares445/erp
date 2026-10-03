@@ -198,7 +198,7 @@ final class ViewInventoryOperation extends ViewRecord
                         Select::make('discrepancy_disposition')
                             ->label(__('admin.inventory.operation.fields.discrepancy_disposition'))
                             ->options(collect(TransferDiscrepancyDisposition::cases())
-                                ->mapWithKeys(fn (TransferDiscrepancyDisposition $disposition): array => [$disposition->value => $disposition->name])
+                                ->mapWithKeys(fn (TransferDiscrepancyDisposition $disposition): array => [$disposition->value => $disposition->label()])
                                 ->all()),
                         Textarea::make('discrepancy_reason')
                             ->label(__('admin.inventory.operation.fields.discrepancy_reason'))

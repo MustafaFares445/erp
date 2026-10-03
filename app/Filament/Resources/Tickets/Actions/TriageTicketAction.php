@@ -50,8 +50,8 @@ final class TriageTicketAction
                             ->schema([
                                 Select::make('equipment_source')
                                     ->options([
-                                        TicketEquipmentSource::SoldByUs->value => 'Purchased from us',
-                                        TicketEquipmentSource::External->value => 'External equipment',
+                                        TicketEquipmentSource::SoldByUs->value => TicketEquipmentSource::SoldByUs->label(),
+                                        TicketEquipmentSource::External->value => TicketEquipmentSource::External->label(),
                                     ])
                                     ->required()
                                     ->live(),
@@ -101,9 +101,9 @@ final class TriageTicketAction
                                 Select::make('service_path')
                                     ->label(__('Service path'))
                                     ->options([
-                                        TicketServicePath::RemoteSupport->value => 'Remote support',
-                                        TicketServicePath::Maintenance->value => 'Workshop / maintenance',
-                                        TicketServicePath::OnSiteVisit->value => 'On-site visit',
+                                        TicketServicePath::RemoteSupport->value => TicketServicePath::RemoteSupport->label(),
+                                        TicketServicePath::Maintenance->value => TicketServicePath::Maintenance->label(),
+                                        TicketServicePath::OnSiteVisit->value => TicketServicePath::OnSiteVisit->label(),
                                     ])
                                     ->required(),
                                 Toggle::make('diagnostic_fee_required')
@@ -172,7 +172,7 @@ final class TriageTicketAction
                     '%s — %s — %s%s',
                     $variant instanceof ProductVariant ? $variant->name : 'Product',
                     $unit->serial_number,
-                    __(str($coverage->status->value)->headline()->toString()),
+                    $coverage->status->label(),
                     $expiry !== null ? ' until '.$expiry : '',
                 );
 

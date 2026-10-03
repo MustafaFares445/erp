@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\QuotationStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Services\Sales\Exceptions\QuotationImmutable;
 use Database\Factories\QuotationFactory;
@@ -33,11 +35,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $converted_order_id
  * @property QuotationStatus $status
  */
-final class Quotation extends Model implements HasMedia
+final class Quotation extends Model implements Favoritable, HasMedia
 {
     /** @use HasFactory<QuotationFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

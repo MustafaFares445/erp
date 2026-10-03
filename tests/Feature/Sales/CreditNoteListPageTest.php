@@ -101,7 +101,14 @@ it('filters credit notes by customer', function (): void {
 
     Livewire::actingAs(creditNoteSalesUser())
         ->test(ListCreditNotes::class)
-        ->filterTable('customer_id', $matching->getKey())
+        ->filterTable('queryBuilder', [
+            'rules' => [
+                'customer-rule' => [
+                    'type' => 'customer',
+                    'data' => ['operator' => 'isRelatedTo', 'settings' => ['value' => [$matching->getKey()]]],
+                ],
+            ],
+        ])
         ->assertCanSeeTableRecords([$wanted])
         ->assertCanNotSeeTableRecords([$unwanted]);
 });

@@ -10,20 +10,27 @@ use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Services\Purchasing\PurchaseOrderWorkflowService;
 use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use WeakMap;
@@ -36,8 +43,9 @@ final class PurchaseOrdersTable
             ->searchPlaceholder(__('PO, supplier, product, SKU…'))
             ->defaultSort('ordered_at', 'desc')
             ->columns([
+                FavoriteColumn::make(),
                 ImageColumn::make('supplier.logo_path')
-                    ->label('')
+                    ->label(__('Logo'))
                     ->disk('public')
                     ->circular()
                     ->imageHeight(38),
@@ -94,15 +102,21 @@ final class PurchaseOrdersTable
                     ->url(fn (PurchaseOrder $record): string => PurchaseOrderResource::getUrl('view', ['record' => $record])),
             ])
             ->filters([
-                SelectFilter::make('supplier_id')
-                    ->label(__('Supplier'))
-                    ->relationship('supplier', 'name')
-                    ->searchable()
-                    ->preload(),
-                SelectFilter::make('status')
-                    ->label(__('Commercial status'))
-                    ->multiple()
-                    ->options(static fn (): array => self::statusOptions()),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Commercial status'))
+                        ->options(static fn (): array => self::statusOptions())
+                        ->multiple(),
+                    TextConstraint::make('purchase_order_number')->label(__('Reference')),
+                    RelationshipConstraint::make('supplier')
+                        ->label(__('Supplier'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('name')->searchable()->multiple()),
+                    NumberConstraint::make('total_amount')->label(__('Total')),
+                    TextConstraint::make('currency_code')->label(__('Currency')),
+                    DateConstraint::make('ordered_at')->label(__('Ordered at')),
+                    DateConstraint::make('expected_at')->label(__('Expected')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
                 Filter::make('ready_to_send')
                     ->label(__('Ready to send'))
                     ->query(static fn (Builder $query): Builder => $query
@@ -127,19 +141,15 @@ final class PurchaseOrdersTable
                     ->query(static fn (Builder $query): Builder => $query
                         ->whereIn('status', [PurchaseOrderStatus::Received->value, PurchaseOrderStatus::PartiallyReceived->value])
                         ->whereDoesntHave('bills')),
-                SelectFilter::make('currency_code')
-                    ->label(__('Currency'))
-                    ->options(fn (): array => self::currencyOptions()),
-                Filter::make('ordered_between')
-                    ->label(__('Dates'))
-                    ->schema([
-                        DatePicker::make('from')->label(__('Ordered from')),
-                        DatePicker::make('until')->label(__('Ordered until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('ordered_at', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('ordered_at', '<=', $date))),
                 TrashedFilter::make(),
+            ])
+            ->groups([
+                Group::make('status')
+                    ->label(__('Commercial status'))
+                    ->getTitleFromRecordUsing(static fn (PurchaseOrder $record): string => $record->status->label()),
+                Group::make('supplier.name')->label(__('Supplier')),
+                Group::make('currency_code')->label(__('Currency')),
+                Group::make('ordered_at')->label(__('Ordered at'))->date(),
             ])
             ->recordActions([
                 Action::make('continue')
@@ -266,11 +276,6 @@ final class PurchaseOrdersTable
         return PurchaseOrderResource::getUrl('view', ['record' => $record]);
     }
 
-    private static function dateFrom(mixed $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
-    }
-
     /** @return array<string, string> */
     private static function statusOptions(): array
     {
@@ -278,20 +283,6 @@ final class PurchaseOrdersTable
 
         foreach (PurchaseOrderStatus::cases() as $status) {
             $options[$status->value] = $status->label();
-        }
-
-        return $options;
-    }
-
-    /** @return array<string, string> */
-    private static function currencyOptions(): array
-    {
-        $options = [];
-
-        foreach (PurchaseOrder::query()->distinct()->orderBy('currency_code')->pluck('currency_code') as $code) {
-            if (is_string($code)) {
-                $options[$code] = $code;
-            }
         }
 
         return $options;

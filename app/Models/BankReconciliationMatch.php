@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 final class BankReconciliationMatch extends Model
 {
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return ['amount' => 'decimal:2', 'matched_at' => 'datetime'];
     }

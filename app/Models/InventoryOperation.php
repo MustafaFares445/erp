@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Enums\DeliveryType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Services\Documents\StoresDocumentUploads;
 use App\Services\Inventory\InventoryOperationService;
@@ -43,11 +45,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'customer_id', 'customer_delivery_address_id', 'source_document_type', 'source_document_id', 'supplier_reference', 'scheduled_at',
     'responsible_id', 'delivery_type', 'source_address_snapshot', 'destination_address_snapshot', 'notes',
 ])]
-final class InventoryOperation extends Model implements StoresDocumentUploads
+final class InventoryOperation extends Model implements Favoritable, StoresDocumentUploads
 {
     /** @use HasFactory<InventoryOperationFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

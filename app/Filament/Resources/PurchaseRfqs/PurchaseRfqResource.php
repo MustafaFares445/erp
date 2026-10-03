@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseRfqs;
 
 use App\Enums\PurchasePermission;
-use App\Enums\PurchaseRfqStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseRfqs\Pages\CreatePurchaseRfq;
 use App\Filament\Resources\PurchaseRfqs\Pages\ListPurchaseRfqs;
 use App\Filament\Resources\PurchaseRfqs\Pages\ViewPurchaseRfq;
+use App\Filament\Resources\PurchaseRfqs\Tables\PurchaseRfqsTable;
 use App\Filament\Support\CurrencySelect;
 use App\Models\ProductVariant;
 use App\Models\PurchaseRfq;
@@ -27,8 +27,6 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -48,6 +46,18 @@ final class PurchaseRfqResource extends Resource
 
     #[\Override]
     public static function getNavigationLabel(): string
+    {
+        return __('Requests for quotation');
+    }
+
+    #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('Request for quotation');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
     {
         return __('Requests for quotation');
     }
@@ -151,19 +161,7 @@ final class PurchaseRfqResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
-            ->defaultSort('id', 'desc')
-            ->columns([
-                TextColumn::make('rfq_number')->label(__('RFQ'))->searchable()->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('currency_code')->label(__('Currency')),
-                TextColumn::make('needed_by')->date()->placeholder('—')->sortable(),
-                TextColumn::make('suppliers_count')->counts('suppliers')->label(__('Suppliers'))->badge(),
-                TextColumn::make('created_at')->dateTime()->sortable()->toggleable(),
-            ])
-            ->filters([
-                SelectFilter::make('status')->options(collect(PurchaseRfqStatus::cases())->mapWithKeys(fn (PurchaseRfqStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
-            ]);
+        return PurchaseRfqsTable::configure($table);
     }
 
     /** @return array<string> */

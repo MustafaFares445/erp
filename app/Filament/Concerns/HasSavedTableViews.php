@@ -10,7 +10,6 @@ use App\Models\SavedTableView;
 use App\Models\TableViewPreference;
 use App\Models\User;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -29,22 +28,6 @@ trait HasSavedTableViews
     public bool $savedTableViewInitialized = false;
 
     abstract protected function savedTableViewPageKey(): string;
-
-    /** @return list<Action|ActionGroup> */
-    protected function savedTableViewActions(): array
-    {
-        return [
-            ActionGroup::make([
-                $this->loadSavedTableViewAction(),
-                $this->saveSavedTableViewAction(),
-                $this->replaceSavedTableViewAction(),
-                $this->setDefaultSavedTableViewAction(),
-                $this->deleteSavedTableViewAction(),
-            ])
-                ->label(__('Views'))
-                ->icon('heroicon-o-bookmark-square'),
-        ];
-    }
 
     public function bootedInteractsWithTable(): void
     {
@@ -288,8 +271,13 @@ trait HasSavedTableViews
             ? Arr::only($filterState, $allowedFilterKeys)
             : [];
 
-        $this->tableFilters = $filters;
+        // Filling the form first lets filters missing from older saved views
+        // (e.g. a query builder added later) start from their defaults.
         $this->getTableFiltersForm()->fill($filters);
+
+        if ($this->getTable()->hasDeferredFilters()) {
+            $this->tableFilters = $this->tableDeferredFilters;
+        }
 
         $this->tableGrouping = is_string($state['tableGrouping'] ?? null)
             ? $state['tableGrouping']
@@ -317,7 +305,6 @@ trait HasSavedTableViews
     }
 
     /** @param array<array-key, mixed> $data */
-    /** @param array<array-key, mixed> $data */
     private function savedTableViewId(array $data): int
     {
         /** @var int|numeric-string $viewId */
@@ -326,7 +313,6 @@ trait HasSavedTableViews
         return (int) $viewId;
     }
 
-    /** @param array<array-key, mixed> $data */
     /** @param array<array-key, mixed> $data */
     private function savedTableViewName(array $data): string
     {

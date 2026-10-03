@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Employees\Pages;
 
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Models\EmployeeProfile;
 use Filament\Actions\CreateAction;
@@ -13,6 +15,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ListEmployees extends ListRecords
 {
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
+
     protected static string $resource = EmployeeResource::class;
 
     #[\Override]
@@ -23,6 +28,11 @@ final class ListEmployees extends ListRecords
         ];
     }
 
+    protected function savedTableViewPageKey(): string
+    {
+        return 'employees.employees';
+    }
+
     /**
      * @return array<string, Tab>
      */
@@ -30,7 +40,7 @@ final class ListEmployees extends ListRecords
     public function getTabs(): array
     {
         return [
-            'default' => Tab::make(__('Default')),
+            'all' => Tab::make(__('Default')),
             'active' => Tab::make(__('Active'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('is_active', true)),
             'inactive' => Tab::make(__('Inactive'))

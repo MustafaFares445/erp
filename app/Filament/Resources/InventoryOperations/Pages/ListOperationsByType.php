@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryOperations\Pages;
 
 use App\Enums\OperationType;
-use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryOperations\Tables\InventoryOperationsTable;
 use App\Models\InventoryOperation;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
 
 abstract class ListOperationsByType extends ListRecords
 {
-    use HasSavedTableViews;
+    use HasTableViewTabs;
     use PersistsTablePresentation;
 
     protected static string $resource = InventoryOperationResource::class;
@@ -39,10 +41,8 @@ abstract class ListOperationsByType extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
-        $actions = $this->savedTableViewActions();
-
         if (static::operationType() !== OperationType::InternalTransfer) {
-            return $actions;
+            return [];
         }
 
         return [
@@ -52,8 +52,14 @@ abstract class ListOperationsByType extends ListRecords
                 ->url(InventoryOperationResource::getUrl('create', [
                     'operation_type' => OperationType::InternalTransfer->value,
                 ])),
-            ...$actions,
         ];
+    }
+
+    /** @return array<string, Tab> */
+    #[\Override]
+    public function getTabs(): array
+    {
+        return InventoryOperationsTable::presetTabs();
     }
 
     protected function savedTableViewPageKey(): string

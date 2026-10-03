@@ -6,6 +6,7 @@ namespace App\Filament\Resources\InventoryCounts\Pages;
 
 use App\Enums\InventoryPermission;
 use App\Filament\Concerns\InteractsWithInventoryServices;
+use App\Filament\Pages\BarcodeWorkbench;
 use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Models\InventoryCount;
 use App\Models\InventoryCountLine;
@@ -17,6 +18,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LogicException;
@@ -32,6 +34,12 @@ final class ViewInventoryCount extends ViewRecord
     public function getHeaderActions(): array
     {
         return [
+            Action::make('barcodeWorkbench')
+                ->label(__('admin.resources.barcode_workbench'))
+                ->icon(Heroicon::OutlinedQrCode)
+                ->color('gray')
+                ->visible(fn (InventoryCount $record): bool => $record->isCounting() && BarcodeWorkbench::canAccess())
+                ->url(BarcodeWorkbench::getUrl()),
             Action::make('download_count_sheet')
                 ->label(__('admin.inventory.count_ui.actions.download_sheet'))
                 ->color('gray')

@@ -42,10 +42,7 @@ final class MonthlyPlansTable
             ])
             ->filters([
                 SelectFilter::make('status')->options(
-                    static fn (): array => array_combine(
-                        array_map(static fn (SalesPlanStatus $status): string => $status->value, SalesPlanStatus::cases()),
-                        array_map(static fn (SalesPlanStatus $status): string => $status->value, SalesPlanStatus::cases()),
-                    ),
+                    static fn (): array => collect(SalesPlanStatus::cases())->mapWithKeys(static fn (SalesPlanStatus $status): array => [$status->value => $status->label()])->all(),
                 ),
                 TrashedFilter::make(),
             ])

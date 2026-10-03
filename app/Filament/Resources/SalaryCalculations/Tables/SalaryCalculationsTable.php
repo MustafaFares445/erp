@@ -31,7 +31,7 @@ final class SalaryCalculationsTable
                 TextColumn::make('status')->badge()->sortable(),
             ])
             ->filters([
-                SelectFilter::make('status')->options(array_column(SalaryCalculationStatus::cases(), 'value', 'value')),
+                SelectFilter::make('status')->options(collect(SalaryCalculationStatus::cases())->mapWithKeys(static fn (SalaryCalculationStatus $status): array => [$status->value => $status->label()])->all()),
             ])
             ->recordActions([
                 ViewAction::make(),

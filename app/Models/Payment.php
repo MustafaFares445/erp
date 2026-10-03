@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PaymentStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
@@ -33,11 +35,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $amount
  * @property Carbon $payment_date
  */
-final class Payment extends Model implements HasMedia
+final class Payment extends Model implements Favoritable, HasMedia
 {
     /** @use HasFactory<PaymentFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

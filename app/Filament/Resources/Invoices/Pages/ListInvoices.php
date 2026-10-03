@@ -6,7 +6,7 @@ namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Enums\InvoiceStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
-use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Invoices\Widgets\InvoicesOverview;
@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 final class ListInvoices extends ListRecords
 {
     use ExportsSalesDocuments;
-    use HasSavedTableViews;
+    use HasTableViewTabs;
     use PersistsTablePresentation;
 
     protected static string $resource = InvoiceResource::class;
@@ -27,7 +27,7 @@ final class ListInvoices extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [$this->salesDocumentExportAction(), ...$this->savedTableViewActions()];
+        return [$this->salesDocumentExportAction()];
     }
 
     #[\Override]

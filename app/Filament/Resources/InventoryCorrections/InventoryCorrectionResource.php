@@ -158,7 +158,7 @@ final class InventoryCorrectionResource extends Resource
                     ->label(__('admin.inventory.correction.status'))
                     ->options(collect(InventoryCorrectionStatus::cases())
                         ->mapWithKeys(fn (InventoryCorrectionStatus $status): array => [
-                            $status->value => $status->name,
+                            $status->value => $status->label(),
                         ])
                         ->all()),
             ])

@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStatus;
 use App\Enums\CreditNoteStockConsequence;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CreditNoteFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -31,11 +33,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $invoice_id
  * @property CreditNoteStatus $status
  */
-final class CreditNote extends Model implements HasMedia
+final class CreditNote extends Model implements Favoritable, HasMedia
 {
     /** @use HasFactory<CreditNoteFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

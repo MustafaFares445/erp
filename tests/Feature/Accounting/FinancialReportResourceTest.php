@@ -61,9 +61,11 @@ it('offers the Reviewer no action that changes a record (FR-004)', function (): 
     expect(FinancialReportResource::canCreate())->toBeFalse();
 });
 
-it('declares AccountingPermission::values() with exactly the report.view entry added (FR-001)', function (): void {
-    expect(AccountingPermission::values())->toHaveCount(30)
-        ->and(AccountingPermission::ReportView->value)->toBe('accounting.report.view');
+it('keeps the accounting permission catalogue complete after bank reconciliation was added', function (): void {
+    expect(AccountingPermission::values())->toHaveCount(32)
+        ->and(AccountingPermission::ReportView->value)->toBe('accounting.report.view')
+        ->and(AccountingPermission::BankReconciliationView->value)->toBe('accounting.bank-reconciliation.view')
+        ->and(AccountingPermission::BankReconciliationManage->value)->toBe('accounting.bank-reconciliation.manage');
 });
 
 it('seeds accounting.report.view idempotently with no duplicate rows (FR-006, FR-007)', function (): void {

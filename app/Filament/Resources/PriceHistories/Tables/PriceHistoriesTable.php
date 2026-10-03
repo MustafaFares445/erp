@@ -58,9 +58,9 @@ final class PriceHistoriesTable
                     ->preload(),
                 SelectFilter::make('status')
                     ->options([
-                        PriceChangeRequestStatus::Pending->value => 'Pending',
-                        PriceChangeRequestStatus::Approved->value => 'Approved',
-                        PriceChangeRequestStatus::Rejected->value => 'Rejected',
+                        PriceChangeRequestStatus::Pending->value => PriceChangeRequestStatus::Pending->label(),
+                        PriceChangeRequestStatus::Approved->value => PriceChangeRequestStatus::Approved->label(),
+                        PriceChangeRequestStatus::Rejected->value => PriceChangeRequestStatus::Rejected->label(),
                     ]),
             ])
             ->recordActions([

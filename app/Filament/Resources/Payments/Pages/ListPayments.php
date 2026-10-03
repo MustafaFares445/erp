@@ -6,6 +6,8 @@ namespace App\Filament\Resources\Payments\Pages;
 
 use App\Enums\PaymentStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\Payments\Widgets\PaymentsOverview;
 use App\Models\Payment;
@@ -18,8 +20,15 @@ use Illuminate\Database\Eloquent\Model;
 final class ListPayments extends ListRecords
 {
     use ExportsSalesDocuments;
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
 
     protected static string $resource = PaymentResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'sales.payments';
+    }
 
     #[\Override]
     protected function getHeaderActions(): array

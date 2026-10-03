@@ -10,15 +10,13 @@ use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ManageExpenses;
 use App\Filament\Resources\Expenses\Pages\ViewExpense;
 use App\Filament\Resources\Expenses\Schemas\ExpenseInfolist;
+use App\Filament\Resources\Expenses\Tables\ExpensesTable;
 use App\Models\Expense;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -26,7 +24,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use LogicException;
@@ -106,30 +103,7 @@ final class ExpenseResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
-            ->defaultSort('expense_date', 'desc')
-            ->columns([
-                TextColumn::make('expense_number')->searchable()->sortable(),
-                TextColumn::make('merchant_name')->label(__('Merchant'))->searchable(),
-                TextColumn::make('supplier.name')->searchable(),
-                TextColumn::make('description')->searchable()->limit(40),
-                TextColumn::make('total_amount')->money()->sortable(),
-                TextColumn::make('amount_paid')->money()->sortable(),
-                TextColumn::make('payment_date')->date()->sortable()->toggleable(),
-                TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn (ExpenseStatus $state): string => $state->label())
-                    ->color(fn (ExpenseStatus $state): string => $state->color())
-                    ->sortable(),
-            ])
-            ->recordActions([
-                ViewAction::make(),
-                self::approveAction(),
-                self::payAction(),
-                self::cancelAction(),
-                EditAction::make(),
-                DeleteAction::make(),
-            ]);
+        return ExpensesTable::configure($table);
     }
 
     #[\Override]
@@ -142,7 +116,7 @@ final class ExpenseResource extends Resource
         ];
     }
 
-    private static function approveAction(): Action
+    public static function approveAction(): Action
     {
         return Action::make('approve')
             ->visible(fn (Expense $record): bool => $record->isDraft())
@@ -159,7 +133,7 @@ final class ExpenseResource extends Resource
             });
     }
 
-    private static function payAction(): Action
+    public static function payAction(): Action
     {
         return Action::make('pay')
             ->visible(fn (Expense $record): bool => $record->status === ExpenseStatus::Approved)
@@ -186,7 +160,7 @@ final class ExpenseResource extends Resource
             });
     }
 
-    private static function cancelAction(): Action
+    public static function cancelAction(): Action
     {
         return Action::make('cancel')
             ->label(__('Cancel draft expense'))

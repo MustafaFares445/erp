@@ -37,7 +37,7 @@ final class CampaignRecipientsRelationManager extends RelationManager
                 ->label(__('Response'))
                 ->visible(fn (CampaignRecipient $record): bool => auth()->user()?->can('update', $record->campaign) ?? false)
                 ->schema([
-                    Select::make('type')->options(collect(CampaignResponseType::cases())->mapWithKeys(fn (CampaignResponseType $type): array => [$type->value => __(str($type->value)->headline()->toString())])->all())->required(),
+                    Select::make('type')->options(collect(CampaignResponseType::cases())->mapWithKeys(fn (CampaignResponseType $type): array => [$type->value => $type->label()])->all())->required(),
                     Textarea::make('notes')->rows(3),
                 ])
                 ->action(function (CampaignRecipient $record, array $data): void {

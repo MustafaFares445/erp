@@ -18,7 +18,7 @@ trait RequestsInventoryExports
     private function inventoryExportAction(InventoryExportType $type): Action
     {
         return Action::make('request_'.$type->value)
-            ->label('Export '.$type->primaryReport()->label())
+            ->label(__('Export :report', ['report' => $type->primaryReport()->label()]))
             ->form(InventoryExportRequestSchema::make($type))
             ->visible(fn (): bool => $this->canRequestInventoryExport($type))
             ->action(

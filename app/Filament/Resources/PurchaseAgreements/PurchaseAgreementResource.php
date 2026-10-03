@@ -11,6 +11,8 @@ use App\Filament\Resources\PurchaseAgreements\Pages\CreatePurchaseAgreement;
 use App\Filament\Resources\PurchaseAgreements\Pages\ListPurchaseAgreements;
 use App\Filament\Resources\PurchaseAgreements\Pages\ViewPurchaseAgreement;
 use App\Filament\Support\CurrencySelect;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\ProductVariant;
 use App\Models\PurchaseAgreement;
 use App\Models\Supplier;
@@ -23,11 +25,16 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -125,14 +132,32 @@ final class PurchaseAgreementResource extends Resource
     public static function table(Table $table): Table
     {
         return $table->defaultSort('id', 'desc')->columns([
+            FavoriteColumn::make(),
             TextColumn::make('agreement_number')->label(__('Agreement'))->searchable()->sortable(),
             TextColumn::make('supplier.name')->label(__('Supplier'))->searchable()->sortable(),
             TextColumn::make('status')->badge()->sortable(),
             TextColumn::make('currency_code')->label(__('Currency')),
             TextColumn::make('starts_on')->date()->sortable(),
             TextColumn::make('ends_on')->date()->placeholder('—')->sortable(),
+        ])->groups([
+            Group::make('status')->label(__('Status')),
+            Group::make('supplier.name')->label(__('Supplier')),
+            Group::make('currency_code')->label(__('Currency')),
+            Group::make('starts_on')->label(__('Starts on'))->date(),
         ])->filters([
-            SelectFilter::make('status')->options(collect(PurchaseAgreementStatus::cases())->mapWithKeys(fn (PurchaseAgreementStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
+            TableQueryBuilder::make([
+                SelectConstraint::make('status')
+                    ->label(__('Status'))
+                    ->options(PurchaseAgreementStatus::class)
+                    ->multiple(),
+                TextConstraint::make('agreement_number')->label(__('Agreement')),
+                RelationshipConstraint::make('supplier')
+                    ->label(__('Supplier'))
+                    ->selectable(IsRelatedToOperator::make()->titleAttribute('name')->searchable()->multiple()),
+                TextConstraint::make('currency_code')->label(__('Currency')),
+                DateConstraint::make('starts_on')->label(__('Starts on')),
+                DateConstraint::make('ends_on')->label(__('Ends on')),
+            ]),
         ]);
     }
 

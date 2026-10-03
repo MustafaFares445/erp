@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCustomFields;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\SupplierFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -14,13 +16,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['name', 'code', 'email', 'phone', 'address', 'logo_path', 'is_active', 'requires_confirmation'])]
-final class Supplier extends Model
+final class Supplier extends Model implements Favoritable
 {
     use HasCustomFields;
 
     /** @use HasFactory<SupplierFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use SoftDeletes;
     use TracksBlameable;
 

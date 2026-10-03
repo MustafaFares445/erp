@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PurchaseAgreementStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['supplier_id', 'currency_code', 'starts_on', 'ends_on', 'notes'])]
-final class PurchaseAgreement extends Model
+final class PurchaseAgreement extends Model implements Favoritable
 {
+    use HasFavorites;
+
     #[\Override]
     public function casts(): array
     {

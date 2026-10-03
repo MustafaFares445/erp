@@ -20,7 +20,7 @@ final class CampaignForm
             Select::make('channel')
                 ->options(collect(CampaignChannel::cases())
                     ->filter(fn (CampaignChannel $channel): bool => $channel->supportsDelivery())
-                    ->mapWithKeys(fn (CampaignChannel $channel): array => [$channel->value => __(str($channel->value)->headline()->toString())])
+                    ->mapWithKeys(fn (CampaignChannel $channel): array => [$channel->value => $channel->label()])
                     ->all())
                 ->helperText(__('Only channels with a configured delivery provider can be sent from the CRM.'))
                 ->live()

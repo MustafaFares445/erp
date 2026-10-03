@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Bills;
 
-use App\Enums\BillStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Bills\Pages\EditBill;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Pages\ViewBill;
 use App\Filament\Resources\Bills\Schemas\BillInfolist;
+use App\Filament\Resources\Bills\Tables\BillsTable;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -17,9 +17,6 @@ use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -28,7 +25,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rules\Unique;
@@ -127,39 +123,7 @@ final class BillResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
-            ->defaultSort('bill_date', 'desc')
-            ->columns([
-                TextColumn::make('bill_number')->searchable()->sortable(),
-                TextColumn::make('resolvedSupplier.name')->label(__('Supplier'))->searchable()->sortable(),
-                TextColumn::make('supplier_reference')
-                    ->label(__('Supplier reference'))
-                    ->searchable(),
-                TextColumn::make('supplier_reference_source')
-                    ->label(__('Reference evidence'))
-                    ->state(fn (Bill $record): string => $record->supplier_reference_backfilled_at === null
-                        ? 'Supplier provided'
-                        : 'Backfilled reference')
-                    ->badge()
-                    ->color(fn (string $state): string => $state === 'Backfilled reference' ? 'warning' : 'success'),
-                TextColumn::make('purchaseOrder.purchase_order_number')->label(__('Purchase order'))->searchable(),
-                TextColumn::make('description')->searchable()->limit(40),
-                TextColumn::make('due_date')->date()->sortable(),
-                TextColumn::make('total_amount')->money()->sortable(),
-                TextColumn::make('amount_paid')->money()->sortable(),
-                TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn (BillStatus $state): string => $state->label())
-                    ->color(fn (BillStatus $state): string => $state->color())
-                    ->sortable(),
-            ])
-            ->recordActions([
-                ViewAction::make(),
-                self::approveAction(),
-                self::cancelAction(),
-                EditAction::make(),
-                DeleteAction::make(),
-            ]);
+        return BillsTable::configure($table);
     }
 
     #[\Override]

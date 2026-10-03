@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\ServiceRecords\Pages;
 
 use App\Enums\MaintenanceStatus;
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -12,7 +14,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ListServiceRecords extends ListRecords
 {
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
+
     protected static string $resource = ServiceRecordResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'support.service-records';
+    }
 
     /** @return array<string, Tab> */
     #[\Override]

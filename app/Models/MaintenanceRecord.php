@@ -10,8 +10,10 @@ use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyFailureCategory;
 use App\Enums\WarrantyStatus;
+use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\HasCustomFields;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\MaintenanceRecordFactory;
 use DomainException;
@@ -59,7 +61,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'invoice_id',
     'billed_at',
 ])]
-final class MaintenanceRecord extends Model
+final class MaintenanceRecord extends Model implements Favoritable
 {
     use HasCollaboration;
     use HasCustomFields;
@@ -67,6 +69,7 @@ final class MaintenanceRecord extends Model
     /** @use HasFactory<MaintenanceRecordFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use SoftDeletes;
     use TracksBlameable;
 

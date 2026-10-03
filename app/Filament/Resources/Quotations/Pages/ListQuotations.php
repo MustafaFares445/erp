@@ -6,6 +6,8 @@ namespace App\Filament\Resources\Quotations\Pages;
 
 use App\Enums\QuotationStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Quotations\Widgets\QuotationsOverview;
 use App\Models\Quotation;
@@ -18,8 +20,15 @@ use Illuminate\Database\Eloquent\Model;
 final class ListQuotations extends ListRecords
 {
     use ExportsSalesDocuments;
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
 
     protected static string $resource = QuotationResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'sales.quotations';
+    }
 
     #[\Override]
     protected function getHeaderActions(): array

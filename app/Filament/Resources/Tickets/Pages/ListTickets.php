@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Tickets\Pages;
 
 use App\Enums\TicketStatus;
-use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\Ticket;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 
 final class ListTickets extends ListRecords
 {
-    use HasSavedTableViews;
+    use HasTableViewTabs;
     use PersistsTablePresentation;
 
     protected static string $resource = TicketResource::class;
@@ -24,10 +25,7 @@ final class ListTickets extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
-        return [
-            CreateAction::make(),
-            ...$this->savedTableViewActions(),
-        ];
+        return [CreateAction::make()];
     }
 
     protected function savedTableViewPageKey(): string
@@ -40,7 +38,13 @@ final class ListTickets extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make(__('All')),
+            'all' => Tab::make(__('All'))->icon(Heroicon::OutlinedQueueList),
+            'mine' => Tab::make(__('My tickets'))
+                ->icon(Heroicon::OutlinedUser)
+                ->modifyQueryUsing(static fn (Builder $query): Builder => $query->whereHas(
+                    'assignedEmployee',
+                    static fn (Builder $employee): Builder => $employee->where('user_id', auth()->id()),
+                )),
             'open' => Tab::make(__('Open'))
                 ->badge(Ticket::query()->whereNotIn('status', [
                     TicketStatus::Resolved->value,

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ExpenseStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\ExpenseFactory;
@@ -42,11 +44,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'expense_account_id', 'expense_date', 'due_date', 'merchant_name', 'description',
     'subtotal', 'tax_total', 'total_amount', 'amount_paid', 'amount', 'tax_amount', 'status', 'notes',
 ])]
-final class Expense extends Model implements HasMedia
+final class Expense extends Model implements Favoritable, HasMedia
 {
     /** @use HasFactory<ExpenseFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

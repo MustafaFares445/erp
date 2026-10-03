@@ -31,8 +31,8 @@ final class CampaignActions
             ->schema([
                 Checkbox::make('include_leads')->default(true),
                 Checkbox::make('include_customers')->default(true),
-                Select::make('lead_statuses')->multiple()->options(collect(LeadStatus::cases())->filter(fn (LeadStatus $status): bool => ! $status->isTerminal())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])->all()),
-                Select::make('lead_sources')->multiple()->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => __(str($source->value)->replace('_', ' ')->headline()->toString())])->all()),
+                Select::make('lead_statuses')->multiple()->options(collect(LeadStatus::cases())->filter(fn (LeadStatus $status): bool => ! $status->isTerminal())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => $status->label()])->all()),
+                Select::make('lead_sources')->multiple()->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => $source->label()])->all()),
             ])
             ->action(function (Campaign $record, array $data): void {
                 try {

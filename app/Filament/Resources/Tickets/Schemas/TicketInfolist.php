@@ -231,7 +231,7 @@ final class TicketInfolist
             return 'Not required';
         }
 
-        return sprintf('%s — %s %s', __(str($link->status->value)->headline()->toString()), $link->amount, $link->currency);
+        return sprintf('%s — %s %s', $link->status->label(), $link->amount, $link->currency);
     }
 
     private static function providerTransaction(Ticket $ticket): ?PaymentTransaction

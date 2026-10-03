@@ -18,7 +18,6 @@ use App\Filament\Resources\InventoryOperations\Schemas\InventoryOperationInfolis
 use App\Filament\Resources\InventoryOperations\Tables\InventoryOperationsTable;
 use App\Models\InventoryOperation;
 use BackedEnum;
-use Filament\Navigation\NavigationItem;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -78,17 +77,6 @@ final class InventoryOperationResource extends Resource
         }
 
         return false;
-    }
-
-    /** @return array<NavigationItem> */
-    #[\Override]
-    public static function getNavigationItems(): array
-    {
-        return [
-            self::navigationItem('receipts', 'admin.resources.inventory_receipts_menu', Heroicon::OutlinedInboxArrowDown, OperationType::Receipt),
-            self::navigationItem('deliveries', 'admin.resources.inventory_deliveries', Heroicon::OutlinedArrowUpTray, OperationType::Delivery),
-            self::navigationItem('transfers', 'admin.resources.internal_transfers', Heroicon::OutlinedArrowsRightLeft, OperationType::InternalTransfer),
-        ];
     }
 
     /** @return array<string> */
@@ -187,6 +175,48 @@ final class InventoryOperationResource extends Resource
             ]);
     }
 
+    /**
+     * The workspace tab (a page key of this resource) the current request belongs to, so the Inventory
+     * sidebar can tell a Receipt record from a Delivery or Transfer record on the same resource.
+     */
+    public static function workspacePage(): ?string
+    {
+        return match (self::currentOperationType() ?? self::operationTypeOfRoutedRecord()) {
+            OperationType::Receipt => 'receipts',
+            OperationType::Delivery => 'deliveries',
+            OperationType::InternalTransfer => 'transfers',
+            null => null,
+        };
+    }
+
+    /**
+     * The sidebar is built before the view/edit page binds its record, so the route still carries
+     * the raw key; one narrow lookup tells which workspace the record's type belongs to.
+     */
+    private static function operationTypeOfRoutedRecord(): ?OperationType
+    {
+        $key = request()->route()?->originalParameter('record');
+
+        if (! is_string($key)) {
+            return null;
+        }
+
+        $type = InventoryOperation::query()->withoutGlobalScopes()->whereKey($key)->value('operation_type');
+
+        return $type instanceof OperationType ? $type : OperationType::tryFrom(is_string($type) ? $type : '');
+    }
+
+    /** Whether the user may open one of this resource's operation-type list pages. */
+    public static function canAccessPage(string $page): bool
+    {
+        return match ($page) {
+            'receipts' => self::canViewOperationType(OperationType::Receipt),
+            'deliveries' => self::canViewOperationType(OperationType::Delivery),
+            'transfers' => self::canViewOperationType(OperationType::InternalTransfer),
+            default => self::canViewInventoryIndex(),
+        };
+    }
+
     public static function canViewOperationType(OperationType $type): bool
     {
         return auth()->user()?->can('viewType', [InventoryOperation::class, $type]) ?? false;
@@ -204,15 +234,5 @@ final class InventoryOperationResource extends Resource
     public static function canViewInventoryIndex(): bool
     {
         return auth()->user()?->can('viewInventoryIndex', InventoryOperation::class) ?? false;
-    }
-
-    private static function navigationItem(string $page, string $label, Heroicon $icon, OperationType $type): NavigationItem
-    {
-        return NavigationItem::make(__($label))
-            ->group('admin.groups.inventory')
-            ->icon($icon)
-            ->visible(fn (): bool => self::canViewOperationType($type))
-            ->isActiveWhen(fn (): bool => request()->routeIs(self::getRouteBaseName().'.'.$page))
-            ->url(self::getUrl($page));
     }
 }

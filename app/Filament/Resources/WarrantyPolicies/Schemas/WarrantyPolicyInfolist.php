@@ -22,7 +22,7 @@ final class WarrantyPolicyInfolist
                     TextEntry::make('code')->badge(),
                     TextEntry::make('name'),
                     TextEntry::make('duration')
-                        ->state(static fn (WarrantyPolicy $record): string => $record->duration_value.' '.$record->duration_unit->value),
+                        ->state(static fn (WarrantyPolicy $record): string => $record->duration_value.' '.$record->duration_unit->label()),
                     TextEntry::make('start_trigger')
                         ->label(__('Begins from'))
                         ->formatStateUsing(static fn (WarrantyStartTrigger $state): string => $state->label()),

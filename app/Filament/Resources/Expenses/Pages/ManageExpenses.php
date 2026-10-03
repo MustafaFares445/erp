@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Expenses\Pages;
 
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use App\Models\User;
@@ -11,15 +13,30 @@ use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Accounting\ExpenseReceiptSynchronizer;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRecords;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Concerns\RestrictsFileUploadsToSchemaComponents;
 use Illuminate\Support\Arr;
 use LogicException;
 
 final class ManageExpenses extends ManageRecords
 {
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
     use RestrictsFileUploadsToSchemaComponents;
 
     protected static string $resource = ExpenseResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'accounting.expenses';
+    }
+
+    /** @return array<string, Tab> */
+    #[\Override]
+    public function getTabs(): array
+    {
+        return ['all' => Tab::make(__('All'))];
+    }
 
     #[\Override]
     protected function getHeaderActions(): array

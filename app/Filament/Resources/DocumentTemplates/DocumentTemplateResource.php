@@ -195,7 +195,7 @@ final class DocumentTemplateResource extends Resource
         $options = [];
 
         foreach (self::DOCUMENT_EVENTS as $case) {
-            $options[$case->value] = __(str($case->value)->replace('.', ' ')->headline()->toString());
+            $options[$case->value] = $case->label();
         }
 
         return $options;
@@ -207,7 +207,7 @@ final class DocumentTemplateResource extends Resource
         $options = [];
 
         foreach (NotificationChannel::cases() as $case) {
-            $options[$case->value] = __(str($case->value)->headline()->toString());
+            $options[$case->value] = $case->label();
         }
 
         return $options;

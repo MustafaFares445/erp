@@ -52,7 +52,7 @@ final class LabourEntriesRelationManager extends RelationManager
                         TextInput::make('hourly_rate_minor')
                             ->label(__('Hourly rate (minor units)'))
                             ->numeric()
-                            ->helperText("Leave blank to use the employee's default rate."),
+                            ->helperText(__("Leave blank to use the employee's default rate.")),
                         Textarea::make('notes')->columnSpanFull(),
                     ])
                     ->authorize(fn (): bool => self::currentActor()->can('recordCost', $this->maintenanceRecord()))

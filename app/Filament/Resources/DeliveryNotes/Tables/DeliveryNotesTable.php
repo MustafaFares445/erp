@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace App\Filament\Resources\DeliveryNotes\Tables;
 
 use App\Enums\OperationStage;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\InventoryOperation;
-use App\Models\Warehouse;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -23,6 +28,7 @@ final class DeliveryNotesTable
             ->defaultSort('created_at', 'desc')
             ->searchPlaceholder(__('Search by delivery note number or customer name'))
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.inventory.operation.fields.customer'))->searchable(),
                 TextColumn::make('sourceWarehouse.name')->label(__('admin.inventory.operation.fields.source_warehouse'))->searchable(),
@@ -36,35 +42,41 @@ final class DeliveryNotesTable
                     ->state(fn (InventoryOperation $record): string => $record->isInvoiced() ? 'Invoiced' : 'Uninvoiced')
                     ->color(fn (InventoryOperation $record): string => $record->isInvoiced() ? 'success' : 'gray'),
             ])
+            ->groups([
+                Group::make('stage')
+                    ->label(__('Stage'))
+                    ->getTitleFromRecordUsing(static fn (InventoryOperation $record): string => $record->stageLabel()),
+                Group::make('customer.company_name')->label(__('admin.inventory.operation.fields.customer')),
+                Group::make('sourceWarehouse.name')->label(__('admin.inventory.operation.fields.source_warehouse')),
+                Group::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at'))->date(),
+            ])
             ->filters([
-                SelectFilter::make('stage')->options(collect(OperationStage::cases())
-                    ->mapWithKeys(fn (OperationStage $stage): array => [$stage->value => $stage->label()])
-                    ->all()),
-                SelectFilter::make('source_warehouse_id')
-                    ->label(__('admin.inventory.operation.fields.source_warehouse'))
-                    ->searchable()
-                    ->options(fn (): array => Warehouse::query()->orderBy('name')->pluck('name', 'id')->all()),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('stage')
+                        ->label(__('Stage'))
+                        ->options(static fn (): array => collect(OperationStage::cases())
+                            ->mapWithKeys(static fn (OperationStage $stage): array => [$stage->value => $stage->label()])
+                            ->all())
+                        ->multiple(),
+                    TextConstraint::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('admin.inventory.operation.fields.customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    RelationshipConstraint::make('sourceWarehouse')
+                        ->label(__('admin.inventory.operation.fields.source_warehouse'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('name')->searchable()->multiple()),
+                    DateConstraint::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at')),
+                    DateConstraint::make('completed_at')->label(__('Completed at')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
                 Filter::make('uninvoiced')
                     ->label(__('Uninvoiced'))
                     ->query(fn (Builder $query): Builder => $query
                         ->where('stage', OperationStage::Done->value)
                         ->whereDoesntHave('invoiceDeliveryLink')),
-                Filter::make('scheduled_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Scheduled from')),
-                        DatePicker::make('until')->label(__('Scheduled until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '<=', $date))),
             ])
             ->recordActions([
                 ViewAction::make(),
             ]);
-    }
-
-    private static function dateFrom(mixed $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
     }
 }

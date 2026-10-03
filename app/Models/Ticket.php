@@ -11,8 +11,10 @@ use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Enums\WarrantyStatus;
+use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\HasCustomFields;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -67,7 +69,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'waiting_customer_since',
     'waiting_customer_accumulated_seconds',
 ])]
-final class Ticket extends Model implements HasMedia
+final class Ticket extends Model implements Favoritable, HasMedia
 {
     use HasCollaboration;
     use HasCustomFields;
@@ -75,6 +77,7 @@ final class Ticket extends Model implements HasMedia
     /** @use HasFactory<TicketFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

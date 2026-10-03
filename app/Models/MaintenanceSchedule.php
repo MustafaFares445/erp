@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Services\Support\MaintenanceScheduleGenerator;
 use App\Services\Support\MaintenanceScheduleService;
 use Database\Factories\MaintenanceScheduleFactory;
@@ -39,11 +41,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'billing_type',
     'checklist',
 ])]
-final class MaintenanceSchedule extends Model
+final class MaintenanceSchedule extends Model implements Favoritable
 {
     /** @use HasFactory<MaintenanceScheduleFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use SoftDeletes;
 
     /**

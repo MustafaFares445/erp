@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Employees\Tables;
 
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\EmployeeProfile;
 use App\Services\Employees\EmployeeAccessService;
 use Filament\Actions\Action;
@@ -12,13 +13,17 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Grouping\Group;
@@ -94,14 +99,24 @@ final class EmployeesTable
                     ->getTitleFromRecordUsing(static fn (EmployeeProfile $record): string => $record->is_active ? 'Active' : 'Inactive'),
             ])
             ->filters([
+                TableQueryBuilder::make([
+                    TextConstraint::make('employee_code')->label(__('Employee code')),
+                    SelectConstraint::make('job_title')
+                        ->label(__('Job title'))
+                        ->options(static fn (): array => EmployeeProfile::query()
+                            ->distinct()
+                            ->orderBy('job_title')
+                            ->pluck('job_title', 'job_title')
+                            ->all())
+                        ->multiple(),
+                    RelationshipConstraint::make('user')
+                        ->label(__('Account name'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('name')->searchable()->multiple()),
+                    TextConstraint::make('email')->label(__('Email')),
+                    TextConstraint::make('phone')->label(__('Phone')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
                 TernaryFilter::make('is_active')->label(__('Active')),
-                SelectFilter::make('job_title')->options(
-                    static fn (): array => EmployeeProfile::query()
-                        ->distinct()
-                        ->orderBy('job_title')
-                        ->pluck('job_title', 'job_title')
-                        ->all(),
-                ),
                 TrashedFilter::make(),
             ])
             ->recordActions([

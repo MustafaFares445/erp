@@ -210,7 +210,7 @@ final class OrderInfolist
     private static function fulfillmentProgressSection(): Section
     {
         return Section::make(__('Fulfillment progress'))
-            ->description("Quantities are shown in each product's base unit of measure.")
+            ->description(__("Quantities are shown in each product's base unit of measure."))
             ->schema(function (Order $record): array {
                 $projection = app(OrderWorkflowService::class)->project($record);
                 $hasBlocker = $projection->procurementOutstandingBase > 0.000001;
@@ -219,20 +219,20 @@ final class OrderInfolist
                     Grid::make(2)->schema([
                         TextEntry::make('requested')->label(__('Requested'))->state(QuantityFormatter::display($projection->requestedBase))->weight(FontWeight::Bold),
                         TextEntry::make('planned')->label(__('Planned'))->state(QuantityFormatter::display($projection->plannedBase)),
-                        TextEntry::make('dispatched')->label(__('Dispatched'))->state(QuantityFormatter::display($projection->dispatchedBase)),
-                        TextEntry::make('arrived')->label(__('Arrived'))->state(QuantityFormatter::display($projection->arrivedBase)),
+                        TextEntry::make('dispatched')->label(__('Dispatched quantity'))->state(QuantityFormatter::display($projection->dispatchedBase)),
+                        TextEntry::make('arrived')->label(__('Arrived quantity'))->state(QuantityFormatter::display($projection->arrivedBase)),
                     ]),
                     Grid::make(2)->schema([
                         TextEntry::make('remaining_to_plan')
                             ->label(__('Remaining to plan'))
-                            ->hintIcon(Heroicon::QuestionMarkCircle, 'Ordered quantity, minus any short-close, that Logistics has not yet allocated to stock.')
+                            ->hintIcon(Heroicon::QuestionMarkCircle, __('Ordered quantity, minus any short-close, that Logistics has not yet allocated to stock.'))
                             ->state(QuantityFormatter::display($projection->remainingBase))
                             ->color($projection->remainingBase > 0.000001 ? 'warning' : 'success'),
                         TextEntry::make('supply_blocker')
                             ->label(__('Supply'))
                             ->state($hasBlocker
-                                ? QuantityFormatter::display($projection->procurementOutstandingBase).' require procurement'
-                                : 'No procurement blocker')
+                                ? __('Requires procurement: :quantity', ['quantity' => QuantityFormatter::display($projection->procurementOutstandingBase)])
+                                : __('No procurement blocker'))
                             ->badge()
                             ->color($hasBlocker ? 'danger' : 'success'),
                     ]),

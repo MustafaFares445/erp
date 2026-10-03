@@ -135,7 +135,7 @@ final class NotificationTemplateResource extends Resource
         $options = [];
 
         foreach (NotificationEventKey::cases() as $case) {
-            $options[$case->value] = __(str($case->value)->replace('.', ' ')->headline()->toString());
+            $options[$case->value] = $case->label();
         }
 
         return $options;
@@ -147,7 +147,7 @@ final class NotificationTemplateResource extends Resource
         $options = [];
 
         foreach (NotificationChannel::cases() as $case) {
-            $options[$case->value] = __(str($case->value)->headline()->toString());
+            $options[$case->value] = $case->label();
         }
 
         return $options;

@@ -63,7 +63,7 @@ final class ProductsTable
     private static function statusOptions(): array
     {
         return collect(ProductStatus::cases())
-            ->mapWithKeys(static fn (ProductStatus $status): array => [$status->value => $status->name])
+            ->mapWithKeys(static fn (ProductStatus $status): array => [$status->value => $status->label()])
             ->all();
     }
 }

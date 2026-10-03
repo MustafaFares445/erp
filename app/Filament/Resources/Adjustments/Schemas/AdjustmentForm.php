@@ -51,7 +51,7 @@ final class AdjustmentForm
                     ->label(__('admin.inventory.adjustment.reason_category'))
                     ->options(collect(ConditionChangeReason::cases())
                         ->mapWithKeys(fn (ConditionChangeReason $reason): array => [
-                            $reason->value => __(str($reason->name)->headline()->toString()),
+                            $reason->value => $reason->label(),
                         ])
                         ->all())
                     ->default(ConditionChangeReason::Other->value)
@@ -209,7 +209,7 @@ final class AdjustmentForm
                     '%s — %.3f %s',
                     $lot->lot_number ?? '#'.$lotId,
                     $lot->conditionOnHandQuantity($condition, (int) $warehouseId),
-                    str($condition->value)->headline()->lower()->toString(),
+                    mb_strtolower($condition->label()),
                 )];
             })
             ->all();
@@ -297,9 +297,9 @@ final class AdjustmentForm
     private static function conditionOptions(): array
     {
         return [
-            StockCondition::Saleable->value => 'Saleable',
-            StockCondition::Quarantine->value => 'Quarantine',
-            StockCondition::Damaged->value => 'Damaged',
+            StockCondition::Saleable->value => StockCondition::Saleable->label(),
+            StockCondition::Quarantine->value => StockCondition::Quarantine->label(),
+            StockCondition::Damaged->value => StockCondition::Damaged->label(),
         ];
     }
 

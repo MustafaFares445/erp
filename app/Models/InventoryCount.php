@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Enums\CountScope;
 use App\Enums\InventoryCountStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Services\Inventory\InventoryCountService;
 use Database\Factories\InventoryCountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -26,11 +28,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * `opened_at`, and `closed_at` are service-owned and therefore not fillable.
  */
 #[Fillable(['warehouse_id', 'scope_type', 'product_category_id', 'inventory_lot_id', 'conditions', 'materiality_threshold_minor'])]
-final class InventoryCount extends Model
+final class InventoryCount extends Model implements Favoritable
 {
     /** @use HasFactory<InventoryCountFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use SoftDeletes;
 
     /**

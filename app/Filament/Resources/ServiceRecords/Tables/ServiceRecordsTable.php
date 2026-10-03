@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\ServiceRecords\Tables;
 
 use App\Enums\MaintenanceStatus;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\MaintenanceTask;
 use App\Models\User;
 use App\Services\Support\ServiceRecordService;
@@ -17,10 +19,15 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
 use LogicException;
@@ -32,6 +39,7 @@ final class ServiceRecordsTable
         return $table
             ->defaultSort('updated_at', 'desc')
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('maintenanceRecord.id')->label(__('Maintenance request #'))->searchable(),
                 TextColumn::make('maintenanceRecord.customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('equipment')
@@ -56,15 +64,31 @@ final class ServiceRecordsTable
                     ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->groups([
+                Group::make('status')
+                    ->label(__('Status'))
+                    ->getTitleFromRecordUsing(static fn (MaintenanceTask $record): string => $record->status->label()),
+                Group::make('employee.employee_code')->label(__('Technician')),
+                Group::make('due_at')->label(__('Due'))->date(),
+                Group::make('created_at')->label(__('Created at'))->date(),
+            ])
             ->filters([
-                SelectFilter::make('status')
-                    ->options(collect(MaintenanceStatus::cases())
-                        ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])),
-                SelectFilter::make('employee_id')
-                    ->label(__('Technician'))
-                    ->relationship('employee', 'employee_code')
-                    ->searchable()
-                    ->preload(),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Status'))
+                        ->options(static fn (): array => collect(MaintenanceStatus::cases())
+                            ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => $status->label()])
+                            ->all())
+                        ->multiple(),
+                    TextConstraint::make('title')->label(__('Work')),
+                    RelationshipConstraint::make('employee')
+                        ->label(__('Technician'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('employee_code')->searchable()->multiple()),
+                    DateConstraint::make('started_at')->label(__('Started')),
+                    DateConstraint::make('completed_at')->label(__('Completed')),
+                    DateConstraint::make('due_at')->label(__('Due')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
                 TrashedFilter::make(),
             ])
             ->recordActions([

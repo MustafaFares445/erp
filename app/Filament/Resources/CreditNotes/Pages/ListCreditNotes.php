@@ -7,6 +7,8 @@ namespace App\Filament\Resources\CreditNotes\Pages;
 use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\CreditNotes\Widgets\CreditNotesOverview;
 use App\Models\CreditNote;
@@ -19,8 +21,15 @@ use Illuminate\Database\Eloquent\Model;
 final class ListCreditNotes extends ListRecords
 {
     use ExportsSalesDocuments;
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
 
     protected static string $resource = CreditNoteResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'sales.credit-notes';
+    }
 
     #[\Override]
     protected function getHeaderActions(): array

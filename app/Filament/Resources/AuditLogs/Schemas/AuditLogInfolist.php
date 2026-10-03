@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\AuditLogs\Schemas;
 
 use App\Models\AuditLog;
+use App\Support\AuditActionLabel;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 
@@ -13,9 +14,7 @@ final class AuditLogInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            TextEntry::make('description')->label(__('admin.crm.fields.action')),
-            TextEntry::make('subject_type')->label(__('admin.crm.fields.entity_type')),
-            TextEntry::make('subject_id')->label(__('admin.crm.fields.entity_id')),
+            TextEntry::make('description')->label(__('admin.crm.fields.action'))->formatStateUsing(static fn (?string $state): string => AuditActionLabel::for($state)),
             TextEntry::make('causer.name')->label(__('admin.crm.fields.actor'))->placeholder(__('admin.crm.placeholders.system')),
             TextEntry::make('source_channel')->label(__('admin.crm.fields.channel')),
             TextEntry::make('ip_address')->label(__('admin.crm.fields.ip_address')),

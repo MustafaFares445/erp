@@ -8,16 +8,20 @@ use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStatus;
 use App\Enums\CreditNoteStockConsequence;
 use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\CreditNote;
-use App\Models\CustomerProfile;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 final class CreditNotesTable
 {
@@ -27,6 +31,7 @@ final class CreditNotesTable
             ->defaultSort('issue_date', 'desc')
             ->searchPlaceholder(__('admin.sales.credit_note_ui.search_placeholder'))
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('credit_note_number')->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
                 TextColumn::make('invoice.invoice_number')
@@ -56,36 +61,46 @@ final class CreditNotesTable
                     }),
                 TextColumn::make('issue_date')->label(__('admin.sales.fields.date'))->date()->sortable(),
             ])
+            ->groups([
+                Group::make('status')
+                    ->label(__('Status'))
+                    ->getTitleFromRecordUsing(static fn (CreditNote $record): string => $record->status->label()),
+                Group::make('reason_category')
+                    ->label(__('admin.sales.fields.reason_category'))
+                    ->getTitleFromRecordUsing(static fn (CreditNote $record): string => $record->reason_category->label()),
+                Group::make('customer.company_name')->label(__('admin.sales.fields.customer')),
+                Group::make('issue_date')->label(__('admin.sales.fields.date'))->date(),
+            ])
             ->filters([
-                SelectFilter::make('status')->options(array_combine(
-                    array_map(fn (CreditNoteStatus $status): string => $status->value, CreditNoteStatus::cases()),
-                    array_map(fn (CreditNoteStatus $status): string => $status->label(), CreditNoteStatus::cases()),
-                )),
-                SelectFilter::make('reason_category')->options(collect(CreditNoteReason::cases())
-                    ->mapWithKeys(fn (CreditNoteReason $reason): array => [$reason->value => $reason->label()])
-                    ->all()),
-                SelectFilter::make('customer_id')
-                    ->label(__('admin.sales.fields.customer'))
-                    ->searchable()
-                    ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
-                Filter::make('issue_date_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('admin.sales.credit_note_ui.issued_from')),
-                        DatePicker::make('until')->label(__('admin.sales.credit_note_ui.issued_until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('issue_date', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('issue_date', '<=', $date))),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Status'))
+                        ->options(static fn (): array => collect(CreditNoteStatus::cases())
+                            ->mapWithKeys(static fn (CreditNoteStatus $status): array => [$status->value => $status->label()])
+                            ->all())
+                        ->multiple(),
+                    SelectConstraint::make('reason_category')
+                        ->label(__('admin.sales.fields.reason_category'))
+                        ->options(static fn (): array => collect(CreditNoteReason::cases())
+                            ->mapWithKeys(static fn (CreditNoteReason $reason): array => [$reason->value => $reason->label()])
+                            ->all())
+                        ->multiple(),
+                    TextConstraint::make('credit_note_number')->label(__('Reference')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('admin.sales.fields.customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    RelationshipConstraint::make('invoice')
+                        ->label(__('admin.sales.credit_note_ui.source_invoice'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('invoice_number')->searchable()->multiple()),
+                    NumberConstraint::make('grand_total')->label(__('admin.sales.credit_note_ui.total_credit')),
+                    DateConstraint::make('issue_date')->label(__('admin.sales.fields.date')),
+                    DateConstraint::make('confirmed_at')->label(__('Confirmed at')),
+                ]),
             ])
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()->visible(fn (CreditNote $record): bool => $record->isDraft()),
             ])
             ->toolbarActions([]);
-    }
-
-    private static function dateFrom(mixed $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
     }
 }

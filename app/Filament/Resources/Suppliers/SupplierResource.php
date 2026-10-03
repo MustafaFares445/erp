@@ -12,24 +12,15 @@ use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
 use App\Filament\Resources\Suppliers\Schemas\SupplierInfolist;
+use App\Filament\Resources\Suppliers\Tables\SuppliersTable;
 use App\Models\Supplier;
 use BackedEnum;
-use Filament\Actions\ActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TernaryFilter;
-use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -87,47 +78,7 @@ final class SupplierResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
-            ->searchPlaceholder(__('Name, code, email…'))
-            ->defaultSort('name')
-            ->columns([
-                ImageColumn::make('logo_path')->label('')->disk('public')->circular()->imageHeight(40),
-                TextColumn::make('name')->label(__('Supplier'))->description(fn (Supplier $record): string => $record->code)->searchable(['name', 'code'])->sortable(),
-                IconColumn::make('is_active')->label(__('Active'))->boolean(),
-                TextColumn::make('active_catalog_count')
-                    ->label(__('Products'))
-                    ->badge()
-                    ->sortable(),
-                TextColumn::make('open_po_count')
-                    ->label(__('Open POs'))
-                    ->badge()
-                    ->sortable(),
-                TextColumn::make('pending_confirmation_count')
-                    ->label(__('Awaiting response'))
-                    ->badge()
-                    ->color(fn (mixed $state): string => is_numeric($state) && (int) $state > 0 ? 'warning' : 'gray')
-                    ->sortable(),
-                TextColumn::make('last_purchase_at')
-                    ->label(__('Last purchase'))
-                    ->date()
-                    ->placeholder(__('—'))
-                    ->sortable(),
-                TextColumn::make('email')->searchable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                TernaryFilter::make('is_active')->label(__('Active supplier')),
-                TernaryFilter::make('requires_confirmation')->label(__('Confirmation required')),
-                TrashedFilter::make(),
-            ])
-            ->recordActions([
-                ViewAction::make(),
-                ActionGroup::make([
-                    EditAction::make(),
-                    DeleteAction::make(),
-                    RestoreAction::make(),
-                ]),
-            ]);
+        return SuppliersTable::configure($table);
     }
 
     /** @return array<string> */

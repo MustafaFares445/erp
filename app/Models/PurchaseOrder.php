@@ -9,7 +9,9 @@ use App\Enums\OperationType;
 use App\Enums\PurchaseOrderDocument;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
+use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCollaboration;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
 use App\Services\Documents\StoresDocumentUploads;
@@ -77,13 +79,14 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'expected_at',
     'notes',
 ])]
-final class PurchaseOrder extends Model implements StoresDocumentUploads
+final class PurchaseOrder extends Model implements Favoritable, StoresDocumentUploads
 {
     use HasCollaboration;
 
     /** @use HasFactory<PurchaseOrderFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

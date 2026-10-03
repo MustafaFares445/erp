@@ -4,15 +4,24 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceSchedules\Tables;
 
+use App\Enums\MaintenanceBillingType;
+use App\Enums\MaintenanceIntervalType;
 use App\Filament\Resources\MaintenanceSchedules\Actions\MaintenanceScheduleActions;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\MaintenanceSchedule;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 
 final class MaintenanceSchedulesTable
@@ -22,6 +31,7 @@ final class MaintenanceSchedulesTable
         return $table
             ->defaultSort('next_due_on')
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('schedule_number')->label(__('Schedule #'))->searchable(),
                 TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('serializedInventoryUnit.serial_number')->label(__('Equipment serial'))->searchable(),
@@ -31,7 +41,7 @@ final class MaintenanceSchedulesTable
                     ->getStateUsing(static fn (MaintenanceSchedule $record): string => sprintf(
                         'Every %d %s',
                         $record->interval_value,
-                        __(str($record->interval_type->value)->headline()->toString()),
+                        $record->interval_type->label(),
                     )),
                 TextColumn::make('next_due_on')->label(__('Next due'))->date()->sortable(),
                 TextColumn::make('due_state')
@@ -48,13 +58,34 @@ final class MaintenanceSchedulesTable
                 TextColumn::make('last_completed_on')->date()->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('billing_type')->label(__('Billing path'))->badge()->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->groups([
+                Group::make('customer.company_name')->label(__('Customer')),
+                Group::make('billing_type')->label(__('Billing path')),
+                Group::make('interval_type')->label(__('Recurrence')),
+                Group::make('next_due_on')->label(__('Next due'))->date(),
+            ])
             ->filters([
+                TableQueryBuilder::make([
+                    TextConstraint::make('schedule_number')->label(__('Schedule #')),
+                    TextConstraint::make('name')->label(__('Maintenance')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('Customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    RelationshipConstraint::make('serializedInventoryUnit')
+                        ->label(__('Equipment serial'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('serial_number')->searchable()->multiple()),
+                    SelectConstraint::make('interval_type')
+                        ->label(__('Recurrence'))
+                        ->options(MaintenanceIntervalType::class)
+                        ->multiple(),
+                    SelectConstraint::make('billing_type')
+                        ->label(__('Billing path'))
+                        ->options(MaintenanceBillingType::class)
+                        ->multiple(),
+                    DateConstraint::make('next_due_on')->label(__('Next due')),
+                    DateConstraint::make('last_completed_on')->label(__('Last completed')),
+                ]),
                 TernaryFilter::make('is_active')->label(__('Active')),
-                SelectFilter::make('serialized_inventory_unit_id')
-                    ->label(__('Equipment serial'))
-                    ->relationship('serializedInventoryUnit', 'serial_number')
-                    ->searchable()
-                    ->preload(),
             ])
             ->recordActions([
                 ViewAction::make(),

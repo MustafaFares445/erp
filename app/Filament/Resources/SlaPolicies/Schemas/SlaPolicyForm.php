@@ -22,7 +22,7 @@ final class SlaPolicyForm
                                 /** @var TicketPriority|string $state */
                                 $value = $state instanceof TicketPriority ? $state->value : $state;
 
-                                return __(str($value)->headline()->toString());
+                                return $state instanceof TicketPriority ? $state->label() : (TicketPriority::tryFrom((string) $value)?->label() ?? __(str($value)->headline()->toString()));
                             })
                             ->disabled()
                             ->dehydrated(false),

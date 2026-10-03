@@ -47,9 +47,9 @@ final class CustomerInteractionsRelationManager extends RelationManager
             Action::make('log_interaction')
                 ->label(__('Log interaction'))
                 ->schema([
-                    Select::make('type')->options(collect(InteractionType::cases())->mapWithKeys(fn (InteractionType $v): array => [$v->value => __(str($v->value)->replace('_', ' ')->headline()->toString())])->all())->required(),
-                    Select::make('direction')->options(collect(InteractionDirection::cases())->mapWithKeys(fn (InteractionDirection $v): array => [$v->value => __(str($v->value)->headline()->toString())])->all())->default('outbound')->required(),
-                    Select::make('outcome')->options(collect(InteractionOutcome::cases())->mapWithKeys(fn (InteractionOutcome $v): array => [$v->value => __(str($v->value)->replace('_', ' ')->headline()->toString())])->all()),
+                    Select::make('type')->options(collect(InteractionType::cases())->mapWithKeys(fn (InteractionType $v): array => [$v->value => $v->label()])->all())->required(),
+                    Select::make('direction')->options(collect(InteractionDirection::cases())->mapWithKeys(fn (InteractionDirection $v): array => [$v->value => $v->label()])->all())->default('outbound')->required(),
+                    Select::make('outcome')->options(collect(InteractionOutcome::cases())->mapWithKeys(fn (InteractionOutcome $v): array => [$v->value => $v->label()])->all()),
                     DateTimePicker::make('occurred_at')->default(now())->required(),
                     TextInput::make('summary')->required()->maxLength(255),
                     Textarea::make('notes')->rows(3),

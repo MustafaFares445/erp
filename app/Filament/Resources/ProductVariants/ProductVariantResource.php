@@ -258,7 +258,7 @@ final class ProductVariantResource extends Resource
                     Select::make('warranty_duration_unit')
                         ->label(__('Legacy duration unit'))
                         ->options(collect(WarrantyDurationUnit::cases())
-                            ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => __(str($unit->value)->headline()->toString())]))
+                            ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => $unit->label()]))
                         ->required(static fn (Get $get): bool => blank($get('warranty_policy_id')) && filled($get('warranty_duration_value')))
                         ->visible(static fn (Get $get): bool => blank($get('warranty_policy_id')))
                         ->native(false),
@@ -575,7 +575,7 @@ final class ProductVariantResource extends Resource
     /** @return array<string, string> */
     private static function statusOptions(): array
     {
-        return collect(ProductStatus::cases())->mapWithKeys(fn (ProductStatus $status): array => [$status->value => $status->name])->all();
+        return collect(ProductStatus::cases())->mapWithKeys(fn (ProductStatus $status): array => [$status->value => $status->label()])->all();
     }
 
     private static function trackingSummary(mixed $productId): string

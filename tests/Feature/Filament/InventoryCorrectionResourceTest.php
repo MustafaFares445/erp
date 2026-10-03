@@ -40,12 +40,13 @@ it('exposes canonical corrections as an inventory operations resource', function
 
     expect($inventory)->toBeArray();
 
-    $item = collect($inventory['items'])
+    $operations = collect($inventory['items'])->firstWhere('label', 'admin.sections.operations');
+
+    $tab = collect($operations['tabs'])
         ->first(fn (array $entry): bool => $entry['link'] === InventoryCorrectionResource::class);
 
-    expect($item)->toBeArray()
-        ->and($item['label'])->toBe('admin.inventory.correction.resource_label_plural')
-        ->and($item['section'])->toBe('operations');
+    expect($tab)->toBeArray()
+        ->and($tab['label'])->toBe('admin.inventory.correction.resource_label_plural');
 });
 
 it('denies correction creation to a read-only correction viewer', function (): void {

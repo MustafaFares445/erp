@@ -241,7 +241,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     '%s — %.3f %s',
                     $lot->lot_number ?? '#'.$lotId,
                     $lot->conditionOnHandQuantity($condition, $warehouseId),
-                    str($condition->value)->headline()->lower()->toString(),
+                    mb_strtolower($condition->label()),
                 )];
             })
             ->all();
@@ -384,9 +384,9 @@ final class AdjustmentItemsRelationManager extends RelationManager
     private function conditionOptions(): array
     {
         return [
-            StockCondition::Saleable->value => 'Saleable',
-            StockCondition::Quarantine->value => 'Quarantine',
-            StockCondition::Damaged->value => 'Damaged',
+            StockCondition::Saleable->value => StockCondition::Saleable->label(),
+            StockCondition::Quarantine->value => StockCondition::Quarantine->label(),
+            StockCondition::Damaged->value => StockCondition::Damaged->label(),
         ];
     }
 

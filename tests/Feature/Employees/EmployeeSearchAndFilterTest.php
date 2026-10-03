@@ -41,7 +41,7 @@ it('returns no filter state when an employee filter is malformed', function (): 
 
     $component = Livewire::actingAs($admin)
         ->test(ListEmployees::class)
-        ->set('tableFilters', ['trashed' => 'malformed'])
+        ->set('tableFilters.trashed', 'malformed')
         ->instance();
 
     expect($component->getTableFilterState('trashed'))->toBeNull();

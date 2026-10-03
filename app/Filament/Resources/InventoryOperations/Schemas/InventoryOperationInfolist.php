@@ -111,7 +111,7 @@ final class InventoryOperationInfolist
                         ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
                     TextEntry::make('discrepancy_disposition')
                         ->label(__('admin.inventory.operation.fields.discrepancy_disposition'))
-                        ->formatStateUsing(fn (?TransferDiscrepancyDisposition $state): ?string => $state?->name)
+                        ->formatStateUsing(fn (?TransferDiscrepancyDisposition $state): ?string => $state?->label())
                         ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
                 ]),
             ]),

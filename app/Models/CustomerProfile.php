@@ -7,8 +7,10 @@ namespace App\Models;
 use App\Enums\CustomerApprovalStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SerializedCustodyType;
+use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\HasCustomFields;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Observers\CustomerProfileObserver;
 use App\Services\Payments\CustomerDepositApplicationService;
@@ -36,7 +38,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $company_name
  * @property string|null $customer_code
  */
-final class CustomerProfile extends Model implements HasMedia
+final class CustomerProfile extends Model implements Favoritable, HasMedia
 {
     use HasCollaboration;
     use HasCustomFields;
@@ -44,6 +46,7 @@ final class CustomerProfile extends Model implements HasMedia
     /** @use HasFactory<CustomerProfileFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;

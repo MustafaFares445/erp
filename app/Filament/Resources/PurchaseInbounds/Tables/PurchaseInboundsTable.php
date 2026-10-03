@@ -7,14 +7,20 @@ namespace App\Filament\Resources\PurchaseInbounds\Tables;
 use App\Data\Inventory\LogisticsInboundBlockerData;
 use App\Data\Inventory\LogisticsInboundData;
 use App\Enums\PurchaseInboundStatus;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\PurchaseInbound;
 use App\Services\Inventory\LogisticsInboundProjectionService;
 use App\Support\QuantityFormatter;
 use Filament\Actions\ViewAction;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -25,6 +31,7 @@ final class PurchaseInboundsTable
         return $table
             ->defaultSort('id', 'desc')
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('id')->label(__('admin.logistics.inbound.number'))->prefix('INB-')->sortable(),
                 TextColumn::make('purchaseOrder.purchase_order_number')
                     ->label(__('admin.logistics.inbound.purchase_order_reference'))->searchable()->sortable(),
@@ -78,12 +85,24 @@ final class PurchaseInboundsTable
                         str(self::projection($record)->nextAction)->snake()->toString(),
                     ))),
             ])
+            ->groups([
+                Group::make('status')->label(__('Status')),
+                Group::make('purchaseOrder.supplier.name')->label(__('admin.logistics.inbound.supplier')),
+                Group::make('purchaseOrder.expected_at')->label(__('admin.logistics.inbound.expected_date'))->date(),
+            ])
             ->filters([
-                SelectFilter::make('status')
-                    ->options(array_combine(
-                        PurchaseInboundStatus::values(),
-                        array_map(static fn (string $value): string => __('admin.logistics.inbound.statuses.'.$value), PurchaseInboundStatus::values()),
-                    )),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Status'))
+                        ->options(PurchaseInboundStatus::class)
+                        ->multiple(),
+                    RelationshipConstraint::make('purchaseOrder')
+                        ->label(__('admin.logistics.inbound.purchase_order_reference'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('purchase_order_number')->searchable()->multiple()),
+                    DateConstraint::make('activated_at')->label(__('Activated at')),
+                    DateConstraint::make('completed_at')->label(__('Completed at')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
                 Filter::make('overdue')
                     ->query(static fn (Builder $query): Builder => $query
                         ->whereHas('purchaseOrder', static fn (Builder $po): Builder => $po->whereDate('expected_at', '<', today()))

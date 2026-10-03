@@ -24,7 +24,7 @@ final class CampaignsTable
             TextColumn::make('scheduled_at')->dateTime()->placeholder(__('Not scheduled'))->sortable(),
             TextColumn::make('completed_at')->dateTime()->placeholder(__('—'))->sortable(),
         ])->filters([
-            SelectFilter::make('status')->options(collect(CampaignStatus::cases())->mapWithKeys(fn (CampaignStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])->all()),
+            SelectFilter::make('status')->options(collect(CampaignStatus::cases())->mapWithKeys(fn (CampaignStatus $status): array => [$status->value => $status->label()])->all()),
         ])->recordActions([
             ViewAction::make(),
             CampaignActions::buildRecipients(),

@@ -43,7 +43,7 @@ final class InventoryReservationsTable
                 SelectFilter::make('status')
                     ->options(collect(ReservationStatus::cases())
                         ->mapWithKeys(fn (ReservationStatus $status): array => [
-                            $status->value => __(str($status->name)->headline()->toString()),
+                            $status->value => $status->label(),
                         ])
                         ->all()),
                 SelectFilter::make('warehouse_id')

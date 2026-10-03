@@ -7,20 +7,24 @@ namespace App\Filament\Resources\Invoices\Tables;
 use App\Enums\InvoiceFinancialStatus;
 use App\Enums\InvoiceStatus;
 use App\Filament\Resources\Invoices\Actions\InvoiceActions;
-use App\Models\CustomerProfile;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Invoice;
 use App\Services\Sales\InvoiceBalanceService;
 use App\Services\Sales\InvoiceNextActionResolver;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 final class InvoicesTable
 {
@@ -30,6 +34,7 @@ final class InvoicesTable
             ->defaultSort('invoice_date', 'desc')
             ->searchPlaceholder(__('Search by invoice number or customer name'))
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('invoice_number')->label(__('Invoice'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
                 TextColumn::make('status')
@@ -57,35 +62,40 @@ final class InvoicesTable
                     ->label(__('Next action'))
                     ->state(fn (Invoice $record): string => app(InvoiceNextActionResolver::class)->resolve($record))
                     ->wrap(),
+                TextColumn::make('invoice_date')->label(__('Invoice date'))->date()->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('amount_paid')->label(__('Amount paid'))->money()->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('createdBy.name')->label(__('Created by'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->groups([
+                Group::make('status')
+                    ->label(__('Document status'))
+                    ->getTitleFromRecordUsing(static fn (Invoice $record): string => $record->status->label()),
+                Group::make('customer.company_name')->label(__('admin.sales.fields.customer')),
+                Group::make('invoice_date')->label(__('Invoice date'))->date(),
+                Group::make('due_date')->label(__('Due date'))->date(),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label(__('Document status'))
-                    ->options(
-                        collect(InvoiceStatus::cases())
-                            ->mapWithKeys(fn (InvoiceStatus $status): array => [$status->value => $status->label()])
-                            ->all(),
-                    ),
-                SelectFilter::make('customer_id')
-                    ->label(__('admin.sales.fields.customer'))
-                    ->searchable()
-                    ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
-                Filter::make('issue_date_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Issued from')),
-                        DatePicker::make('until')->label(__('Issued until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('invoice_date', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('invoice_date', '<=', $date))),
-                Filter::make('due_date_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Due from')),
-                        DatePicker::make('until')->label(__('Due until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('due_date', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('due_date', '<=', $date))),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Document status'))
+                        ->options(
+                            collect(InvoiceStatus::cases())
+                                ->mapWithKeys(static fn (InvoiceStatus $status): array => [$status->value => $status->label()])
+                                ->all(),
+                        )
+                        ->multiple(),
+                    TextConstraint::make('invoice_number')->label(__('Invoice')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('admin.sales.fields.customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    NumberConstraint::make('total_amount')->label(__('Total amount')),
+                    NumberConstraint::make('amount_paid')->label(__('Amount paid')),
+                    DateConstraint::make('invoice_date')->label(__('Invoice date')),
+                    DateConstraint::make('due_date')->label(__('Due date')),
+                ]),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -115,10 +125,5 @@ final class InvoicesTable
         }
 
         return $parts === [] ? null : implode(' · ', $parts);
-    }
-
-    private static function dateFrom(mixed $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
     }
 }

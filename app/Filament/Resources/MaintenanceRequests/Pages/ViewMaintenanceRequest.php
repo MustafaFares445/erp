@@ -60,7 +60,7 @@ final class ViewMaintenanceRequest extends ViewRecord
                         Select::make('warranty_status')
                             ->label(__('Warranty'))
                             ->options(collect(WarrantyStatus::cases())
-                                ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())]))
+                                ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => $status->label()]))
                             ->required()
                             ->live(),
                         DatePicker::make('warranty_expiry_date')

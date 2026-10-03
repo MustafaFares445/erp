@@ -283,7 +283,7 @@ final class InventoryConditionChangeResource extends Resource
                 SelectFilter::make('status')
                     ->options(collect(InventoryConditionChangeStatus::cases())
                         ->mapWithKeys(fn (InventoryConditionChangeStatus $status): array => [
-                            $status->value => __(str($status->name)->headline()->toString()),
+                            $status->value => $status->label(),
                         ])
                         ->all()),
                 SelectFilter::make('disposition')

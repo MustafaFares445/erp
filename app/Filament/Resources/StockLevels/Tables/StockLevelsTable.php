@@ -10,15 +10,21 @@ use App\Enums\StockCondition;
 use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\InventoryStock;
 use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\StockAvailabilityExplainer;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -107,30 +113,38 @@ final class StockLevelsTable
                     ->badge()
                     ->color(fn (InventoryStock $record): string => self::isLowStock($record) ? 'danger' : 'success'),
             ])
+            ->groups([
+                Group::make('warehouse.name')->label(__('admin.inventory.stock.warehouse')),
+                Group::make('productVariant.name')->label(__('admin.inventory.stock.variant_name')),
+                Group::make('updated_at')->label(__('Updated at'))->date(),
+            ])
             ->filters([
-                SelectFilter::make('warehouse_id')
-                    ->label(__('admin.inventory.stock.warehouse'))
-                    ->relationship('warehouse', 'name')
-                    ->searchable()
-                    ->preload(),
+                TableQueryBuilder::make([
+                    TextConstraint::make('variant_sku')
+                        ->label(__('admin.inventory.stock.variant'))
+                        ->attribute('productVariant.sku'),
+                    TextConstraint::make('variant_name')
+                        ->label(__('admin.inventory.stock.variant_name'))
+                        ->attribute('productVariant.name'),
+                    RelationshipConstraint::make('warehouse')
+                        ->label(__('admin.inventory.stock.warehouse'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('name')->searchable()->multiple()),
+                    // Balances key on the variant, so the type is reached through the product.
+                    SelectConstraint::make('product_type')
+                        ->label(__('admin.inventory.product_type.label'))
+                        ->attribute('productVariant.product.product_type')
+                        ->options(ProductType::options())
+                        ->multiple(),
+                    NumberConstraint::make('on_hand_quantity')->label(__('admin.inventory.stock.on_hand_quantity')),
+                    NumberConstraint::make('reserved_quantity')->label(__('admin.inventory.stock.reserved_quantity')),
+                    NumberConstraint::make('damaged_quantity')->label(__('admin.inventory.stock.damaged_quantity')),
+                ]),
                 Filter::make('low_stock')
                     ->label(__('admin.inventory.stock.low_stock'))
                     ->query(fn (Builder $query): Builder => $query->whereExists(WarehouseReplenishmentPolicy::breachedSubquery())),
                 Filter::make('reserved')
                     ->label(__('admin.resources.reservations'))
                     ->query(fn (Builder $query): Builder => $query->where('reserved_quantity', '>', 0)),
-                SelectFilter::make('product_type')
-                    ->label(__('admin.inventory.product_type.label'))
-                    ->options(ProductType::options())
-                    ->multiple()
-                    // Balances key on the variant, so the type is reached through the product.
-                    ->query(fn (Builder $query, array $data): Builder => $query->when(
-                        ProductType::fromFilterValues($data['values'] ?? []),
-                        fn (Builder $stocks, array $types): Builder => $stocks->whereHas(
-                            'productVariant.product',
-                            fn (Builder $products): Builder => $products->whereIn('product_type', $types),
-                        ),
-                    )),
             ])
             ->recordActions([
                 ViewAction::make(),

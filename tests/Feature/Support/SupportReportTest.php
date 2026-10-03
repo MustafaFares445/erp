@@ -73,7 +73,14 @@ it('supports searching and filtering across the ticket, maintenance-request, and
 
     Livewire::actingAs($manager)->test(ListTickets::class)
         ->assertCanSeeTableRecords([$ticket])
-        ->filterTable('priority', TicketPriority::Urgent->value)
+        ->filterTable('queryBuilder', [
+            'rules' => [
+                'priority-rule' => [
+                    'type' => 'priority',
+                    'data' => ['operator' => 'is', 'settings' => ['values' => [TicketPriority::Urgent->value]]],
+                ],
+            ],
+        ])
         ->assertCanSeeTableRecords([$ticket]);
 
     Livewire::actingAs($manager)->test(ListMaintenanceRequests::class)->assertCanSeeTableRecords([$record]);

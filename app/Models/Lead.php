@@ -7,7 +7,9 @@ namespace App\Models;
 use App\Enums\LeadDisqualificationReason;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
+use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCustomFields;
+use App\Models\Concerns\HasFavorites;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -20,9 +22,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'source', 'source_detail', 'campaign_id', 'first_name', 'last_name', 'company_name', 'job_title',
     'email', 'phone', 'preferred_language', 'assigned_to',
 ])]
-final class Lead extends Model
+final class Lead extends Model implements Favoritable
 {
     use HasCustomFields;
+    use HasFavorites;
     use SoftDeletes;
 
     protected $attributes = ['status' => 'new', 'preferred_language' => 'en'];

@@ -7,19 +7,23 @@ namespace App\Filament\Resources\Orders\Tables;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Actions\OrderActions;
-use App\Models\CustomerProfile;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Order;
 use App\Services\Sales\OrderWorkflowService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 final class OrdersTable
 {
@@ -29,6 +33,7 @@ final class OrdersTable
             ->defaultSort('created_at', 'desc')
             ->searchPlaceholder(__('Search by order number or customer name'))
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('order_number')->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('status')
@@ -69,32 +74,39 @@ final class OrdersTable
                     ->color(static fn (?OrderPaymentStatus $state): ?string => $state?->color()),
                 TextColumn::make('scheduled_at')->label(__('Requested'))->date()->sortable(),
             ])
-            ->filters([
-                SelectFilter::make('status')
-                    ->options(collect(OrderStatus::cases())->mapWithKeys(fn (OrderStatus $status): array => [$status->value => $status->label()])->all()),
-                SelectFilter::make('payment_status')
+            ->groups([
+                Group::make('status')
+                    ->label(__('Status'))
+                    ->getTitleFromRecordUsing(static fn (Order $record): string => $record->status->label()),
+                Group::make('payment_status')
                     ->label(__('admin.sales.fields.payment_status'))
-                    ->options(collect(OrderPaymentStatus::cases())->mapWithKeys(fn (OrderPaymentStatus $status): array => [$status->value => $status->label()])->all()),
-                SelectFilter::make('customer_id')
-                    ->label(__('admin.sales.fields.customer'))
-                    ->searchable()
-                    ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
-                Filter::make('scheduled_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Requested from')),
-                        DatePicker::make('until')->label(__('Requested until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '<=', $date))),
-                Filter::make('confirmed_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Confirmed from')),
-                        DatePicker::make('until')->label(__('Confirmed until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('confirmed_at', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('confirmed_at', '<=', $date))),
+                    ->getTitleFromRecordUsing(static fn (Order $record): ?string => $record->payment_status?->label()),
+                Group::make('customer.company_name')->label(__('admin.sales.fields.customer')),
+                Group::make('scheduled_at')->label(__('Requested'))->date(),
+            ])
+            ->filters([
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('Status'))
+                        ->options(static fn (): array => collect(OrderStatus::cases())
+                            ->mapWithKeys(static fn (OrderStatus $status): array => [$status->value => $status->label()])
+                            ->all())
+                        ->multiple(),
+                    SelectConstraint::make('payment_status')
+                        ->label(__('admin.sales.fields.payment_status'))
+                        ->options(static fn (): array => collect(OrderPaymentStatus::cases())
+                            ->mapWithKeys(static fn (OrderPaymentStatus $status): array => [$status->value => $status->label()])
+                            ->all())
+                        ->multiple(),
+                    TextConstraint::make('order_number')->label(__('Reference')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('admin.sales.fields.customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    NumberConstraint::make('grand_total')->label(__('admin.sales.fields.grand_total')),
+                    DateConstraint::make('scheduled_at')->label(__('Requested')),
+                    DateConstraint::make('confirmed_at')->label(__('Confirmed at')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -125,10 +137,5 @@ final class OrdersTable
         $projection = app(OrderWorkflowService::class)->project($record);
 
         return ['owner' => $projection->nextActionOwner, 'label' => $projection->nextActionLabel];
-    }
-
-    private static function dateFrom(mixed $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
     }
 }

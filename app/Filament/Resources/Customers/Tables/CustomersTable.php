@@ -7,6 +7,8 @@ namespace App\Filament\Resources\Customers\Tables;
 use App\Enums\CustomerApprovalStatus;
 use App\Enums\OperationStage;
 use App\Filament\Resources\Customers\Actions\CustomerApprovalActions;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\InvoiceDeliveryLink;
@@ -18,12 +20,17 @@ use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\QueryBuilder\Constraints\BooleanConstraint;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -38,6 +45,7 @@ final class CustomersTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('latestInteraction'))
             ->defaultSort('created_at', 'desc')
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('customer_code')->label(__('Customer code'))->searchable()->sortable(),
                 TextColumn::make('company_name')->label(__('Company name'))->searchable()->sortable(),
                 TextColumn::make('user.name')->label(__('Account name'))->searchable(),
@@ -45,6 +53,8 @@ final class CustomersTable
                 TextColumn::make('user.email')->label(__('Account email'))->searchable(),
                 TextColumn::make('email')->label(__('Company email'))->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('city')->label(__('City'))->searchable()->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('country')->label(__('Country'))->searchable()->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
                 ToggleColumn::make('is_active')->label(__('Active')),
                 TextColumn::make('approval_status')
                     ->label(__('Approval'))
@@ -63,15 +73,39 @@ final class CustomersTable
                     ->label(__('Last interaction'))
                     ->dateTime()
                     ->placeholder(__('—')),
+                TextColumn::make('created_at')->label(__('Created at'))->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->groups([
+                Group::make('approval_status')
+                    ->label(__('Approval status'))
+                    ->getTitleFromRecordUsing(static fn (CustomerProfile $record): string => $record->approval_status->label()),
+                Group::make('is_active')
+                    ->label(__('Active'))
+                    ->getTitleFromRecordUsing(static fn (CustomerProfile $record): string => $record->is_active ? __('Active') : __('Inactive')),
+                Group::make('city')->label(__('City')),
+                Group::make('country')->label(__('Country')),
+                Group::make('created_at')->label(__('Created at'))->date(),
             ])
             ->filters([
-                TernaryFilter::make('is_active')->label(__('Active')),
-                SelectFilter::make('approval_status')
-                    ->label(__('Approval status'))
-                    ->options(fn (): array => array_combine(
-                        CustomerApprovalStatus::values(),
-                        array_map(static fn (CustomerApprovalStatus $status): string => $status->label(), CustomerApprovalStatus::cases()),
-                    )),
+                TableQueryBuilder::make([
+                    TextConstraint::make('customer_code')->label(__('Customer code')),
+                    TextConstraint::make('company_name')->label(__('Company name')),
+                    SelectConstraint::make('approval_status')
+                        ->label(__('Approval status'))
+                        ->options(static fn (): array => array_combine(
+                            CustomerApprovalStatus::values(),
+                            array_map(static fn (CustomerApprovalStatus $status): string => $status->label(), CustomerApprovalStatus::cases()),
+                        ))
+                        ->multiple(),
+                    BooleanConstraint::make('is_active')->label(__('Active')),
+                    RelationshipConstraint::make('user')
+                        ->label(__('Account'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('name')->searchable()->multiple()),
+                    TextConstraint::make('email')->label(__('Company email')),
+                    TextConstraint::make('city')->label(__('City')),
+                    TextConstraint::make('country')->label(__('Country')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
                 TrashedFilter::make(),
                 Filter::make('inactive_90_days')
                     ->label(__('Inactive 90 days'))

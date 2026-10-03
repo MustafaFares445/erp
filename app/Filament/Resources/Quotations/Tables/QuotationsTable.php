@@ -6,17 +6,21 @@ namespace App\Filament\Resources\Quotations\Tables;
 
 use App\Enums\QuotationStatus;
 use App\Filament\Resources\Quotations\Actions\QuotationActions;
-use App\Models\CustomerProfile;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\EmployeeProfile;
 use App\Models\Quotation;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 final class QuotationsTable
 {
@@ -27,6 +31,7 @@ final class QuotationsTable
             ->searchPlaceholder(__('Search by quotation number, customer name, or customer code'))
             ->searchDebounce('300ms')
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('quotation_number')->label(__('admin.sales.fields.quotation_number'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')
                     ->label(__('admin.sales.fields.customer'))
@@ -58,41 +63,40 @@ final class QuotationsTable
                     ->sortable()
                     ->summarize(Sum::make()->money()->label(__('Total'))),
             ])
-            ->filters([
-                SelectFilter::make('status')
+            ->groups([
+                Group::make('status')
                     ->label(__('admin.sales.fields.status'))
-                    ->options(array_combine(
-                        array_map(fn (QuotationStatus $status): string => $status->value, QuotationStatus::cases()),
-                        array_map(fn (QuotationStatus $status): string => $status->label(), QuotationStatus::cases()),
-                    )),
-                SelectFilter::make('customer_id')
-                    ->label(__('admin.sales.fields.customer'))
-                    ->searchable()
-                    ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
-                SelectFilter::make('employee_id')
-                    ->label(__('Salesperson'))
-                    ->searchable()
-                    ->options(fn (): array => EmployeeProfile::query()
-                        ->with('user:id,name')
-                        ->get()
-                        ->mapWithKeys(static fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
-                        ->all()),
-                Filter::make('issue_date_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Issued from')),
-                        DatePicker::make('until')->label(__('Issued until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('issue_date', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('issue_date', '<=', $date))),
-                Filter::make('expires_at_between')
-                    ->schema([
-                        DatePicker::make('from')->label(__('Expires from')),
-                        DatePicker::make('until')->label(__('Expires until')),
-                    ])
-                    ->query(static fn (Builder $query, array $data): Builder => $query
-                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('expires_at', '>=', $date))
-                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('expires_at', '<=', $date))),
+                    ->getTitleFromRecordUsing(static fn (Quotation $record): string => $record->status->label()),
+                Group::make('customer.company_name')->label(__('admin.sales.fields.customer')),
+                Group::make('issue_date')->label(__('admin.sales.fields.issue_date'))->date(),
+                Group::make('expires_at')->label(__('admin.sales.fields.expires_at'))->date(),
+            ])
+            ->filters([
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->label(__('admin.sales.fields.status'))
+                        ->options(static fn (): array => collect(QuotationStatus::cases())
+                            ->mapWithKeys(static fn (QuotationStatus $status): array => [$status->value => $status->label()])
+                            ->all())
+                        ->multiple(),
+                    TextConstraint::make('quotation_number')->label(__('admin.sales.fields.quotation_number')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('admin.sales.fields.customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    SelectConstraint::make('employee_id')
+                        ->label(__('Salesperson'))
+                        ->options(static fn (): array => EmployeeProfile::query()
+                            ->with('user:id,name')
+                            ->get()
+                            ->mapWithKeys(static fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
+                            ->all())
+                        ->searchable()
+                        ->multiple(),
+                    NumberConstraint::make('grand_total')->label(__('admin.sales.fields.grand_total')),
+                    DateConstraint::make('issue_date')->label(__('admin.sales.fields.issue_date')),
+                    DateConstraint::make('expires_at')->label(__('admin.sales.fields.expires_at')),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                ]),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -101,10 +105,5 @@ final class QuotationsTable
                 QuotationActions::convert(),
                 QuotationActions::requote(),
             ]);
-    }
-
-    private static function dateFrom(mixed $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
     }
 }

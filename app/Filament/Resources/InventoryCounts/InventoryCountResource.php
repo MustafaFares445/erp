@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryCounts;
 
 use App\Enums\CountScope;
-use App\Enums\InventoryCountStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\StockCondition;
 use App\Filament\LocalizedResource as Resource;
@@ -14,6 +13,7 @@ use App\Filament\Resources\InventoryCounts\Pages\ListInventoryCounts;
 use App\Filament\Resources\InventoryCounts\Pages\ViewInventoryCount;
 use App\Filament\Resources\InventoryCounts\RelationManagers\InventoryCountLinesRelationManager;
 use App\Filament\Resources\InventoryCounts\Schemas\InventoryCountInfolist;
+use App\Filament\Resources\InventoryCounts\Tables\InventoryCountsTable;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryCount;
 use App\Models\ProductCategory;
@@ -26,8 +26,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
@@ -89,7 +87,7 @@ final class InventoryCountResource extends Resource
                     Select::make('scope_type')
                         ->label(__('admin.inventory.count.fields.scope'))
                         ->options(collect(CountScope::cases())
-                            ->mapWithKeys(fn (CountScope $scope): array => [$scope->value => __(str($scope->value)->headline()->toString())])
+                            ->mapWithKeys(fn (CountScope $scope): array => [$scope->value => $scope->label()])
                             ->all())
                         ->default(CountScope::Warehouse->value)
                         ->live()
@@ -112,7 +110,7 @@ final class InventoryCountResource extends Resource
                         ->label(__('admin.inventory.count.fields.conditions'))
                         ->options(collect(StockCondition::cases())
                             ->filter(fn (StockCondition $condition): bool => $condition->isMaterialized())
-                            ->mapWithKeys(fn (StockCondition $condition): array => [$condition->value => __(str($condition->value)->headline()->toString())])
+                            ->mapWithKeys(fn (StockCondition $condition): array => [$condition->value => $condition->label()])
                             ->all())
                         ->helperText(__('admin.inventory.count.help.conditions'))
                         ->columnSpanFull(),
@@ -134,30 +132,7 @@ final class InventoryCountResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
-            ->defaultSort('id', 'desc')
-            ->columns([
-                TextColumn::make('count_number')->label(__('admin.inventory.count.fields.count'))->searchable()->sortable(),
-                TextColumn::make('warehouse.name')->label(__('admin.inventory.count.fields.warehouse'))->searchable(),
-                TextColumn::make('scope_type')->label(__('admin.inventory.count.fields.scope'))->badge(),
-                TextColumn::make('status')->label(__('admin.inventory.count.fields.status'))->badge()->sortable(),
-                TextColumn::make('lines_count')->label(__('admin.inventory.count.fields.lines'))->counts('lines'),
-                TextColumn::make('counter.name')->label(__('admin.inventory.count.fields.counted_by'))->placeholder(__('—')),
-                TextColumn::make('confirmedBy.name')->label(__('admin.inventory.count.fields.confirmed_by'))->placeholder(__('—')),
-                TextColumn::make('opened_at')->dateTime()->sortable(),
-            ])
-            ->filters([
-                SelectFilter::make('status')
-                    ->options(collect(InventoryCountStatus::cases())
-                        ->mapWithKeys(fn (InventoryCountStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])
-                        ->all()),
-                SelectFilter::make('scope_type')
-                    ->label(__('admin.inventory.count.fields.scope'))
-                    ->options(collect(CountScope::cases())
-                        ->mapWithKeys(fn (CountScope $scope): array => [$scope->value => __(str($scope->value)->headline()->toString())])
-                        ->all()),
-            ])
-            ->recordUrl(fn (InventoryCount $record): string => self::getUrl('view', ['record' => $record]));
+        return InventoryCountsTable::configure($table);
     }
 
     #[\Override]

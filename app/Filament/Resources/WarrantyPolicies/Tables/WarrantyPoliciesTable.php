@@ -26,7 +26,7 @@ final class WarrantyPoliciesTable
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('period')
                     ->label(__('Coverage period'))
-                    ->state(static fn (WarrantyPolicy $record): string => $record->duration_value.' '.$record->duration_unit->value),
+                    ->state(static fn (WarrantyPolicy $record): string => $record->duration_value.' '.$record->duration_unit->label()),
                 TextColumn::make('start_trigger')
                     ->label(__('Begins from'))
                     ->formatStateUsing(static fn (WarrantyStartTrigger $state): string => $state->label()),

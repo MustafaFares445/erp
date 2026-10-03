@@ -66,7 +66,7 @@ final class TasksRelationManager extends RelationManager
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options(array_column(PlanTaskStatus::cases(), 'value', 'value')),
+                    ->options(collect(PlanTaskStatus::cases())->mapWithKeys(static fn (PlanTaskStatus $status): array => [$status->value => $status->label()])->all()),
                 Filter::make('overdue')
                     ->label(__('Overdue'))
                     ->query(self::overdueQuery(...)),
@@ -89,7 +89,7 @@ final class TasksRelationManager extends RelationManager
                     ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
                 self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
                     ->modalHeading(__('Reopen this task?'))
-                    ->modalDescription("Reopening clears the completion date and marks the plan's performance score stale.")
+                    ->modalDescription(__("Reopening clears the completion date and marks the plan's performance score stale."))
                     ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
                 DeleteAction::make(),
             ]);
@@ -98,7 +98,7 @@ final class TasksRelationManager extends RelationManager
     private static function transitionAction(string $name, string $label, PlanTaskStatus $to): Action
     {
         return Action::make($name)
-            ->label($label)
+            ->label(__($label))
             ->icon(Heroicon::OutlinedArrowRight)
             ->requiresConfirmation()
             ->schema([

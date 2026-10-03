@@ -39,7 +39,7 @@ final class WarrantyPolicyForm
                     Select::make('duration_unit')
                         ->label(__('Period unit'))
                         ->options(collect(WarrantyDurationUnit::cases())
-                            ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => __(str($unit->value)->headline()->toString())]))
+                            ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => $unit->label()]))
                         ->required()
                         ->native(false),
                     Select::make('start_trigger')

@@ -9,6 +9,8 @@ use App\Enums\OrderCloseSource;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\OrderStatus;
 use App\Enums\ReservationStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use App\Services\Sales\OrderWorkflowService;
 use Database\Factories\OrderFactory;
@@ -36,11 +38,12 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  * @property string $grand_total
  * @property OrderStatus $status
  */
-final class Order extends Model
+final class Order extends Model implements Favoritable
 {
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
 
+    use HasFavorites;
     use TracksBlameable;
 
     /**

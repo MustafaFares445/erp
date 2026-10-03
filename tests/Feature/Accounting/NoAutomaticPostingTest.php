@@ -221,7 +221,7 @@ it('registers no model observer or event listener that could post on a document 
     }
 });
 
-it('allows exactly ten named service callers to depend on JournalPostingService', function (): void {
+it('allows exactly eleven named service callers to depend on JournalPostingService', function (): void {
     $callers = [];
 
     foreach (File::allFiles(app_path('Services')) as $file) {
@@ -241,12 +241,15 @@ it('allows exactly ten named service callers to depend on JournalPostingService'
     // reversal orchestrator for each document family calls JournalPostingService::reverse()
     // itself rather than through a document-specific posting wrapper, since reversal is generic.
     //
-    // Payments/CustomerDepositApplicationService.php is the tenth, added for the Customer App V1
-    // deposit-application bridge (§14): it posts the Dr Customer Deposits / Cr Accounts
+    // BankReconciliationService is the eleventh approved caller: reconciliation differences
+    // still post exclusively through JournalPostingService rather than inserting journal rows.
+    // Payments/CustomerDepositApplicationService.php is the Customer App V1 deposit bridge
+    // (§14): it posts the Dr Customer Deposits / Cr Accounts
     // Receivable transfer when an existing deposit is applied to a newly issued invoice, using
     // the narrowly-permissioned system-integration actor rather than a real admin.
     expect($callers)->toBe([
         'Accounting/AccountingDocumentService.php',
+        'Accounting/BankReconciliation/BankReconciliationService.php',
         'Accounting/RefundService.php',
         'Accounting/WriteOffPostingService.php',
         'Payments/CustomerDepositApplicationService.php',
@@ -256,5 +259,5 @@ it('allows exactly ten named service callers to depend on JournalPostingService'
         'Sales/CreditNotePostingService.php',
         'Sales/CreditNoteService.php',
         'Sales/InvoicePostingService.php',
-    ])->and($callers)->toHaveCount(10);
+    ])->and($callers)->toHaveCount(11);
 });

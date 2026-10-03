@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\DeliveryNotes\Pages;
 
 use App\Enums\OperationStage;
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\DeliveryNotes\Widgets\DeliveryNotesOverview;
 use App\Models\InventoryOperation;
@@ -14,7 +16,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ListDeliveryNotes extends ListRecords
 {
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
+
     protected static string $resource = DeliveryNoteResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'sales.delivery-notes';
+    }
 
     #[\Override]
     protected function getHeaderWidgets(): array

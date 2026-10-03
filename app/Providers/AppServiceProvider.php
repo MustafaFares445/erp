@@ -63,9 +63,12 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\Column;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Table;
+use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -105,6 +108,7 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaultCurrency();
         $this->configureFilamentLabelTranslations();
+        $this->configureTableDefaults();
 
         Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(ProductAttribute::class, CatalogPolicy::class);
@@ -188,11 +192,50 @@ final class AppServiceProvider extends ServiceProvider
         };
 
         Table::configureUsing(static function (Table $table) use ($resolve): void {
-            $table->defaultCurrency($resolve);
+            $table->defaultCurrency($resolve)->defaultNumberLocale('en');
         });
 
         Schema::configureUsing(static function (Schema $schema) use ($resolve): void {
-            $schema->defaultCurrency($resolve);
+            $schema->defaultCurrency($resolve)->defaultNumberLocale('en');
+        });
+    }
+
+    /**
+     * Give every resource and relation-manager table the same list
+     * experience: a live, reorderable column manager listing every column,
+     * filters in a slide-over with an explicit "Apply filters" step, and one set of
+     * page-size options.
+     *
+     * Dashboard table widgets are compact summaries, so they keep their
+     * own layout and only lose the column manager the toggleable columns
+     * would otherwise switch on.
+     */
+    private function configureTableDefaults(): void
+    {
+        // Unlabelled columns (logos, thumbnails) would show as blank rows in the manager.
+        Column::configureUsing(static fn (Column $column): Column => $column->toggleable(
+            static fn (Column $column): bool => filled($column->getLabel()),
+        ));
+
+        Table::configureUsing(static function (Table $table): void {
+            if ($table->getLivewire() instanceof Widget) {
+                $table->columnManager(false);
+
+                return;
+            }
+
+            $table
+                // Filament refuses to reorder a table with an unlabelled column.
+                ->reorderableColumns(static fn (Table $table): bool => collect($table->getColumns())
+                    ->every(static fn (Column $column): bool => filled($column->getLabel())))
+                ->deferColumnManager(false)
+                ->filtersLayout(FiltersLayout::Modal)
+                ->filtersTriggerAction(static fn (Action $action): Action => $action
+                    ->slideOver()
+                    ->modalWidth(Width::TwoExtraLarge))
+                ->deferFilters()
+                ->paginationPageOptions([10, 25, 50, 100])
+                ->defaultPaginationPageOption(10);
         });
     }
 }

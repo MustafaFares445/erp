@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Warehouses\Pages;
 
+use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
@@ -31,6 +32,14 @@ final class ViewWarehouse extends ViewRecord
                 ->label(__('admin.inventory.warehouse.actions.view_movements'))
                 ->icon(Heroicon::OutlinedArrowsRightLeft)
                 ->url(fn (Warehouse $record): string => StockMovementResource::getUrl('index', [
+                    'tableFilters' => ['warehouse_id' => ['value' => $record->getKey()]],
+                ])),
+            Action::make('viewReservations')
+                ->label(__('admin.inventory.warehouse.actions.view_reservations'))
+                ->icon(Heroicon::OutlinedLockClosed)
+                ->color('gray')
+                ->visible(fn (): bool => InventoryReservationResource::canViewAny())
+                ->url(fn (Warehouse $record): string => InventoryReservationResource::getUrl('index', [
                     'tableFilters' => ['warehouse_id' => ['value' => $record->getKey()]],
                 ])),
             EditAction::make(),

@@ -60,7 +60,7 @@ final class StockMovementsTable
                 TextColumn::make('movement_type')
                     ->label(__('admin.inventory.movement.type'))
                     ->badge()
-                    ->formatStateUsing(fn (MovementType $state): string => Str::headline($state->value))
+                    ->formatStateUsing(fn (MovementType $state): string => $state->label())
                     ->color(fn (MovementType $state): string => self::movementTypeColor($state)),
                 TextColumn::make('transaction_quantity')
                     ->label(__('admin.inventory.movement.transaction_quantity'))
@@ -325,7 +325,7 @@ final class StockMovementsTable
     private static function movementTypeOptions(): array
     {
         return collect(MovementType::cases())
-            ->mapWithKeys(fn (MovementType $type): array => [$type->value => Str::headline($type->value)])
+            ->mapWithKeys(fn (MovementType $type): array => [$type->value => $type->label()])
             ->all();
     }
 
@@ -334,7 +334,7 @@ final class StockMovementsTable
     {
         return collect(StockCondition::cases())
             ->mapWithKeys(fn (StockCondition $condition): array => [
-                $condition->value => Str::headline($condition->value),
+                $condition->value => $condition->label(),
             ])
             ->all();
     }

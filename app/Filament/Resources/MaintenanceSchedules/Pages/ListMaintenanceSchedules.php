@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceSchedules\Pages;
 
+use App\Filament\Concerns\HasTableViewTabs;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -13,7 +15,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ListMaintenanceSchedules extends ListRecords
 {
+    use HasTableViewTabs;
+    use PersistsTablePresentation;
+
     protected static string $resource = MaintenanceScheduleResource::class;
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'support.maintenance-schedules';
+    }
 
     #[\Override]
     public function getHeaderActions(): array

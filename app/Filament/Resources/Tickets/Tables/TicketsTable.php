@@ -12,6 +12,8 @@ use App\Enums\TicketType;
 use App\Enums\WarrantyStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
+use App\Filament\Tables\Columns\FavoriteColumn;
+use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\MaintenanceRecord;
 use App\Models\PaymentMethod;
 use App\Models\SerializedInventoryUnit;
@@ -31,11 +33,16 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint;
+use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -49,6 +56,7 @@ final class TicketsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
+                FavoriteColumn::make(),
                 TextColumn::make('ticket_number')->label(__('Ticket #'))->badge()->searchable()->sortable(),
                 TextColumn::make('title')->searchable()->limit(40),
                 TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
@@ -95,12 +103,38 @@ final class TicketsTable
                     ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record)),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('resolution_due_at')->label(__('Resolution due'))->dateTime()->placeholder(__('—'))->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->groups([
+                Group::make('status')
+                    ->label(__('Status'))
+                    ->getTitleFromRecordUsing(static fn (Ticket $record): string => $record->status->label()),
+                Group::make('priority')->label(__('Priority')),
+                Group::make('type')->label(__('Type')),
+                Group::make('customer.company_name')->label(__('Customer')),
+                Group::make('assignedEmployee.employee_code')->label(__('Assignee')),
+                Group::make('created_at')->label(__('Created at'))->date(),
             ])
             ->filters([
-                SelectFilter::make('status')->options(collect(TicketStatus::cases())->mapWithKeys(static fn (TicketStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])),
-                SelectFilter::make('type')->options(collect(TicketType::cases())->mapWithKeys(static fn (TicketType $type): array => [$type->value => __(str($type->value)->headline()->toString())])),
-                SelectFilter::make('priority')->options(collect(TicketPriority::cases())->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => __(str($priority->value)->headline()->toString())])),
-                SelectFilter::make('assigned_employee_id')->label(__('Assignee'))->relationship('assignedEmployee', 'employee_code'),
+                TableQueryBuilder::make([
+                    SelectConstraint::make('status')
+                        ->options(static fn (): array => collect(TicketStatus::cases())->mapWithKeys(static fn (TicketStatus $status): array => [$status->value => $status->label()])->all())
+                        ->multiple(),
+                    SelectConstraint::make('type')->options(TicketType::class)->multiple(),
+                    SelectConstraint::make('priority')->options(TicketPriority::class)->multiple(),
+                    TextConstraint::make('ticket_number')->label(__('Ticket #')),
+                    TextConstraint::make('title')->label(__('Title')),
+                    RelationshipConstraint::make('customer')
+                        ->label(__('Customer'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
+                    RelationshipConstraint::make('assignedEmployee')
+                        ->label(__('Assignee'))
+                        ->selectable(IsRelatedToOperator::make()->titleAttribute('employee_code')->searchable()->multiple()),
+                    DateConstraint::make('created_at')->label(__('Created at')),
+                    DateConstraint::make('updated_at')->label(__('Updated at')),
+                    DateConstraint::make('resolution_due_at')->label(__('Resolution due')),
+                ]),
                 TernaryFilter::make('response_breached')->label(__('Response breached'))->queries(
                     true: self::responseBreachedQuery(...),
                     false: self::notResponseBreachedQuery(...),

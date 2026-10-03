@@ -23,10 +23,13 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use BackedEnum;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
+use Filament\Support\Contracts\HasLabel;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 
 final class InventoryExportRequestSchema
@@ -232,7 +235,7 @@ final class InventoryExportRequestSchema
     }
 
     /**
-     * @param  list<\BackedEnum>  $cases
+     * @param  list<BackedEnum&HasLabel>  $cases
      * @return array<int|string, string>
      */
     private static function enumOptions(array $cases): array
@@ -240,8 +243,12 @@ final class InventoryExportRequestSchema
         $options = [];
 
         foreach ($cases as $case) {
-            $label = is_string($case->value) ? $case->value : (string) $case->value;
-            $options[$case->value] = str($label)->replace('_', ' ')->title()->toString();
+            $label = $case->getLabel();
+            $options[$case->value] = match (true) {
+                is_string($label) => $label,
+                $label instanceof Htmlable => $label->toHtml(),
+                default => (string) $case->value,
+            };
         }
 
         return $options;

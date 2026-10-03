@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PurchaseInboundStatus;
+use App\Models\Concerns\Favoritable;
+use App\Models\Concerns\HasFavorites;
 use App\Services\Purchasing\PurchaseInboundService;
 use Database\Factories\PurchaseInboundFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -35,10 +37,12 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'purchase_order_id',
 ])]
-final class PurchaseInbound extends Model
+final class PurchaseInbound extends Model implements Favoritable
 {
     /** @use HasFactory<PurchaseInboundFactory> */
     use HasFactory;
+
+    use HasFavorites;
 
     /** @var array<string, mixed> */
     protected $attributes = [
