@@ -39,7 +39,7 @@ final class BankReconciliationSuggestionService
             ? $this->customerPaymentCandidates($statement, $line)
             : $this->supplierPaymentCandidates($statement, $line);
 
-        $journalCandidates = $this->journalEntryCandidates($statement, $line, $bankAccount);
+        $journalCandidates = $this->journalEntryCandidates($line, $bankAccount);
 
         return array_values($candidates
             ->concat($journalCandidates)
@@ -100,7 +100,7 @@ final class BankReconciliationSuggestionService
     }
 
     /** @return Collection<int, array{target_type:string,target_id:int,label:string,amount:string,date:string,score:int,reasons:list<string>}> */
-    private function journalEntryCandidates(BankStatement $statement, BankStatementLine $line, ChartAccount $bankAccount): Collection
+    private function journalEntryCandidates(BankStatementLine $line, ChartAccount $bankAccount): Collection
     {
         return JournalEntry::query()
             ->where('status', JournalEntryStatus::Posted->value)

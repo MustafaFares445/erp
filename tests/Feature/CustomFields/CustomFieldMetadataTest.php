@@ -189,6 +189,7 @@ it('keeps the custom field allow-list away from accounting, payments and invento
 it('requires the owning record update permission before custom values can change', function (): void {
     $reviewer = User::factory()->create();
     $reviewer->assignRole('Reviewer');
+
     $customer = CustomerProfile::factory()->create();
     $definition = CustomFieldDefinition::query()->create([
         'entity_type' => CustomFieldEntityType::Customer,
@@ -206,6 +207,7 @@ it('requires the owning record update permission before custom values can change
 it('grants definition management only to the system administrator role', function (): void {
     $admin = User::factory()->create();
     $admin->assignRole('System Admin');
+
     $reviewer = User::factory()->create();
     $reviewer->assignRole('Reviewer');
 

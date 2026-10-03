@@ -44,7 +44,7 @@ final class CreatePurchaseRfq extends CreateRecord
         }
 
         $rawSupplierIds = is_array($data['supplier_ids'] ?? null) ? $data['supplier_ids'] : [];
-        $supplierIds = array_values(array_map(static fn (mixed $id): int => (int) $id, array_filter($rawSupplierIds, 'is_numeric')));
+        $supplierIds = array_values(array_map(static fn (mixed $id): int => (int) $id, array_filter($rawSupplierIds, is_numeric(...))));
 
         return self::runPurchasingOperation(fn (): PurchaseRfq => app(PurchaseRfqService::class)->create(
             $actor,

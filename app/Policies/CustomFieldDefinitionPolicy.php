@@ -25,7 +25,7 @@ final class CustomFieldDefinitionPolicy
         return $this->viewAny($user);
     }
 
-    public function update(User $user, CustomFieldDefinition $definition): bool
+    public function update(User $user): bool
     {
         return $this->viewAny($user);
     }

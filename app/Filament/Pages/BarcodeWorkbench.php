@@ -164,8 +164,8 @@ final class BarcodeWorkbench extends Page
             }
 
             Notification::make()->success()->title(__('Scan matched'))->send();
-        } catch (DomainException $exception) {
-            Notification::make()->danger()->title(__('Scan rejected'))->body($exception->getMessage())->send();
+        } catch (DomainException $domainException) {
+            Notification::make()->danger()->title(__('Scan rejected'))->body($domainException->getMessage())->send();
         } finally {
             $this->scanCode = '';
             $this->dispatch('barcode-focus');

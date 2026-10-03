@@ -87,7 +87,7 @@ it('imports a balanced statement idempotently regardless of row order and preser
 });
 
 it('rejects statements whose opening balance plus movements does not equal the closing balance', function (): void {
-    expect(fn () => importReconStatement(
+    expect(fn (): BankStatement => importReconStatement(
         $this->actor,
         $this->method,
         $this->imports,

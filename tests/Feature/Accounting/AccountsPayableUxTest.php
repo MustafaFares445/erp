@@ -43,8 +43,11 @@ it('lets payable viewers drill into bills and expenses without granting mutation
         ->and(Gate::forUser($viewer)->allows('view', $expense))->toBeTrue()
         ->and(Gate::forUser($viewer)->allows('update', $expense))->toBeFalse();
 
+    $expenseId = $expense->getKey();
+    assert(is_int($expenseId));
+
     expect(ExpenseResource::getUrl('view', ['record' => $expense]))
-        ->toContain('/expenses/'.(string) $expense->id);
+        ->toContain('/expenses/'.$expenseId);
 });
 
 it('keeps supplier statements aligned to allocated payments instead of full unallocated cash', function (): void {

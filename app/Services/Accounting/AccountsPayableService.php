@@ -218,7 +218,10 @@ final readonly class AccountsPayableService
             }
 
             $recognisedOn = CarbonImmutable::parse($document['recognised_on']);
-            if ($recognisedOn->lessThan($fromDate) || $recognisedOn->greaterThan($toDate)) {
+            if ($recognisedOn->lessThan($fromDate)) {
+                continue;
+            }
+            if ($recognisedOn->greaterThan($toDate)) {
                 continue;
             }
 

@@ -177,17 +177,15 @@ final readonly class PurchaseAgreementService
             $overlap = PurchaseAgreementLine::query()
                 ->where('product_variant_id', $line->product_variant_id)
                 ->where('unit_id', $line->unit_id)
-                ->whereHas('agreement', function (Builder $query) use ($agreement): Builder {
-                    return $query
-                        ->whereKeyNot($agreement->getKey())
-                        ->where('supplier_id', $agreement->supplier_id)
-                        ->where('currency_code', $agreement->currency_code)
-                        ->where('status', PurchaseAgreementStatus::Active->value)
-                        ->when($agreement->ends_on !== null, fn (Builder $dates): Builder => $dates->whereDate('starts_on', '<=', $agreement->ends_on?->toDateString()))
-                        ->where(fn (Builder $dates): Builder => $dates
-                            ->whereNull('ends_on')
-                            ->orWhereDate('ends_on', '>=', $agreement->starts_on->toDateString()));
-                })
+                ->whereHas('agreement', fn (Builder $query): Builder => $query
+                    ->whereKeyNot($agreement->getKey())
+                    ->where('supplier_id', $agreement->supplier_id)
+                    ->where('currency_code', $agreement->currency_code)
+                    ->where('status', PurchaseAgreementStatus::Active->value)
+                    ->when($agreement->ends_on !== null, fn (Builder $dates): Builder => $dates->whereDate('starts_on', '<=', $agreement->ends_on?->toDateString()))
+                    ->where(fn (Builder $dates): Builder => $dates
+                        ->whereNull('ends_on')
+                        ->orWhereDate('ends_on', '>=', $agreement->starts_on->toDateString())))
                 ->exists();
 
             if ($overlap) {

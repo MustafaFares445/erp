@@ -117,7 +117,7 @@ final class CustomFieldsRelationManager extends RelationManager
     {
         $options = $definition->optionValues();
 
-        return array_combine($options, $options) ?: [];
+        return array_combine($options, $options);
     }
 
     /** @return Collection<int, CustomFieldDefinition> */

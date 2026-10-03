@@ -19,6 +19,7 @@ final class CollaborationEntry extends Model implements HasMedia
 {
     use InteractsWithMedia;
 
+    #[\Override]
     public function casts(): array
     {
         return ['due_at' => 'datetime', 'completed_at' => 'datetime', 'metadata' => 'array'];
