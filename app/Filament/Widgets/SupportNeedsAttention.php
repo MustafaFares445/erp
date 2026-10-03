@@ -7,6 +7,8 @@ namespace App\Filament\Widgets;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
 use App\Filament\Resources\Tickets\TicketResource;
+use App\Filament\Widgets\Concerns\BuildsDashboardTables;
+use App\Filament\Widgets\Concerns\ScopesSupportTickets;
 use App\Models\Ticket;
 use App\Services\Support\TicketSlaStateResolver;
 use Filament\Tables\Columns\TextColumn;
@@ -14,9 +16,16 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Open tickets that are blocked — awaiting triage, payment, assignment or
+ * the customer — or breaching their SLA, latest activity first. A
+ * current-state work queue, so it ignores the date range but respects the
+ * assignee and priority filters.
+ */
 final class SupportNeedsAttention extends TableWidget
 {
-    protected static ?string $heading = 'Needs attention';
+    use BuildsDashboardTables;
+    use ScopesSupportTickets;
 
     #[\Override]
     public static function canView(): bool
@@ -27,31 +36,33 @@ final class SupportNeedsAttention extends TableWidget
     #[\Override]
     public function table(Table $table): Table
     {
-        return $table
-            ->query(self::attentionQuery())
+        return $this->dashboardTable($table)
+            ->heading(__('dashboards.support.tables.attention'))
+            ->query(fn (): Builder => $this->scopeTickets(self::attentionQuery())
+                ->with(['customer:id,company_name', 'assignedEmployee.user:id,name']))
             ->defaultSort('updated_at', 'desc')
             ->recordUrl(static fn (Ticket $record): string => TicketResource::getUrl('view', ['record' => $record]))
             ->columns([
-                TextColumn::make('ticket_number')->label(__('Ticket #'))->badge(),
-                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
-                TextColumn::make('title')->label(__('Issue'))->limit(36),
-                TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(static fn (TicketStatus $state): string => $state->label())
-                    ->color(static fn (TicketStatus $state): string => $state->color()),
+                TextColumn::make('ticket_number')
+                    ->label(__('dashboards.support.columns.ticket'))
+                    ->description(static fn (Ticket $record): string => str($record->title)->limit(24)->toString())
+                    ->tooltip(static fn (Ticket $record): string => $record->title)
+                    ->weight('medium'),
+                TextColumn::make('customer.company_name')
+                    ->label(__('dashboards.support.columns.customer'))
+                    ->description(static fn (Ticket $record): string => $record->assignedEmployee->user->name ?? __('dashboards.support.columns.unassigned'))
+                    ->wrap(),
                 TextColumn::make('blocked_by')
-                    ->label(__('Blocked by'))
+                    ->label(__('dashboards.support.columns.blocked_by'))
                     ->getStateUsing(static fn (Ticket $record): string => self::blockedBy($record))
-                    ->badge(),
+                    ->badge()
+                    ->color(static fn (Ticket $record): string => $record->status->color()),
                 TextColumn::make('sla_state')
-                    ->label(__('SLA'))
+                    ->label(__('dashboards.support.columns.sla'))
                     ->badge()
                     ->getStateUsing(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->label($record))
                     ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record)),
-                TextColumn::make('assignedEmployee.user.name')->label(__('Assignee'))->placeholder(__('Unassigned')),
-                TextColumn::make('updated_at')->label(__('Last update'))->since(),
-            ])
-            ->paginated([5, 10]);
+            ]);
     }
 
     /** @return Builder<Ticket> */
@@ -87,25 +98,25 @@ final class SupportNeedsAttention extends TableWidget
     private static function blockedBy(Ticket $ticket): string
     {
         if ($ticket->status === TicketStatus::Pending) {
-            return 'Awaiting triage';
+            return __('dashboards.support.blocked.triage');
         }
 
         if ($ticket->status === TicketStatus::PendingPayment) {
-            return $ticket->diagnostic_fee_required ? 'Diagnostic fee' : 'Payment';
+            return $ticket->diagnostic_fee_required ? __('dashboards.support.blocked.diagnostic_fee') : __('dashboards.support.blocked.payment');
         }
 
         if ($ticket->status === TicketStatus::Live && $ticket->assigned_employee_id === null) {
-            return 'Assignment';
+            return __('dashboards.support.blocked.assignment');
         }
 
         if ($ticket->status === TicketStatus::WaitingCustomer) {
-            return 'Customer';
+            return __('dashboards.support.blocked.customer');
         }
 
         if ($ticket->isResponseBreached() || $ticket->isResolutionBreached()) {
-            return 'SLA breach';
+            return __('dashboards.support.blocked.sla_breach');
         }
 
-        return $ticket->pending_reason ?: 'Action required';
+        return $ticket->pending_reason ?: __('dashboards.support.blocked.action_required');
     }
 }

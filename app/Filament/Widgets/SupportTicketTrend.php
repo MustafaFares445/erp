@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\SupportPermission;
+use App\Filament\Widgets\Concerns\ScopesSupportTickets;
 use App\Models\Ticket;
-use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
-use Illuminate\Support\Collection;
 
+/**
+ * Tickets opened vs resolved per bucket of the selected window, for the
+ * selected assignee and priority.
+ */
 final class SupportTicketTrend extends ChartWidget
 {
-    protected ?string $heading = 'Ticket trend';
+    use ScopesSupportTickets;
+
+    protected ?string $maxHeight = '300px';
 
     #[\Override]
     public static function canView(): bool
@@ -21,50 +26,41 @@ final class SupportTicketTrend extends ChartWidget
     }
 
     #[\Override]
+    public function getHeading(): string
+    {
+        return __('dashboards.support.charts.ticket_trend');
+    }
+
+    #[\Override]
     protected function getData(): array
     {
-        /** @var Collection<int, Carbon> $months */
-        $months = collect(range(5, 0))
-            ->map(fn (int $offset): Carbon => now()->startOfMonth()->subMonths($offset));
-
-        $openedCounts = $this->countByMonth(Ticket::query()->pluck('created_at'));
-        $resolvedCounts = $this->countByMonth(Ticket::query()->whereNotNull('resolved_at')->pluck('resolved_at'));
+        $period = $this->dashboardPeriod();
 
         return [
             'datasets' => [
                 [
-                    'label' => 'Opened',
-                    'data' => $months->map(fn (Carbon $month): int => $openedCounts->get($month->format('Y-m'), 0))->all(),
+                    'label' => __('dashboards.support.charts.opened'),
+                    'data' => $period->countSeries(
+                        $this->scopeTickets(Ticket::query())->whereBetween('created_at', [$period->from, $period->to])->pluck('created_at'),
+                    ),
+                    'borderColor' => '#f59e0b',
+                    'backgroundColor' => 'transparent',
                 ],
                 [
-                    'label' => 'Resolved',
-                    'data' => $months->map(fn (Carbon $month): int => $resolvedCounts->get($month->format('Y-m'), 0))->all(),
+                    'label' => __('dashboards.support.charts.resolved'),
+                    'data' => $period->countSeries(
+                        $this->scopeTickets(Ticket::query())->whereBetween('resolved_at', [$period->from, $period->to])->pluck('resolved_at'),
+                    ),
+                    'borderColor' => '#22c55e',
+                    'backgroundColor' => 'transparent',
                 ],
             ],
-            'labels' => $months->map(fn (Carbon $month): string => $month->format('M Y'))->all(),
+            'labels' => $period->labels(),
         ];
     }
 
     protected function getType(): string
     {
         return 'line';
-    }
-
-    /**
-     * @param  Collection<array-key, mixed>  $dates
-     * @return Collection<string, int>
-     */
-    private function countByMonth(Collection $dates): Collection
-    {
-        return $dates
-            ->filter()
-            ->map(function (mixed $date): string {
-                if (! is_string($date) && ! $date instanceof \DateTimeInterface) {
-                    throw new \LogicException('Ticket date values must be date-like.');
-                }
-
-                return Carbon::parse($date)->format('Y-m');
-            })
-            ->countBy();
     }
 }

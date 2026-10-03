@@ -8,15 +8,25 @@ use App\Enums\MaintenanceBillingType;
 use App\Enums\SupportPermission;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
-use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\MaintenanceRecord;
 use App\Models\WarrantyRecoveryClaim;
+use App\Services\Settings\CurrencyCatalogService;
 use App\Services\Support\MaintenanceCostService;
-use Filament\Widgets\StatsOverviewWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
+use Filament\Widgets\ChartWidget;
 
-final class SupportWarrantyStatistics extends StatsOverviewWidget
+/**
+ * Service economics for the selected window as one bar chart: cost carried
+ * by seller warranty and by goodwill, customer-paid service revenue, and
+ * third-party recovery received — plus the recovery still outstanding
+ * today. Amounts are in the default currency.
+ */
+final class SupportWarrantyStatistics extends ChartWidget
 {
+    use InteractsWithDashboardFilters;
+
+    protected ?string $maxHeight = '300px';
+
     #[\Override]
     public static function canView(): bool
     {
@@ -24,25 +34,27 @@ final class SupportWarrantyStatistics extends StatsOverviewWidget
     }
 
     #[\Override]
-    protected function getStats(): array
+    public function getHeading(): string
     {
-        $period = [now()->startOfMonth(), now()->endOfMonth()];
-        $costService = app(MaintenanceCostService::class);
+        return __('dashboards.support.charts.service_economics', ['currency' => app(CurrencyCatalogService::class)->defaultCode()]);
+    }
 
-        $warrantyJobs = MaintenanceRecord::query()
-            ->where('coverage_source', WarrantyCoverageSource::SellerWarranty->value)
-            ->whereBetween('coverage_decided_at', $period)
-            ->count();
+    #[\Override]
+    protected function getData(): array
+    {
+        $period = $this->dashboardPeriod();
+        $window = [$period->from, $period->to];
+        $costService = app(MaintenanceCostService::class);
 
         $warrantyCost = MaintenanceRecord::query()
             ->where('coverage_source', WarrantyCoverageSource::SellerWarranty->value)
-            ->whereBetween('coverage_decided_at', $period)
+            ->whereBetween('coverage_decided_at', $window)
             ->get()
             ->sum(static fn (MaintenanceRecord $record): int => $costService->jobCost($record)['total_cost_minor']);
 
         $goodwillCost = MaintenanceRecord::query()
             ->where('coverage_decision', WarrantyClaimDecision::Goodwill->value)
-            ->whereBetween('coverage_decided_at', $period)
+            ->whereBetween('coverage_decided_at', $window)
             ->get()
             ->sum(static fn (MaintenanceRecord $record): int => $costService->jobCost($record)['total_cost_minor']);
 
@@ -51,12 +63,12 @@ final class SupportWarrantyStatistics extends StatsOverviewWidget
                 MaintenanceBillingType::Invoiced->value,
                 MaintenanceBillingType::TicketSettled->value,
             ])
-            ->whereBetween('billed_at', $period)
+            ->whereBetween('billed_at', $window)
             ->get()
             ->sum(static fn (MaintenanceRecord $record): int => $costService->marginFor($record)['revenue_minor']);
 
         $recoveryReceived = (int) WarrantyRecoveryClaim::query()
-            ->whereBetween('updated_at', $period)
+            ->whereBetween('updated_at', $window)
             ->sum('received_amount_minor');
 
         $recoveryOutstanding = WarrantyRecoveryClaim::query()
@@ -64,29 +76,35 @@ final class SupportWarrantyStatistics extends StatsOverviewWidget
             ->sum(static fn (WarrantyRecoveryClaim $claim): int => $claim->outstandingMinor());
 
         return [
-            Stat::make(__('Warranty jobs this month'), $warrantyJobs)
-                ->description(__('Repairs using the seller-warranty entitlement'))
-                ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make(__('Warranty service cost'), self::money($warrantyCost))
-                ->description(__('Internal cost carried by seller warranty'))
-                ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make(__('Goodwill cost'), self::money($goodwillCost))
-                ->description(__('Commercial courtesy kept separate from warranty'))
-                ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make(__('Customer-paid service'), self::money($customerPaidRevenue))
-                ->description(__('Service revenue commercially settled this month'))
-                ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make(__('Third-party recovery received'), self::money($recoveryReceived))
-                ->description(__('Manufacturer / supplier reimbursement recorded this month'))
-                ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make(__('Recovery outstanding'), self::money($recoveryOutstanding))
-                ->description(__('Approved or claimed third-party amount still not received'))
-                ->url(MaintenanceRequestResource::getUrl('index')),
+            'datasets' => [[
+                'label' => __('dashboards.support.charts.amount'),
+                'data' => array_map(
+                    static fn (int|float $minor): float => round($minor / 100, 2),
+                    [$warrantyCost, $goodwillCost, $customerPaidRevenue, $recoveryReceived, $recoveryOutstanding],
+                ),
+                'backgroundColor' => ['#f59e0b', '#a855f7', '#22c55e', '#3b82f6', '#94a3b8'],
+            ]],
+            'labels' => [
+                __('dashboards.support.economics.warranty_cost'),
+                __('dashboards.support.economics.goodwill_cost'),
+                __('dashboards.support.economics.customer_paid'),
+                __('dashboards.support.economics.recovery_received'),
+                __('dashboards.support.economics.recovery_outstanding'),
+            ],
         ];
     }
 
-    private static function money(int $minor): string
+    #[\Override]
+    protected function getOptions(): array
     {
-        return number_format($minor / 100, 2);
+        return [
+            'plugins' => ['legend' => ['display' => false]],
+            'scales' => ['y' => ['beginAtZero' => true]],
+        ];
+    }
+
+    protected function getType(): string
+    {
+        return 'bar';
     }
 }

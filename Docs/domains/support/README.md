@@ -15,6 +15,10 @@ Support owns ticket intake/triage/lifecycle/SLA, maintenance requests and servic
 
 Tickets, SLA Policies, Maintenance Requests, Maintenance Schedules, Service Records, Warranty Policies and Support Reports.
 
+The Support dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards). It has assignee and priority filters, the ticket trend beside service economics (warranty and goodwill cost, customer-paid service, third-party recovery), the ticket and maintenance work queues side by side, and upcoming maintenance across the full width.
+
+The Tickets and Maintenance Requests lists use the standard list-table experience ([ADR 0014](../../adr/0014-standard-list-table-experience.md)): a view tab bar, per-user favorites, Group by and slide-over rule filters. Ticket SLA-breach filters and Trashed stay as separate quick filters.
+
 ## Boundary
 
 - Inventory owns parts stock mutation.

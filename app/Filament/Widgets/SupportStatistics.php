@@ -4,19 +4,34 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
-use App\Enums\MaintenanceStatus;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
-use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Tickets\TicketResource;
-use App\Models\MaintenanceRecord;
+use App\Filament\Widgets\Concerns\BuildsTrendStats;
+use App\Filament\Widgets\Concerns\ScopesSupportTickets;
 use App\Models\Ticket;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Support's four headline cards: tickets opened and resolved in the
+ * selected window against the previous one, the live open queue, and the
+ * tickets whose SLA is breached or due within the hour. Maintenance work
+ * queues live in the maintenance attention table.
+ */
 final class SupportStatistics extends StatsOverviewWidget
 {
+    use BuildsTrendStats;
+    use ScopesSupportTickets;
+
+    private const array CLOSED_STATUSES = [
+        TicketStatus::Resolved,
+        TicketStatus::Closed,
+        TicketStatus::Cancelled,
+    ];
+
     #[\Override]
     public static function canView(): bool
     {
@@ -26,21 +41,17 @@ final class SupportStatistics extends StatsOverviewWidget
     #[\Override]
     protected function getStats(): array
     {
-        $openTickets = Ticket::query()
-            ->whereNotIn('status', [
-                TicketStatus::Resolved->value,
-                TicketStatus::Closed->value,
-                TicketStatus::Cancelled->value,
-            ])
-            ->count();
+        $period = $this->dashboardPeriod();
 
-        $waitingDiagnosis = MaintenanceRecord::query()
-            ->whereNotIn('status', [MaintenanceStatus::Closed->value, MaintenanceStatus::Cancelled->value])
-            ->whereNull('diagnosed_at')
-            ->count();
+        $opened = $this->tickets()->whereBetween('created_at', [$period->from, $period->to])->pluck('created_at');
+        $previousOpened = $this->tickets()->whereBetween('created_at', [$period->previousFrom, $period->previousTo])->count();
+        $resolved = $this->tickets()->whereBetween('resolved_at', [$period->from, $period->to])->pluck('resolved_at');
+        $previousResolved = $this->tickets()->whereBetween('resolved_at', [$period->previousFrom, $period->previousTo])->count();
 
-        $slaAtRisk = Ticket::query()
-            ->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value, TicketStatus::Cancelled->value])
+        $open = $this->openTickets()->count();
+        $waitingCustomer = $this->openTickets()->where('status', TicketStatus::WaitingCustomer->value)->count();
+
+        $slaAtRisk = $this->openTickets()
             ->where(function (Builder $query): void {
                 $query->where(function (Builder $response): void {
                     $response->whereNull('first_response_at')
@@ -55,41 +66,47 @@ final class SupportStatistics extends StatsOverviewWidget
             })
             ->count();
 
-        $waitingCustomer = Ticket::query()
-            ->where('status', TicketStatus::WaitingCustomer->value)
-            ->count();
-        $awaitingCoverage = MaintenanceRecord::query()
-            ->where('status', MaintenanceStatus::Diagnosing->value)
-            ->count();
-
-        $awaitingApproval = MaintenanceRecord::query()
-            ->where('status', MaintenanceStatus::AwaitingApproval->value)
-            ->count();
-
         return [
-            Stat::make(__('Open tickets'), $openTickets)
-                ->description(__('All active customer support work'))
+            $this->trendStat(
+                __('dashboards.support.kpis.opened'),
+                (string) $opened->count(),
+                $opened->count(),
+                $previousOpened,
+                $period->countSeries($opened),
+                Heroicon::OutlinedInboxArrowDown,
+                TicketResource::getUrl('index'),
+                higherIsBetter: false,
+            ),
+            $this->trendStat(
+                __('dashboards.support.kpis.resolved'),
+                (string) $resolved->count(),
+                $resolved->count(),
+                $previousResolved,
+                $period->countSeries($resolved),
+                Heroicon::OutlinedCheckBadge,
+                TicketResource::getUrl('index'),
+            ),
+            Stat::make(__('dashboards.support.kpis.open'), (string) $open)
+                ->description(__('dashboards.support.kpis.waiting_customer', ['count' => $waitingCustomer]))
+                ->icon(Heroicon::OutlinedLifebuoy)
                 ->url(TicketResource::getUrl('index')),
-            Stat::make(__('Waiting diagnosis'), $waitingDiagnosis)
-                ->description(__('Maintenance jobs without technical diagnosis'))
-                ->color($waitingDiagnosis > 0 ? 'warning' : 'success')
-                ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make(__('SLA at risk'), $slaAtRisk)
-                ->description(__('Breached or due within the next hour'))
+            Stat::make(__('dashboards.support.kpis.sla_at_risk'), (string) $slaAtRisk)
+                ->description(__('dashboards.support.kpis.sla_at_risk_detail'))
+                ->icon(Heroicon::OutlinedExclamationTriangle)
                 ->color($slaAtRisk > 0 ? 'danger' : 'success')
                 ->url(TicketResource::getUrl('index')),
-            Stat::make(__('Waiting customer'), $waitingCustomer)
-                ->description(__('Support clock paused for customer response'))
-                ->color($waitingCustomer > 0 ? 'warning' : 'success')
-                ->url(TicketResource::getUrl('index')),
-            Stat::make(__('Coverage decision needed'), $awaitingCoverage)
-                ->description(__('Diagnosis recorded; decide who pays'))
-                ->color($awaitingCoverage > 0 ? 'warning' : 'success')
-                ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make(__('Waiting approval'), $awaitingApproval)
-                ->description(__('Customer quotation / approval required'))
-                ->color($awaitingApproval > 0 ? 'warning' : 'success')
-                ->url(MaintenanceRequestResource::getUrl('index')),
         ];
+    }
+
+    /** @return Builder<Ticket> */
+    private function tickets(): Builder
+    {
+        return $this->scopeTickets(Ticket::query());
+    }
+
+    /** @return Builder<Ticket> */
+    private function openTickets(): Builder
+    {
+        return $this->tickets()->whereNotIn('status', array_map(static fn (TicketStatus $status): string => $status->value, self::CLOSED_STATUSES));
     }
 }
