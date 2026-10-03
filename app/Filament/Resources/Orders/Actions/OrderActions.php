@@ -5,13 +5,24 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Orders\Actions;
 
 use App\Data\Sales\OrderFulfillmentLineProgress;
+use App\Enums\InvoiceStatus;
+use App\Enums\OperationStage;
 use App\Enums\OrderStatus;
 use App\Filament\Concerns\InteractsWithSalesServices;
+use App\Filament\Pages\PurchaseNeeds;
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
+use App\Filament\Resources\Payments\PaymentResource;
+use App\Models\InventoryOperation;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderLine;
+use App\Models\Payment;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Sales\OrderFulfillmentQuantityService;
+use App\Services\Sales\OrderWorkflowService;
 use App\Services\Sales\SalesOrderService;
 use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
@@ -22,6 +33,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use LogicException;
+use WeakMap;
 
 final class OrderActions
 {
@@ -55,6 +67,112 @@ final class OrderActions
                 self::withActor(fn (User $actor) => app(SalesOrderService::class)->release($actor, $record));
                 Notification::make()->success()->title(__('Customer order released to Logistics.'))->send();
             });
+    }
+
+    /**
+     * The single emphasized "what happens next" row action for the Orders work
+     * queue. Confirm and release stay in-table operations ({@see confirm()},
+     * {@see release()}); every later step belongs to another department's
+     * resource, so this action links there with an explicit label and is only
+     * visible when the user may open the target. Terminal and waiting orders
+     * get no action (View only).
+     */
+    public static function nextStep(): Action
+    {
+        return Action::make('next_step')
+            ->label(fn (Order $record): string => self::nextStepTarget($record) instanceof OrderNextStep ? self::nextStepTarget($record)->label : '')
+            ->icon(fn (Order $record): Heroicon => self::nextStepTarget($record) instanceof OrderNextStep ? self::nextStepTarget($record)->icon : Heroicon::OutlinedArrowRight)
+            ->button()
+            ->color('primary')
+            ->visible(fn (Order $record): bool => self::nextStepTarget($record) !== null)
+            ->url(fn (Order $record): ?string => self::nextStepTarget($record)?->url);
+    }
+
+    public static function nextStepTarget(Order $order): ?OrderNextStep
+    {
+        /** @var WeakMap<Order, OrderNextStep|false>|null $cache */
+        static $cache = null;
+        $cache ??= new WeakMap;
+
+        $cached = $cache[$order] ?? null;
+
+        if ($cached instanceof OrderNextStep) {
+            return $cached;
+        }
+
+        if ($cached === false) {
+            return null;
+        }
+
+        $target = self::resolveNextStepTarget($order);
+        $cache[$order] = $target ?? false;
+
+        return $target;
+    }
+
+    private static function resolveNextStepTarget(Order $order): ?OrderNextStep
+    {
+        $user = self::salesActor();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        $label = app(OrderWorkflowService::class)->project($order)->nextActionLabel;
+        $canOpenOutbound = OutboundFulfillmentResource::canView($order);
+
+        return match ($label) {
+            'Resolve supply requirement' => match (true) {
+                PurchaseNeeds::canAccess() => new OrderNextStep(__('Resolve supply requirement'), Heroicon::OutlinedShoppingCart, PurchaseNeeds::getUrl()),
+                $canOpenOutbound => new OrderNextStep(__('Review supply requirement'), Heroicon::OutlinedShoppingCart, OutboundFulfillmentResource::getUrl('view', ['record' => $order])),
+                default => null,
+            },
+            'Allocate remaining demand' => $canOpenOutbound && $user->can('planFulfillment', $order)
+                ? new OrderNextStep(__('Allocate stock'), Heroicon::OutlinedMap, OutboundFulfillmentResource::getUrl('view', ['record' => $order]))
+                : null,
+            'Dispatch goods' => $canOpenOutbound
+                ? new OrderNextStep(__('Dispatch goods'), Heroicon::OutlinedTruck, OutboundFulfillmentResource::getUrl('view', ['record' => $order]))
+                : null,
+            'Confirm shipment arrival' => $canOpenOutbound
+                ? new OrderNextStep(__('Confirm arrival'), Heroicon::OutlinedCheckBadge, OutboundFulfillmentResource::getUrl('view', ['record' => $order]))
+                : null,
+            'Create invoice' => self::createInvoiceTarget($order, $user),
+            'Issue invoice' => self::issueInvoiceTarget($order, $user),
+            'Complete payment' => $user->can('create', Payment::class)
+                ? new OrderNextStep(__('Record payment'), Heroicon::OutlinedBanknotes, PaymentResource::getUrl('create'))
+                : null,
+            default => null,
+        };
+    }
+
+    private static function createInvoiceTarget(Order $order, User $user): ?OrderNextStep
+    {
+        if (! $user->can('create', Invoice::class)) {
+            return null;
+        }
+
+        $delivery = $order->deliveries()
+            ->where('stage', OperationStage::Done->value)
+            ->whereDoesntHave('invoiceDeliveryLink')
+            ->orderBy('id')
+            ->first();
+
+        if (! $delivery instanceof InventoryOperation || ! DeliveryNoteResource::canView($delivery)) {
+            return null;
+        }
+
+        return new OrderNextStep(__('Create invoice'), Heroicon::OutlinedDocumentPlus, DeliveryNoteResource::getUrl('view', ['record' => $delivery]));
+    }
+
+    private static function issueInvoiceTarget(Order $order, User $user): ?OrderNextStep
+    {
+        $invoice = $order->invoices()->where('status', InvoiceStatus::Draft->value)->orderByDesc('id')->first();
+
+        if (! $invoice instanceof Invoice || ! $user->can('issue', $invoice) || ! InvoiceResource::canView($invoice)) {
+            return null;
+        }
+
+        return new OrderNextStep(__('Issue invoice'), Heroicon::OutlinedDocumentCheck, InvoiceResource::getUrl('view', ['record' => $invoice]));
     }
 
     public static function cancel(): Action

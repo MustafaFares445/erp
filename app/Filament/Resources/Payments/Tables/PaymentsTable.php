@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Payments\Tables;
 
 use App\Enums\PaymentStatus;
+use App\Filament\Resources\Payments\Actions\PaymentActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Payment;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
@@ -89,8 +91,12 @@ final class PaymentsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make()->visible(fn (Payment $record): bool => ! $record->isPosted()),
+                PaymentActions::post()->button(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make()->visible(fn (Payment $record): bool => ! $record->isPosted()),
+                    PaymentActions::reverse(),
+                ]),
             ])
             ->toolbarActions([]);
     }

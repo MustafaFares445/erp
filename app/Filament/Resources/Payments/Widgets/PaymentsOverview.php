@@ -41,16 +41,16 @@ final class PaymentsOverview extends StatsOverviewWidget
         return [
             Stat::make(__('admin.sales.payment_tabs.collected_this_month'), $collectedCount)
                 ->description(self::formatByCurrency($collectedByCurrency))
-                ->url(PaymentResource::getUrl('index', ['activeTab' => 'collected_this_month'])),
+                ->url(PaymentResource::getUrl('index', ['tab' => 'collected_this_month'])),
             Stat::make(__('admin.sales.payment_tabs.customer_deposits'), self::formatByCurrency($depositsByCurrency))
                 ->description(__('admin.sales.payment_ui.deposit_stat_description'))
-                ->url(PaymentResource::getUrl('index', ['activeTab' => 'customer_deposits'])),
+                ->url(PaymentResource::getUrl('index', ['tab' => 'customer_deposits'])),
             Stat::make(__('admin.sales.payment_tabs.draft'), $draftCount)
                 ->description(__('admin.sales.payment_ui.draft_description'))
-                ->url(PaymentResource::getUrl('index', ['activeTab' => 'draft'])),
+                ->url(PaymentResource::getUrl('index', ['tab' => 'draft'])),
             Stat::make(__('admin.sales.payment_ui.reversed_this_month'), $reversedThisMonth)
                 ->description(__('admin.sales.payment_ui.reversed_description'))
-                ->url(PaymentResource::getUrl('index', ['activeTab' => 'reversed'])),
+                ->url(PaymentResource::getUrl('index', ['tab' => 'reversed'])),
         ];
     }
 

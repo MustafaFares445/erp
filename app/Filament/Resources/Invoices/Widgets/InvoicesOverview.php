@@ -41,18 +41,18 @@ final class InvoicesOverview extends StatsOverviewWidget
         return [
             Stat::make(__('Open receivables'), MoneyFormatter::format($openReceivablesMinor))
                 ->description(__('Outstanding across all issued invoices'))
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'needs_attention'])),
+                ->url(InvoiceResource::getUrl('index', ['tab' => 'needs_attention'])),
             Stat::make(__('Overdue invoices'), (string) $overdue)
                 ->description($overdue > 0 ? MoneyFormatter::format($overdueMinor).' overdue' : 'Nothing overdue')
                 ->color($overdue > 0 ? 'danger' : 'success')
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'overdue'])),
+                ->url(InvoiceResource::getUrl('index', ['tab' => 'overdue'])),
             Stat::make(__('Unpaid invoices'), (string) $unpaid)
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'unpaid'])),
+                ->url(InvoiceResource::getUrl('index', ['tab' => 'unpaid'])),
             Stat::make(__('Partially paid'), (string) $partiallyPaid)
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'partially_paid'])),
+                ->url(InvoiceResource::getUrl('index', ['tab' => 'partially_paid'])),
             Stat::make(__('Draft invoices'), (string) $draft)
                 ->description(__('Awaiting issue'))
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'draft'])),
+                ->url(InvoiceResource::getUrl('index', ['tab' => 'draft'])),
         ];
     }
 

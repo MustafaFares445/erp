@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\InvoiceStatus;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Resources\Invoices\Widgets\InvoicesOverview;
 use App\Models\CustomerProfile;
 use App\Models\DepositApplicationIssue;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\Payments\CustomerDepositApplicationService;
+use App\Services\Sales\InvoiceService;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -19,10 +22,10 @@ beforeEach(function (): void {
     (new SalesPermissionSeeder)->run();
 });
 
-function invoiceSalesUser(): User
+function invoiceSalesUser(bool $billing = false): User
 {
     $user = User::factory()->admin()->create();
-    $user->assignRole(DashboardRole::SalesOfficer->value);
+    $user->assignRole(($billing ? DashboardRole::BillingOfficer : DashboardRole::SalesOfficer)->value);
 
     return $user;
 }
@@ -135,4 +138,156 @@ it('filters invoices by customer', function (): void {
         ])
         ->assertCanSeeTableRecords([$wanted])
         ->assertCanNotSeeTableRecords([$unwanted]);
+});
+
+it('opens the invoice list on the tab each overview stat links to', function (): void {
+    $user = invoiceSalesUser();
+
+    $widget = Livewire::actingAs($user)->test(InvoicesOverview::class);
+    $stats = new ReflectionMethod($widget->instance(), 'getStats')->invoke($widget->instance());
+
+    $tabs = [];
+    foreach ($stats as $stat) {
+        $url = $stat->getUrl();
+        if ($url === null) {
+            continue;
+        }
+
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $tabs[] = $query['tab'] ?? null;
+
+        Livewire::actingAs($user)
+            ->withQueryParams($query)
+            ->test(ListInvoices::class)
+            ->assertSet('activeTab', $query['tab']);
+    }
+
+    expect($tabs)->not->toBeEmpty()->not->toContain(null);
+});
+
+it('offers exactly the primary action the next-action resolver names for each invoice state', function (): void {
+    $draft = Invoice::factory()->create(['status' => InvoiceStatus::Draft]);
+    $outstanding = Invoice::factory()->create([
+        'status' => InvoiceStatus::Issued, 'issued_at' => now(),
+        'total_amount' => 100, 'amount_paid' => 0, 'credited_amount' => 0,
+    ]);
+    $withIssue = Invoice::factory()->create([
+        'status' => InvoiceStatus::Issued, 'issued_at' => now(),
+        'total_amount' => 100, 'amount_paid' => 0, 'credited_amount' => 0,
+    ]);
+    DepositApplicationIssue::query()->create([
+        'invoice_id' => $withIssue->getKey(),
+        'error_message' => 'coverage',
+        'occurred_at' => now(),
+    ]);
+    $paid = Invoice::factory()->create([
+        'status' => InvoiceStatus::Issued, 'issued_at' => now(),
+        'total_amount' => 100, 'amount_paid' => 100, 'credited_amount' => 0,
+    ]);
+    $cancelled = Invoice::factory()->create(['status' => InvoiceStatus::Cancelled, 'issued_at' => now(), 'total_amount' => 100]);
+    $writtenOff = Invoice::factory()->create(['status' => InvoiceStatus::WrittenOff, 'issued_at' => now(), 'total_amount' => 100]);
+
+    $primary = ['issue', 'retry_deposit_application', 'record_payment'];
+    $expected = [
+        [$draft, 'issue'],
+        [$withIssue, 'retry_deposit_application'],
+        [$outstanding, 'record_payment'],
+        [$paid, null],
+        [$cancelled, null],
+        [$writtenOff, null],
+    ];
+
+    $component = Livewire::actingAs(invoiceSalesUser(true))->test(ListInvoices::class);
+
+    foreach ($expected as [$invoice, $action]) {
+        foreach ($primary as $name) {
+            $name === $action
+                ? $component->assertTableActionVisible($name, $invoice)
+                : $component->assertTableActionHidden($name, $invoice);
+        }
+    }
+});
+
+it('issues a draft invoice once through the invoice service from the list row action', function (): void {
+    $calls = new class
+    {
+        public int $issued = 0;
+    };
+    app()->instance(InvoiceService::class, new class($calls)
+    {
+        public function __construct(private object $calls) {}
+
+        public function issue(User $actor, Invoice $invoice): Invoice
+        {
+            $this->calls->issued++;
+            $invoice->forceFill(['status' => InvoiceStatus::Issued, 'issued_at' => now()])->save();
+
+            return $invoice;
+        }
+    });
+
+    $draft = Invoice::factory()->create(['status' => InvoiceStatus::Draft, 'total_amount' => 100]);
+
+    Livewire::actingAs(invoiceSalesUser(true))
+        ->test(ListInvoices::class)
+        ->callTableAction('issue', $draft)
+        ->assertTableActionHidden('issue', $draft->refresh());
+
+    expect($calls->issued)->toBe(1)
+        ->and($draft->refresh()->status)->toBe(InvoiceStatus::Issued);
+});
+
+it('retries deposit application once and resolves the open issue', function (): void {
+    $calls = new class
+    {
+        public int $applied = 0;
+    };
+    app()->instance(CustomerDepositApplicationService::class, new class($calls)
+    {
+        public function __construct(private object $calls) {}
+
+        public function applyEligibleDeposits(Invoice $invoice): Invoice
+        {
+            $this->calls->applied++;
+
+            return $invoice;
+        }
+    });
+
+    $invoice = Invoice::factory()->create([
+        'status' => InvoiceStatus::Issued, 'issued_at' => now(),
+        'total_amount' => 100, 'amount_paid' => 0, 'credited_amount' => 0,
+    ]);
+    DepositApplicationIssue::query()->create([
+        'invoice_id' => $invoice->getKey(),
+        'error_message' => 'coverage',
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::actingAs(invoiceSalesUser(true))
+        ->test(ListInvoices::class)
+        ->callTableAction('retry_deposit_application', $invoice)
+        ->assertTableActionHidden('retry_deposit_application', $invoice)
+        ->assertTableActionVisible('record_payment', $invoice);
+
+    expect($calls->applied)->toBe(1)
+        ->and(DepositApplicationIssue::query()->whereNull('resolved_at')->count())->toBe(0);
+});
+
+it('hides issue and retry from users who cannot issue invoices', function (): void {
+    $draft = Invoice::factory()->create(['status' => InvoiceStatus::Draft]);
+    $withIssue = Invoice::factory()->create([
+        'status' => InvoiceStatus::Issued, 'issued_at' => now(),
+        'total_amount' => 100, 'amount_paid' => 0, 'credited_amount' => 0,
+    ]);
+    DepositApplicationIssue::query()->create([
+        'invoice_id' => $withIssue->getKey(),
+        'error_message' => 'coverage',
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::actingAs(invoiceSalesUser())
+        ->test(ListInvoices::class)
+        ->assertTableActionHidden('issue', $draft)
+        ->assertTableActionHidden('retry_deposit_application', $withIssue);
 });

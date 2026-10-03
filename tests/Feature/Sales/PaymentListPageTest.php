@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Enums\PaymentStatus;
+use App\Enums\SalesPermission;
 use App\Filament\Resources\Payments\Pages\ListPayments;
 use App\Filament\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Resources\Payments\Widgets\PaymentsOverview;
@@ -12,6 +13,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
+use App\Services\Payments\PaymentService;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -150,4 +152,70 @@ it('filters payments by customer', function (): void {
         ])
         ->assertCanSeeTableRecords([$wanted])
         ->assertCanNotSeeTableRecords([$unwanted]);
+});
+
+it('offers one primary post action on unposted payments that runs the payment service once', function (): void {
+    $calls = new class
+    {
+        public int $posted = 0;
+    };
+    app()->instance(PaymentService::class, new class($calls)
+    {
+        public function __construct(private object $calls) {}
+
+        /** @param list<array{invoice_id:int,amount:float}> $allocations */
+        public function post(User $actor, Payment $payment, array $allocations): Payment
+        {
+            $this->calls->posted++;
+            $payment->forceFill(['status' => PaymentStatus::Posted, 'posted_at' => now()])->save();
+
+            return $payment;
+        }
+    });
+
+    $draft = makePayment();
+
+    Livewire::actingAs(paymentSalesUser())
+        ->test(ListPayments::class)
+        ->assertTableActionVisible('post_payment', $draft)
+        ->assertTableActionHidden('reverse_payment', $draft)
+        ->callTableAction('post_payment', $draft, ['allocations' => []])
+        ->assertTableActionHidden('post_payment', $draft->refresh());
+
+    expect($calls->posted)->toBe(1)
+        ->and($draft->refresh()->status)->toBe(PaymentStatus::Posted);
+
+    Livewire::actingAs(paymentSalesUser())
+        ->test(ListPayments::class)
+        ->assertTableActionHidden('post_payment', $draft);
+
+    expect($calls->posted)->toBe(1);
+});
+
+it('keeps reverse secondary and offers no workflow action on reversed payments', function (): void {
+    $user = paymentSalesUser();
+    $user->givePermissionTo(SalesPermission::PaymentReverse->value);
+    $posted = makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now()]);
+    $reversed = makePayment([
+        'status' => PaymentStatus::Reversed,
+        'posted_at' => now()->subDay(),
+        'reversed_at' => now(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(ListPayments::class)
+        ->assertTableActionHidden('post_payment', $posted)
+        ->assertTableActionVisible('reverse_payment', $posted)
+        ->assertTableActionHidden('post_payment', $reversed)
+        ->assertTableActionHidden('reverse_payment', $reversed);
+});
+
+it('hides the post action from users without payment record permission', function (): void {
+    $draft = makePayment();
+    $reviewer = User::factory()->admin()->create();
+    $reviewer->assignRole(DashboardRole::Reviewer->value);
+
+    Livewire::actingAs($reviewer)
+        ->test(ListPayments::class)
+        ->assertTableActionHidden('post_payment', $draft);
 });

@@ -53,6 +53,11 @@ final class InvoicePolicy
         return $invoice->isDraft() && $this->authorizeSalesAbility($user, 'issue');
     }
 
+    public function retryDepositApplication(User $user, Invoice $invoice): bool
+    {
+        return $invoice->isIssued() && $this->authorizeSalesAbility($user, 'retryDepositApplication');
+    }
+
     public function send(User $user, Invoice $invoice): bool
     {
         return in_array($invoice->status, [InvoiceStatus::Issued, InvoiceStatus::Sent], true)
@@ -75,6 +80,7 @@ final class InvoicePolicy
             'update' => SalesPermission::InvoiceManage->value,
             'delete' => SalesPermission::InvoiceManage->value,
             'issue' => SalesPermission::InvoiceIssue->value,
+            'retryDepositApplication' => SalesPermission::InvoiceIssue->value,
             'send' => SalesPermission::InvoiceSend->value,
             'confirmReceipt' => SalesPermission::InvoiceConfirmReceipt->value,
         ];

@@ -82,6 +82,28 @@ it('renders the orders overview stats widget', function (): void {
         ->assertSuccessful();
 });
 
+it('links every orders overview stat to a tab the list page actually selects', function (): void {
+    $user = orderSalesUser();
+    $this->actingAs($user);
+
+    $widget = new OrdersOverview;
+    $stats = (new ReflectionMethod($widget, 'getStats'))->invoke($widget);
+
+    expect($stats)->not->toBeEmpty();
+
+    foreach ($stats as $stat) {
+        $url = $stat->getUrl();
+        parse_str((string) parse_url((string) $url, PHP_URL_QUERY), $query);
+
+        expect($query)->toHaveKey('tab')->not->toHaveKey('activeTab');
+
+        Livewire::actingAs($user)
+            ->withQueryParams($query)
+            ->test(ListOrders::class)
+            ->assertSet('activeTab', $query['tab']);
+    }
+});
+
 it('lists orders and filters by customer', function (): void {
     $matching = CustomerProfile::factory()->create();
     $other = CustomerProfile::factory()->create();

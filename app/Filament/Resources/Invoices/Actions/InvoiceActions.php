@@ -74,8 +74,8 @@ final class InvoiceActions
             ->modalDescription(__("Re-checks this customer's posted deposits and applies any that are still unallocated to this invoice."))
             ->visible(fn (Invoice $record): bool => $record->isIssued()
                 && $record->depositApplicationIssues()->whereNull('resolved_at')->exists()
-                && self::can('issue', $record))
-            ->authorize(fn (Invoice $record): bool => self::can('issue', $record))
+                && self::can('retryDepositApplication', $record))
+            ->authorize(fn (Invoice $record): bool => self::can('retryDepositApplication', $record))
             ->action(function (Invoice $record): void {
                 $actor = self::salesActor();
 

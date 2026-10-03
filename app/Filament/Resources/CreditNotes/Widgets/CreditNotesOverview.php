@@ -47,17 +47,17 @@ final class CreditNotesOverview extends StatsOverviewWidget
         return [
             Stat::make(__('admin.sales.credit_note_tabs.draft'), $draft)
                 ->description(__('admin.sales.credit_note_ui.draft_description'))
-                ->url(CreditNoteResource::getUrl('index', ['activeTab' => 'draft'])),
+                ->url(CreditNoteResource::getUrl('index', ['tab' => 'draft'])),
             Stat::make(__('admin.sales.credit_note_tabs.confirmed_this_month'), self::formatMoney($confirmedThisMonth, $currency))
-                ->url(CreditNoteResource::getUrl('index', ['activeTab' => 'confirmed_this_month'])),
+                ->url(CreditNoteResource::getUrl('index', ['tab' => 'confirmed_this_month'])),
             Stat::make(__('admin.sales.credit_note_ui.sales_return_credits'), self::formatMoney($salesReturnTotal, $currency))
                 ->description(__('admin.sales.credit_note_ui.confirmed_note_count', ['count' => $salesReturnCount]))
-                ->url(CreditNoteResource::getUrl('index', ['activeTab' => 'sales_returns'])),
+                ->url(CreditNoteResource::getUrl('index', ['tab' => 'sales_returns'])),
             Stat::make(__('admin.sales.credit_note_ui.adjustments'), self::formatMoney($adjustmentTotal, $currency))
                 ->description(__('admin.sales.credit_note_ui.confirmed_note_count', ['count' => $adjustmentCount]))
-                ->url(CreditNoteResource::getUrl('index', ['activeTab' => 'confirmed'])),
+                ->url(CreditNoteResource::getUrl('index', ['tab' => 'confirmed'])),
             Stat::make(__('admin.sales.credit_note_tabs.reversed_cancelled'), $reversed)
-                ->url(CreditNoteResource::getUrl('index', ['activeTab' => 'reversed_cancelled'])),
+                ->url(CreditNoteResource::getUrl('index', ['tab' => 'reversed_cancelled'])),
         ];
     }
 

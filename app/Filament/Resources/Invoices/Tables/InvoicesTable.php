@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Invoices\Tables;
 
 use App\Enums\InvoiceFinancialStatus;
+use App\Enums\InvoiceNextStep;
 use App\Enums\InvoiceStatus;
 use App\Filament\Resources\Invoices\Actions\InvoiceActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
@@ -12,6 +13,7 @@ use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Invoice;
 use App\Services\Sales\InvoiceBalanceService;
 use App\Services\Sales\InvoiceNextActionResolver;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
@@ -25,6 +27,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
+use WeakMap;
 
 final class InvoicesTable
 {
@@ -99,11 +102,44 @@ final class InvoicesTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
-                InvoiceActions::recordPayment(),
-                EditAction::make()->visible(fn (Invoice $record): bool => $record->isDraft()),
+                InvoiceActions::issue()
+                    ->button()
+                    ->hidden(fn (Invoice $record): bool => self::nextStep($record) !== InvoiceNextStep::Issue),
+                InvoiceActions::retryDepositApplication()
+                    ->button()
+                    ->hidden(fn (Invoice $record): bool => self::nextStep($record) !== InvoiceNextStep::RetryDepositApplication),
+                InvoiceActions::recordPayment()
+                    ->button()
+                    ->hidden(fn (Invoice $record): bool => self::nextStep($record) !== InvoiceNextStep::RecordPayment),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make()->visible(fn (Invoice $record): bool => $record->isDraft()),
+                ]),
             ])
             ->toolbarActions([]);
+    }
+
+    private static function nextStep(Invoice $record): ?InvoiceNextStep
+    {
+        /** @var WeakMap<Invoice, InvoiceNextStep|false>|null $cache */
+        static $cache = null;
+
+        $cache ??= new WeakMap;
+
+        $cached = $cache[$record] ?? null;
+
+        if ($cached instanceof InvoiceNextStep) {
+            return $cached;
+        }
+
+        if ($cached === false) {
+            return null;
+        }
+
+        $step = app(InvoiceNextActionResolver::class)->step($record);
+        $cache[$record] = $step ?? false;
+
+        return $step;
     }
 
     private static function outstandingBreakdown(Invoice $record): ?string

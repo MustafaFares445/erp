@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Orders\Tables;
 
+use App\Data\Sales\OrderWorkflowProjection;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Actions\OrderActions;
@@ -11,7 +12,6 @@ use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Order;
 use App\Services\Sales\OrderWorkflowService;
-use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
@@ -24,6 +24,8 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
+use WeakMap;
 
 final class OrdersTable
 {
@@ -34,7 +36,11 @@ final class OrdersTable
             ->searchPlaceholder(__('Search by order number or customer name'))
             ->columns([
                 FavoriteColumn::make(),
-                TextColumn::make('order_number')->searchable()->sortable(),
+                TextColumn::make('order_number')
+                    ->searchable()
+                    ->sortable()
+                    ->description(fn (Order $record): ?string => ($message = self::projection($record)->blockerMessage) === null ? null : Str::limit($message, 80))
+                    ->tooltip(fn (Order $record): ?string => self::projection($record)->blockerMessage),
                 TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('status')
                     ->badge()
@@ -42,7 +48,7 @@ final class OrdersTable
                     ->color(static fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('workflow_milestone')
                     ->label(__('Milestone'))
-                    ->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)
+                    ->state(fn (Order $record): string => self::projection($record)->businessMilestone)
                     ->badge()
                     ->color(static fn (string $state): string => match ($state) {
                         'Cancelled' => 'danger',
@@ -54,12 +60,6 @@ final class OrdersTable
                         'Delivered' => 'success',
                         default => 'primary',
                     }),
-                TextColumn::make('workflow_blocker')
-                    ->label(__('Blocker'))
-                    ->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
-                    ->limit(45)
-                    ->tooltip(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
-                    ->placeholder(__('—')),
                 TextColumn::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
                     ->money()
@@ -111,31 +111,28 @@ final class OrdersTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()->visible(fn (Order $record): bool => $record->status === OrderStatus::Draft),
-                OrderActions::confirm(),
-                OrderActions::release(),
-                self::nextActionButton(),
+                OrderActions::confirm()->button(),
+                OrderActions::release()->button(),
+                OrderActions::nextStep(),
             ])
             ->toolbarActions([]);
     }
 
-    private static function nextActionButton(): Action
+    private static function projection(Order $record): OrderWorkflowProjection
     {
-        return Action::make('next_action')
-            ->label(fn (Order $record): string => self::nextAction($record)['owner'].': '.self::nextAction($record)['label'])
-            ->color(fn (Order $record): string => self::nextAction($record)['owner'] === 'None' ? 'gray' : 'primary')
-            ->disabled()
-            ->visible(fn (Order $record): bool => ! in_array(
-                self::nextAction($record)['label'],
-                ['Confirm order', 'Release to Logistics'],
-                true,
-            ));
-    }
+        /** @var WeakMap<Order, OrderWorkflowProjection>|null $cache */
+        static $cache = null;
+        $cache ??= new WeakMap;
 
-    /** @return array{owner: string, label: string} */
-    private static function nextAction(Order $record): array
-    {
+        $cached = $cache[$record] ?? null;
+
+        if ($cached instanceof OrderWorkflowProjection) {
+            return $cached;
+        }
+
         $projection = app(OrderWorkflowService::class)->project($record);
+        $cache[$record] = $projection;
 
-        return ['owner' => $projection->nextActionOwner, 'label' => $projection->nextActionLabel];
+        return $projection;
     }
 }
