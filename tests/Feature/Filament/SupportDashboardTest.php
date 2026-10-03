@@ -17,6 +17,7 @@ use App\Models\EmployeeProfile;
 use App\Models\MaintenanceRecord;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Services\Support\TicketSlaStateResolver;
 use Database\Seeders\SupportPermissionSeeder;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Filament\Widgets\WidgetConfiguration;
@@ -212,3 +213,15 @@ function supportViewer(SupportPermission ...$permissions): User
 
     return $user;
 }
+
+it('translates the SLA state label without changing its colour', function (): void {
+    $resolver = app(TicketSlaStateResolver::class);
+    $ticket = new Ticket;
+    $ticket->forceFill(['status' => TicketStatus::Pending->value, 'live_at' => null]);
+
+    app()->setLocale('ar');
+
+    expect($resolver->label($ticket))->toBe(__('admin.support.sla_state.not_started'))
+        ->and($resolver->label($ticket))->not->toBe('Not Started')
+        ->and($resolver->color($ticket))->toBe('gray');
+});

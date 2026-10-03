@@ -869,6 +869,12 @@ return [
                 'scopes' => ['inventory_lots' => 'Inventory Lots', 'receivables' => 'Receivables', 'payables' => 'Payables', 'tax_register' => 'Tax Register'],
                 'never_run' => 'Reconciliation has never been run',
                 'never_run_description' => 'Run reconciliation to persist invariant verdicts and diagnostics before relying on this report.',
+                'latest_run' => 'Latest inventory reconciliation',
+                'not_run' => 'Not run',
+                'pass' => 'Pass',
+                'fail' => 'Fail',
+                'all_checks_passed' => 'All :checks checks passed · finished :finished',
+                'checks_failed' => ':failed of :checks checks failed, :divergences divergences · finished :finished',
             ],
             'types' => [
                 'catalog' => 'Product Catalog',
@@ -1463,6 +1469,15 @@ return [
     ],
 
     'support' => [
+        'sla_state' => [
+            'not_started' => 'Not Started',
+            'paused' => 'Paused — Customer',
+            'response_breached' => 'Response Breached',
+            'resolution_breached' => 'Resolution Breached',
+            'completed' => 'Completed',
+            'at_risk' => 'At Risk',
+            'on_track' => 'On Track',
+        ],
         'ticket_status' => [
             'pending' => 'Pending',
             'pending_payment' => 'Pending payment',
@@ -2610,6 +2625,11 @@ return [
             'on_time_rate' => 'On-time rate',
             'orders' => 'Orders',
         ],
+    ],
+    'notification_deliveries' => [
+        'failed_last_day' => 'Failed notifications (24h)',
+        'failed_none' => 'No failed business notifications in the last 24 hours.',
+        'failed_review' => 'Open the failed deliveries to inspect or retry them.',
     ],
     'resources' => [
         'sales_dashboard' => 'Sales Dashboard',

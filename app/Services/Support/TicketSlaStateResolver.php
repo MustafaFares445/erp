@@ -17,43 +17,48 @@ final readonly class TicketSlaStateResolver
 {
     public function label(Ticket $ticket): string
     {
-        if ($ticket->live_at === null) {
-            return 'Not Started';
-        }
-
-        if ($ticket->status === TicketStatus::WaitingCustomer) {
-            return 'Paused — Customer';
-        }
-
-        if ($ticket->isResponseBreached()) {
-            return 'Response Breached';
-        }
-
-        if ($ticket->isResolutionBreached()) {
-            return 'Resolution Breached';
-        }
-
-        if (in_array($ticket->status, [TicketStatus::Resolved, TicketStatus::Closed], true)) {
-            return 'Completed';
-        }
-
-        if ($this->isAtRisk($ticket)) {
-            return 'At Risk';
-        }
-
-        return 'On Track';
+        return (string) __('admin.support.sla_state.'.$this->state($ticket));
     }
 
     public function color(Ticket $ticket): string
     {
-        return match ($this->label($ticket)) {
-            'Response Breached', 'Resolution Breached' => 'danger',
-            'At Risk' => 'warning',
-            'Paused — Customer' => 'info',
-            'Completed' => 'success',
-            'Not Started' => 'gray',
+        return match ($this->state($ticket)) {
+            'response_breached', 'resolution_breached' => 'danger',
+            'at_risk' => 'warning',
+            'paused' => 'info',
+            'not_started' => 'gray',
             default => 'success',
         };
+    }
+
+    /** The locale-independent SLA state key behind both the label and the colour. */
+    private function state(Ticket $ticket): string
+    {
+        if ($ticket->live_at === null) {
+            return 'not_started';
+        }
+
+        if ($ticket->status === TicketStatus::WaitingCustomer) {
+            return 'paused';
+        }
+
+        if ($ticket->isResponseBreached()) {
+            return 'response_breached';
+        }
+
+        if ($ticket->isResolutionBreached()) {
+            return 'resolution_breached';
+        }
+
+        if (in_array($ticket->status, [TicketStatus::Resolved, TicketStatus::Closed], true)) {
+            return 'completed';
+        }
+
+        if ($this->isAtRisk($ticket)) {
+            return 'at_risk';
+        }
+
+        return 'on_track';
     }
 
     private function isAtRisk(Ticket $ticket): bool

@@ -69,8 +69,8 @@ final class PurchasingAttentionQueue extends TableWidget
                     ->color(fn (PurchaseOrder $record): string => self::isOverdue($record) ? 'danger' : 'gray'),
                 TextColumn::make('action')
                     ->label(__('dashboards.purchasing.columns.next_action'))
-                    ->state(fn (PurchaseOrder $record): string => self::projection($record)->nextAction)
-                    ->description(fn (PurchaseOrder $record): string => self::projection($record)->nextOwner)
+                    ->state(fn (PurchaseOrder $record): string => (string) __(self::projection($record)->nextAction))
+                    ->description(fn (PurchaseOrder $record): string => (string) __(self::projection($record)->nextOwner))
                     ->color('primary'),
             ])
             ->recordUrl(fn (PurchaseOrder $record): string => self::actionUrl($record));
@@ -137,7 +137,7 @@ final class PurchasingAttentionQueue extends TableWidget
 
         $projection = self::projection($record);
 
-        return $projection->blocker ?? $projection->businessState;
+        return (string) __($projection->blocker ?? $projection->businessState);
     }
 
     private static function attentionColor(PurchaseOrder $record): string

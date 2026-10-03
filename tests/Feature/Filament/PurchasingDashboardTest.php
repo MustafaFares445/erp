@@ -199,3 +199,14 @@ function purchasingViewer(PurchasePermission ...$permissions): User
 
     return $user;
 }
+
+it('shows workflow reasons in Arabic', function (): void {
+    $this->actingAs(purchasingViewer(PurchasePermission::OrderView));
+    PurchaseOrder::factory()->pendingApproval()->create();
+
+    app()->setLocale('ar');
+
+    Livewire::test(PurchasingAttentionQueue::class)
+        ->assertSee('بانتظار الاعتماد')
+        ->assertSee('مدير المشتريات');
+});

@@ -59,7 +59,7 @@ final class PurchasingUpcomingReceipts extends TableWidget
                     ->color(fn (PurchaseOrder $record): string => $record->expected_at?->isPast() ? 'danger' : 'gray'),
                 TextColumn::make('receiving_state')
                     ->label(__('dashboards.purchasing.columns.receiving'))
-                    ->state(fn (PurchaseOrder $record): string => app(PurchaseOrderWorkflowService::class)->project($record)->logisticsState)
+                    ->state(fn (PurchaseOrder $record): string => (string) __(app(PurchaseOrderWorkflowService::class)->project($record)->logisticsState))
                     ->badge(),
                 TextColumn::make('total_amount')
                     ->label(__('dashboards.purchasing.columns.value'))

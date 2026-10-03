@@ -257,6 +257,15 @@ return [
         ],
     ],
     'support' => [
+        'sla_state' => [
+            'not_started' => 'لم تبدأ',
+            'paused' => 'متوقفة — بانتظار العميل',
+            'response_breached' => 'تجاوز مهلة الاستجابة',
+            'resolution_breached' => 'تجاوز مهلة الحل',
+            'completed' => 'مكتملة',
+            'at_risk' => 'معرّضة للخطر',
+            'on_track' => 'ضمن المهلة',
+        ],
         'ticket_status' => [
             'pending' => 'قيد الانتظار',
             'pending_payment' => 'بانتظار الدفع',
