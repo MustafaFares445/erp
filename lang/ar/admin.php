@@ -69,7 +69,7 @@ $translations = [
                 'remaining' => 'المتبقي',
                 'blocker' => 'العائق',
                 'product' => 'المنتج',
-                'short_closed' => 'الكمية المغلقة كنقص',
+                'short_closed' => 'الكمية المغلقة دون تنفيذ',
                 'commercial_uom' => 'وحدة البيع',
                 'delivery' => 'عملية الإرسال',
                 'warehouse' => 'المستودع',
@@ -165,7 +165,10 @@ $translations = [
                 'available' => 'المتاح', 'incoming_receipts' => 'الاستلامات المفتوحة', 'ready_deliveries' => 'جاهز للإرسال',
                 'transfers_in_transit' => 'تحويلات قيد النقل',
             ],
-            'actions' => ['view_stock' => 'عرض المخزون', 'view_movements' => 'عرض الحركات'],
+            'actions' => ['view_stock' => 'عرض المخزون', 'view_movements' => 'عرض الحركات', 'view_reservations' => 'عرض الحجوزات'],
+        ],
+        'workspace' => [
+            'more_actions' => 'المزيد من الإجراءات',
         ],
         'stock' => [
             'variant' => 'رمز الصنف',
@@ -661,8 +664,8 @@ $translations = [
             ],
         ],
         'pricing' => [
-            'tier_list_notice' => 'تطبق الفئات العامة خصمًا على أي عميل يتم تعيينها له؛ أما الفئات الخاصة بعميل معين فتطبق فقط على العميل المحدد هنا.',
-            'customer_list_notice' => 'يمكنك تعيين فئة تسعير عامة لعميل من هنا. أما الفئات الخاصة بعميل معين فتُحدَّد مباشرة على الفئة نفسها في صفحة فئات التسعير.',
+            'tier_list_notice' => 'تطبق الشرائح العامة خصمًا على أي عميل يتم تعيينها له؛ أما الشرائح الخاصة بعميل معين فتطبق فقط على العميل المحدد هنا.',
+            'customer_list_notice' => 'يمكنك تعيين شريحة تسعير عامة للعميل من هنا. أما الشرائح الخاصة بعميل محدد فتُحدَّد مباشرة ضمن شريحة التسعير نفسها.',
             'history_list_notice' => 'يُنشأ طلب تلقائيًا عند تغيّر سعر التكلفة أو السعر الأساسي أو السعر الأدنى لأحد المتغيرات. يمكن للمراجع اعتماد الطلب المعلق أو رفضه أو تعديله؛ وتُعتمد تغييرات المراجع نفسه تلقائيًا.',
             'floor_override_list_notice' => 'يُضاف سجل تلقائيًا عند موافقة مسؤول النظام على بيع بسعر أقل من الحد الأدنى لأحد المتغيرات. لا يمكن تعديل هذا السجل.',
             'requests' => [
@@ -742,10 +745,10 @@ $translations = [
                 'quarantine_ageing' => 'أعمار مخزون الحجر',
                 'condition_changes' => 'التلف والاسترجاع والإتلاف',
                 'count_variance' => 'فروقات الجرد الفعلي',
-                'supplier_comparison' => 'مقارنة الموردين والدول',
+                'supplier_comparison' => 'مقارنة الموردين',
                 'price_history' => 'سجل الأسعار',
-                'pricing_tiers' => 'مستويات التسعير',
-                'customer_assignments' => 'تعيينات مستوى العميل',
+                'pricing_tiers' => 'شرائح التسعير',
+                'customer_assignments' => 'تعيينات شرائح العملاء',
                 'floor_overrides' => 'تجاوزات الحد الأدنى للسعر',
                 'import_runs' => 'عمليات الاستيراد',
                 'import_results' => 'نتائج صفوف الاستيراد',
@@ -1049,7 +1052,7 @@ $translations = [
             'create' => [
                 'delivery_information' => 'معلومات التسليم',
                 'delivery_information_description' => 'اختر عميلاً نشطاً لديه إحداثيات تسليم.',
-                'warehouse_allocation' => 'توزيع المستودعات',
+                'warehouse_allocation' => 'تخصيص المستودعات',
                 'warehouse_allocation_description' => 'أضف شحنات المستودعات والمنتجات والمتغيرات والكميات ثم أنشئ التسليم.',
                 'warehouse' => 'المستودع', 'warehouse_address' => 'عنوان المستودع', 'no_address' => 'لا يوجد عنوان مسجل.',
                 'tracking_number' => 'رقم التتبع', 'tracking_placeholder' => 'اتركه فارغاً ليتم توليد رقم تتبع تلقائياً.',
@@ -1158,7 +1161,7 @@ $translations = [
         'fields' => [
             'customer' => 'العميل',
             'variant' => 'متغير المنتج',
-            'pricing_tier_terms' => 'شروط مستوى التسعير',
+            'pricing_tier_terms' => 'شروط شريحة التسعير',
             'name' => 'الاسم',
             'discount_type' => 'نوع الخصم',
             'discount_value' => 'الخصم',
@@ -1229,6 +1232,7 @@ $translations = [
         'reporting' => 'التقارير',
         'configurations' => 'الإعدادات',
         'planning' => 'التخطيط',
+        'planning_alerts' => 'التخطيط والتنبيهات',
         'suppliers' => 'المورّدون',
         'warehouses' => 'المستودعات',
         'reports' => 'التقارير',
@@ -1430,7 +1434,7 @@ $translations = [
         ],
         'actions' => [
             'submit' => 'إرسال', 'approve' => 'موافقة', 'reject' => 'رفض', 'send' => 'إرسال للمورّد',
-            'cancel' => 'إلغاء', 'close' => 'إغلاق مختصر', 'supplier_response' => 'رد المورّد',
+            'cancel' => 'إلغاء', 'close' => 'إغلاق المتبقي', 'supplier_response' => 'رد المورّد',
             'request_supplier_confirmation' => 'طلب تأكيد المورّد', 'print' => 'طباعة أمر الشراء',
         ],
         'notifications' => [

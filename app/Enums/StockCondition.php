@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum StockCondition: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum StockCondition: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Saleable = 'saleable';
     case Quarantine = 'quarantine';
     case Damaged = 'damaged';

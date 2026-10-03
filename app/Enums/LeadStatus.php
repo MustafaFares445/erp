@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum LeadStatus: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum LeadStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case New = 'new';
     case Contacted = 'contacted';
     case Qualified = 'qualified';

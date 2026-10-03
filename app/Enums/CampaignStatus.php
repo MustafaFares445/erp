@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum CampaignStatus: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum CampaignStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Draft = 'draft';
     case Scheduled = 'scheduled';
     case Sending = 'sending';

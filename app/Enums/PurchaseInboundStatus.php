@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Services\Purchasing\PurchaseInboundStatusService;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Aggregate lifecycle of the physical inbound side of a purchase order.
@@ -20,8 +22,10 @@ use App\Services\Purchasing\PurchaseInboundStatusService;
  * - received: every inbound line has been physically received in full;
  * - cancelled: terminal and never recalculated by the aggregate status engine.
  */
-enum PurchaseInboundStatus: string
+enum PurchaseInboundStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case AwaitingAllocation = 'awaiting_allocation';
     case AwaitingReceipt = 'awaiting_receipt';
     case PartiallyReceived = 'partially_received';

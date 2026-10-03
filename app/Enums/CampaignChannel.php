@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum CampaignChannel: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum CampaignChannel: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Email = 'email';
     case Sms = 'sms';
     case Whatsapp = 'whatsapp';

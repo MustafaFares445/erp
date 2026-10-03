@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum PurchaseAgreementStatus: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum PurchaseAgreementStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Draft = 'draft';
     case Active = 'active';
     case Expired = 'expired';

@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum InventoryImportItemStatus: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum InventoryImportItemStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Valid = 'valid';
     case Invalid = 'invalid';
     case Applying = 'applying';

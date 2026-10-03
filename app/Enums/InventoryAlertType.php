@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum InventoryAlertType: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum InventoryAlertType: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case LowStock = 'low_stock';
     case OutOfStock = 'out_of_stock';
     case DamagedStock = 'damaged_stock';

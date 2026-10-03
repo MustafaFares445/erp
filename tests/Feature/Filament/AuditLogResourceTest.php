@@ -7,6 +7,7 @@ use App\Filament\Resources\AuditLogs\Pages\ListAuditLogs;
 use App\Models\AuditLog;
 use App\Models\PricingTier;
 use App\Models\User;
+use App\Support\AuditActionLabel;
 use Database\Seeders\CrmPermissionSeeder;
 use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,17 +73,42 @@ it('configures the audit infolist and filters immutable records by date range', 
         ->assertCanNotSeeTableRecords([$outside]);
 });
 
-it('filters audit records by subject_id', function (): void {
+it('shows readable action labels instead of technical columns', function (): void {
     (new CrmPermissionSeeder)->run();
     $reviewer = User::factory()->admin()->create();
     $reviewer->assignRole('Reviewer');
 
-    $matching = AuditLog::factory()->create(['subject_id' => 42]);
-    $other = AuditLog::factory()->create(['subject_id' => 43]);
+    $auditLog = AuditLog::factory()->create(['description' => 'sales.invoice.issued']);
 
     Livewire::actingAs($reviewer)
         ->test(ListAuditLogs::class)
-        ->filterTable('subject_id', ['value' => 42])
-        ->assertCanSeeTableRecords([$matching])
-        ->assertCanNotSeeTableRecords([$other]);
+        ->assertCanSeeTableRecords([$auditLog])
+        ->assertSeeText('Invoice issued')
+        ->assertTableColumnDoesNotExist('subject_type')
+        ->assertTableColumnDoesNotExist('subject_id');
+});
+
+it('searches and filters audit records by their readable action label', function (): void {
+    (new CrmPermissionSeeder)->run();
+    $reviewer = User::factory()->admin()->create();
+    $reviewer->assignRole('Reviewer');
+
+    $invoice = AuditLog::factory()->create(['description' => 'sales.invoice.issued']);
+    $ticket = AuditLog::factory()->create(['description' => 'support.ticket.created']);
+
+    Livewire::actingAs($reviewer)
+        ->test(ListAuditLogs::class)
+        ->searchTable('Invoice issued')
+        ->assertCanSeeTableRecords([$invoice])
+        ->assertCanNotSeeTableRecords([$ticket])
+        ->searchTable('')
+        ->filterTable('description', 'support.ticket.created')
+        ->assertCanSeeTableRecords([$ticket])
+        ->assertCanNotSeeTableRecords([$invoice]);
+});
+
+it('falls back to a humanized label for actions without a translation', function (): void {
+    expect(AuditActionLabel::for('sales.invoice.issued'))->toBe('Invoice issued')
+        ->and(AuditActionLabel::for('billing.new_thing.happened'))->toBe('Billing new thing happened')
+        ->and(AuditActionLabel::for(null))->toBe("\u{2014}");
 });

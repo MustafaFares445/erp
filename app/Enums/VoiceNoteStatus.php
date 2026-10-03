@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\EmployeeVoiceNote;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Lifecycle status of an {@see EmployeeVoiceNote}
  * (contracts/plan-lifecycle.md). `Transcribed` is terminal; `Failed` may be
  * retried manually, bounded by the retry policy in contracts/voice-note-ai.md.
  */
-enum VoiceNoteStatus: string
+enum VoiceNoteStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Pending = 'Pending';
     case Processing = 'Processing';
     case Transcribed = 'Transcribed';

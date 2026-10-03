@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\SalesPlan;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Lifecycle status of a {@see SalesPlan} (data-model.md §2,
@@ -12,8 +14,10 @@ use App\Models\SalesPlan;
  * `Archived` is terminal — soft-delete restore returns a plan to
  * `Archived`, never to `Active`.
  */
-enum SalesPlanStatus: string
+enum SalesPlanStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Draft = 'Draft';
     case Active = 'Active';
     case Paused = 'Paused';

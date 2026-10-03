@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum QuarantineDisposition: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum QuarantineDisposition: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case ReleaseToSaleable = 'release_to_saleable';
     case DowngradeToDamaged = 'downgrade_to_damaged';
     case Dispose = 'dispose';

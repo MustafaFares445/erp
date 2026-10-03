@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum InteractionType: string
+use Filament\Support\Contracts\HasLabel;
+
+enum InteractionType: string implements HasLabel
 {
     case Call = 'call';
     case Email = 'email';
@@ -16,6 +18,11 @@ enum InteractionType: string
     public function label(): string
     {
         return __('admin.crm.interaction_type.'.$this->value);
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 
     public function color(): string

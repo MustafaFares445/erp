@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\InventoryAdjustment;
 use App\Services\Inventory\InventoryAdjustmentService;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Workflow status of an {@see InventoryAdjustment} (FI-3).
@@ -14,8 +16,10 @@ use App\Services\Inventory\InventoryAdjustmentService;
  * by {@see InventoryAdjustmentService::confirm()}.
  * No `pending` case (spec Assumption; plan Open Question #10 resolved).
  */
-enum AdjustmentStatus: string
+enum AdjustmentStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Draft = 'draft';
     case Confirmed = 'confirmed';
 }

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryCount;
 use App\Services\Inventory\InventoryCountService;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Workflow status of an {@see InventoryCount} (GAP-MW-06).
@@ -21,8 +23,10 @@ use App\Services\Inventory\InventoryCountService;
  * its one {@see InventoryAdjustment} (or none, if there was no
  * variance) and a cancelled count has posted nothing.
  */
-enum InventoryCountStatus: string
+enum InventoryCountStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Draft = 'draft';
     case Counting = 'counting';
     case PendingReview = 'pending_review';

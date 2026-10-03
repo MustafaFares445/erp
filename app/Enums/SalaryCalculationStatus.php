@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\EmployeeSalaryCalculation;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Lifecycle status of an {@see EmployeeSalaryCalculation}
@@ -12,8 +14,10 @@ use App\Models\EmployeeSalaryCalculation;
  * moves to `Superseded` only via a fresh recalculation, never back to
  * `Draft`/`PendingConfirmation`.
  */
-enum SalaryCalculationStatus: string
+enum SalaryCalculationStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Draft = 'Draft';
     case PendingConfirmation = 'PendingConfirmation';
     case Confirmed = 'Confirmed';

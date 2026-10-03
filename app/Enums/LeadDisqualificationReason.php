@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum LeadDisqualificationReason: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum LeadDisqualificationReason: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case NoFit = 'no_fit';
     case NoBudget = 'no_budget';
     case NoResponse = 'no_response';

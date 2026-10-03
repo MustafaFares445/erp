@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\SlaPolicy;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Ticket priority (FR-050), driving the {@see SlaPolicy} lookup
  * at SLA clock-start (contracts/ticket-lifecycle.md §6).
  */
-enum TicketPriority: string
+enum TicketPriority: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Low = 'low';
     case Normal = 'normal';
     case High = 'high';

@@ -107,6 +107,7 @@ use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishment
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
 use App\Filament\Search\IerpGlobalSearchProvider;
+use App\Filament\Support\WorkspaceNavigation;
 use App\Http\Middleware\SetAdminLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -133,6 +134,26 @@ use Illuminate\View\View;
 final class AdminPanelServiceProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
+    {
+        $panel = $this->configure($panel);
+
+        // The workspace tab bar is bound to each tab's own list page (not the request route), so it
+        // survives Livewire updates, which re-render the page on a different route.
+        foreach (WorkspaceNavigation::listPageScopes() as $pageClass => $workspace) {
+            $panel->renderHook(
+                PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
+                fn (): View => view('filament.partials.workspace-tabs', [
+                    'item' => $workspace['item'],
+                    'activeTab' => $workspace['tab'],
+                ]),
+                scopes: $pageClass,
+            );
+        }
+
+        return $panel;
+    }
+
+    private function configure(Panel $panel): Panel
     {
         return $panel
             ->default()
@@ -262,6 +283,10 @@ final class AdminPanelServiceProvider extends PanelProvider
             ])
             ->navigation($this->navigation(...))
             ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): View => view('filament.partials.language-switcher'),
+            )
+            ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn (): View => view('filament.partials.module-switcher', [
                     'groups' => AdminModuleRegistry::accessibleGroups(),
@@ -269,10 +294,10 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ]),
             )
             ->middleware([
-                SetAdminLocale::class,
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                SetAdminLocale::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,

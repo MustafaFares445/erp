@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum SerializedInventoryUnitStatus: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum SerializedInventoryUnitStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Pending = 'pending';
     case Available = 'available';
     case InTransit = 'in_transit';

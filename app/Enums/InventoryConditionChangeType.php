@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum InventoryConditionChangeType: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum InventoryConditionChangeType: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case QuarantineDisposition = 'quarantine_disposition';
     case Damage = 'damage';
     case DamageRecovery = 'damage_recovery';

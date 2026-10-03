@@ -15,10 +15,20 @@ use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
+use App\Http\Middleware\SetAdminLocale;
 use Filament\Http\Middleware\Authenticate;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/admin');
+
+Route::get('/locale/{locale}', function (string $locale): RedirectResponse {
+    abort_unless(in_array($locale, SetAdminLocale::SUPPORTED_LOCALES, true), 404);
+
+    session([SetAdminLocale::SESSION_KEY => $locale]);
+
+    return redirect()->back(fallback: '/admin');
+})->name('admin.locale.switch');
 
 Route::get('/join-us', [JoinUsController::class, 'create'])->name('join-us.create');
 Route::post('/join-us', [JoinUsController::class, 'store'])->name('join-us.store');

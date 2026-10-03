@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum CampaignResponseType: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum CampaignResponseType: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Opened = 'opened';
     case Clicked = 'clicked';
     case Replied = 'replied';

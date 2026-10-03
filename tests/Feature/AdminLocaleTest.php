@@ -9,6 +9,7 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Http\Middleware\SetAdminLocale;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
+use Illuminate\Support\Number;
 use Symfony\Component\HttpFoundation\Response;
 
 final class AdminLocalePluralLabelResource extends LocalizedResource
@@ -46,4 +47,31 @@ it('renders the Filament admin login in Arabic RTL', function (): void {
         ->assertOk()
         ->assertSee('lang="ar"', escape: false)
         ->assertSee('dir="rtl"', escape: false);
+});
+
+it('switches the admin interface to English and back through the language switcher', function (): void {
+    $this->get(route('admin.locale.switch', 'en'))->assertRedirect();
+
+    $this->get(route('filament.admin.auth.login'))
+        ->assertOk()
+        ->assertSee('lang="en"', escape: false)
+        ->assertSee('dir="ltr"', escape: false);
+
+    $this->get(route('admin.locale.switch', 'ar'))->assertRedirect();
+
+    $this->get(route('filament.admin.auth.login'))
+        ->assertSee('dir="rtl"', escape: false);
+});
+
+it('rejects unsupported locales', function (): void {
+    $this->get(route('admin.locale.switch', 'fr'))->assertNotFound();
+});
+
+it('always formats numbers with Western digits, even in Arabic', function (): void {
+    app(SetAdminLocale::class)->handle(
+        Request::create('/admin'),
+        static fn (): Response => response('ok'),
+    );
+
+    expect(Number::format(1234567.5, 1))->toBe('1,234,567.5');
 });

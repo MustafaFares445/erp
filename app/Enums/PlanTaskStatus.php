@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\PlanTask;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Lifecycle status of a {@see PlanTask}
@@ -12,8 +14,10 @@ use App\Models\PlanTask;
  * requires `employees.task.manage`, clears `completed_at`, and marks the
  * parent plan's performance score stale.
  */
-enum PlanTaskStatus: string
+enum PlanTaskStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Pending = 'Pending';
     case InProgress = 'InProgress';
     case Completed = 'Completed';

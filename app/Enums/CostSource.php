@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\ServiceRecordPart;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Where a {@see ServiceRecordPart}'s cost snapshot came from (WP-2.9,
@@ -12,8 +14,10 @@ use App\Models\ServiceRecordPart;
  * this is recorded rather than defaulted to zero so job-cost coverage can be
  * reported honestly instead of silently understating the job's true cost.
  */
-enum CostSource: string
+enum CostSource: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case LastReceivedCost = 'last_received_cost';
     case ManualEntry = 'manual_entry';
     case Unknown = 'unknown';

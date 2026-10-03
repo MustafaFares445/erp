@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Services\Settings\ConstraintGuard;
 use App\Services\Settings\Exceptions\ConstraintBreached;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * What a {@see ConstraintGuard} check concluded.
@@ -16,8 +18,10 @@ use App\Services\Settings\Exceptions\ConstraintBreached;
  * approved override was presented" are different facts and callers that
  * record provenance need to tell them apart.
  */
-enum ConstraintOutcome: string
+enum ConstraintOutcome: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Allowed = 'allowed';
     case Warned = 'warned';
     case Overridden = 'overridden';

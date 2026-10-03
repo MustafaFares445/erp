@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\VoiceNoteTranscription;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Provenance of a {@see VoiceNoteTranscription}'s `confidence`
@@ -13,8 +15,10 @@ use App\Models\VoiceNoteTranscription;
  * provider-reported. `confidence` is non-null exactly when this is
  * `ProviderReported` or `DerivedFromLogProb`, and null when `Unavailable`.
  */
-enum TranscriptionConfidenceSource: string
+enum TranscriptionConfidenceSource: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case ProviderReported = 'ProviderReported';
     case DerivedFromLogProb = 'DerivedFromLogProb';
     case Unavailable = 'Unavailable';

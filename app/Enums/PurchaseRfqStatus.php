@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum PurchaseRfqStatus: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum PurchaseRfqStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Draft = 'draft';
     case Sent = 'sent';
     case AwaitingResponses = 'awaiting_responses';

@@ -270,7 +270,10 @@ return [
                 'available' => 'Available', 'incoming_receipts' => 'Open Receipts', 'ready_deliveries' => 'Ready to Dispatch',
                 'transfers_in_transit' => 'Transfers In Transit',
             ],
-            'actions' => ['view_stock' => 'View Stock', 'view_movements' => 'View Movements'],
+            'actions' => ['view_stock' => 'View Stock', 'view_movements' => 'View Movements', 'view_reservations' => 'View Reservations'],
+        ],
+        'workspace' => [
+            'more_actions' => 'More actions',
         ],
         'replenishment' => [
             'fields' => [
@@ -2270,6 +2273,7 @@ return [
         'configurations' => 'Configurations',
         'workforce' => 'Workforce',
         'planning' => 'Planning',
+        'planning_alerts' => 'Planning & Alerts',
         'suppliers' => 'Suppliers',
         'warehouses' => 'Warehouses',
         'reports' => 'Reports',

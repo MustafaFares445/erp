@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum InventoryExportType: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum InventoryExportType: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Catalog = 'catalog';
     case StockLevels = 'stock_levels';
     case Movements = 'movements';

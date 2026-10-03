@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum LeadSource: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum LeadSource: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Website = 'website';
     case Referral = 'referral';
     case Exhibition = 'exhibition';

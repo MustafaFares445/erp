@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\InventoryMovement;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Classifies an {@see InventoryMovement} row.
@@ -13,8 +15,10 @@ use App\Models\InventoryMovement;
  * engine portability (ERD §6); this enum is the application-layer, type-safe
  * view over it, driving the table badge color and the type filter options.
  */
-enum MovementType: string
+enum MovementType: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Sale = 'sale';
     case Return = 'return';
     case Adjustment = 'adjustment';

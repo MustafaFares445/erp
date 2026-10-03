@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\MaintenanceRecord;
 use App\Services\Support\MaintenanceBillingService;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * How a {@see MaintenanceRecord} job's cost was (or was not) recovered
@@ -16,8 +18,10 @@ use App\Services\Support\MaintenanceBillingService;
  * `Invoiced` are the standard Sales billing path, set only by
  * {@see MaintenanceBillingService}.
  */
-enum MaintenanceBillingType: string
+enum MaintenanceBillingType: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Unbilled = 'unbilled';
     case WarrantyCovered = 'warranty_covered';
     case GoodwillCovered = 'goodwill_covered';

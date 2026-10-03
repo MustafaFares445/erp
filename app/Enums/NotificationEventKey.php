@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum NotificationEventKey: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum NotificationEventKey: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case InvoiceIssued = 'invoice.issued';
     case PaymentReceived = 'payment.received';
     case QuotationDecided = 'quotation.decided';

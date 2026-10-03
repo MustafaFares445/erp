@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\VoiceNoteTranscription;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Lifecycle status of a {@see VoiceNoteTranscription}
  * (contracts/plan-lifecycle.md). `Succeeded` is terminal; `Failed` may be
  * retried.
  */
-enum TranscriptionStatus: string
+enum TranscriptionStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Pending = 'Pending';
     case Succeeded = 'Succeeded';
     case Failed = 'Failed';

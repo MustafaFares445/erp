@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum InteractionOutcome: string
+use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasLabel;
+
+enum InteractionOutcome: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Positive = 'positive';
     case Neutral = 'neutral';
     case Negative = 'negative';

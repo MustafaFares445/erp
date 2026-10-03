@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\MaintenanceSchedule;
 use Carbon\Carbon;
 use DomainException;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Recurrence unit for a {@see MaintenanceSchedule} (WP-3.6, GAP-MW-08,
@@ -18,8 +20,10 @@ use DomainException;
  * operation (e.g. an hour-meter reading fed in from elsewhere), out of scope
  * for this work package.
  */
-enum MaintenanceIntervalType: string
+enum MaintenanceIntervalType: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Days = 'days';
     case Weeks = 'weeks';
     case Months = 'months';

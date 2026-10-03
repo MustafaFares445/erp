@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasTranslatedLabel;
 use App\Models\MaintenanceScheduleOccurrence;
+use Filament\Support\Contracts\HasLabel;
 
 /**
  * Lifecycle of a single {@see MaintenanceScheduleOccurrence} (WP-3.6,
  * GAP-MW-08, MT-07) — the row that makes a missed preventive service visible
  * as a row rather than an absence.
  */
-enum OccurrenceStatus: string
+enum OccurrenceStatus: string implements HasLabel
 {
+    use HasTranslatedLabel;
+
     case Pending = 'pending';
     case Raised = 'raised';
     case Completed = 'completed';
