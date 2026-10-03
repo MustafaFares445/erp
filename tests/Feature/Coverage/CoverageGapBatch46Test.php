@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Filament\Resources\PurchaseInbounds\Actions\PurchaseInboundActions;
 use App\Filament\Resources\PurchaseInbounds\Pages\ViewPurchaseInbound;
 use App\Models\InventoryOperation;
 use App\Models\ProductVariant;
@@ -78,7 +79,7 @@ it('executes purchase inbound allocation action and builds receivable options', 
 
     expect((string) $allocation->allocated_base_quantity)->toBe('1.500000');
 
-    $options = new ReflectionMethod(ViewPurchaseInbound::class, 'receivableAllocationOptions')
+    $options = new ReflectionMethod(PurchaseInboundActions::class, 'receivableAllocationOptions')
         ->invoke(null, $inbound->refresh());
 
     expect($options)->toHaveKey($allocation->getKey())
@@ -112,10 +113,10 @@ it('executes create or open receipt action for an inbound allocation', function 
 });
 
 it('covers purchase inbound input guards and actor guard', function (): void {
-    $integer = new ReflectionMethod(ViewPurchaseInbound::class, 'integerInput');
-    $quantity = new ReflectionMethod(ViewPurchaseInbound::class, 'quantityInput');
-    $positive = new ReflectionMethod(ViewPurchaseInbound::class, 'isPositiveQuantity');
-    $actor = new ReflectionMethod(ViewPurchaseInbound::class, 'actor');
+    $integer = new ReflectionMethod(PurchaseInboundActions::class, 'integerInput');
+    $quantity = new ReflectionMethod(PurchaseInboundActions::class, 'quantityInput');
+    $positive = new ReflectionMethod(PurchaseInboundActions::class, 'isPositiveQuantity');
+    $actor = new ReflectionMethod(PurchaseInboundActions::class, 'actor');
 
     expect($integer->invoke(null, '42'))->toBe(42)
         ->and($quantity->invoke(null, '1.250000'))->toBe('1.250000')

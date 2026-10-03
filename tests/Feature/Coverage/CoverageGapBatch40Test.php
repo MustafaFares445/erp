@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\Pages\PurchaseNeeds;
+use App\Filament\Resources\PurchaseInbounds\Actions\PurchaseInboundActions;
 use App\Filament\Resources\PurchaseInbounds\Pages\ViewPurchaseInbound;
 use App\Models\Order;
 use App\Models\OrderLine;
@@ -53,7 +54,7 @@ it('covers allocatable inbound line options and positive-quantity filtering', fu
     };
     app()->instance(LogisticsInboundProjectionService::class, $fake);
 
-    $method = new ReflectionMethod(ViewPurchaseInbound::class, 'allocatableLineOptions');
+    $method = new ReflectionMethod(PurchaseInboundActions::class, 'allocatableLineOptions');
     $options = $method->invoke(null, $inbound);
 
     expect($options)->toHaveKey($first->getKey())

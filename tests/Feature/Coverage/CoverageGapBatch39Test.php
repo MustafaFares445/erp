@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\PurchaseOrderDocument;
 use App\Filament\Pages\PurchaseNeeds;
-use App\Filament\Resources\PurchaseInbounds\Pages\ViewPurchaseInbound;
+use App\Filament\Resources\PurchaseInbounds\Actions\PurchaseInboundActions;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Models\Currency;
 use App\Models\ProductVariant;
@@ -20,10 +20,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 it('covers purchase inbound scalar workflow helpers and actor guard', function (): void {
-    $integerInput = new ReflectionMethod(ViewPurchaseInbound::class, 'integerInput');
-    $quantityInput = new ReflectionMethod(ViewPurchaseInbound::class, 'quantityInput');
-    $positive = new ReflectionMethod(ViewPurchaseInbound::class, 'isPositiveQuantity');
-    $actor = new ReflectionMethod(ViewPurchaseInbound::class, 'actor');
+    $integerInput = new ReflectionMethod(PurchaseInboundActions::class, 'integerInput');
+    $quantityInput = new ReflectionMethod(PurchaseInboundActions::class, 'quantityInput');
+    $positive = new ReflectionMethod(PurchaseInboundActions::class, 'isPositiveQuantity');
+    $actor = new ReflectionMethod(PurchaseInboundActions::class, 'actor');
 
     expect($integerInput->invoke(null, 12))->toBe(12)
         ->and($integerInput->invoke(null, '13'))->toBe(13)
@@ -72,7 +72,7 @@ it('covers receivable purchase inbound allocation option filtering', function ()
         'allocated_base_quantity' => '3.500000',
     ]);
 
-    $method = new ReflectionMethod(ViewPurchaseInbound::class, 'receivableAllocationOptions');
+    $method = new ReflectionMethod(PurchaseInboundActions::class, 'receivableAllocationOptions');
     $options = $method->invoke(null, $inbound);
 
     expect($options)

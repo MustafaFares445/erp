@@ -19,6 +19,7 @@ use App\Events\PurchaseOrderReceived;
 use App\Events\SupplierCommitmentRecorded;
 use App\Filament\Resources\Campaigns\Pages\CreateCampaign;
 use App\Filament\Resources\MaintenanceRequests\Actions\WarrantyRecoveryActions;
+use App\Filament\Resources\MaintenanceRequests\Actions\MaintenanceTransitionActions;
 use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ViewSerializedInventoryUnit;
@@ -213,10 +214,8 @@ it('covers maintenance approval action guard success and invalid warranty overri
     $test = Livewire::actingAs($actor)->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()]);
     $page = $test->instance();
 
-    $approvalMethod = new ReflectionMethod(ViewMaintenanceRequest::class, 'customerApprovalAction');
-    /** @var Action $approval */
-    $approval = $approvalMethod->invoke($page);
-    ($approval->getActionFunction())();
+    $approval = MaintenanceTransitionActions::customerApproval();
+    ($approval->getActionFunction())($record);
 
     expect($record->refresh()->status)->toBe(MaintenanceStatus::AwaitingApproval);
 
@@ -228,9 +227,7 @@ it('covers maintenance approval action guard success and invalid warranty overri
 
     $freshTest = Livewire::actingAs($actor)->test(ViewMaintenanceRequest::class, ['record' => $record->fresh()->getRouteKey()]);
     $freshPage = $freshTest->instance();
-    /** @var Action $freshApproval */
-    $freshApproval = $approvalMethod->invoke($freshPage);
-    ($freshApproval->getActionFunction())();
+    ($approval->getActionFunction())($record->fresh());
     expect($record->refresh()->status)->toBe(MaintenanceStatus::ReadyForRepair);
 
     $headerMethod = new ReflectionMethod(ViewMaintenanceRequest::class, 'getHeaderActions');
@@ -412,16 +409,9 @@ it('covers valid warranty override without expiry and caught invalid maintenance
         'status' => MaintenanceStatus::Open,
     ]);
     $badTest = Livewire::actingAs($actor)->test(ViewMaintenanceRequest::class, ['record' => $badRecord->getRouteKey()]);
-    $transitionMethod = new ReflectionMethod(ViewMaintenanceRequest::class, 'transitionAction');
-    /** @var Action $invalidTransition */
-    $invalidTransition = $transitionMethod->invoke(
-        $badTest->instance(),
-        'invalidClose',
-        'Invalid Close',
-        MaintenanceStatus::Closed,
-    );
+    $invalidTransition = MaintenanceTransitionActions::transition('invalidClose', 'Invalid Close', MaintenanceStatus::Closed);
 
-    ($invalidTransition->getActionFunction())();
+    ($invalidTransition->getActionFunction())($badRecord);
 
     expect($badRecord->refresh()->status)->toBe(MaintenanceStatus::Open);
 });
