@@ -114,6 +114,7 @@ return [
         ],
         'charts' => [
             'stock_value' => 'قيمة المخزون (:currency)',
+            'movements' => 'حركات المخزون (وارد مقابل صادر)',
         ],
     ],
 

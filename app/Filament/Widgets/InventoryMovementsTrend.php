@@ -33,7 +33,7 @@ final class InventoryMovementsTrend extends ChartWidget
     #[\Override]
     public function getHeading(): string
     {
-        return __('admin.inventory.dashboard.movements_trend');
+        return __('dashboards.inventory.charts.movements');
     }
 
     #[\Override]

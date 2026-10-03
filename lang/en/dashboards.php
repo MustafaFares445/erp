@@ -114,6 +114,7 @@ return [
         ],
         'charts' => [
             'stock_value' => 'Stock value (:currency)',
+            'movements' => 'Stock movements (inbound vs outbound)',
         ],
     ],
 
