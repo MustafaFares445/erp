@@ -1,3 +1,8 @@
+import loadLeaflet from './leaflet-loader.js';
+
+// Leaflet is not a global asset: it loads here, only on pages that render a map.
+await loadLeaflet();
+
 const RouteColors = ['#f59e0b', '#2563eb', '#16a34a', '#dc2626'];
 
 export default function customerDeliveryMap({ customerName, latitude, longitude, warehouses, warehouseOptions, routingServiceUrl }) {

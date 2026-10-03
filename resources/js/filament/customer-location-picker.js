@@ -1,3 +1,8 @@
+import loadLeaflet from './leaflet-loader.js';
+
+// Leaflet is not a global asset: it loads here, only on pages that render a map.
+await loadLeaflet();
+
 const DamascusCenter = [33.5138, 36.2765];
 const NominatimBaseUrl = 'https://nominatim.openstreetmap.org';
 

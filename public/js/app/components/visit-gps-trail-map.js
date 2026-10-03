@@ -1,3 +1,8 @@
+import loadLeaflet from './leaflet-loader.js';
+
+// Leaflet is not a global asset: it loads here, only on pages that render a map.
+await loadLeaflet();
+
 export default function visitGpsTrailMap({ points, customerLocation }) {
     return {
         map: null,

@@ -120,7 +120,6 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Css;
-use Filament\Support\Assets\Js;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
@@ -276,13 +275,14 @@ final class AdminPanelServiceProvider extends PanelProvider
                 SupportDashboard::class,
             ])
             ->assets([
+                // Leaflet itself is loaded on demand by this module (imported by the three map components
+                // below), so pages without a map never download it.
+                AlpineComponent::make('leaflet-loader', resource_path('js/filament/leaflet-loader.js')),
                 AlpineComponent::make('customer-delivery-map', resource_path('js/filament/customer-delivery-map.js')),
                 AlpineComponent::make('customer-location-picker', resource_path('js/filament/customer-location-picker.js')),
                 AlpineComponent::make('visit-gps-trail-map', resource_path('js/filament/visit-gps-trail-map.js')),
                 Css::make('customer-delivery-map', resource_path('css/filament/customer-delivery-map.css')),
                 Css::make('customer-location-picker', resource_path('css/filament/customer-location-picker.css')),
-                Css::make('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
-                Js::make('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'),
             ])
             ->navigation($this->navigation(...))
             ->renderHook(
