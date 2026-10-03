@@ -25,6 +25,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use LogicException;
@@ -307,7 +308,7 @@ final class LinesRelationManager extends RelationManager
 
         return JournalEntry::query()
             ->where('status', JournalEntryStatus::Posted->value)
-            ->whereHas('lines', fn ($query) => $query->where('chart_account_id', $bankAccount->id))
+            ->whereHas('lines', fn (Builder $query): Builder => $query->where('chart_account_id', $bankAccount->id))
             ->latest('entry_date')
             ->limit(100)
             ->get()
@@ -325,7 +326,7 @@ final class LinesRelationManager extends RelationManager
         return ChartAccount::query()
             ->where('is_active', true)
             ->where('is_postable', true)
-            ->when(is_numeric($bankAccountId), fn ($query) => $query->whereKeyNot((int) $bankAccountId))
+            ->when(is_numeric($bankAccountId), fn (Builder $query): Builder => $query->whereKeyNot((int) $bankAccountId))
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
             ->mapWithKeys(fn (ChartAccount $account): array => [$account->id => $account->code.' · '.$account->name])

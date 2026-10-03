@@ -10,6 +10,7 @@ use App\Models\CustomFieldDefinition;
 use App\Models\CustomFieldValue;
 use App\Models\User;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -24,7 +25,7 @@ final readonly class CustomFieldService
         $entityType = $this->entityType($subject);
 
         return CustomFieldDefinition::query()
-            ->when($activeOnly, static fn ($query) => $query->where('is_active', true))
+            ->when($activeOnly, static fn (Builder $query): Builder => $query->where('is_active', true))
             ->where('entity_type', $entityType->value)
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -38,7 +39,7 @@ final readonly class CustomFieldService
             ->with('definition')
             ->where('subject_type', $subject->getMorphClass())
             ->where('subject_id', $this->subjectKey($subject))
-            ->whereHas('definition', fn ($query) => $query->where('entity_type', $this->entityType($subject)->value))
+            ->whereHas('definition', fn (Builder $query): Builder => $query->where('entity_type', $this->entityType($subject)->value))
             ->get();
     }
 

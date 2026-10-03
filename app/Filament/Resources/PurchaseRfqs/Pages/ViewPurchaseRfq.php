@@ -11,6 +11,7 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseRfqs\PurchaseRfqResource;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRfq;
+use App\Models\PurchaseRfqLine;
 use App\Models\PurchaseRfqSupplier;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseRfqService;
@@ -241,7 +242,7 @@ final class ViewPurchaseRfq extends ViewRecord
         return $this->rfq()->lines()
             ->with('productVariant:id,sku,name')
             ->get()
-            ->mapWithKeys(function ($line): array {
+            ->mapWithKeys(function (PurchaseRfqLine $line): array {
                 $sku = data_get($line, 'productVariant.sku');
 
                 return [(int) $line->id => ((is_string($sku) ? $sku : '#'.$line->product_variant_id).' · '.$line->quantity)];

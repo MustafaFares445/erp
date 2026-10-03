@@ -162,7 +162,7 @@ final class PurchaseRfqResource extends Resource
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('status')->options(collect(PurchaseRfqStatus::cases())->mapWithKeys(fn ($status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
+                SelectFilter::make('status')->options(collect(PurchaseRfqStatus::cases())->mapWithKeys(fn (PurchaseRfqStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
             ]);
     }
 

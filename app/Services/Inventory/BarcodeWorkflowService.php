@@ -11,6 +11,7 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\User;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 final readonly class BarcodeWorkflowService
@@ -25,7 +26,7 @@ final readonly class BarcodeWorkflowService
             ->where('product_variant_id', $resolution->productVariantId)
             ->when(
                 $resolution->serializedInventoryUnitId !== null,
-                fn ($query) => $query->where('serialized_inventory_unit_id', $resolution->serializedInventoryUnitId),
+                fn (Builder $query): Builder => $query->where('serialized_inventory_unit_id', $resolution->serializedInventoryUnitId),
             )
             ->orderBy('id')
             ->get();
@@ -39,7 +40,7 @@ final readonly class BarcodeWorkflowService
             ->where('product_variant_id', $resolution->productVariantId)
             ->when(
                 $resolution->serializedInventoryUnitId !== null,
-                fn ($query) => $query->where('serialized_inventory_unit_id', $resolution->serializedInventoryUnitId),
+                fn (Builder $query): Builder => $query->where('serialized_inventory_unit_id', $resolution->serializedInventoryUnitId),
             )
             ->orderBy('id')
             ->get();
