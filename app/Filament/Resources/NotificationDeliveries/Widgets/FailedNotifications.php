@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Widgets;
+namespace App\Filament\Resources\NotificationDeliveries\Widgets;
 
 use App\Enums\NotificationDeliveryStatus;
 use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
@@ -10,9 +10,16 @@ use App\Models\NotificationDelivery;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Number;
 
+/**
+ * Header card on the delivery history: business notifications that failed in
+ * the last 24 hours, linking to the history filtered to failures for retry.
+ */
 final class FailedNotifications extends StatsOverviewWidget
 {
+    protected ?string $pollingInterval = null;
+
     protected int|string|array $columnSpan = 'full';
 
     #[\Override]
@@ -24,13 +31,15 @@ final class FailedNotifications extends StatsOverviewWidget
             ->count();
 
         return [
-            Stat::make(__('Failed notifications (24h)'), $failed)
+            Stat::make(__('admin.notification_deliveries.failed_last_day'), Number::format($failed))
                 ->description($failed === 0
-                    ? 'No failed business notifications in the last 24 hours.'
-                    : 'Open delivery history to inspect or retry failures.')
+                    ? __('admin.notification_deliveries.failed_none')
+                    : __('admin.notification_deliveries.failed_review'))
                 ->icon($failed === 0 ? Heroicon::OutlinedCheckCircle : Heroicon::OutlinedExclamationTriangle)
                 ->color($failed === 0 ? 'success' : 'danger')
-                ->url(NotificationDeliveryResource::getUrl()),
+                ->url(NotificationDeliveryResource::getUrl('index', [
+                    'filters' => ['status' => ['value' => NotificationDeliveryStatus::Failed->value]],
+                ])),
         ];
     }
 }
