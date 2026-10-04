@@ -1,0 +1,25 @@
+/*
+ * Dark-mode neutral scale. Filament emits its colour scales as an unlayered `:root { --gray-* }`
+ * block (IerpColors::SLATE, which has a blue cast), and an unlayered declaration beats every
+ * layered one, so this file is imported WITHOUT a layer and uses `html.dark` to out-specify `:root`.
+ *
+ * It re-points the gray scale at graphite neutrals so Filament's own `dark:bg-gray-*` /
+ * `dark:text-gray-*` utilities and any custom Blade view agree with the --ierp-* dark tokens
+ * (tokens.css). Light mode keeps the slate scale untouched.
+ *
+ *   950 page · 900 card · 800 subtle · 700 border strong · 600 hover border
+ *   500 comparison series · 400 muted text · 300 secondary text · 200..50 primary text
+ */
+html.dark {
+    --gray-50: #f4f6f8;
+    --gray-100: #e3e7eb;
+    --gray-200: #c8ced6;
+    --gray-300: #a7afba;
+    --gray-400: #7c8592;
+    --gray-500: #68717d;
+    --gray-600: #4b5563;
+    --gray-700: #363d47;
+    --gray-800: #1d2128;
+    --gray-900: #15181d;
+    --gray-950: #0b0d10;
+}

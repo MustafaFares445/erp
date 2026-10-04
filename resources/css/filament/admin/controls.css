@@ -1,0 +1,468 @@
+/*
+ * Interactive primitives, mapped from the app's component set:
+ *   Button/Primary, Button/Secondary, Button/Tertiary, Button/Danger, IconButton,
+ *   TextField, SearchField, Checkbox/Confirm, StatusBadge, SegmentedFilter.
+ * Desktop density: 40px controls, 32px compact, 28px extra-compact.
+ */
+
+/* ---- Buttons -------------------------------------------------------------------------------- */
+
+.fi-btn {
+    min-height: var(--ierp-control-h);
+    padding: 0 var(--ierp-space-4);
+    gap: var(--ierp-space-2);
+    border-radius: var(--ierp-radius-md);
+    font-size: var(--ierp-text-body);
+    font-weight: 600;
+    line-height: 1.25rem;
+
+    &.fi-size-xs {
+        min-height: var(--ierp-control-h-xs);
+        padding-inline: 0.625rem;
+        gap: var(--ierp-space-1);
+        border-radius: var(--ierp-radius-sm);
+        font-size: var(--ierp-text-caption);
+    }
+
+    &.fi-size-sm {
+        min-height: var(--ierp-control-h-sm);
+        padding-inline: var(--ierp-space-3);
+        gap: 0.375rem;
+        border-radius: var(--ierp-radius-sm);
+        font-size: 0.8125rem;
+    }
+
+    &.fi-size-lg {
+        min-height: var(--ierp-control-h-lg);
+        padding-inline: 1.125rem;
+    }
+
+    &.fi-size-xl {
+        min-height: 3rem;
+        padding-inline: var(--ierp-space-5);
+    }
+
+    &:is(.fi-force-enabled, :not(.fi-disabled):not([disabled])):focus-visible {
+        outline: none;
+        box-shadow:
+            0 0 0 2px var(--ierp-surface),
+            0 0 0 4px var(--ierp-focus-ring);
+    }
+
+    &.fi-disabled:not(.fi-force-enabled),
+    &[disabled]:not(.fi-force-enabled) {
+        opacity: 0.55;
+    }
+
+    /* Secondary: white surface, hairline border (also the default for uncoloured buttons). */
+    &:not(.fi-color):not(label),
+    &.fi-outlined:not(.fi-color) {
+        background-color: var(--ierp-surface);
+        color: var(--ierp-text);
+        box-shadow:
+            0 0 0 1px var(--ierp-border),
+            var(--ierp-shadow-xs);
+
+        &:is(.fi-force-enabled, :not(.fi-disabled):not([disabled])):hover {
+            background-color: var(--ierp-control-hover);
+            box-shadow:
+                0 0 0 1px var(--ierp-border-strong),
+                var(--ierp-shadow-xs);
+        }
+
+        & > .fi-icon {
+            color: var(--ierp-text-muted);
+        }
+    }
+
+    /* Coloured outline buttons keep their semantic ring but share the same radius and weight. */
+    &.fi-outlined.fi-color {
+        box-shadow: none;
+    }
+
+    /* Solid semantic buttons: Primary (blue), Danger (red) and friends. Hover darkens, never lightens. */
+    &:not(.fi-outlined).fi-color:not(label) {
+        box-shadow: var(--ierp-shadow-xs);
+
+        &:is(.fi-force-enabled, :not(.fi-disabled):not([disabled])):hover {
+            background-color: var(--color-700);
+        }
+
+        &:is(.fi-force-enabled, :not(.fi-disabled):not([disabled])):focus-visible {
+            box-shadow:
+                0 0 0 2px var(--ierp-surface),
+                0 0 0 4px var(--ierp-focus-ring);
+        }
+    }
+}
+
+/*
+ * Page-header action hierarchy: one obvious primary, everything else quieter.
+ *  - the first solid primary stays solid blue; any further solid primary in the same header
+ *    (typically "Edit" next to a workflow transition) is shown as a secondary button;
+ *  - danger actions (cancel / delete) use the soft destructive treatment — the solid red button
+ *    is reserved for the confirmation dialog that follows.
+ */
+.fi-header-actions-ctn {
+    & .fi-btn.fi-color-primary:not(.fi-outlined):not(label) ~ .fi-btn.fi-color-primary:not(.fi-outlined):not(label) {
+        background-color: var(--ierp-surface);
+        color: var(--ierp-text);
+        box-shadow:
+            0 0 0 1px var(--ierp-border),
+            var(--ierp-shadow-xs);
+
+        &:is(.fi-force-enabled, :not(.fi-disabled):not([disabled])):hover {
+            background-color: var(--ierp-control-hover);
+            box-shadow:
+                0 0 0 1px var(--ierp-border-strong),
+                var(--ierp-shadow-xs);
+        }
+
+        & > .fi-icon {
+            color: var(--ierp-text-muted);
+        }
+    }
+
+    & .fi-btn.fi-color-danger:not(.fi-outlined):not(label) {
+        background-color: var(--ierp-danger-soft);
+        color: var(--ierp-danger-on);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ierp-danger) 22%, transparent);
+
+        &:is(.fi-force-enabled, :not(.fi-disabled):not([disabled])):hover {
+            background-color: color-mix(in srgb, var(--ierp-danger) 14%, var(--ierp-surface));
+        }
+
+        & > .fi-icon {
+            color: var(--ierp-danger);
+        }
+    }
+}
+
+.fi-btn-group {
+    border-radius: var(--ierp-radius-md);
+    box-shadow:
+        0 0 0 1px var(--ierp-border),
+        var(--ierp-shadow-xs);
+
+    & > .fi-btn {
+        min-height: var(--ierp-control-h);
+        box-shadow: none;
+
+        &:nth-child(1 of .fi-btn) {
+            border-start-start-radius: var(--ierp-radius-md);
+            border-end-start-radius: var(--ierp-radius-md);
+        }
+
+        &:nth-last-child(1 of .fi-btn) {
+            border-start-end-radius: var(--ierp-radius-md);
+            border-end-end-radius: var(--ierp-radius-md);
+        }
+    }
+}
+
+/* ---- Icon buttons --------------------------------------------------------------------------- */
+
+.fi-icon-btn {
+    border-radius: var(--ierp-radius-sm);
+    color: var(--ierp-text-muted);
+
+    &:is(.fi-force-enabled, :not(.fi-disabled):not([disabled])) {
+        &:hover {
+            color: var(--ierp-text);
+            background-color: var(--ierp-control-hover);
+        }
+
+        &:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--ierp-focus-ring);
+        }
+    }
+}
+
+/* ---- Fields --------------------------------------------------------------------------------- */
+
+.fi-fo-field-label-content,
+.fi-in-entry-label,
+.fi-fo-field .fi-fo-field-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ierp-text);
+}
+
+.fi-fo-field-label-required-mark {
+    color: var(--ierp-danger);
+}
+
+.fi-fo-field-wrp-hint,
+.fi-fo-field-wrp-helper-text,
+.fi-fo-field-wrp-hint-text {
+    font-size: var(--ierp-text-caption);
+    color: var(--ierp-text-muted);
+}
+
+.fi-fo-field-wrp-error-message {
+    font-size: var(--ierp-text-caption);
+    font-weight: 500;
+    color: var(--ierp-danger);
+}
+
+/* TextField / SearchField / PasswordField: one shared wrapper for every text-like input. */
+.fi-input-wrp {
+    min-height: var(--ierp-control-h);
+    align-items: center;
+    border-radius: var(--ierp-radius-md);
+    background-color: var(--ierp-input);
+    box-shadow:
+        0 0 0 1px var(--ierp-border-strong),
+        var(--ierp-shadow-xs);
+    transition:
+        box-shadow 120ms ease,
+        background-color 120ms ease;
+
+    &:not(.fi-disabled):not(:has(.fi-ac-action:focus)):not(.fi-invalid):hover {
+        box-shadow:
+            0 0 0 1px var(--ierp-border-hover),
+            var(--ierp-shadow-xs);
+    }
+
+    &:not(.fi-disabled):not(:has(.fi-ac-action:focus)):focus-within {
+        box-shadow:
+            0 0 0 1px var(--ierp-primary),
+            0 0 0 4px var(--ierp-field-focus-ring);
+    }
+
+    &.fi-invalid {
+        box-shadow: 0 0 0 1px var(--ierp-danger);
+
+        &:not(.fi-disabled):not(:has(.fi-ac-action:focus)):focus-within {
+            box-shadow:
+                0 0 0 1px var(--ierp-danger),
+                0 0 0 4px color-mix(in srgb, var(--ierp-danger) 25%, transparent);
+        }
+    }
+
+    &.fi-disabled {
+        background-color: var(--ierp-surface-subtle);
+        box-shadow: 0 0 0 1px var(--ierp-border);
+    }
+
+    & .fi-input-wrp-prefix:not(.fi-inline),
+    & .fi-input-wrp-suffix:not(.fi-inline) {
+        border-color: var(--ierp-border);
+    }
+
+    & .fi-input-wrp-label {
+        color: var(--ierp-text-muted);
+    }
+}
+
+input.fi-input,
+textarea.fi-input {
+    padding-block: 0.5rem;
+    font-size: var(--ierp-text-body);
+    color: var(--ierp-text);
+
+    &::placeholder {
+        color: var(--ierp-placeholder);
+        opacity: 1;
+    }
+}
+
+/* Search inputs (table search, global search) use the same wrapper; only the icon needs to read as muted. */
+.fi-ta-search-field .fi-input-wrp-prefix > .fi-icon,
+.fi-global-search-field .fi-input-wrp-prefix > .fi-icon {
+    color: var(--ierp-text-muted);
+}
+
+/* Checkbox/Confirm and radio: slightly larger, rounded, primary when checked. */
+input.fi-checkbox-input {
+    border-radius: 0.3125rem;
+}
+
+/* ---- Tabs / SegmentedFilter ----------------------------------------------------------------- */
+
+.fi-tabs {
+    gap: var(--ierp-space-1);
+
+    &:not(.fi-contained):not(.fi-vertical) {
+        padding: var(--ierp-space-1);
+        border-radius: var(--ierp-radius-md);
+        background-color: var(--ierp-surface-subtle);
+        box-shadow: none;
+    }
+
+    &.fi-contained {
+        border-color: var(--ierp-border);
+    }
+}
+
+.fi-tabs-item {
+    padding: 0.4375rem var(--ierp-space-3);
+    border-radius: calc(var(--ierp-radius-md) - 3px);
+    font-size: 0.8125rem;
+    font-weight: 500;
+
+    &:not(.fi-active):is(:hover, :focus-visible) {
+        background-color: var(--ierp-segment-hover);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--ierp-focus-ring);
+    }
+
+    & .fi-tabs-item-label {
+        color: var(--ierp-text-muted);
+    }
+
+    & > .fi-icon {
+        color: var(--ierp-text-muted);
+    }
+
+    &.fi-active {
+        background-color: var(--ierp-primary-soft);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ierp-primary) 18%, transparent);
+
+        & .fi-tabs-item-label,
+        & > .fi-icon {
+            color: var(--ierp-primary-on);
+        }
+
+        & .fi-tabs-item-label {
+            font-weight: 600;
+        }
+    }
+}
+
+/* ---- Dropdowns and menus -------------------------------------------------------------------- */
+
+.fi-dropdown-panel {
+    border-radius: var(--ierp-radius-md);
+    background-color: var(--ierp-surface);
+    box-shadow:
+        0 0 0 1px var(--ierp-border),
+        var(--ierp-shadow-popover);
+
+    &:not(.fi-dropdown-list) {
+        --tw-divide-color: var(--ierp-border-subtle);
+    }
+}
+
+.fi-dropdown-list {
+    padding: var(--ierp-space-1);
+}
+
+.fi-dropdown-list-item {
+    border-radius: var(--ierp-radius-sm);
+    padding: 0.4375rem var(--ierp-space-2);
+    font-size: var(--ierp-text-body);
+
+    &:not(.fi-disabled):not([disabled]):is(:hover, :focus-visible, .fi-selected) {
+        background-color: var(--ierp-control-hover);
+    }
+
+    & > .fi-icon:not(.fi-color) {
+        color: var(--ierp-text-muted);
+    }
+}
+
+.fi-dropdown-header {
+    font-size: var(--ierp-text-caption);
+    color: var(--ierp-text-muted);
+}
+
+/* ---- StatusBadge ---------------------------------------------------------------------------- */
+
+.fi-badge {
+    gap: 0.375rem;
+    padding: 0.1875rem 0.625rem;
+    border-radius: var(--ierp-radius-pill);
+    font-size: var(--ierp-text-caption);
+    font-weight: 600;
+    line-height: 1.25rem;
+    background-color: var(--ierp-neutral-soft);
+    color: var(--ierp-neutral-on);
+    box-shadow: none;
+
+    &.fi-size-sm {
+        padding: 0.0625rem 0.5rem;
+    }
+
+    &.fi-size-xs {
+        padding-inline: 0.375rem;
+    }
+
+    &.fi-color {
+        background-color: color-mix(in srgb, var(--color-500) 10%, var(--ierp-surface));
+        box-shadow: none;
+    }
+}
+
+/*
+ * Badge text comes from the same tokens as the soft fill, so dark mode gets the lighter tones
+ * (e.g. #4ADE80 on rgb(34 197 94 / 12%)) instead of Filament's stock per-shade colours.
+ */
+.fi-badge:not(.fi-color),
+.fi-badge.fi-color-gray {
+    color: var(--ierp-neutral-on);
+}
+
+.fi-badge.fi-color-primary {
+    color: var(--ierp-primary-on);
+}
+
+.fi-badge.fi-color-success {
+    color: var(--ierp-success-on);
+}
+
+.fi-badge.fi-color-warning {
+    color: var(--ierp-warning-on);
+}
+
+.fi-badge.fi-color-danger {
+    color: var(--ierp-danger-on);
+}
+
+.fi-badge.fi-color-info {
+    color: var(--ierp-info-on);
+}
+
+/* Semantic soft tints, straight from the app (color.*-soft behind the saturated text colour). */
+.fi-badge.fi-color-primary {
+    background-color: var(--ierp-primary-soft);
+}
+
+.fi-badge.fi-color-success {
+    background-color: var(--ierp-success-soft);
+}
+
+.fi-badge.fi-color-warning {
+    background-color: var(--ierp-warning-soft);
+}
+
+.fi-badge.fi-color-danger {
+    background-color: var(--ierp-danger-soft);
+}
+
+.fi-badge.fi-color-info {
+    background-color: var(--ierp-info-soft);
+}
+
+.fi-badge.fi-color-gray {
+    background-color: var(--ierp-neutral-soft);
+}
+
+/*
+ * The app's StatusBadge leads with a dot. Status columns and infolist badges carry no icon of
+ * their own, so give them the dot; it also keeps status from being conveyed by colour alone
+ * together with the label text. Count badges (sidebar, tabs) are left plain.
+ */
+:is(.fi-ta-cell, .fi-in-entry, .fi-wi-table) .fi-badge:not(:has(.fi-icon, .fi-badge-delete-btn))::before {
+    content: '';
+    flex: none;
+    inline-size: 0.4375rem;
+    block-size: 0.4375rem;
+    border-radius: 999px;
+    background-color: currentColor;
+    opacity: 0.9;
+}

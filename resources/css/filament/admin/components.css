@@ -1,0 +1,490 @@
+/*
+ * Shared building blocks for custom Blade views (resources/views/filament/**). Native Filament
+ * components are styled globally in controls.css / surfaces.css; these classes cover the app
+ * components Filament has no equivalent for, so custom markup can stop hand-rolling colours:
+ *   .ierp-stepper   ProgressIndicator + StatusBadge vocabulary (workflow steppers)
+ *   .ierp-progress  ProgressIndicator track + fill
+ *   .ierp-alert     InlineAlert
+ *   .ierp-card      TaskCard-style surface
+ *   .ierp-metric    MetricCard
+ *   .ierp-status    StatusBadge for markup that is not a Filament badge
+ */
+
+/* ---- Workflow stepper ----------------------------------------------------------------------- */
+
+.ierp-stepper {
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    padding: var(--ierp-space-1) 0;
+    list-style: none;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.ierp-stepper-step {
+    --ierp-step-marker: 1.625rem;
+    position: relative;
+    flex: 1 1 0;
+    min-width: 5.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--ierp-space-2);
+    padding-inline: var(--ierp-space-1);
+    text-align: center;
+
+    /* Connector to the previous step. Logical offset, so it mirrors in RTL with no extra rule. */
+    &:not(:first-child)::before {
+        content: '';
+        position: absolute;
+        inset-block-start: calc(var(--ierp-step-marker) / 2 - 1px);
+        inset-inline-start: -50%;
+        inline-size: 100%;
+        block-size: 2px;
+        border-radius: 1px;
+        background-color: var(--ierp-border);
+    }
+
+    &[data-state='completed']::before,
+    &[data-state='current']::before {
+        background-color: var(--ierp-success);
+    }
+}
+
+.ierp-stepper-marker {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--ierp-step-marker);
+    block-size: var(--ierp-step-marker);
+    border-radius: var(--ierp-radius-pill);
+    font-size: var(--ierp-text-caption);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    background-color: var(--ierp-surface);
+    color: var(--ierp-text-muted);
+    box-shadow: inset 0 0 0 1.5px var(--ierp-border-strong);
+
+    & > svg {
+        inline-size: 0.875rem;
+        block-size: 0.875rem;
+    }
+
+    .ierp-stepper-step[data-state='completed'] & {
+        background-color: var(--ierp-success);
+        color: #fff;
+        box-shadow: none;
+    }
+
+    .ierp-stepper-step[data-state='current'] & {
+        background-color: var(--ierp-primary);
+        color: #fff;
+        box-shadow: 0 0 0 4px var(--ierp-focus-ring);
+    }
+
+    .ierp-stepper-step[data-state='terminal'] & {
+        background-color: var(--ierp-danger);
+        color: #fff;
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--ierp-danger) 22%, transparent);
+    }
+}
+
+.ierp-stepper-label {
+    font-size: var(--ierp-text-caption);
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ierp-text-muted);
+    text-wrap: balance;
+
+    .ierp-stepper-step[data-state='completed'] & {
+        color: var(--ierp-text-secondary);
+    }
+
+    .ierp-stepper-step[data-state='current'] & {
+        font-weight: 700;
+        color: var(--ierp-primary-on);
+    }
+
+    .ierp-stepper-step[data-state='terminal'] & {
+        font-weight: 700;
+        color: var(--ierp-danger-on);
+    }
+}
+
+/* ---- ProgressIndicator ---------------------------------------------------------------------- */
+
+.ierp-progress {
+    display: grid;
+    gap: 0.375rem;
+
+    & > .ierp-progress-labels {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--ierp-space-2);
+        font-size: var(--ierp-text-caption);
+        font-weight: 600;
+        color: var(--ierp-text);
+    }
+
+    & > .ierp-progress-labels > :last-child {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--ierp-primary-on);
+    }
+
+    & > .ierp-progress-track {
+        block-size: 0.5rem;
+        overflow: hidden;
+        border-radius: var(--ierp-radius-pill);
+        background-color: var(--ierp-surface-subtle);
+    }
+
+    & > .ierp-progress-track > .ierp-progress-fill {
+        block-size: 100%;
+        border-radius: inherit;
+        background-color: var(--ierp-primary);
+    }
+
+    &[data-tone='success'] .ierp-progress-fill {
+        background-color: var(--ierp-success);
+    }
+
+    &[data-tone='warning'] .ierp-progress-fill {
+        background-color: var(--ierp-warning);
+    }
+
+    &[data-tone='danger'] .ierp-progress-fill {
+        background-color: var(--ierp-danger);
+    }
+}
+
+/* ---- InlineAlert ---------------------------------------------------------------------------- */
+
+.ierp-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: var(--ierp-space-3);
+    border-radius: var(--ierp-radius-md);
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    color: var(--ierp-text);
+    background-color: var(--ierp-neutral-soft);
+
+    & > .ierp-alert-icon {
+        flex: none;
+        inline-size: 1.25rem;
+        block-size: 1.25rem;
+        color: var(--ierp-text-muted);
+    }
+
+    &[data-tone='info'] {
+        background-color: var(--ierp-info-soft);
+    }
+
+    &[data-tone='info'] > .ierp-alert-icon {
+        color: var(--ierp-info);
+    }
+
+    &[data-tone='primary'] {
+        background-color: var(--ierp-primary-soft);
+    }
+
+    &[data-tone='primary'] > .ierp-alert-icon {
+        color: var(--ierp-primary);
+    }
+
+    &[data-tone='success'] {
+        background-color: var(--ierp-success-soft);
+    }
+
+    &[data-tone='success'] > .ierp-alert-icon {
+        color: var(--ierp-success);
+    }
+
+    &[data-tone='warning'] {
+        background-color: var(--ierp-warning-soft);
+    }
+
+    &[data-tone='warning'] > .ierp-alert-icon {
+        color: var(--ierp-warning);
+    }
+
+    &[data-tone='danger'] {
+        background-color: var(--ierp-danger-soft);
+    }
+
+    &[data-tone='danger'] > .ierp-alert-icon {
+        color: var(--ierp-danger);
+    }
+}
+
+/* ---- Card / MetricCard / StatusBadge for custom markup -------------------------------------- */
+
+.ierp-card {
+    padding: var(--ierp-space-4) var(--ierp-space-5);
+    border-radius: var(--ierp-radius-md);
+    background-color: var(--ierp-surface);
+    box-shadow:
+        0 0 0 1px var(--ierp-border),
+        var(--ierp-shadow-xs);
+}
+
+/* Lets a table fill a section edge to edge: cancels the section's content padding (see surfaces.css). */
+.ierp-section-bleed {
+    margin: calc(-1 * var(--ierp-space-5));
+}
+
+/* A bordered tile nested inside a section/card (case facts, message bubbles). `data-tone` tints it. */
+.ierp-tile {
+    padding: var(--ierp-space-4);
+    border-radius: var(--ierp-radius-md);
+    background-color: var(--ierp-surface);
+    box-shadow: inset 0 0 0 1px var(--ierp-border);
+
+    &[data-variant='subtle'] {
+        background-color: var(--ierp-surface-subtle);
+        box-shadow: none;
+    }
+
+    &[data-tone='warning'] {
+        background-color: var(--ierp-warning-soft);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ierp-warning) 28%, transparent);
+    }
+
+    &[data-tone='primary'] {
+        background-color: var(--ierp-primary-soft);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ierp-primary) 22%, transparent);
+    }
+
+    &[data-tone='danger'] {
+        background-color: var(--ierp-danger-soft);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ierp-danger) 25%, transparent);
+    }
+}
+
+/* EmptyState for custom markup: centred muted text on a subtle surface. */
+.ierp-empty {
+    padding: var(--ierp-space-8) var(--ierp-space-5);
+    border-radius: var(--ierp-radius-md);
+    background-color: var(--ierp-surface-subtle);
+    font-size: 0.8125rem;
+    text-align: center;
+    color: var(--ierp-text-muted);
+
+    /* ErrorState: the same block on a danger-soft surface. */
+    &[data-tone='danger'] {
+        background-color: var(--ierp-danger-soft);
+        color: var(--ierp-danger-on);
+    }
+}
+
+/*
+ * A plain table (custom markup) that matches Filament's `.fi-ta-table`: hairline rows, quiet header,
+ * tabular numbers. Default is the flush style used inside padded sections; add `ierp-table-band`
+ * when the table runs edge to edge in a card (banded header, 16px cell inset).
+ */
+.ierp-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: var(--ierp-text-body);
+    font-variant-numeric: tabular-nums;
+
+    & > thead > tr {
+        border-block-end: 1px solid var(--ierp-border);
+    }
+
+    & > thead th {
+        padding: 0.5rem 0.75rem;
+        text-align: start;
+        font-size: var(--ierp-text-caption);
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--ierp-text-secondary);
+    }
+
+    & > tbody > tr + tr,
+    & > tfoot > tr {
+        border-block-start: 1px solid var(--ierp-table-divider);
+    }
+
+    & > tbody > tr:hover {
+        background-color: var(--ierp-surface-hover);
+    }
+
+    & > tbody td,
+    & > tfoot td {
+        padding: 0.625rem 0.75rem;
+        vertical-align: middle;
+    }
+
+    & :is(th, td):first-child {
+        padding-inline-start: 0;
+    }
+
+    & :is(th, td):last-child {
+        padding-inline-end: 0;
+    }
+
+    /* Action buttons in a cell stay on one line instead of wrapping inside a narrow column. */
+    & .fi-btn {
+        white-space: nowrap;
+    }
+
+    /* Right-aligned (end-aligned in RTL) numeric columns. Wins over the default start alignment of th. */
+    & .ierp-table-num {
+        text-align: end;
+    }
+
+    /* Totals / subtotal rows. */
+    & > tbody > tr.ierp-table-total {
+        font-weight: 600;
+        background-color: var(--ierp-surface-subtle);
+        border-block-start: 1px solid var(--ierp-border-strong);
+    }
+
+    &.ierp-table-band {
+        & > thead > tr {
+            background-color: var(--ierp-table-head);
+        }
+
+        & > thead th {
+            padding: 0.625rem var(--ierp-space-4);
+        }
+
+        & > tbody td,
+        & > tfoot td {
+            padding: 0.6875rem var(--ierp-space-4);
+        }
+
+        & :is(th, td):first-child {
+            padding-inline-start: var(--ierp-space-4);
+        }
+
+        & :is(th, td):last-child {
+            padding-inline-end: var(--ierp-space-4);
+        }
+    }
+}
+
+/* A card that is also a link (settings tiles, quick-access tiles): hairline turns primary on hover/focus. */
+.ierp-card-link {
+    display: block;
+    padding: var(--ierp-space-4);
+    border-radius: var(--ierp-radius-md);
+    background-color: var(--ierp-surface);
+    box-shadow:
+        0 0 0 1px var(--ierp-border),
+        var(--ierp-shadow-xs);
+    transition:
+        box-shadow 120ms ease,
+        background-color 120ms ease;
+
+    &:hover {
+        background-color: var(--ierp-surface-hover);
+        box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--ierp-primary) 45%, var(--ierp-border)),
+            var(--ierp-shadow-sm);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow:
+            0 0 0 1px var(--ierp-primary),
+            0 0 0 4px var(--ierp-focus-ring);
+    }
+}
+
+/* Field label for custom markup; matches the label Filament renders above its own fields. */
+.ierp-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ierp-text);
+}
+
+/* Small uppercase group label used above groups of cards or definition lists. */
+.ierp-eyebrow {
+    font-size: var(--ierp-text-caption);
+    font-weight: 600;
+    line-height: 1.25rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ierp-text-muted);
+}
+
+.ierp-metric {
+    display: grid;
+    gap: 0.375rem;
+}
+
+.ierp-metric-label {
+        font-size: var(--ierp-text-caption);
+        font-weight: 600;
+        color: var(--ierp-text-muted);
+}
+
+.ierp-metric-value {
+        font-size: var(--ierp-text-metric);
+        line-height: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+        color: var(--ierp-text);
+}
+
+.ierp-metric-helper {
+        font-size: var(--ierp-text-caption);
+        color: var(--ierp-text-muted);
+}
+
+.ierp-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.1875rem 0.625rem;
+    border-radius: var(--ierp-radius-pill);
+    font-size: var(--ierp-text-caption);
+    font-weight: 600;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    background-color: var(--ierp-neutral-soft);
+    color: var(--ierp-neutral-on);
+
+    &::before {
+        content: '';
+        inline-size: 0.4375rem;
+        block-size: 0.4375rem;
+        border-radius: 999px;
+        background-color: currentColor;
+    }
+
+    &[data-tone='primary'] {
+        background-color: var(--ierp-primary-soft);
+        color: var(--ierp-primary-on);
+    }
+
+    &[data-tone='success'] {
+        background-color: var(--ierp-success-soft);
+        color: var(--ierp-success-on);
+    }
+
+    &[data-tone='warning'] {
+        background-color: var(--ierp-warning-soft);
+        color: var(--ierp-warning-on);
+    }
+
+    &[data-tone='danger'] {
+        background-color: var(--ierp-danger-soft);
+        color: var(--ierp-danger-on);
+    }
+
+    &[data-tone='info'] {
+        background-color: var(--ierp-info-soft);
+        color: var(--ierp-info-on);
+    }
+}

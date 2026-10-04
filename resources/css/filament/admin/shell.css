@@ -1,0 +1,331 @@
+/*
+ * Application shell: page background, topbar, module switcher, sidebar, page header and rhythm.
+ * Desktop translation of the app chrome: soft grey canvas, white elevated surfaces, blue active
+ * states, hairline borders, no decorative shadows. Logical properties only, so RTL needs no copy.
+ */
+
+/* ---- Canvas and typography ------------------------------------------------------------------ */
+
+html.fi {
+    /* Inter for Latin, Noto Sans Arabic (loaded by the HEAD_END hook, limited to the Arabic range) for Arabic. */
+    font-family:
+        var(--font-family), 'Noto Sans Arabic', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    -webkit-font-smoothing: antialiased;
+}
+
+.fi-body {
+    background-color: var(--ierp-bg);
+    color: var(--ierp-text);
+    font-size: var(--ierp-text-body);
+}
+
+/*
+ * Letter-spacing detaches Arabic letters from their joins, so tracked eyebrows and labels must not
+ * be tracked in RTL. !important is deliberate: tracking-* utilities live in a higher layer.
+ */
+[dir='rtl'] :is([class*='tracking-'], .ierp-eyebrow) {
+    letter-spacing: normal !important;
+}
+
+/* ---- Topbar --------------------------------------------------------------------------------- */
+
+.fi-topbar {
+    min-height: var(--ierp-topbar-h);
+    background-color: var(--ierp-chrome);
+    box-shadow: none;
+    border-block-end: 1px solid var(--ierp-border);
+}
+
+.fi-topbar-end {
+    gap: var(--ierp-space-2);
+}
+
+/*
+ * Module switcher (resources/views/filament/partials/module-switcher.blade.php): the app's
+ * SegmentedFilter on desktop — a subtle track holding one segment per module, the active segment
+ * tinted with primary-soft.
+ */
+.fi-topbar-nav-groups.app-module-switcher {
+    display: none;
+    gap: 0.125rem;
+    padding: var(--ierp-space-1);
+    background-color: var(--ierp-surface-subtle);
+    border-radius: var(--ierp-radius-md);
+    scrollbar-width: none;
+
+    @media (min-width: 90rem) {
+        display: flex;
+    }
+
+    /* Below 104rem the labels alone fit all modules; icons return on very wide screens (and stay on the active tab). */
+    @media (max-width: 103.99rem) {
+        & .fi-topbar-item:not(.fi-active) .fi-topbar-item-btn > .fi-icon {
+            display: none;
+        }
+    }
+}
+
+.fi-topbar-nav-groups.app-module-switcher-compact {
+    display: flex;
+
+    @media (min-width: 90rem) {
+        display: none;
+    }
+}
+
+/* Brand first, then the module switcher, then search/notifications/user (the hook renders ahead of the logo). */
+.fi-topbar-start {
+    order: -1;
+}
+
+.fi-topbar-item-btn {
+    border-radius: calc(var(--ierp-radius-md) - 3px);
+    padding: 0.375rem 0.625rem;
+    gap: var(--ierp-space-2);
+
+    &:hover,
+    &:focus-visible {
+        background-color: var(--ierp-segment-hover);
+    }
+
+    &:focus-visible {
+        box-shadow: 0 0 0 2px var(--ierp-focus-ring);
+    }
+
+    & > .fi-icon {
+        color: var(--ierp-text-muted);
+    }
+}
+
+.fi-topbar-item-label {
+    font-size: var(--ierp-text-body);
+    font-weight: 500;
+    color: var(--ierp-text-secondary);
+}
+
+.fi-topbar-item.fi-active {
+    & .fi-topbar-item-btn {
+        background-color: var(--ierp-primary-soft);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ierp-primary) 18%, transparent);
+
+        & > .fi-icon {
+            color: var(--ierp-primary);
+        }
+    }
+
+    & .fi-topbar-item-label {
+        color: var(--ierp-primary-on);
+        font-weight: 600;
+    }
+}
+
+/* Language switcher (resources/views/filament/partials/language-switcher.blade.php): a compact text button. */
+.app-language-switcher {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: 2.25rem;
+    padding-inline: 0.625rem;
+    border-radius: var(--ierp-radius-sm);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ierp-text-secondary);
+    transition:
+        background-color 120ms ease,
+        color 120ms ease;
+
+    &:hover {
+        background-color: var(--ierp-control-hover);
+        color: var(--ierp-text);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--ierp-focus-ring);
+    }
+}
+
+/* ---- Sidebar -------------------------------------------------------------------------------- */
+
+@media (min-width: 64rem) {
+    .fi-sidebar {
+        background-color: var(--ierp-chrome);
+        border-inline-end: 1px solid var(--ierp-border);
+    }
+}
+
+.fi-sidebar.fi-sidebar-open {
+    /* The mobile drawer: a hairline instead of the stock heavy ring + xl shadow. */
+    box-shadow: var(--ierp-shadow-popover);
+}
+
+.fi-sidebar-close-overlay {
+    background-color: var(--ierp-overlay);
+}
+
+.fi-sidebar-nav {
+    padding: var(--ierp-space-4) var(--ierp-space-3);
+    row-gap: var(--ierp-space-5);
+}
+
+.fi-sidebar-nav-groups {
+    margin-inline: 0;
+    row-gap: var(--ierp-space-5);
+}
+
+.fi-sidebar-group {
+    row-gap: 0.125rem;
+}
+
+.fi-sidebar-group-btn {
+    padding: 0.25rem 0.625rem;
+}
+
+.fi-sidebar-group-label {
+    font-size: var(--ierp-text-caption);
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: var(--ierp-text-muted);
+}
+
+.fi-sidebar-group-items,
+.fi-sidebar-sub-group-items {
+    row-gap: 0.125rem;
+}
+
+.fi-sidebar-item-btn,
+.fi-sidebar-database-notifications-btn,
+.fi-sidebar-group-dropdown-trigger-btn {
+    border-radius: var(--ierp-radius-sm);
+    padding: 0.4375rem 0.625rem;
+    gap: var(--ierp-space-3);
+
+    & > .fi-icon {
+        color: var(--ierp-text-muted);
+    }
+}
+
+.fi-sidebar-item-label {
+    font-size: var(--ierp-text-body);
+    font-weight: 500;
+    color: var(--ierp-text-secondary);
+}
+
+.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:is(:hover, :focus-visible),
+.fi-sidebar-database-notifications-btn:is(:hover, :focus-visible),
+.fi-sidebar-group-dropdown-trigger-btn:is(:hover, :focus-visible) {
+    background-color: var(--ierp-control-hover);
+}
+
+.fi-sidebar-item-btn:focus-visible {
+    box-shadow: 0 0 0 2px var(--ierp-focus-ring);
+}
+
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+    background-color: var(--ierp-primary-soft);
+
+    & > .fi-icon,
+    & > .fi-sidebar-item-label {
+        color: var(--ierp-primary-on);
+    }
+
+    & > .fi-sidebar-item-label {
+        font-weight: 600;
+    }
+
+    & > .fi-icon {
+        color: var(--ierp-primary);
+    }
+}
+
+/* ---- Page layout rhythm --------------------------------------------------------------------- */
+
+.fi-main {
+    padding-inline: var(--ierp-space-4);
+
+    @media (min-width: 48rem) {
+        padding-inline: var(--ierp-space-6);
+    }
+
+    @media (min-width: 64rem) {
+        padding-inline: var(--ierp-space-8);
+    }
+}
+
+.fi-page-header-main-ctn {
+    padding-block: var(--ierp-space-6);
+    row-gap: var(--ierp-space-5);
+}
+
+.fi-page-content {
+    row-gap: var(--ierp-space-5);
+}
+
+/* ---- Page header ---------------------------------------------------------------------------- */
+
+.fi-header {
+    gap: var(--ierp-space-4);
+
+    & .fi-breadcrumbs {
+        margin-block-end: var(--ierp-space-1);
+    }
+
+    &.fi-header-has-breadcrumbs .fi-header-actions-ctn {
+        margin-block-start: 1.5rem;
+    }
+}
+
+.fi-header-heading {
+    font-size: var(--ierp-text-title);
+    line-height: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--ierp-text);
+}
+
+.fi-header-subheading {
+    margin-block-start: var(--ierp-space-1);
+    font-size: var(--ierp-text-body);
+    line-height: 1.25rem;
+    color: var(--ierp-text-muted);
+}
+
+.fi-header-actions-ctn {
+    gap: var(--ierp-space-2);
+}
+
+.fi-breadcrumbs-item-label,
+.fi-breadcrumbs-item-separator {
+    font-size: 0.8125rem;
+    color: var(--ierp-text-muted);
+}
+
+.fi-breadcrumbs-item:last-child .fi-breadcrumbs-item-label {
+    color: var(--ierp-text-secondary);
+    font-weight: 500;
+}
+
+a.fi-breadcrumbs-item-label:hover {
+    color: var(--ierp-primary-on);
+}
+
+/* ---- Simple (login / auth) layout ----------------------------------------------------------- */
+
+.fi-simple-main {
+    background-color: var(--ierp-surface);
+    box-shadow:
+        0 0 0 1px var(--ierp-border),
+        var(--ierp-shadow-sm);
+
+    @media (min-width: 40rem) {
+        border-radius: var(--ierp-radius-lg);
+    }
+}
+
+.fi-simple-header-heading {
+    font-size: var(--ierp-text-title);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--ierp-text);
+}

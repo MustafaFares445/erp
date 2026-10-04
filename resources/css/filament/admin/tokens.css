@@ -1,0 +1,167 @@
+/*
+ * IERP design tokens for the Filament dashboard.
+ *
+ * Source of truth: design/employee-sales-app-v1.pen and design/customer-app-v1.pen (variables
+ * color.*, space.*, radius.*, font.*). Colours are not repeated here: they resolve from the
+ * Filament palette that App\Filament\Support\IerpColors registers, whose shade 600 is exactly
+ * the mobile token (primary #2563EB, success #16A34A, warning #D97706, danger #DC2626, info #0284C7)
+ * and whose gray scale is the app's slate neutrals (50 bg, 100 subtle, 200 border, 500 muted, 900 text).
+ *
+ * Components in the sibling partials only ever read the --ierp-* tokens below, so light and dark
+ * mode differ solely by the values assigned here.
+ *
+ * Dark mode is NOT the light palette darkened. It is an independent graphite neutral set (no blue
+ * hue in any surface, border or text colour); blue appears only as an accent (active navigation,
+ * primary actions, links, focus, primary chart series, info). The literal hex values in `.dark`
+ * are deliberate: they are the dark palette, not derived from Filament's gray scale. graphite.css
+ * remaps Filament's own `--gray-*` scale to the same neutrals for utility-class views.
+ */
+:root {
+    /* Surfaces */
+    --ierp-bg: var(--gray-50);
+    --ierp-surface: #fff;
+    --ierp-surface-subtle: var(--gray-100);
+    --ierp-surface-hover: var(--gray-50);
+    --ierp-chrome: #fff; /* topbar + sidebar */
+    --ierp-input: #fff;
+    --ierp-control-hover: var(--gray-100); /* sidebar / menu / icon-button hover */
+    --ierp-segment-hover: color-mix(in srgb, #fff 70%, transparent); /* hover inside a tinted segmented track */
+    --ierp-table-head: var(--gray-50);
+
+    /* Text */
+    --ierp-text: var(--gray-900);
+    --ierp-text-secondary: var(--gray-600);
+    --ierp-text-muted: var(--gray-500);
+    --ierp-placeholder: var(--gray-400);
+
+    /* Lines */
+    --ierp-border: var(--gray-200);
+    --ierp-border-subtle: var(--gray-100);
+    --ierp-border-strong: var(--gray-300);
+    --ierp-border-hover: var(--gray-400);
+    --ierp-table-divider: var(--gray-100);
+
+    /* Brand + semantic. `soft` is the tinted background, `on` the text that sits on it. */
+    --ierp-primary: var(--primary-600);
+    --ierp-primary-hover: var(--primary-700);
+    --ierp-primary-soft: var(--primary-50);
+    --ierp-primary-on: var(--primary-700);
+    --ierp-success: var(--success-600);
+    --ierp-success-soft: var(--success-50);
+    --ierp-success-on: var(--success-700);
+    --ierp-warning: var(--warning-600);
+    --ierp-warning-soft: var(--warning-50);
+    --ierp-warning-on: var(--warning-700);
+    --ierp-danger: var(--danger-600);
+    --ierp-danger-soft: var(--danger-50);
+    --ierp-danger-on: var(--danger-700);
+    --ierp-info: var(--info-600);
+    --ierp-info-soft: var(--info-50);
+    --ierp-info-on: var(--info-700);
+    --ierp-neutral-soft: var(--gray-100);
+    --ierp-neutral-on: var(--gray-700);
+
+    /* Spacing scale (space.1 … space.10) */
+    --ierp-space-1: 0.25rem;
+    --ierp-space-2: 0.5rem;
+    --ierp-space-3: 0.75rem;
+    --ierp-space-4: 1rem;
+    --ierp-space-5: 1.25rem;
+    --ierp-space-6: 1.5rem;
+    --ierp-space-8: 2rem;
+    --ierp-space-10: 2.5rem;
+
+    /* Radii: sm 8, md 12, lg 16, pill only for status badges and similar compact semantic elements. */
+    --ierp-radius-sm: 0.5rem;
+    --ierp-radius-md: 0.75rem;
+    --ierp-radius-lg: 1rem;
+    --ierp-radius-pill: 999px;
+
+    /* Desktop density: 40px controls (the app's 48px is a touch target), 32px compact, 44px large. */
+    --ierp-control-h: 2.5rem;
+    --ierp-control-h-sm: 2rem;
+    --ierp-control-h-xs: 1.75rem;
+    --ierp-control-h-lg: 2.75rem;
+
+    /* Type scale (font.size.*) */
+    --ierp-text-caption: 0.75rem;
+    --ierp-text-body: 0.875rem;
+    --ierp-text-section: 1.125rem;
+    --ierp-text-title: 1.5rem;
+    --ierp-text-metric: 1.625rem;
+
+    /* Elevation: borders do the separating, shadows are barely there. */
+    --ierp-shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+    --ierp-shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+    --ierp-shadow-popover: 0 10px 30px -8px rgb(15 23 42 / 0.18), 0 4px 10px -4px rgb(15 23 42 / 0.08);
+    --ierp-overlay: rgb(15 23 42 / 0.45);
+    --ierp-focus-ring: color-mix(in srgb, var(--primary-600) 28%, transparent);
+    --ierp-field-focus-ring: var(--ierp-focus-ring);
+
+    /* Chart.js chrome (Filament reads these through the .fi-wi-chart-*-color probes, see surfaces.css). */
+    --ierp-chart-grid: var(--gray-200);
+    --ierp-chart-axis: var(--gray-500);
+    --ierp-chart-legend: var(--gray-600);
+
+    /* Dashboard chrome (Filament pins the topbar to 4rem; the sidebar offsets itself by the same amount). */
+    --ierp-topbar-h: 4rem;
+}
+
+.dark {
+    /*
+     * Surface hierarchy, darkest to lightest:
+     *   page #0B0D10 < chrome #101216 < input #111419 < card #15181D < hover #1A1E24 < subtle #1D2128
+     * Cards separate from the page by contrast + a hairline border; shadows are off.
+     */
+    --ierp-bg: #0b0d10;
+    --ierp-surface: #15181d;
+    --ierp-surface-subtle: #1d2128;
+    --ierp-surface-hover: #1a1e24;
+    --ierp-chrome: #101216;
+    --ierp-input: #111419;
+    --ierp-control-hover: #1a1e24;
+    --ierp-segment-hover: rgb(255 255 255 / 0.05);
+    --ierp-table-head: #171a20;
+
+    --ierp-text: #f4f6f8;
+    --ierp-text-secondary: #a7afba;
+    --ierp-text-muted: #7c8592;
+    --ierp-placeholder: #7c8592;
+
+    --ierp-border: #2a3038;
+    --ierp-border-subtle: #23282f;
+    --ierp-border-strong: #363d47;
+    --ierp-border-hover: #4b5563;
+    --ierp-table-divider: #2a3038;
+
+    /* Blue is an accent: translucent soft fills, never a solid block. */
+    --ierp-primary: #3b82f6;
+    --ierp-primary-hover: #60a5fa;
+    --ierp-primary-soft: rgb(59 130 246 / 0.14);
+    --ierp-primary-on: #60a5fa;
+    --ierp-success: #22c55e;
+    --ierp-success-soft: rgb(34 197 94 / 0.12);
+    --ierp-success-on: #4ade80;
+    --ierp-warning: #f59e0b;
+    --ierp-warning-soft: rgb(245 158 11 / 0.12);
+    --ierp-warning-on: #fbbf24;
+    --ierp-danger: #ef4444;
+    --ierp-danger-soft: rgb(239 68 68 / 0.12);
+    --ierp-danger-on: #f87171;
+    --ierp-info: #38bdf8;
+    --ierp-info-soft: rgb(59 130 246 / 0.12);
+    --ierp-info-on: #60a5fa;
+    --ierp-neutral-soft: rgb(148 163 184 / 0.1);
+    --ierp-neutral-on: #a7afba;
+
+    --ierp-shadow-xs: 0 0 #0000;
+    --ierp-shadow-sm: 0 0 #0000;
+    --ierp-shadow-popover: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 4px 10px -4px rgb(0 0 0 / 0.4);
+    --ierp-overlay: rgb(0 0 0 / 0.6);
+    --ierp-focus-ring: rgb(59 130 246 / 0.35);
+    --ierp-field-focus-ring: rgb(59 130 246 / 0.2);
+
+    --ierp-chart-grid: #2a3038;
+    --ierp-chart-axis: #7c8592;
+    --ierp-chart-legend: #a7afba;
+}

@@ -1,4 +1,21 @@
+/*
+ * IERP desktop design system (design/employee-sales-app-v1.pen + customer-app-v1.pen).
+ *
+ * The `ierp` layer sits between Filament's `components` layer and Tailwind's `utilities`, so the
+ * partials below override Filament's component styles without specificity hacks while utility
+ * classes in custom views still win. Everything reads the --ierp-* tokens from tokens.css.
+ * This statement must stay ahead of the imports: it is what fixes the layer order.
+ */
+@layer theme, base, components, ierp, utilities;
+
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@import './graphite.css';
+@import './tokens.css' layer(ierp);
+@import './shell.css' layer(ierp);
+@import './controls.css' layer(ierp);
+@import './surfaces.css' layer(ierp);
+@import './components.css' layer(ierp);
 
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
