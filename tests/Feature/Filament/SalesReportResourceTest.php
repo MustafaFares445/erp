@@ -71,10 +71,13 @@ it('shows an explicit empty state for a report with no data in the period', func
         ->set('to', '2020-01-31')
         ->assertOk();
 
-    expect($component->instance()->hasNoDetailRows())->toBeTrue()
-        ->and($component->instance()->summaryFields()['total'] ?? null)->toBe(0);
+    $presentation = $component->instance()->getViewData()['presentation'];
 
-    $component->assertSee('No data for this report in the selected period.');
+    expect($presentation['metrics'][0]['label'])->toBe(__('Total quotations'))
+        ->and($presentation['metrics'][0]['value'])->toBe('0')
+        ->and($presentation['tables'][0]['rows'])->toBeEmpty();
+
+    $component->assertSee(__('reporting.states.no_results'));
 });
 
 it('excludes a delivery completed one day after the as-of date boundary', function (): void {
@@ -91,7 +94,11 @@ it('excludes a delivery completed one day after the as-of date boundary', functi
         ->set('to', $asOf->toDateString())
         ->assertOk();
 
-    expect($component->instance()->summaryFields()['count'] ?? null)->toBe(0);
+    $presentation = $component->instance()->getViewData()['presentation'];
+
+    expect($presentation['metrics'][0]['label'])->toBe(__('Deliveries requiring invoice'))
+        ->and($presentation['metrics'][0]['value'])->toBe('0')
+        ->and($presentation['tables'][0]['rows'])->toBeEmpty();
 });
 
 it('gates the export action behind the export permission, separate from report-view', function (): void {

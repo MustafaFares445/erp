@@ -12,6 +12,7 @@ use App\Jobs\GenerateEmployeeReportExport;
 use App\Models\CustomerVisit;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
+use App\Models\EmployeeReportExport;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\PlanTask;
 use App\Models\SalesPlan;
@@ -59,42 +60,55 @@ it('renders every report tab with its own columns against real underlying record
 
     $component = Livewire::actingAs($admin)->test(ManageEmployeeReports::class)->assertOk();
 
+    expect(array_keys($component->instance()->getTabs()))->toBe([
+        'tasks_visits',
+        'performance',
+        'salary',
+    ]);
+
     $component
-        ->set('activeTab', EmployeeReportType::PlanCompletion->value)
+        ->set('report', EmployeeReportType::PlanCompletion->value)
         ->assertCanSeeTableRecords([$emptyPlan, $mixedPlan])
         ->assertTableColumnStateSet('completion', 0.0, $emptyPlan)
         ->assertTableColumnStateSet('completion', 50.0, $mixedPlan);
 
     $component
-        ->set('activeTab', EmployeeReportType::OverdueTasks->value)
+        ->set('report', EmployeeReportType::OverdueTasks->value)
         ->assertCanSeeTableRecords([$overdueTask]);
 
     $component
-        ->set('activeTab', EmployeeReportType::UnexecutedVisits->value)
+        ->set('report', EmployeeReportType::UnexecutedVisits->value)
         ->assertCanSeeTableRecords([$missedVisit]);
 
     $component
-        ->set('activeTab', EmployeeReportType::PerformanceByEmployee->value)
+        ->set('report', EmployeeReportType::PerformanceByEmployee->value)
         ->assertCanSeeTableRecords([$performanceScore]);
 
     $component
-        ->set('activeTab', EmployeeReportType::SalaryByEmployee->value)
+        ->set('report', EmployeeReportType::SalaryByEmployee->value)
         ->assertCanSeeTableRecords([$salaryCalculation]);
 });
 
-it('dispatches the export job when the export action is submitted', function (): void {
+it('exports the current report using the filters already applied to the table', function (): void {
     Bus::fake();
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
-    EmployeeProfile::factory()->create();
+    $employee = EmployeeProfile::factory()->create();
 
     Livewire::actingAs($admin)
         ->test(ManageEmployeeReports::class)
-        ->assertActionVisible('export')
-        ->callAction('export', data: [])
+        ->set('report', EmployeeReportType::PerformanceByEmployee->value)
+        ->filterTable('employee_id', $employee->getKey())
+        ->assertActionVisible('export_current_report')
+        ->callAction('export_current_report')
         ->assertHasNoActionErrors();
 
     Bus::assertDispatched(GenerateEmployeeReportExport::class);
+
+    $export = EmployeeReportExport::query()->latest('id')->firstOrFail();
+
+    expect($export->type)->toBe(EmployeeReportType::PerformanceByEmployee->value)
+        ->and($export->filters)->toBe(['employee_id' => $employee->getKey()]);
 });
 
 it('covers report resource metadata fallbacks and defensive formatters', function (): void {
@@ -121,7 +135,7 @@ it('covers report resource metadata fallbacks and defensive formatters', functio
             'employee_id' => 10,
         ]);
 
-    $page->activeTab = null;
+    $page->report = null;
     expect($reportType->invoke($page))->toBe(EmployeeReportType::PlanCompletion);
 
     auth()->logout();

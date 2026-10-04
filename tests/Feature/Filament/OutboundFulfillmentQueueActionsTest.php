@@ -40,6 +40,7 @@ function outboundQueueViewer(): User
 {
     $role = Role::findOrCreate('outbound-queue-viewer', 'web');
     $role->givePermissionTo(Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web'));
+
     $user = User::factory()->create();
     $user->assignRole($role);
 

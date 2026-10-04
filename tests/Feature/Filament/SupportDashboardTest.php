@@ -7,15 +7,19 @@ use App\Enums\SupportPermission;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Filament\Pages\SupportDashboard;
+use App\Filament\Widgets\SupportCalibrationQueue;
 use App\Filament\Widgets\SupportMaintenanceNeedsAttention;
 use App\Filament\Widgets\SupportNeedsAttention;
+use App\Filament\Widgets\SupportOverdueLoaners;
 use App\Filament\Widgets\SupportStatistics;
+use App\Filament\Widgets\SupportSupplierRepairs;
 use App\Filament\Widgets\SupportTicketTrend;
 use App\Filament\Widgets\SupportUpcomingMaintenance;
 use App\Filament\Widgets\SupportWarrantyStatistics;
 use App\Models\EmployeeProfile;
 use App\Models\MaintenanceRecord;
 use App\Models\Ticket;
+use App\Models\TicketSatisfactionResponse;
 use App\Models\User;
 use App\Services\Support\TicketSlaStateResolver;
 use Database\Seeders\SupportPermissionSeeder;
@@ -93,13 +97,39 @@ it('reports tickets opened and resolved against the previous period, the open qu
 
     $stats = supportStats();
 
-    expect($stats)->toHaveCount(4)
-        ->and(array_map(fn (Stat $stat): mixed => $stat->getValue(), $stats))->toBe(['6', '1', '4', '1'])
+    expect($stats)->toHaveCount(5)
+        ->and(array_slice(array_map(fn (Stat $stat): mixed => $stat->getValue(), $stats), 0, 4))->toBe(['6', '1', '4', '1'])
         ->and((string) $stats[0]->getDescription())->toBe('500.0% increase')
         ->and((string) $stats[1]->getDescription())->toBe('No change vs previous period')
         ->and(array_sum($stats[0]->getChart() ?? []))->toBe(6)
         ->and((string) $stats[2]->getDescription())->toBe('1 waiting on the customer')
         ->and($stats[3]->getColor())->toBe('danger');
+});
+
+it('adds CSAT to the headline only when the CSAT rollout is enabled', function (): void {
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::Closed,
+        'resolved_at' => now()->subHour(),
+        'closed_at' => now()->subMinutes(30),
+    ]);
+
+    TicketSatisfactionResponse::query()->create([
+        'ticket_id' => $ticket->getKey(),
+        'customer_id' => $ticket->customer_id,
+        'rating' => 5,
+        'comment' => 'Clear and fast.',
+        'submitted_at' => now(),
+        'source_channel' => 'customer_app',
+    ]);
+
+    config()->set('support.csat_enabled', false);
+    expect(supportStats())->toHaveCount(5);
+
+    config()->set('support.csat_enabled', true);
+    $stats = supportStats();
+
+    expect($stats)->toHaveCount(6)
+        ->and($stats[5]->getValue())->toBe(__('dashboards.support.kpis.csat_value', ['value' => 5.0]));
 });
 
 it('narrows ticket KPIs, the trend and the attention queue to the selected assignee and priority', function (): void {
@@ -169,12 +199,14 @@ it('lists maintenance needing action and upcoming maintenance', function (): voi
         ->assertSee('Upcoming maintenance');
 });
 
-it('lays out the support dashboard with paired rows and upcoming maintenance across the full width', function (): void {
+it('lays out the support dashboard with paired rows, upcoming maintenance and the calibration queue across the full width', function (): void {
     expect(new ReflectionMethod(SupportDashboard::class, 'getDashboardWidgets')->invoke(new SupportDashboard))->toBe([
         SupportStatistics::class,
         [SupportTicketTrend::class, SupportWarrantyStatistics::class],
         [SupportNeedsAttention::class, SupportMaintenanceNeedsAttention::class],
         SupportUpcomingMaintenance::class,
+        SupportCalibrationQueue::class,
+        [SupportOverdueLoaners::class, SupportSupplierRepairs::class],
     ])
         ->and((new SupportUpcomingMaintenance)->getColumnSpan())->toBe('full');
 

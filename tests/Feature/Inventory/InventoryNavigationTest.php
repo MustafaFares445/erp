@@ -72,7 +72,7 @@ function renderedInventorySidebarLabels(): array
         ->all();
 }
 
-it('renders the inventory sidebar as nine flat workspace destinations', function (): void {
+it('renders the inventory sidebar as nine workspace destinations grouped into sections', function (): void {
     $user = actingAsInventoryUser();
 
     $this->actingAs($user)->get(WarehouseResource::getUrl())->assertOk();
@@ -81,7 +81,13 @@ it('renders the inventory sidebar as nine flat workspace destinations', function
 
     $navigation = collect(Filament::getPanel('admin')->buildNavigation());
 
-    expect($navigation->filter(fn (NavigationGroup $group): bool => filled($group->getLabel())))->toBeEmpty()
+    expect($navigation->map(fn (NavigationGroup $group): ?string => $group->getLabel())->values()->all())->toBe([
+        __('admin.sections.overview'),
+        __('admin.sections.stock'),
+        __('admin.sections.operations'),
+        __('admin.sections.planning'),
+        __('admin.sections.setup'),
+    ])
         ->and(renderedInventorySidebarLabels())->toBe([
             __('admin.dashboard'),
             __('admin.sections.stock'),
@@ -317,18 +323,24 @@ it('keeps the inventory dashboard as the overview entry', function (): void {
     expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory');
 });
 
-it('leaves a module with no declared sections rendering as a single flat group', function (): void {
+it('renders a module sidebar as named sections that all come from its declared sections', function (): void {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)->get(CustomerResource::getUrl());
 
     expect(AdminModuleRegistry::activeGroupKey())->toBe('crm');
 
-    $renderedGroups = collect(Filament::getPanel('admin')->buildNavigation());
+    $declared = collect(collect(AdminModuleRegistry::groups())->firstWhere('key', 'crm')['sections'])
+        ->map(fn (array $section): string => __($section['label']))
+        ->all();
 
-    $namedGroups = $renderedGroups->filter(fn (NavigationGroup $group): bool => filled($group->getLabel()));
+    $renderedLabels = collect(Filament::getPanel('admin')->buildNavigation())
+        ->map(fn (NavigationGroup $group): ?string => $group->getLabel())
+        ->filter()
+        ->values();
 
-    expect($namedGroups)->toBeEmpty();
+    expect($renderedLabels)->not->toBeEmpty()
+        ->and($renderedLabels->diff($declared)->all())->toBe([]);
 });
 
 it('offers high-value quick actions on the inventory overview, gated by permission', function (): void {

@@ -58,6 +58,7 @@ function purchasingQueueUser(DashboardRole $role): User
 {
     $user = User::factory()->admin()->create();
     $user->assignRole($role->value);
+
     test()->actingAs($user);
 
     return $user;
@@ -72,6 +73,7 @@ function purchasingQueueViewOnlyUser(string ...$permissions): User
     $user = User::factory()->admin()->create();
     $user->assignRole(DashboardRole::Reviewer->value);
     $user->givePermissionTo($permissions);
+
     test()->actingAs($user);
 
     return $user;

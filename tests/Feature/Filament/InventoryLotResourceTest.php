@@ -150,6 +150,35 @@ it('hides legacy lot aliases and keeps the canonical lot resource read only', fu
         ->and($component->instance()->getTable()->getBulkActions())->toBeEmpty();
 });
 
+it('uses loaded lot balances without issuing per-metric queries', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $lot = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create();
+
+    InventoryLotBalance::query()->forceCreate([
+        'inventory_lot_id' => $lot->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'on_hand_base_quantity' => '5.000000',
+        'reserved_base_quantity' => '1.000000',
+    ]);
+
+    $lot->load('conditionBalances');
+
+    $queries = 0;
+    DB::listen(static function () use (&$queries): void {
+        $queries++;
+    });
+
+    expect($lot->conditionBalance(StockCondition::Saleable, (int) $warehouse->getKey()))->not->toBeNull()
+        ->and($lot->totalPhysicalQuantity())->toBe(5.0)
+        ->and($lot->totalConditionOnHandQuantity(StockCondition::Saleable))->toBe(5.0)
+        ->and($lot->totalConditionReservedQuantity(StockCondition::Saleable))->toBe(1.0)
+        ->and($lot->totalAvailableQuantity())->toBe(4.0)
+        ->and($lot->warehouseCount())->toBe(1)
+        ->and($queries)->toBe(0);
+});
+
 function lotViewer(): User
 {
     $viewer = User::factory()->admin()->create();

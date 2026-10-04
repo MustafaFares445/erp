@@ -213,7 +213,7 @@ it('issues a draft invoice once through the invoice service from the list row ac
     {
         public int $issued = 0;
     };
-    app()->instance(InvoiceService::class, new class($calls)
+    app()->instance(InvoiceService::class, new readonly class($calls)
     {
         public function __construct(private object $calls) {}
 
@@ -242,7 +242,7 @@ it('retries deposit application once and resolves the open issue', function (): 
     {
         public int $applied = 0;
     };
-    app()->instance(CustomerDepositApplicationService::class, new class($calls)
+    app()->instance(CustomerDepositApplicationService::class, new readonly class($calls)
     {
         public function __construct(private object $calls) {}
 

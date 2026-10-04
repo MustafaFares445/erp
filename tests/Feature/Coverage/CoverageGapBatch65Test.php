@@ -23,6 +23,7 @@ use App\Models\TicketPaymentLink;
 use App\Models\User;
 use App\Models\WarrantyEntitlement;
 use App\Services\Support\TicketProviderSettlementService;
+use App\Services\Support\TicketWorkspaceStateResolver;
 use Database\Seeders\SlaPolicySeeder;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -92,7 +93,7 @@ it('covers view-ticket assignment settlement and transition defensive branches',
         ->test(ViewTicket::class, ['record' => $pending->getKey()])
         ->instance();
 
-    $assign = batch65Invoke(ViewTicket::class, 'assignAction', $pendingPage);
+    $assign = batch65Invoke(ViewTicket::class, 'makeAssignAction', $pendingPage);
     ($assign->getActionFunction())(['employee_id' => $employee->getKey()]);
     expect($pending->refresh()->status)->toBe(TicketStatus::Pending);
 
@@ -104,7 +105,7 @@ it('covers view-ticket assignment settlement and transition defensive branches',
         ->test(ViewTicket::class, ['record' => $chargeable->getKey()])
         ->instance();
 
-    $settle = batch65Invoke(ViewTicket::class, 'settlePaymentAction', $paymentPage);
+    $settle = batch65Invoke(ViewTicket::class, 'makeSettlePaymentAction', $paymentPage);
     ($settle->getActionFunction())([]);
     ($settle->getActionFunction())([
         'payment_method_id' => $this->paymentMethod->getKey(),
@@ -131,8 +132,8 @@ it('covers ticket-table maintenance next action settlement catch actor guard and
         'service_path' => TicketServicePath::Maintenance,
     ]);
 
-    expect(batch65Invoke(TicketsTable::class, 'nextAction', null, $maintenanceTicket))
-        ->toBe('Continue / raise maintenance');
+    expect(app(TicketWorkspaceStateResolver::class)->resolve($maintenanceTicket)->nextAction)
+        ->toBe('Raise the maintenance job');
 
     $ticket = Ticket::factory()->chargeable()->create();
     $link = TicketPaymentLink::factory()->for($ticket)->settled()->create(['payment_id' => null]);
@@ -154,14 +155,15 @@ it('covers ticket-table maintenance next action settlement catch actor guard and
         'custody_reference_id' => $customer->getKey(),
         'serial_number' => 'COVER-SERIAL-65',
     ]);
-    Ticket::factory()->for($customer, 'customer')->create([
+    $equipmentTicket = Ticket::factory()->for($customer, 'customer')->create([
         'serialized_inventory_unit_id' => $unit->getKey(),
         'status' => TicketStatus::Live,
     ]);
 
     Livewire::actingAs($this->actor)
         ->test(ListTickets::class)
-        ->assertSee('COVER-SERIAL-65');
+        ->assertCanSeeTableRecords([$equipmentTicket])
+        ->assertTableColumnStateSet('equipment', 'Covered Equipment · SN COVER-SERIAL-65', $equipmentTicket);
 
     auth()->logout();
     expect(fn (): mixed => batch65Invoke(TicketsTable::class, 'currentActor', null))

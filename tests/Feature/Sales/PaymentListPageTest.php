@@ -159,7 +159,7 @@ it('offers one primary post action on unposted payments that runs the payment se
     {
         public int $posted = 0;
     };
-    app()->instance(PaymentService::class, new class($calls)
+    app()->instance(PaymentService::class, new readonly class($calls)
     {
         public function __construct(private object $calls) {}
 
@@ -195,6 +195,7 @@ it('offers one primary post action on unposted payments that runs the payment se
 it('keeps reverse secondary and offers no workflow action on reversed payments', function (): void {
     $user = paymentSalesUser();
     $user->givePermissionTo(SalesPermission::PaymentReverse->value);
+
     $posted = makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now()]);
     $reversed = makePayment([
         'status' => PaymentStatus::Reversed,

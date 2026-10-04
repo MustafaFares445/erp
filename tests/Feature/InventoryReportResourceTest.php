@@ -36,12 +36,9 @@ it('shows only reports allowed by report and source permissions', function (): v
     $tabs = $component->instance()->getTabs();
 
     expect(array_keys($tabs))->toBe([
-        InventoryReportType::Catalog->value,
-        InventoryReportType::StockLevels->value,
-        InventoryReportType::Devices->value,
-        InventoryReportType::ExpiryLots->value,
-        InventoryReportType::QuarantineAgeing->value,
-        InventoryReportType::Reconciliation->value,
+        'stock_availability',
+        'movements_control',
+        'catalog_suppliers',
     ]);
 
     $component
@@ -68,11 +65,8 @@ it('makes the shared pricing reports available to CRM report viewers', function 
         ->getTabs();
 
     expect(array_keys($tabs))->toBe([
-        InventoryReportType::SupplierComparison->value,
-        InventoryReportType::PriceHistory->value,
-        InventoryReportType::PricingTiers->value,
-        InventoryReportType::CustomerAssignments->value,
-        InventoryReportType::FloorOverrides->value,
+        'catalog_suppliers',
+        'pricing',
     ]);
 });
 
@@ -84,7 +78,7 @@ it('uses the shared query filters when switching report tabs', function (): void
 
     Livewire::actingAs($viewer)
         ->test(ManageInventoryReports::class)
-        ->set('activeTab', InventoryReportType::StockLevels->value)
+        ->set('report', InventoryReportType::StockLevels->value)
         ->filterTable('warehouse_id', $warehouse->getKey())
         ->assertCanSeeTableRecords([$matching])
         ->assertCanNotSeeTableRecords([$other])
@@ -114,7 +108,7 @@ it('renders and filters enriched movement report context', function (): void {
 
     Livewire::actingAs($viewer)
         ->test(ManageInventoryReports::class)
-        ->set('activeTab', InventoryReportType::Movements->value)
+        ->set('report', InventoryReportType::Movements->value)
         ->filterTable('movement_type', MovementType::Receipt->value)
         ->filterTable('stock_condition_from', StockCondition::Saleable->value)
         ->filterTable('source_type', 'inventory_operation')
@@ -154,7 +148,7 @@ it('renders canonical receipt provenance on the devices report without legacy re
 
     Livewire::actingAs($viewer)
         ->test(ManageInventoryReports::class)
-        ->set('activeTab', InventoryReportType::Devices->value)
+        ->set('report', InventoryReportType::Devices->value)
         ->assertCanSeeTableRecords([$device, $withoutReceiptMovement])
         ->assertTableColumnStateSet('receipt_source', 'inventory_operation #321', $device)
         ->assertTableColumnStateSet('receipt_source', null, $withoutReceiptMovement);
@@ -174,21 +168,16 @@ it('reveals sensitive report tabs and valuation only with pricing permission', f
 
     $component = Livewire::actingAs($viewer)
         ->test(ManageInventoryReports::class)
-        ->set('activeTab', InventoryReportType::StockLevels->value)
+        ->set('report', InventoryReportType::StockLevels->value)
         ->assertCanSeeTableRecords([$stock])
         ->assertTableColumnVisible('usable_value')
         ->assertTableColumnStateSet('usable_value', 20.0, $stock);
 
-    expect(array_keys($component->instance()->getTabs()))->toContain(
-        InventoryReportType::SupplierComparison->value,
-        InventoryReportType::PriceHistory->value,
-        InventoryReportType::PricingTiers->value,
-        InventoryReportType::CustomerAssignments->value,
-        InventoryReportType::FloorOverrides->value,
-    );
+    expect(array_keys($component->instance()->getTabs()))
+        ->toContain('catalog_suppliers', 'pricing');
 });
 
-it('renders every report tab with a model-native read-only table', function (): void {
+it('renders every report selection with a model-native read-only table', function (): void {
     $viewer = reportViewer([
         InventoryPermission::CatalogView,
         InventoryPermission::StockView,
@@ -199,7 +188,7 @@ it('renders every report tab with a model-native read-only table', function (): 
     $component = Livewire::actingAs($viewer)->test(ManageInventoryReports::class);
 
     foreach (InventoryReportType::cases() as $type) {
-        $component->set('activeTab', $type->value)->assertOk();
+        $component->set('report', $type->value)->assertOk();
 
         expect($component->instance()->getTable()->getColumns())->not->toBeEmpty()
             ->and($component->instance()->getTable()->getActions())->toBeEmpty()
@@ -256,7 +245,7 @@ it('covers report resource metadata fallbacks and defensive formatters', functio
         ->and($json->invoke(null, ['ok' => true]))->toBe('{"ok":true}')
         ->and($json->invoke(null, ["\xB1\x31"]))->toBe('');
 
-    $page->activeTab = null;
+    $page->report = null;
     expect($reportType->invoke($page))->toBe(InventoryReportType::Catalog);
 
     auth()->logout();

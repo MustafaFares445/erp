@@ -167,6 +167,57 @@ it('suggests only surplus above another warehouse max before external purchase',
         ->and($suggestions[0]->suggestedBaseQuantity)->toBe(40.0);
 });
 
+it('batches transfer suggestions without changing replenishment quantities', function (): void {
+    $targetWarehouse = Warehouse::factory()->create();
+    $sourceWarehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    $targetPolicy = WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $targetWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 20,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+    WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $sourceWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 20,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+
+    InventoryStock::factory()->create([
+        'warehouse_id' => $targetWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 10,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 10,
+    ]);
+    InventoryStock::factory()->create([
+        'warehouse_id' => $sourceWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 100,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 100,
+    ]);
+
+    $requirement = app(ReplenishmentRequirementService::class)->sync($targetPolicy);
+    expect($requirement)->not->toBeNull();
+
+    $service = app(ReplenishmentTransferSuggestionService::class);
+    $single = $service->suggest($requirement);
+    $batched = $service->suggestMany(collect([$requirement]));
+
+    expect($service->suggestMany(collect()))->toBe([])
+        ->and($batched)->toHaveKey((int) $requirement->getKey())
+        ->and($batched[(int) $requirement->getKey()])->toHaveCount(count($single))
+        ->and($batched[(int) $requirement->getKey()][0]->sourceWarehouseId)->toBe($single[0]->sourceWarehouseId)
+        ->and($batched[(int) $requirement->getKey()][0]->suggestedBaseQuantity)->toBe($single[0]->suggestedBaseQuantity);
+});
+
 it('rejects invalid min max policy values', function (): void {
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();

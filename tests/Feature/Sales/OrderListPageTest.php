@@ -87,7 +87,7 @@ it('links every orders overview stat to a tab the list page actually selects', f
     $this->actingAs($user);
 
     $widget = new OrdersOverview;
-    $stats = (new ReflectionMethod($widget, 'getStats'))->invoke($widget);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
     expect($stats)->not->toBeEmpty();
 

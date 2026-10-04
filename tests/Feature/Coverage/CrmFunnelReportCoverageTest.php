@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\CampaignChannel;
+use App\Enums\CrmPermission;
 use App\Enums\CrmReportType;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
@@ -19,6 +20,7 @@ use App\Models\PaymentMethod;
 use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Crm\CrmFunnelReportService;
+use Database\Seeders\CrmPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -39,7 +41,11 @@ function createFunnelCoverageLead(User $actor, string $number, LeadSource $sourc
 }
 
 it('reports CRM funnel rows across sources stages campaigns ages and attributed revenue', function (): void {
+    (new CrmPermissionSeeder)->run();
+
     $actor = User::factory()->create();
+    $actor->givePermissionTo(CrmPermission::FunnelReport->value);
+    $this->actingAs($actor);
     $customer = CustomerProfile::factory()->create();
     $campaign = new Campaign;
     $campaign->forceFill([

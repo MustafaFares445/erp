@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 use App\Enums\OccurrenceStatus;
 use App\Enums\QuotationStatus;
+use App\Enums\TicketBlocker;
 use App\Enums\TicketStatus;
-use App\Filament\Widgets\SupportNeedsAttention;
 use App\Models\MaintenanceSchedule;
 use App\Models\MaintenanceScheduleOccurrence;
 use App\Models\Quotation;
 use App\Models\Ticket;
+use App\Services\Support\TicketBlockerResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -17,24 +18,22 @@ use Illuminate\Support\Facades\DB;
 uses(RefreshDatabase::class);
 
 it('covers every support needs attention blocker label', function (): void {
-    $method = new ReflectionMethod(SupportNeedsAttention::class, 'blockedBy');
+    $resolver = app(TicketBlockerResolver::class);
 
     $ticket = static fn (TicketStatus $status, array $attributes = []): Ticket => (new Ticket)->forceFill([
         'status' => $status,
         'assigned_employee_id' => 1,
         'response_breached' => false,
         'resolution_breached' => false,
-        'pending_reason' => null,
         ...$attributes,
     ]);
 
-    expect($method->invoke(null, $ticket(TicketStatus::Pending)))->toBe('Awaiting triage')
-        ->and($method->invoke(null, $ticket(TicketStatus::PendingPayment)))->toBe('Payment')
-        ->and($method->invoke(null, $ticket(TicketStatus::Live, ['assigned_employee_id' => null])))->toBe('Assignment')
-        ->and($method->invoke(null, $ticket(TicketStatus::WaitingCustomer)))->toBe('Customer')
-        ->and($method->invoke(null, $ticket(TicketStatus::InProgress, ['response_breached' => true])))->toBe('SLA breach')
-        ->and($method->invoke(null, $ticket(TicketStatus::Assigned, ['pending_reason' => 'Waiting for supplier'])))->toBe('Waiting for supplier')
-        ->and($method->invoke(null, $ticket(TicketStatus::Assigned)))->toBe('Action required');
+    expect($resolver->resolve($ticket(TicketStatus::Pending))->label())->toBe(TicketBlocker::TriageRequired->label())
+        ->and($resolver->resolve($ticket(TicketStatus::PendingPayment))->label())->toBe(TicketBlocker::DiagnosticPayment->label())
+        ->and($resolver->resolve($ticket(TicketStatus::Live, ['assigned_employee_id' => null]))->label())->toBe(TicketBlocker::Assignment->label())
+        ->and($resolver->resolve($ticket(TicketStatus::WaitingCustomer))->label())->toBe(TicketBlocker::CustomerResponse->label())
+        ->and($resolver->resolve($ticket(TicketStatus::InProgress, ['response_breached' => true]))->label())->toBe(TicketBlocker::SlaBreach->label())
+        ->and($resolver->resolve($ticket(TicketStatus::Cancelled))->label())->toBe(TicketBlocker::Cancelled->label());
 });
 
 it('reports quotation expiry failures and returns failure from the command', function (): void {

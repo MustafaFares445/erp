@@ -190,7 +190,7 @@ it('covers ticket paused resolution maintenance next action and breached respons
 
     Livewire::actingAs($actor)
         ->test(ViewTicket::class, ['record' => $paused->getKey()])
-        ->assertSee('Paused');
+        ->assertSee('Resolution clock paused while waiting for the customer.');
 
     $nextAction = new ReflectionMethod(TicketInfolist::class, 'nextAction');
     expect($nextAction->invoke(null, $paused))->toBe('Continue support / raise maintenance job');

@@ -682,8 +682,10 @@ it('offers a secondary create-correction row action on confirmed adjustments onl
 it('hides the correction row action from a read-only viewer', function (): void {
     $role = Role::firstOrCreate(['name' => 'adjustment-list-viewer', 'guard_name' => 'web']);
     $role->givePermissionTo(InventoryPermission::AdjustmentView->value);
+
     $viewer = User::factory()->create();
     $viewer->assignRole($role);
+
     $confirmed = InventoryAdjustment::factory()->confirmed()->create();
 
     Livewire::actingAs($viewer)

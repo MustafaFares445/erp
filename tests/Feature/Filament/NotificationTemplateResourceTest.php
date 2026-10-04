@@ -54,6 +54,7 @@ it('lists one business row per notification without channel or raw locale codes'
 
     $component = Livewire::actingAs($this->admin)
         ->test(ListNotificationTemplates::class)
+        ->set('tableRecordsPerPage', 50)
         ->assertSuccessful()
         ->assertCanSeeTableRecords([representativeTemplate(NotificationEventKey::InvoiceIssued)])
         ->assertCountTableRecords(count(NotificationEventKey::cases()))
@@ -264,6 +265,7 @@ it('deactivating a notification stops it rendering and reactivating restores it'
 
     Livewire::actingAs($this->admin)
         ->test(ListNotificationTemplates::class)
+        ->set('tableRecordsPerPage', 50)
         ->assertSee('Inactive');
 
     Livewire::actingAs($this->admin)
