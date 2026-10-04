@@ -137,6 +137,13 @@ final class InventoryLot extends Model
         StockCondition $condition,
         int $warehouseId,
     ): ?InventoryLotBalance {
+        if ($this->relationLoaded('conditionBalances')) {
+            return $this->conditionBalances->first(
+                fn (InventoryLotBalance $balance): bool => (int) $balance->warehouse_id === $warehouseId
+                    && $balance->stock_condition === $condition,
+            );
+        }
+
         return $this->conditionBalances()
             ->where('warehouse_id', $warehouseId)
             ->where('stock_condition', $condition->value)
@@ -176,36 +183,69 @@ final class InventoryLot extends Model
 
     public function totalPhysicalQuantity(): float
     {
-        return (float) $this->conditionBalances()->sum('on_hand_base_quantity');
+        if ($this->relationLoaded('conditionBalances')) {
+            return self::numericFloat($this->conditionBalances->sum('on_hand_base_quantity'));
+        }
+
+        return self::numericFloat($this->conditionBalances()->sum('on_hand_base_quantity'));
     }
 
     public function totalAvailableQuantity(): float
     {
-        return (float) $this->conditionBalances()
+        if ($this->relationLoaded('conditionBalances')) {
+            return self::numericFloat($this->conditionBalances
+                ->where('stock_condition', StockCondition::Saleable)
+                ->sum(fn (InventoryLotBalance $balance): float => max(
+                    0.0,
+                    (float) $balance->on_hand_base_quantity - (float) $balance->reserved_base_quantity,
+                )));
+        }
+
+        return self::numericFloat($this->conditionBalances()
             ->where('stock_condition', StockCondition::Saleable->value)
             ->get()
             ->sum(fn (InventoryLotBalance $balance): float => max(
                 0.0,
                 (float) $balance->on_hand_base_quantity - (float) $balance->reserved_base_quantity,
-            ));
+            )));
     }
 
     public function totalConditionOnHandQuantity(StockCondition $condition): float
     {
-        return (float) $this->conditionBalances()
+        if ($this->relationLoaded('conditionBalances')) {
+            return self::numericFloat($this->conditionBalances
+                ->where('stock_condition', $condition)
+                ->sum('on_hand_base_quantity'));
+        }
+
+        return self::numericFloat($this->conditionBalances()
             ->where('stock_condition', $condition->value)
-            ->sum('on_hand_base_quantity');
+            ->sum('on_hand_base_quantity'));
     }
 
     public function totalConditionReservedQuantity(StockCondition $condition): float
     {
-        return (float) $this->conditionBalances()
+        if ($this->relationLoaded('conditionBalances')) {
+            return self::numericFloat($this->conditionBalances
+                ->where('stock_condition', $condition)
+                ->sum('reserved_base_quantity'));
+        }
+
+        return self::numericFloat($this->conditionBalances()
             ->where('stock_condition', $condition->value)
-            ->sum('reserved_base_quantity');
+            ->sum('reserved_base_quantity'));
     }
 
     public function warehouseCount(): int
     {
+        if ($this->relationLoaded('conditionBalances')) {
+            return $this->conditionBalances
+                ->filter(static fn (InventoryLotBalance $balance): bool => (float) $balance->on_hand_base_quantity > 0)
+                ->pluck('warehouse_id')
+                ->unique()
+                ->count();
+        }
+
         return $this->conditionBalances()
             ->where('on_hand_base_quantity', '>', 0)
             ->distinct()
@@ -236,6 +276,11 @@ final class InventoryLot extends Model
         return $daysRemaining <= InventorySetting::expiryAlertDays()
             ? 'expiring'
             : 'healthy';
+    }
+
+    private static function numericFloat(mixed $value): float
+    {
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 
     public static function normalizeLotNumber(?string $lotNumber): ?string

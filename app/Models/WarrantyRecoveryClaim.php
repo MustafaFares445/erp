@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyRecoveryOutcome;
 use App\Enums\WarrantyRecoveryStatus;
 use Database\Factories\WarrantyRecoveryClaimFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -12,6 +13,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ */
 #[Fillable([
     'maintenance_record_id',
     'coverage_source',
@@ -19,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'counterparty_name',
     'external_reference',
     'status',
+    'recovery_outcome',
     'currency',
     'claimed_amount_minor',
     'approved_amount_minor',
@@ -43,6 +48,7 @@ final class WarrantyRecoveryClaim extends Model
         return [
             'coverage_source' => WarrantyCoverageSource::class,
             'status' => WarrantyRecoveryStatus::class,
+            'recovery_outcome' => WarrantyRecoveryOutcome::class,
             'claimed_amount_minor' => 'integer',
             'approved_amount_minor' => 'integer',
             'received_amount_minor' => 'integer',

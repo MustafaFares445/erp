@@ -49,7 +49,7 @@ final class FiscalPeriodCloseCheck extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'check_key' => PeriodCloseCheck::class,

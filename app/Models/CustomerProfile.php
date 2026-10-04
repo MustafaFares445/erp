@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CustomerApprovalStatus;
+use App\Enums\OperationStage;
 use App\Enums\PaymentStatus;
 use App\Enums\SerializedCustodyType;
 use App\Models\Concerns\Favoritable;
@@ -178,6 +179,14 @@ final class CustomerProfile extends Model implements Favoritable, HasMedia
         return $this->hasMany(CustomerVisit::class, 'customer_id');
     }
 
+    /** @return HasMany<InventoryOperation, $this> */
+    public function deliveriesAwaitingInvoice(): HasMany
+    {
+        return $this->hasMany(InventoryOperation::class, 'customer_id')
+            ->where('stage', OperationStage::Done->value)
+            ->whereDoesntHave('invoiceDeliveryLink');
+    }
+
     /** @return HasMany<MaintenanceRecord, $this> */
     public function maintenanceRecords(): HasMany
     {
@@ -234,6 +243,12 @@ final class CustomerProfile extends Model implements Favoritable, HasMedia
     public function warrantyEntitlements(): HasMany
     {
         return $this->hasMany(WarrantyEntitlement::class, 'customer_id')->latest('id');
+    }
+
+    /** @return HasMany<SupportEntitlement, $this> */
+    public function supportEntitlements(): HasMany
+    {
+        return $this->hasMany(SupportEntitlement::class, 'customer_id')->latest('id');
     }
 
     /**

@@ -63,6 +63,12 @@ final class SerializedInventoryUnit extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
+    /** @return BelongsTo<CustomerProfile, $this> */
+    public function customerCustodian(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class, 'custody_reference_id');
+    }
+
     /** @return BelongsTo<Warehouse, $this> */
     public function warehouse(): BelongsTo
     {
@@ -99,11 +105,41 @@ final class SerializedInventoryUnit extends Model
         return $this->hasOne(WarrantyEntitlement::class)->latestOfMany();
     }
 
+    /** @return HasMany<SupportEntitlement, $this> */
+    public function supportEntitlements(): HasMany
+    {
+        return $this->hasMany(SupportEntitlement::class);
+    }
+
     /** @return HasOne<InventoryMovement, $this> */
     public function receiptMovement(): HasOne
     {
         return $this->hasOne(InventoryMovement::class)
             ->where('movement_type', MovementType::Receipt->value)
             ->oldestOfMany();
+    }
+
+    /** @return HasMany<Ticket, $this> */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'serialized_inventory_unit_id');
+    }
+
+    /** @return HasMany<MaintenanceRecord, $this> */
+    public function maintenanceRecords(): HasMany
+    {
+        return $this->hasMany(MaintenanceRecord::class, 'serialized_inventory_unit_id');
+    }
+
+    /** @return HasMany<MaintenanceSchedule, $this> */
+    public function maintenanceSchedules(): HasMany
+    {
+        return $this->hasMany(MaintenanceSchedule::class, 'serialized_inventory_unit_id');
+    }
+
+    /** @return HasMany<EquipmentCalibration, $this> */
+    public function calibrations(): HasMany
+    {
+        return $this->hasMany(EquipmentCalibration::class, 'serialized_inventory_unit_id');
     }
 }

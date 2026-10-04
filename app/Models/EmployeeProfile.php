@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -96,5 +97,31 @@ final class EmployeeProfile extends Model
     public function bonusSuggestions(): HasMany
     {
         return $this->hasMany(BonusSuggestion::class, 'employee_id');
+    }
+
+    /** @return HasMany<TicketAssignment, $this> */
+    public function supportTicketAssignments(): HasMany
+    {
+        return $this->hasMany(TicketAssignment::class, 'employee_id');
+    }
+
+    /** @return HasMany<ServiceAppointment, $this> */
+    public function serviceAppointments(): HasMany
+    {
+        return $this->hasMany(ServiceAppointment::class, 'employee_id');
+    }
+
+    /** @return HasMany<SupportTeamMember, $this> */
+    public function supportTeamMemberships(): HasMany
+    {
+        return $this->hasMany(SupportTeamMember::class, 'employee_id');
+    }
+
+    /** @return BelongsToMany<SupportSkill, $this> */
+    public function supportSkills(): BelongsToMany
+    {
+        return $this->belongsToMany(SupportSkill::class, 'support_employee_skills', 'employee_id', 'support_skill_id')
+            ->withPivot('proficiency')
+            ->withTimestamps();
     }
 }

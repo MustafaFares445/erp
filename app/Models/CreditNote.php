@@ -108,7 +108,7 @@ final class CreditNote extends Model implements Favoritable, HasMedia
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'issue_date' => 'date', 'subtotal' => 'decimal:2', 'tax_total' => 'decimal:2',

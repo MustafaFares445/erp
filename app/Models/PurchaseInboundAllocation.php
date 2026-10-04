@@ -77,6 +77,16 @@ final class PurchaseInboundAllocation extends Model
     /** @return numeric-string */
     public function receivedBaseQuantity(): string
     {
+        if ($this->relationLoaded('inventoryOperationLines')) {
+            $received = $this->inventoryOperationLines
+                ->filter(static fn (InventoryOperationLine $line): bool => $line->operation instanceof InventoryOperation
+                    && $line->operation->operation_type === OperationType::Receipt
+                    && $line->operation->stage === OperationStage::Done)
+                ->sum('base_quantity');
+
+            return self::decimal($received);
+        }
+
         $received = $this->inventoryOperationLines()
             ->whereNotNull('base_quantity')
             ->whereHas('operation', static fn (Builder $query): Builder => $query
@@ -84,10 +94,20 @@ final class PurchaseInboundAllocation extends Model
                 ->where('stage', OperationStage::Done->value))
             ->sum('base_quantity');
 
-        /** @var numeric-string $quantity */
-        $quantity = (string) $received;
+        return self::decimal($received);
+    }
 
-        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
+    /** @return numeric-string */
+    private static function decimal(mixed $value): string
+    {
+        if (! is_numeric($value)) {
+            return '0.000000';
+        }
+
+        /** @var numeric-string $numeric */
+        $numeric = (string) $value;
+
+        return bcadd('0.000000', $numeric, self::QUANTITY_SCALE);
     }
 
     /** @return numeric-string|null */

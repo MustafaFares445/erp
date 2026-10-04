@@ -16,7 +16,7 @@ final class BankStatementLine extends Model
     protected $attributes = ['status' => 'unmatched'];
 
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return ['sequence' => 'integer', 'transaction_date' => 'date', 'amount' => 'decimal:2'];
     }

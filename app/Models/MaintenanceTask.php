@@ -81,4 +81,10 @@ final class MaintenanceTask extends Model implements Favoritable
     {
         return $this->hasMany(ServiceRecordPart::class);
     }
+
+    /** @return HasMany<ServiceAppointment, $this> */
+    public function serviceAppointments(): HasMany
+    {
+        return $this->hasMany(ServiceAppointment::class, 'maintenance_task_id');
+    }
 }

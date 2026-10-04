@@ -133,7 +133,7 @@ final class ChartAccount extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'is_postable' => 'boolean',

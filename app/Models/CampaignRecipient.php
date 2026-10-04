@@ -21,7 +21,7 @@ final class CampaignRecipient extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'send_status' => CampaignSendStatus::class,

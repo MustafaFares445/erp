@@ -133,7 +133,7 @@ final class BillLine extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'quantity' => 'decimal:3',

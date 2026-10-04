@@ -145,6 +145,13 @@ final class Order extends Model implements Favoritable
         return $this->hasMany(Invoice::class);
     }
 
+    /** @return HasMany<PaymentTransaction, $this> */
+    public function workflowPaymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class, 'purpose_id')
+            ->where('purpose_type', self::class);
+    }
+
     /** @return HasMany<SalesProcurementRequirement, $this> */
     public function procurementRequirements(): HasMany
     {
@@ -185,7 +192,7 @@ final class Order extends Model implements Favoritable
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'status' => OrderStatusCast::class,

@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 final class CustomFieldValue extends Model
 {
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'value_number' => 'decimal:6',

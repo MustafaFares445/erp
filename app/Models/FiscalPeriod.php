@@ -99,7 +99,7 @@ final class FiscalPeriod extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'starts_at' => 'date',

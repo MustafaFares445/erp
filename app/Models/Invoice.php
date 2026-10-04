@@ -280,7 +280,7 @@ final class Invoice extends Model implements Favoritable, HasMedia
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'invoice_date' => 'date', 'due_date' => 'date', 'subtotal' => 'decimal:2',

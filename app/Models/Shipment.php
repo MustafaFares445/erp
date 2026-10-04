@@ -22,6 +22,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'order_id', 'inventory_operation_id', 'warehouse_id', 'tracking_number', 'status',
     'confirmed_by_type', 'confirmed_by_id', 'confirmed_at',
 ])]
+/** @property int $id */
 final class Shipment extends Model implements HasMedia
 {
     /** @use HasFactory<ShipmentFactory> */
@@ -45,7 +46,7 @@ final class Shipment extends Model implements HasMedia
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'status' => ShipmentStatus::class,

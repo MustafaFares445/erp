@@ -47,7 +47,7 @@ final class AccountType extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'name' => AccountElement::class,

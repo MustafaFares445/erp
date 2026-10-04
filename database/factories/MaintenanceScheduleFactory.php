@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 use App\Models\MaintenanceSchedule;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
@@ -28,6 +29,7 @@ final class MaintenanceScheduleFactory extends Factory
             'serialized_inventory_unit_id' => SerializedInventoryUnit::factory(),
             'customer_id' => null,
             'name' => 'Quarterly service',
+            'maintenance_kind' => MaintenanceKind::Preventive,
             'interval_type' => MaintenanceIntervalType::Months,
             'interval_value' => 3,
             'lead_time_days' => 7,

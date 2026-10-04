@@ -187,7 +187,7 @@ final class JournalEntry extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'entry_date' => 'date',

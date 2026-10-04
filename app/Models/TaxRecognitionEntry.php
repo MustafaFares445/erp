@@ -60,7 +60,7 @@ final class TaxRecognitionEntry extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'tax_date' => 'date', 'tax_amount' => 'decimal:2', 'payment_amount' => 'decimal:2',

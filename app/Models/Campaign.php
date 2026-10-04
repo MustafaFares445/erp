@@ -21,7 +21,7 @@ final class Campaign extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'status' => CampaignStatus::class,

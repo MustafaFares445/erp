@@ -19,6 +19,7 @@ use App\Models\Concerns\TracksBlameable;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,11 +28,15 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 #[Fillable([
     'ticket_number',
     'customer_id',
     'assigned_employee_id',
+    'support_team_id',
+    'routed_at',
+    'routed_by_rule_id',
     'type',
     'customer_impact',
     'priority',
@@ -58,12 +63,20 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'continued_from_ticket_id',
     'sla_response_target_minutes',
     'sla_resolution_target_minutes',
+    'sla_policy_id',
+    'support_entitlement_id',
     'response_sla_started_at',
     'live_at',
     'response_due_at',
     'resolution_due_at',
     'first_response_at',
     'resolved_at',
+    'closed_at',
+    'reopened_count',
+    'last_public_message_at',
+    'last_customer_message_at',
+    'last_agent_message_at',
+    'last_activity_at',
     'response_breached',
     'resolution_breached',
     'waiting_customer_since',
@@ -99,12 +112,19 @@ final class Ticket extends Model implements Favoritable, HasMedia
             'warranty_expiry_date' => 'date',
             'service_path' => TicketServicePath::class,
             'triaged_at' => 'datetime',
+            'routed_at' => 'datetime',
             'response_sla_started_at' => 'datetime',
             'live_at' => 'datetime',
             'response_due_at' => 'datetime',
             'resolution_due_at' => 'datetime',
             'first_response_at' => 'datetime',
             'resolved_at' => 'datetime',
+            'closed_at' => 'datetime',
+            'reopened_count' => 'integer',
+            'last_public_message_at' => 'datetime',
+            'last_customer_message_at' => 'datetime',
+            'last_agent_message_at' => 'datetime',
+            'last_activity_at' => 'datetime',
             'response_breached' => 'boolean',
             'resolution_breached' => 'boolean',
             'waiting_customer_since' => 'datetime',
@@ -114,6 +134,19 @@ final class Ticket extends Model implements Favoritable, HasMedia
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('ticket-attachments')->useDisk('local');
+    }
+
+    /**
+     * Attachments the customer uploaded (or that were explicitly shared with them). Files staff attach to
+     * a ticket stay internal: they carry no `visibility` property and never reach the customer API.
+     *
+     * @return Collection<int, Media>
+     */
+    public function customerVisibleAttachments(): Collection
+    {
+        return $this->getMedia('ticket-attachments')
+            ->filter(static fn (Media $media): bool => $media->getCustomProperty('visibility') === 'customer')
+            ->values();
     }
 
     /** @return BelongsTo<CustomerProfile, $this> */
@@ -126,6 +159,18 @@ final class Ticket extends Model implements Favoritable, HasMedia
     public function assignedEmployee(): BelongsTo
     {
         return $this->belongsTo(EmployeeProfile::class);
+    }
+
+    /** @return BelongsTo<SupportTeam, $this> */
+    public function supportTeam(): BelongsTo
+    {
+        return $this->belongsTo(SupportTeam::class);
+    }
+
+    /** @return BelongsTo<SupportRoutingRule, $this> */
+    public function routedByRule(): BelongsTo
+    {
+        return $this->belongsTo(SupportRoutingRule::class, 'routed_by_rule_id');
     }
 
     /** @return BelongsTo<SerializedInventoryUnit, $this> */
@@ -168,6 +213,36 @@ final class Ticket extends Model implements Favoritable, HasMedia
     public function maintenanceRecords(): HasMany
     {
         return $this->hasMany(MaintenanceRecord::class);
+    }
+
+    /** @return HasMany<TicketKnowledgeArticle, $this> */
+    public function knowledgeLinks(): HasMany
+    {
+        return $this->hasMany(TicketKnowledgeArticle::class);
+    }
+
+    /** @return HasOne<TicketSatisfactionResponse, $this> */
+    public function satisfactionResponse(): HasOne
+    {
+        return $this->hasOne(TicketSatisfactionResponse::class);
+    }
+
+    /** @return BelongsTo<SlaPolicy, $this> */
+    public function slaPolicy(): BelongsTo
+    {
+        return $this->belongsTo(SlaPolicy::class);
+    }
+
+    /** @return BelongsTo<SupportEntitlement, $this> */
+    public function supportEntitlement(): BelongsTo
+    {
+        return $this->belongsTo(SupportEntitlement::class);
+    }
+
+    /** @return HasMany<TicketSlaMilestone, $this> */
+    public function slaMilestones(): HasMany
+    {
+        return $this->hasMany(TicketSlaMilestone::class);
     }
 
     public function isResponseBreached(): bool

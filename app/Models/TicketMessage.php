@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * data-model.md §2). No `updated_at`, no update path; a correction is
  * posted as a new message.
  */
-#[Fillable(['ticket_id', 'sender_user_id', 'message', 'is_internal_note'])]
+#[Fillable(['ticket_id', 'sender_user_id', 'message', 'is_internal_note', 'source_channel', 'reply_to_id'])]
 final class TicketMessage extends Model
 {
     /** @use HasFactory<TicketMessageFactory> */
@@ -55,11 +55,15 @@ final class TicketMessage extends Model
         return $this->belongsTo(Ticket::class);
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
+    /** @return BelongsTo<User, $this> */
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_user_id');
+    }
+
+    /** @return BelongsTo<TicketMessage, $this> */
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reply_to_id');
     }
 }

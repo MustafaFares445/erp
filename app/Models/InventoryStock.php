@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -59,8 +60,27 @@ final class InventoryStock extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    /** @return HasMany<InventoryConditionBalance, $this> */
+    public function conditionBalances(): HasMany
+    {
+        return $this->hasMany(InventoryConditionBalance::class, 'product_variant_id', 'product_variant_id');
+    }
+
+    /** @return HasMany<WarehouseReplenishmentPolicy, $this> */
+    public function replenishmentPolicies(): HasMany
+    {
+        return $this->hasMany(WarehouseReplenishmentPolicy::class, 'product_variant_id', 'product_variant_id');
+    }
+
     public function conditionBalance(StockCondition $condition): ?InventoryConditionBalance
     {
+        if ($this->relationLoaded('conditionBalances')) {
+            return $this->conditionBalances->first(
+                fn (InventoryConditionBalance $balance): bool => $balance->stock_condition === $condition
+                    && (int) $balance->warehouse_id === (int) $this->warehouse_id,
+            );
+        }
+
         return InventoryConditionBalance::query()
             ->where('product_variant_id', $this->product_variant_id)
             ->where('warehouse_id', $this->warehouse_id)
@@ -123,6 +143,12 @@ final class InventoryStock extends Model
 
     public function replenishmentPolicy(): ?WarehouseReplenishmentPolicy
     {
+        if ($this->relationLoaded('replenishmentPolicies')) {
+            return $this->replenishmentPolicies->first(
+                fn (WarehouseReplenishmentPolicy $policy): bool => (int) $policy->warehouse_id === (int) $this->warehouse_id,
+            );
+        }
+
         return WarehouseReplenishmentPolicy::query()
             ->where('warehouse_id', $this->warehouse_id)
             ->where('product_variant_id', $this->product_variant_id)

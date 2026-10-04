@@ -35,7 +35,7 @@ final class InvoiceConfirmation extends Model implements HasMedia
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'confirmation_type' => InvoiceConfirmationType::class,

@@ -15,7 +15,7 @@ final class BankStatement extends Model
     protected $attributes = ['status' => 'open'];
 
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'period_start' => 'date',

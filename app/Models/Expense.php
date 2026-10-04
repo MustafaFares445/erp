@@ -180,7 +180,7 @@ final class Expense extends Model implements Favoritable, HasMedia
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'status' => ExpenseStatus::class,

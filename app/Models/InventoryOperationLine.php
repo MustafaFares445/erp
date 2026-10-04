@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'product_variant_id', 'quantity', 'transaction_quantity', 'unit_id', 'transaction_unit_id',
@@ -81,6 +82,12 @@ final class InventoryOperationLine extends Model
     public function operation(): BelongsTo
     {
         return $this->belongsTo(InventoryOperation::class, 'inventory_operation_id');
+    }
+
+    /** @return HasMany<InventoryReturnLine, $this> */
+    public function returnLines(): HasMany
+    {
+        return $this->hasMany(InventoryReturnLine::class, 'original_inventory_operation_line_id');
     }
 
     /** @return BelongsTo<ProductVariant, $this> */

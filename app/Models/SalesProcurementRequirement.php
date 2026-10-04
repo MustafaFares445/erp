@@ -22,7 +22,7 @@ final class SalesProcurementRequirement extends Model
 {
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'required_base_quantity' => 'decimal:6',

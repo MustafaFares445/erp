@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasFavorites;
 use App\Services\Support\MaintenanceScheduleGenerator;
@@ -34,6 +35,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'serialized_inventory_unit_id',
     'customer_id',
     'name',
+    'maintenance_kind',
     'interval_type',
     'interval_value',
     'lead_time_days',
@@ -56,6 +58,7 @@ final class MaintenanceSchedule extends Model implements Favoritable
     public function casts(): array
     {
         return [
+            'maintenance_kind' => MaintenanceKind::class,
             'interval_type' => MaintenanceIntervalType::class,
             'interval_value' => 'integer',
             'lead_time_days' => 'integer',

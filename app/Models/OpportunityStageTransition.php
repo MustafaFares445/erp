@@ -14,7 +14,7 @@ final class OpportunityStageTransition extends Model
 {
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'from_stage' => OpportunityStage::class,

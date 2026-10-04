@@ -17,7 +17,7 @@ final class Currency extends Model
     ];
 
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'is_active' => 'boolean',

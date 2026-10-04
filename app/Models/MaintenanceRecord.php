@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\MaintenanceBillingType;
+use App\Enums\MaintenanceKind;
 use App\Enums\MaintenanceStatus;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
@@ -56,6 +57,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'coverage_decided_at',
     'coverage_decided_by',
     'status',
+    'maintenance_kind',
+    'failure_started_at',
+    'service_restored_at',
     'billing_type',
     'quotation_id',
     'invoice_id',
@@ -97,6 +101,9 @@ final class MaintenanceRecord extends Model implements Favoritable
             'coverage_decided_at' => 'datetime',
             'is_equipment_unlinked' => 'boolean',
             'status' => MaintenanceStatus::class,
+            'maintenance_kind' => MaintenanceKind::class,
+            'failure_started_at' => 'datetime',
+            'service_restored_at' => 'datetime',
             'billing_type' => MaintenanceBillingType::class,
             'billed_at' => 'datetime',
         ];
@@ -202,6 +209,30 @@ final class MaintenanceRecord extends Model implements Favoritable
     public function scheduleOccurrence(): HasOne
     {
         return $this->hasOne(MaintenanceScheduleOccurrence::class, 'maintenance_record_id');
+    }
+
+    /** @return HasOne<EquipmentInstallation, $this> */
+    public function installation(): HasOne
+    {
+        return $this->hasOne(EquipmentInstallation::class);
+    }
+
+    /** @return HasOne<EquipmentCalibration, $this> */
+    public function calibration(): HasOne
+    {
+        return $this->hasOne(EquipmentCalibration::class);
+    }
+
+    /** @return HasMany<EquipmentLoan, $this> */
+    public function equipmentLoans(): HasMany
+    {
+        return $this->hasMany(EquipmentLoan::class);
+    }
+
+    /** @return HasMany<MaintenanceExternalRepair, $this> */
+    public function externalRepairs(): HasMany
+    {
+        return $this->hasMany(MaintenanceExternalRepair::class);
     }
 
     /** @return HasMany<MaintenanceTask, $this> */

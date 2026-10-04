@@ -27,7 +27,7 @@ final class SupplierConfirmationItem extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'requested_quantity' => 'decimal:3',

@@ -264,7 +264,7 @@ final class Bill extends Model implements Favoritable
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'status' => BillStatus::class,

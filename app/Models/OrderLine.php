@@ -96,7 +96,7 @@ final class OrderLine extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             ...$this->priceProvenanceCasts(),

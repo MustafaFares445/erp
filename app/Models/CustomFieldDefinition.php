@@ -79,7 +79,7 @@ final class CustomFieldDefinition extends Model
 
     /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'entity_type' => CustomFieldEntityType::class,
