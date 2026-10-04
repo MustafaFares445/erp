@@ -20,6 +20,7 @@ Schedule::command('inventory:lots:reconcile --scheduled --full')->weeklyOn(0, '0
 Schedule::command('inventory:reservations:expire')->hourly();
 Schedule::command('sales:quotations:expire')->daily();
 Schedule::command('support:sla:reconcile')->everyFiveMinutes();
+Schedule::command('support:automation:stale')->hourly()->withoutOverlapping();
 Schedule::command('crm:campaigns:dispatch-due')->everyMinute()->withoutOverlapping();
 Schedule::command('notifications:overdue-invoices')->daily();
 Schedule::command('notifications:expiring-lots')->daily();
@@ -27,3 +28,4 @@ Schedule::command('notifications:pending-approvals')->daily();
 Schedule::command('notifications:visits-due')->daily();
 Schedule::command('notifications:retry-failed')->hourly();
 Schedule::command('maintenance:schedules:generate')->daily();
+Schedule::command('support:loaners:notify-overdue')->daily();

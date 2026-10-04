@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\CreditNoteMediaController;
+use App\Http\Controllers\EquipmentCalibrationMediaController;
+use App\Http\Controllers\EquipmentInstallationMediaController;
+use App\Http\Controllers\ExternalRepairMediaController;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\InvoiceMediaController;
 use App\Http\Controllers\JoinUsController;
@@ -79,6 +82,21 @@ Route::middleware(Authenticate::class)->group(function (): void {
         ->name('admin.tickets.media.preview');
     Route::get('/admin/tickets/{ticket}/media/{media}/download', [TicketMediaController::class, 'download'])
         ->name('admin.tickets.media.download');
+
+    Route::get('/admin/external-repairs/{repair}/media/{media}/preview', [ExternalRepairMediaController::class, 'preview'])
+        ->name('admin.external-repairs.media.preview');
+    Route::get('/admin/external-repairs/{repair}/media/{media}/download', [ExternalRepairMediaController::class, 'download'])
+        ->name('admin.external-repairs.media.download');
+
+    Route::get('/admin/equipment-calibrations/{calibration}/media/{media}/preview', [EquipmentCalibrationMediaController::class, 'preview'])
+        ->name('admin.equipment-calibrations.media.preview');
+    Route::get('/admin/equipment-calibrations/{calibration}/media/{media}/download', [EquipmentCalibrationMediaController::class, 'download'])
+        ->name('admin.equipment-calibrations.media.download');
+
+    Route::get('/admin/equipment-installations/{installation}/media/{media}/preview', [EquipmentInstallationMediaController::class, 'preview'])
+        ->name('admin.equipment-installations.media.preview');
+    Route::get('/admin/equipment-installations/{installation}/media/{media}/download', [EquipmentInstallationMediaController::class, 'download'])
+        ->name('admin.equipment-installations.media.download');
 
     Route::get('/admin/invoices/{invoice}/media/{media}/preview', [InvoiceMediaController::class, 'preview'])
         ->name('admin.invoices.media.preview');
