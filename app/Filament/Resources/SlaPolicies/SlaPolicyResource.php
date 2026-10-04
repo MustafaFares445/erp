@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SlaPolicies;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
+use App\Filament\Resources\SlaPolicies\Pages\CreateSlaPolicy;
 use App\Filament\Resources\SlaPolicies\Pages\EditSlaPolicy;
 use App\Filament\Resources\SlaPolicies\Pages\ListSlaPolicies;
 use App\Filament\Resources\SlaPolicies\Schemas\SlaPolicyForm;
@@ -39,6 +40,18 @@ final class SlaPolicyResource extends Resource
     }
 
     #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('admin.resources.sla_policy');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.resources.sla_policies');
+    }
+
+    #[\Override]
     public static function form(Schema $schema): Schema
     {
         return SlaPolicyForm::configure($schema);
@@ -51,22 +64,11 @@ final class SlaPolicyResource extends Resource
     }
 
     #[\Override]
-    public static function canCreate(): bool
-    {
-        return false;
-    }
-
-    #[\Override]
-    public static function canDeleteAny(): bool
-    {
-        return false;
-    }
-
-    #[\Override]
     public static function getPages(): array
     {
         return [
             'index' => ListSlaPolicies::route('/'),
+            'create' => CreateSlaPolicy::route('/create'),
             'edit' => EditSlaPolicy::route('/{record}/edit'),
         ];
     }
