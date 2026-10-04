@@ -56,6 +56,7 @@ See the project constitution at `.specify/memory/constitution.md`.
 - [Data Architecture](architecture/DATA_ARCHITECTURE.md)
 - [Integrations](architecture/INTEGRATIONS.md)
 - [Security](architecture/SECURITY.md)
+- [Dashboard Design System](architecture/DASHBOARD_DESIGN_SYSTEM.md)
 
 ## Domains
 

@@ -27,6 +27,7 @@ On-hand changes when warehouse custody changes, not when a document is merely dr
 - `markReady()` validates/snapshots lines and reserves outbound stock where applicable.
 - A Receipt reaching Ready does not itself increase stock.
 - A Delivery loses source custody when completed.
+- Loaner and supplier-repair custody is posted only by `InventoryEquipmentLoanService` and `InventorySupplierCustodyService` (movement types `loan_issue`, `loan_return`, `supplier_repair_out`, `supplier_repair_in`); Support requests them but never writes serialized custody, and the actor needs `inventory.loan.manage` / `inventory.supplier-custody.manage`.
 - An Internal Transfer loses source custody at dispatch and gains destination custody only as quantities are actually received.
 - Transfer receipt may be partial and discrepancy handling is explicit.
 - Cancelling an already-dispatched transfer compensates the source so cancellation does not leave the source on-hand reduced.

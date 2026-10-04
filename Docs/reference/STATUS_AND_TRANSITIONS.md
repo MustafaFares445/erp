@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: product
-last_verified: 2026-10-02
+last_verified: 2026-10-04
 verified_against: current enum cases and canonical domain docs
 ---
 
@@ -42,6 +42,9 @@ This is a navigation reference, not a replacement for service guards. The owning
 | Voice Note | Pending, Processing, Transcribed, Failed |
 | Salary Calculation | Draft, Pending Confirmation, Confirmed, Superseded |
 | Support Ticket | Pending, Pending Payment, Live, Assigned, In Progress, Waiting Customer, Resolved, Closed, Cancelled |
+| Support Entitlement | Active, Suspended, Expired, Cancelled |
+| Service Appointment | Planned, Dispatched, En Route, On Site, Completed, Cancelled |
+| Knowledge Article | Draft, Published, Archived |
 | Maintenance | Open, Diagnosing, Awaiting Approval, Ready For Repair, In Progress, Quality Assurance, Closed, Cancelled |
 | Warranty Entitlement | Pending Activation, Active, Ended, Cancelled |
 | Warranty Recovery | Draft, Submitted, Approved, Partially Received, Received, Rejected, Cancelled |

@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: identity
-last_verified: 2026-10-02
+last_verified: 2026-10-04
 verified_against: DashboardRole, UserType and domain permission enums/policies
 ---
 
@@ -45,7 +45,7 @@ Permissions are grouped by business domain.
 
 Examples:
 
-- `inventory.*`
+- `inventory.*` (including `inventory.loan.manage` and `inventory.supplier-custody.manage`, held by Warehouse Manager, which Support actions that move custody additionally require)
 - `purchase.*`
 - `sales.*`
 - `accounting.*`
@@ -73,9 +73,28 @@ System Admin is the highest fixed dashboard role.
 
 Some maker-checker workflows explicitly contain a System Admin exemption to prevent single-admin deployments from deadlocking. Such exemptions are workflow-specific and must not be generalized into ordinary roles.
 
+## Support Permission Highlights
+
+`SupportPermission` is the canonical Support permission catalogue. In addition to ticket, maintenance, service-record, warranty, schedule, cost, report and audit permissions, it includes:
+
+- team/queue/routing permissions and `support.ticket.route`;
+- automation view/manage;
+- field-service appointment view/manage/execute;
+- Equipment 360 view;
+- knowledge view/manage/publish;
+- SLA calendar, service-level and support-entitlement view/manage;
+- installation view/manage/complete (`support.installation.*`; managers get all three, agents view and complete, reviewers view);
+- calibration view/manage/complete (`support.calibration.*`; managers get all three, agents view and complete, reviewers view);
+- loaner view/manage (`support.loaner.*`) and supplier-repair view/manage (`support.rma.*`; managers get both, agents view, reviewers view);
+- CSAT report visibility.
+
+`Support Manager` receives the operational/configuration Support permissions except System-Admin-only abilities such as record restoration and manual ticket-payment settlement. `Support Agent` receives own-work execution permissions plus read access appropriate to day-to-day service. `Reviewer` receives read/report/audit visibility.
+
+Feature switches are an additional rollout boundary; granting a permission does not enable a disabled staged resource.
+
 ## Customer and Employee Ownership
 
-Future mobile APIs must derive the customer/employee identity from the authenticated user.
+The implemented Customer Support API derives customer identity from the authenticated user. Future employee/mobile endpoints must follow the same ownership rule.
 
 The client must not be trusted to select an arbitrary `customer_id` or `employee_id`.
 

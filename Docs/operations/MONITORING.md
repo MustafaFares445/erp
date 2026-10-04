@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-10-02
+last_verified: 2026-10-04
 verified_against: current Laravel logging/queue/scheduler/domain alert mechanisms
 ---
 
@@ -50,9 +50,15 @@ No specific hosted APM/error-monitoring vendor is established as canonical by th
 - AI failure must remain isolated from manual visit completion.
 
 ### Support
-- SLA breach flags;
-- failed support payment settlement;
-- overdue preventive maintenance occurrences.
+- SLA at-risk/breach milestones and reconciliation freshness;
+- queue/team backlog age and unassigned-ticket growth;
+- failed diagnostic-payment settlement/reconciliation;
+- automation runs in failed state and stale waiting-customer sweep health;
+- field-service appointment overlap/dispatch exceptions and overdue on-site work;
+- overdue/missed preventive maintenance occurrences;
+- repeat-failure signals and warranty-recovery outstanding amounts;
+- CSAT response volume/average after CSAT rollout;
+- Customer Support API authentication/authorization failure spikes after API rollout.
 
 ## Scheduler Health
 

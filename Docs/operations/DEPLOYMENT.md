@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-10-02
+last_verified: 2026-10-04
 verified_against: .github/workflows/deploy.yml and scripts/deploy.sh
 ---
 
@@ -55,6 +55,33 @@ The server `.env` is intentionally left untouched.
 The current server deploy script does **not** run `npm install` or `npm run build`.
 
 Do not document an automatic server-side asset build unless the workflow/script changes. Any deployment that depends on newly built frontend assets must ensure the required build artifact is already present or add an explicit build step.
+
+## Support Service-Management Rollout
+
+The Support service-management expansion deploys additive schema/permission/template changes before staged capabilities are activated.
+
+Recommended order:
+
+1. deploy migrations/seeded configuration with staged Support switches off;
+2. keep Case Workspace and SLA v2 on;
+3. configure teams/skills/routing data, then enable Smart Routing;
+4. review automation rules, then enable Support Automation;
+5. enable Field Service when technician dispatch operations are ready;
+6. review customer-visible knowledge content before enabling Knowledge Base;
+7. enable the Customer Support API only with a compatible customer application;
+8. enable CSAT once the customer channel can present the post-close feedback flow.
+
+Migration notes:
+
+- `2026_10_04_010000_expand_support_sla_v2` creates the schema; the data backfill (default 24/7 calendar, per-policy milestones, ticket milestones) is a separate, re-runnable migration `2026_10_04_010100_backfill_support_sla_v2`, so a failed backfill can be retried without manual cleanup.
+- `2026_10_04_080000_add_support_csat_and_lifecycle_metrics` backfills `closed_at` and the last-message timestamps from existing tickets/messages.
+- After migrating, run `php artisan db:seed --class=<Seeder>` for each of `SupportPermissionSeeder`, `SupportServiceLevelSeeder`, `SlaPolicySeeder`, `SupportQueueSeeder` and `NotificationTemplateSeeder`. All are idempotent, and `SlaPolicySeeder` adopts the backfilled legacy policies instead of duplicating them.
+- `down()` of the SLA v2 and routing migrations is lossy by design: only one policy per priority survives, and automatic assignments are attributed to the earliest user so the legacy NOT NULL contract holds. Take a database backup before rolling back.
+- Rebuild frontend assets (`npm run build`) so the Support styles ship with the release.
+
+Turning a feature switch off is a behavioral rollback. It does not remove Support data already written by that feature.
+
+See [Configuration Reference](../reference/CONFIGURATION.md) and [ADR 0015](../adr/0015-support-service-management-expansion.md).
 
 ## Rollback
 
