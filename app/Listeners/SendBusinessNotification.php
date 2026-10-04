@@ -5,16 +5,22 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use App\Enums\AccountingPermission;
+use App\Enums\CustomerAcceptanceStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
 use App\Enums\PurchasePermission;
 use App\Enums\SupplierConfirmationStatus;
+use App\Enums\SupportPermission;
+use App\Enums\TicketStatus;
 use App\Enums\UserType;
 use App\Events\CampaignCompleted;
+use App\Events\EquipmentCalibrationMilestone;
+use App\Events\EquipmentInstallationMilestone;
 use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
+use App\Events\MaintenanceRecordBilled;
 use App\Events\PaymentReceived;
 use App\Events\PurchaseOrderAccepted;
 use App\Events\PurchaseOrderReceived;
@@ -23,12 +29,18 @@ use App\Events\QuotationExpired;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\SupplierCommitmentRecorded;
+use App\Events\SupportContinuityMilestone;
 use App\Events\TaskAssigned;
+use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
 use App\Models\CustomerProfile;
+use App\Models\EquipmentInstallation;
+use App\Models\EquipmentLoan;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\Lead;
+use App\Models\MaintenanceExternalRepair;
+use App\Models\MaintenanceRecord;
 use App\Models\Payment;
 use App\Models\PlanTask;
 use App\Models\Quotation;
@@ -38,6 +50,7 @@ use App\Services\Notifications\NotificationDispatcher;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use LogicException;
 
 final readonly class SendBusinessNotification
 {
@@ -47,8 +60,12 @@ final readonly class SendBusinessNotification
     {
         match (true) {
             $event instanceof CampaignCompleted => $this->campaignCompleted($event),
+            $event instanceof EquipmentCalibrationMilestone => $this->calibrationMilestone($event),
+            $event instanceof EquipmentInstallationMilestone => $this->installationMilestone($event),
+            $event instanceof SupportContinuityMilestone => $this->continuityMilestone($event),
             $event instanceof InvoiceIssued => $this->invoiceIssued($event->invoice),
             $event instanceof LeadConverted => $this->leadConverted($event->lead, $event->customer),
+            $event instanceof MaintenanceRecordBilled => $this->maintenanceRecordBilled($event->record),
             $event instanceof PaymentReceived => $this->paymentReceived($event->payment),
             $event instanceof PurchaseOrderAccepted => $this->purchaseOrderAccepted($event),
             $event instanceof PurchaseOrderReceived => $this->purchaseOrderReceived($event),
@@ -58,6 +75,7 @@ final readonly class SendBusinessNotification
             $event instanceof SlaAtRisk => $this->slaAtRisk($event->ticket, $event->kind),
             $event instanceof StockLow => $this->stockLow($event->stock),
             $event instanceof TaskAssigned => $this->taskAssigned($event->task),
+            $event instanceof TicketClosed => $this->ticketClosed($event->ticket),
             $event instanceof TicketUpdated => $this->ticketUpdated($event->ticket),
             $event instanceof InventoryReservationExpired => $this->reservationExpired($event),
             default => null,
@@ -267,6 +285,11 @@ final readonly class SendBusinessNotification
 
     private function ticketUpdated(Ticket $ticket): void
     {
+        // The feedback request sent on closure already tells the customer the ticket is closed.
+        if ($ticket->status === TicketStatus::Closed && config('support.csat_enabled', false)) {
+            return;
+        }
+
         $recipient = $ticket->customer->user ?? $ticket->customer;
         if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
             return;
@@ -278,12 +301,295 @@ final readonly class SendBusinessNotification
         $this->dispatcher->dispatch($recipient, NotificationEventKey::TicketUpdated, $variables, $ticket, NotificationChannel::Mail);
     }
 
+    private function ticketClosed(Ticket $ticket): void
+    {
+        if (! config('support.csat_enabled', false)) {
+            return;
+        }
+
+        $ticket->loadMissing('customer.user');
+        $recipient = $ticket->customer->user ?? $ticket->customer;
+
+        if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
+            return;
+        }
+
+        $variables = ['ticket_number' => (string) $ticket->ticket_number];
+
+        if ($recipient instanceof User) {
+            $this->dispatcher->dispatch(
+                $recipient,
+                NotificationEventKey::TicketFeedbackRequested,
+                $variables,
+                $ticket,
+                NotificationChannel::Database,
+            );
+        }
+
+        $this->dispatcher->dispatch(
+            $recipient,
+            NotificationEventKey::TicketFeedbackRequested,
+            $variables,
+            $ticket,
+            NotificationChannel::Mail,
+        );
+    }
+
+    /**
+     * Notifies the people a milestone concerns, once each: the customer and/or
+     * the assigned technician plus support managers, never twice per recipient.
+     */
+    private function installationMilestone(EquipmentInstallationMilestone $event): void
+    {
+        if (! (bool) config('support.equipment_installation_enabled', true)) {
+            return;
+        }
+
+        $record = $event->record->loadMissing(['customer.user', 'serializedInventoryUnit', 'installation.installedBy.user']);
+        $installation = $record->installation;
+        $key = $event->key;
+
+        $variables = [
+            'maintenance_reference' => '#'.$record->id,
+            'serial_number' => (string) ($record->serializedInventoryUnit->serial_number ?? $record->serial_number ?? '—'),
+            'customer_name' => (string) ($record->customer->company_name ?? '—'),
+        ];
+
+        // Templates reject undeclared variables, so each milestone passes only its own set.
+        if ($key === NotificationEventKey::InstallationScheduled) {
+            $variables['scheduled_at'] = (string) ($event->appointment?->scheduled_start_at?->toDayDateTimeString() ?? '—');
+        }
+
+        if (in_array($key, [NotificationEventKey::CommissioningFailed, NotificationEventKey::CustomerAcceptanceRecorded], true)) {
+            $variables['reason'] = $this->installationOutcome($installation ?? throw new LogicException('Outcome milestones follow an installation.'));
+        }
+
+        $customer = $record->customer->user ?? $record->customer;
+        $technician = $key === NotificationEventKey::InstallationScheduled
+            ? $event->appointment?->employee?->user
+            : $installation?->installedBy?->user;
+        $managers = $this->usersWithPermission(SupportPermission::InstallationManage->value);
+
+        $recipients = match ($key) {
+            NotificationEventKey::InstallationScheduled => [$customer, $technician],
+            NotificationEventKey::CommissioningFailed => [$technician, ...$managers->all()],
+            default => [$customer, ...$managers->all()],
+        };
+
+        $seen = [];
+
+        foreach ($recipients as $recipient) {
+            if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
+                continue;
+            }
+
+            $identity = sprintf('%s:%d', $recipient->getMorphClass(), $recipient->id);
+
+            if (isset($seen[$identity])) {
+                continue;
+            }
+
+            $seen[$identity] = true;
+
+            // A customer profile recipient falls back to the dispatcher's own language resolution.
+            $locale = $recipient instanceof User ? $recipient->locale : null;
+
+            if ($recipient instanceof User) {
+                $this->dispatcher->dispatch($recipient, $key, $variables, $record, NotificationChannel::Database, $locale);
+            }
+
+            $this->dispatcher->dispatch($recipient, $key, $variables, $record, NotificationChannel::Mail, $locale);
+        }
+    }
+
+    /**
+     * Calibration outcomes reach the customer (completed) or the people who can
+     * act on them (failed), once each.
+     */
+    private function calibrationMilestone(EquipmentCalibrationMilestone $event): void
+    {
+        if (! (bool) config('support.calibration_enabled', true)) {
+            return;
+        }
+
+        $record = $event->record->loadMissing(['customer.user', 'serializedInventoryUnit', 'calibration.performedBy.user']);
+        $calibration = $record->calibration ?? throw new LogicException('Calibration milestones follow a calibration.');
+        $key = $event->key;
+
+        $variables = [
+            'maintenance_reference' => '#'.$record->id,
+            'serial_number' => (string) ($record->serializedInventoryUnit->serial_number ?? $record->serial_number ?? '—'),
+            'customer_name' => (string) ($record->customer->company_name ?? '—'),
+        ];
+
+        if ($key === NotificationEventKey::CalibrationFailed) {
+            $variables['reason'] = (string) ($calibration->failure_reason ?? '—');
+        } else {
+            $variables['result'] = (string) ($calibration->result?->label() ?? '—');
+        }
+
+        $customer = $record->customer->user ?? $record->customer;
+        $technician = $calibration->performedBy?->user;
+        $managers = $this->usersWithPermission(SupportPermission::CalibrationManage->value);
+
+        $recipients = $key === NotificationEventKey::CalibrationFailed
+            ? [$technician, ...$managers->all()]
+            : [$customer, ...$managers->all()];
+
+        $seen = [];
+
+        foreach ($recipients as $recipient) {
+            if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
+                continue;
+            }
+
+            $identity = sprintf('%s:%d', $recipient->getMorphClass(), $recipient->id);
+
+            if (isset($seen[$identity])) {
+                continue;
+            }
+
+            $seen[$identity] = true;
+            $locale = $recipient instanceof User ? $recipient->locale : null;
+
+            if ($recipient instanceof User) {
+                $this->dispatcher->dispatch($recipient, $key, $variables, $record, NotificationChannel::Database, $locale);
+            }
+
+            $this->dispatcher->dispatch($recipient, $key, $variables, $record, NotificationChannel::Mail, $locale);
+        }
+    }
+
+    /**
+     * Loaner and supplier-repair milestones. Overdue loaners reach the customer
+     * and loan managers; RMA changes reach RMA managers, and a unit coming back
+     * from a supplier also reaches the inventory staff who receive it.
+     */
+    private function continuityMilestone(SupportContinuityMilestone $event): void
+    {
+        $key = $event->key;
+        $record = $event->record->loadMissing(['customer.user', 'serializedInventoryUnit']);
+        $serial = (string) ($record->serializedInventoryUnit->serial_number ?? $record->serial_number ?? '—');
+        $reference = '#'.$record->id;
+
+        if ($key === NotificationEventKey::LoanerOverdue) {
+            if (! (bool) config('support.loaner_equipment_enabled', false)) {
+                return;
+            }
+
+            $loan = EquipmentLoan::query()->with('loanerUnit')->findOrFail($event->subjectId);
+            $variables = [
+                'maintenance_reference' => $reference,
+                'serial_number' => $serial,
+                'customer_name' => (string) ($record->customer->company_name ?? '—'),
+                'loaner_serial' => (string) ($loan->loanerUnit->serial_number ?? '—'),
+                'expected_return_at' => (string) ($loan->expected_return_at?->toDayDateTimeString() ?? '—'),
+            ];
+            $recipients = [$record->customer->user ?? $record->customer, ...$this->usersWithPermission(SupportPermission::LoanManage->value)->all()];
+        } else {
+            if (! (bool) config('support.external_repair_enabled', false)) {
+                return;
+            }
+
+            $repair = MaintenanceExternalRepair::query()->with('supplier')->findOrFail($event->subjectId);
+            $variables = [
+                'maintenance_reference' => $reference,
+                'serial_number' => $serial,
+                'supplier_name' => (string) ($repair->supplier->name ?? '—'),
+                'rma_status' => $repair->status->label(),
+            ];
+            $recipients = [
+                ...$this->usersWithPermission(SupportPermission::RmaManage->value)->all(),
+                ...($key === NotificationEventKey::EquipmentReturnedFromSupplier ? $this->usersWithPermission(InventoryPermission::SupplierCustodyManage->value)->all() : []),
+            ];
+        }
+
+        $seen = [];
+
+        foreach ($recipients as $recipient) {
+            if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
+                continue;
+            }
+
+            $identity = sprintf('%s:%d', $recipient->getMorphClass(), $recipient->id);
+
+            if (isset($seen[$identity])) {
+                continue;
+            }
+
+            $seen[$identity] = true;
+            $locale = $recipient instanceof User ? $recipient->locale : null;
+
+            if ($recipient instanceof User) {
+                $this->dispatcher->dispatch($recipient, $key, $variables, $record, NotificationChannel::Database, $locale);
+            }
+
+            $this->dispatcher->dispatch($recipient, $key, $variables, $record, NotificationChannel::Mail, $locale);
+        }
+    }
+
+    private function installationOutcome(EquipmentInstallation $installation): string
+    {
+        return match ($installation->customer_acceptance_status) {
+            CustomerAcceptanceStatus::Accepted => __('Accepted by :name', ['name' => (string) $installation->customer_signatory_name]),
+            CustomerAcceptanceStatus::Rejected => __('Rejected: :reason', ['reason' => (string) $installation->customer_rejection_reason]),
+            CustomerAcceptanceStatus::Pending => (string) ($installation->commissioning_failure_reason ?? '—'),
+        };
+    }
+
+    private function maintenanceRecordBilled(MaintenanceRecord $record): void
+    {
+        $record->loadMissing(['customer.user', 'invoice']);
+        $recipient = $record->customer->user ?? $record->customer;
+
+        if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
+            return;
+        }
+
+        $variables = [
+            'maintenance_reference' => '#'.$record->id,
+            'invoice_number' => (string) ($record->invoice->invoice_number ?? '—'),
+        ];
+
+        if ($recipient instanceof User) {
+            $this->dispatcher->dispatch(
+                $recipient,
+                NotificationEventKey::MaintenanceRecordBilled,
+                $variables,
+                $record,
+                NotificationChannel::Database,
+            );
+        }
+
+        $this->dispatcher->dispatch(
+            $recipient,
+            NotificationEventKey::MaintenanceRecordBilled,
+            $variables,
+            $record,
+            NotificationChannel::Mail,
+        );
+    }
+
     private function slaAtRisk(Ticket $ticket, string $kind): void
     {
+        $ticket->loadMissing(['assignedEmployee.user', 'supportTeam.manager']);
         $variables = ['ticket_number' => (string) $ticket->ticket_number, 'sla_kind' => $kind];
-        foreach ($this->admins() as $admin) {
-            $this->dispatcher->dispatch($admin, NotificationEventKey::SlaAtRisk, $variables, $ticket, NotificationChannel::Database);
-            $this->dispatcher->dispatch($admin, NotificationEventKey::SlaAtRisk, $variables, $ticket, NotificationChannel::Mail);
+
+        $recipients = collect([
+            $ticket->assignedEmployee?->user,
+            $ticket->supportTeam?->manager,
+        ])
+            ->filter(static fn (mixed $recipient): bool => $recipient instanceof User)
+            ->keyBy(static fn (User $recipient): int => $recipient->id);
+
+        if ($recipients->isEmpty()) {
+            $recipients = $this->usersWithPermission(SupportPermission::TicketManage->value)
+                ->keyBy(static fn (User $recipient): int => $recipient->id);
+        }
+
+        foreach ($recipients as $recipient) {
+            $this->dispatcher->dispatch($recipient, NotificationEventKey::SlaAtRisk, $variables, $ticket, NotificationChannel::Database);
+            $this->dispatcher->dispatch($recipient, NotificationEventKey::SlaAtRisk, $variables, $ticket, NotificationChannel::Mail);
         }
     }
 

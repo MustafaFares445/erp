@@ -6,6 +6,7 @@ namespace App\Data\Support;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 
 final readonly class MaintenanceScheduleData
 {
@@ -22,5 +23,6 @@ final readonly class MaintenanceScheduleData
         public string $firstDueOn,
         public MaintenanceBillingType $billingType,
         public ?array $checklist = null,
+        public MaintenanceKind $maintenanceKind = MaintenanceKind::Preventive,
     ) {}
 }
