@@ -8,11 +8,13 @@ use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyFailureCategory;
 use App\Enums\WarrantyLineCategory;
 use App\Enums\WarrantyStatus;
+use App\Models\MaintenanceCoverageLine;
 use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Services\Support\WarrantyClaimService;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
@@ -116,6 +118,31 @@ it('calculates partial warranty coverage and waits for customer approval of the 
             'covered_amount_minor' => 40000,
             'customer_amount_minor' => 10000,
         ]);
+});
+
+it('uses loaded coverage aggregates without querying each coverage column', function (): void {
+    $record = MaintenanceRecord::factory()->create();
+    MaintenanceCoverageLine::factory()->for($record, 'maintenanceRecord')->create([
+        'amount_minor' => 20000,
+        'covered_amount_minor' => 15000,
+        'customer_amount_minor' => 5000,
+    ]);
+
+    $record
+        ->loadSum('coverageLines as coverage_total_amount_minor', 'amount_minor')
+        ->loadSum('coverageLines as coverage_covered_amount_minor', 'covered_amount_minor')
+        ->loadSum('coverageLines as coverage_customer_amount_minor', 'customer_amount_minor');
+
+    $queries = 0;
+    DB::listen(static function () use (&$queries): void {
+        $queries++;
+    });
+
+    expect(app(WarrantyClaimService::class)->coverageSummary($record))->toBe([
+        'total_amount_minor' => 20000,
+        'covered_amount_minor' => 15000,
+        'customer_amount_minor' => 5000,
+    ])->and($queries)->toBe(0);
 });
 
 it('rejects seller-warranty coverage when eligibility is expired but allows goodwill as a separate commercial decision', function (): void {

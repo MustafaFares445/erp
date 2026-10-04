@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Enums\MaintenanceStatus;
 use App\Enums\TicketStatus;
 use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\ServiceRecordsRelationManager;
+use App\Filament\Resources\ServiceRecords\Pages\ListServiceRecords;
 use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
 use App\Filament\Resources\ServiceRecords\RelationManagers\ConsumedPartsRelationManager;
 use App\Filament\Resources\SlaPolicies\Pages\ListSlaPolicies;
@@ -245,4 +247,20 @@ it('executes the diagnosis, coverage, repair, QA, and warranty-correction header
         ->assertHasNoActionErrors();
 
     expect($record->refresh()->status->value)->toBe('closed');
+});
+
+it('shows service record statuses as readable labels on the list and view pages', function (): void {
+    $manager = makeRenderSupportManager();
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::QualityAssurance]);
+
+    Livewire::actingAs($manager)
+        ->test(ListServiceRecords::class)
+        ->assertCanSeeTableRecords([$task])
+        ->assertSee(MaintenanceStatus::QualityAssurance->label())
+        ->assertDontSee('quality_assurance');
+
+    Livewire::actingAs($manager)
+        ->test(ViewServiceRecord::class, ['record' => $task->getRouteKey()])
+        ->assertSee(MaintenanceStatus::QualityAssurance->label())
+        ->assertDontSee('quality_assurance');
 });

@@ -315,7 +315,7 @@ it('saves an edited sla policy through the actual Edit form and stamps updated_b
 
     Livewire::actingAs($manager)
         ->test(EditSlaPolicy::class, ['record' => $policy->getRouteKey()])
-        ->assertFormFieldIsDisabled('priority')
+        ->assertFormFieldExists('priority')
         ->fillForm([
             'response_target_minutes' => 500,
             'resolution_target_minutes' => 3000,
@@ -329,7 +329,15 @@ it('saves an edited sla policy through the actual Edit form and stamps updated_b
         ->and($policy->updated_by)->toBe($manager->id);
 });
 
-it('never permits creating or bulk-deleting SLA policies, mirroring DashboardUserResource (4 fixed, seeded rows)', function (): void {
+it('lets only Support Managers create or bulk-delete SLA policy rules (SLA v2)', function (): void {
+    $agent = User::factory()->admin()->create();
+    $agent->assignRole('Support Agent');
+
+    $this->actingAs(makeSlaSupportManager());
+    expect(SlaPolicyResource::canCreate())->toBeTrue()
+        ->and(SlaPolicyResource::canDeleteAny())->toBeTrue();
+
+    $this->actingAs($agent);
     expect(SlaPolicyResource::canCreate())->toBeFalse()
         ->and(SlaPolicyResource::canDeleteAny())->toBeFalse();
 });

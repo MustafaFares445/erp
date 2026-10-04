@@ -3,7 +3,14 @@
 declare(strict_types=1);
 
 use App\Filament\Widgets\AccountingLedgerTrend;
+use App\Http\Controllers\Api\Customer\CustomerAuthController;
+use App\Http\Controllers\Api\Customer\CustomerKnowledgeController;
+use App\Http\Controllers\Api\Customer\CustomerSupportPaymentController;
+use App\Http\Controllers\Api\Customer\CustomerTicketMediaController;
 use App\Http\Controllers\CreditNoteMediaController;
+use App\Http\Controllers\EquipmentCalibrationMediaController;
+use App\Http\Controllers\EquipmentInstallationMediaController;
+use App\Http\Controllers\ExternalRepairMediaController;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\InvoiceMediaController;
 use App\Http\Controllers\PaymentMediaController;
@@ -50,6 +57,7 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
+use App\Models\InventorySetting;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\InvoiceConfirmation;
@@ -85,6 +93,7 @@ use App\Models\SalesOpportunity;
 use App\Models\SalesProcurementRequirement;
 use App\Models\ServiceRecordPart;
 use App\Models\Shipment;
+use App\Models\SlaCalendar;
 use App\Models\SlaPolicy;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
@@ -202,6 +211,10 @@ arch()->preset()->php();
 // that could be edited afterwards documents nothing. Same required
 // Eloquent-override signature, and the same defense-in-depth reasoning as
 // PriceFloorOverride above, which ConstraintOverride is modelled on.
+// InventorySetting: protected static booted() drops the per-request expiry-alert-days memo whenever
+// the singleton row is saved or deleted, the same required Eloquent-override signature as Currency above.
+// SlaCalendar: protected static booted() keeps exactly one default calendar (promoting one demotes the
+// rest), the same required Eloquent-override signature as Currency above.
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
@@ -209,6 +222,8 @@ arch()->preset()->strict()->ignoring([
     AiKeywordRule::class,
     AuditLog::class,
     BusinessConstraint::class,
+    InventorySetting::class,
+    SlaCalendar::class,
     ConstraintOverride::class,
     PriceFloorOverride::class,
     PriceHistory::class,
@@ -286,6 +301,10 @@ arch()->preset()->strict()->ignoring([
     FiscalPeriodCloseCheck::class,
     'Database',
 ]);
+// The Customer Support API controllers listed here expose named actions (login/logout,
+// knowledge suggestions, diagnostic-payment session/status, attachment download) rather than
+// REST resource methods; the remaining Customer API controllers still fit the preset.
+//
 // These stream a private Spatie MediaLibrary collection behind Gate::authorize
 // (preview/download, or play for the signed-URL voice-note case) — a shape the Laravel
 // preset's controller-method check doesn't recognize. Deliberate, not a REST resource;
@@ -314,8 +333,15 @@ arch()->preset()->laravel()->ignoring([
     ShipmentMediaController::class,
     ShipmentArrivalConfirmationMediaController::class,
     TicketMediaController::class,
+    EquipmentCalibrationMediaController::class,
+    EquipmentInstallationMediaController::class,
+    ExternalRepairMediaController::class,
     VisitMediaController::class,
     VoiceNoteMediaController::class,
+    CustomerAuthController::class,
+    CustomerKnowledgeController::class,
+    CustomerSupportPaymentController::class,
+    CustomerTicketMediaController::class,
     'App\Services\Employees\Exceptions',
     'App\Services\Support\Exceptions',
     'App\Services\Accounting\Exceptions',

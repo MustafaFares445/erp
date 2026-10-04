@@ -680,12 +680,12 @@ it('filters placeholder navigation items down to a single section', function ():
         ->and($catalogItems[0]->getLabel())->toBe(__('admin.resources.products'));
 });
 
-it('declares the inventory group as nine workspace destinations with translated labels', function (): void {
+it('declares the inventory group as ten workspace destinations with translated labels', function (): void {
     $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
 
     expect($inventory)->not->toBeNull()
-        ->and($inventory['items'])->toHaveCount(9)
-        ->and($inventory)->not->toHaveKey('sections');
+        ->and($inventory['items'])->toHaveCount(10)
+        ->and($inventory)->toHaveKey('sections');
 
     foreach ($inventory['items'] as $item) {
         expect(__($item['label'], [], 'en'))->not->toBe($item['label'])
@@ -723,6 +723,22 @@ it('registers no navigation label in more than one group', function (): void {
         ->flatMap(fn (array $group): array => collect($group['items'])->pluck('label')->all());
 
     expect($labels->all())->toBe($labels->unique()->all());
+});
+
+it('keeps report resources in their owning domains and uses the reports group as a discovery hub', function (): void {
+    $groups = collect(AdminModuleRegistry::groups())->keyBy('key');
+
+    expect(collect($groups['sales']['items'])->pluck('label'))->toContain('admin.resources.sales_reports')
+        ->and(collect($groups['accounting']['items'])->pluck('label'))->toContain('admin.resources.financial_reports')
+        ->and(collect($groups['inventory']['items'])->pluck('label'))->toContain('admin.resources.inventory_reports')
+        ->and(collect($groups['vendors']['items'])->pluck('label'))->toContain('admin.resources.purchasing_reports')
+        ->and(collect($groups['crm']['items'])->pluck('label'))->toContain('admin.resources.crm_reports')
+        ->and(collect($groups['employees']['items'])->pluck('label'))->toContain('admin.resources.employee_reports')
+        ->and(collect($groups['support']['items'])->pluck('label'))->toContain('admin.resources.support_reports')
+        ->and(collect($groups['reports']['items'])->pluck('label')->all())->toBe([
+            'reporting.center.navigation',
+            'admin.resources.audit_logs',
+        ]);
 });
 
 // Intent: WP-2.7 GAP-UI-07 partial resolution. The `tax_definitions` entry
@@ -820,4 +836,53 @@ it('keeps module groups in normalized sort order', function (): void {
 
     expect($sorts->all())->toBe($sorts->sort()->values()->all())
         ->and($sorts->unique()->count())->toBe($sorts->count());
+});
+
+it('keeps the active module scoped during Livewire updates by resolving the page referer', function (): void {
+    $resource = new class extends Resource
+    {
+        public static function getSlug(?Panel $panel = null): string
+        {
+            return 'livewire-fake-resources';
+        }
+    };
+
+    Route::get('/livewire-fake-resources/{record}', fn (): string => 'ok')
+        ->name('filament.admin.resources.livewire-fake-resources.edit');
+    Route::post('/livewire/registry-test', fn (): string => 'ok')
+        ->name('livewire.registry-test');
+
+    $groups = [
+        [
+            'key' => 'sales',
+            'label' => 'admin.groups.sales',
+            'icon' => Heroicon::OutlinedShoppingCart,
+            'sort' => 1,
+            'items' => [
+                ['label' => 'admin.resources.quotations', 'link' => $resource::class],
+            ],
+        ],
+    ];
+
+    $this->withHeader('Referer', url('/livewire-fake-resources/1'))
+        ->post('/livewire/registry-test');
+
+    expect(AdminModuleRegistry::activeGroupKey($groups))->toBe('sales');
+});
+
+it('places every item of every module in a translated sidebar section', function (): void {
+    foreach (AdminModuleRegistry::groups() as $group) {
+        $sectionKeys = collect($group['sections'] ?? [])->pluck('key')->all();
+
+        expect($sectionKeys)->not->toBeEmpty("{$group['key']} has no sections");
+
+        foreach ($group['sections'] as $section) {
+            expect(__($section['label'], [], 'en'))->not->toBe($section['label'])
+                ->and(__($section['label'], [], 'ar'))->not->toBe($section['label']);
+        }
+
+        foreach ($group['items'] as $item) {
+            expect($sectionKeys)->toContain($item['section'] ?? null);
+        }
+    }
 });

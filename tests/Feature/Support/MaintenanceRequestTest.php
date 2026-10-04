@@ -682,6 +682,7 @@ it('moves approval rows to ready for repair when no customer share is owed or th
 it('hides workflow row actions from a view-only reviewer and refuses to invoke them', function (): void {
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Reviewer');
+
     $ready = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::ReadyForRepair]);
     $open = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Open]);
 

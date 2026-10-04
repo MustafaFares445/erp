@@ -255,19 +255,47 @@ it('allows System Admin, Support Manager, and Reviewer to view reports and audit
         ->and(app(AuditLogPolicy::class)->viewAny($agent))->toBeFalse();
 });
 
-it('renders the report page with the workload, sla, and maintenance sections, reacting to the period filter', function (): void {
+it('navigates report areas without rendering the entire support report as one long page', function (): void {
     $manager = makeReportSupportManager();
     Ticket::factory()->create(['status' => TicketStatus::Live]);
 
     Livewire::actingAs($manager)
         ->test(ViewSupportReports::class)
         ->assertSuccessful()
-        ->assertSee('Workload')
-        ->assertSee('SLA')
-        ->assertSee('Maintenance')
+        ->assertSee(__('reporting.labels.support.overview'))
+        ->set('section', 'workload')
+        ->assertSuccessful()
+        ->assertSee(__('Current snapshot'))
+        ->assertSee(__('Workload breakdown'))
+        ->set('section', 'service_desk')
         ->set('from', now()->subWeek()->toDateString())
         ->set('until', now()->toDateString())
-        ->assertSuccessful();
+        ->assertSuccessful()
+        ->assertSee(__('SLA & lifecycle detail'))
+        ->set('section', 'field_service')
+        ->assertSuccessful()
+        ->assertSee(__('Technician workload'));
+});
+
+it('exports only the selected support report area using its current scope', function (): void {
+    $manager = makeReportSupportManager();
+    Ticket::factory()->create(['status' => TicketStatus::Live]);
+
+    $component = Livewire::actingAs($manager)
+        ->test(ViewSupportReports::class)
+        ->set('section', 'workload')
+        ->assertActionVisible('export_current_report');
+
+    $response = $component->instance()->exportCurrentReport();
+
+    ob_start();
+    $response->sendContent();
+    $csv = (string) ob_get_clean();
+
+    expect($csv)
+        ->toContain(__('Open tickets'))
+        ->toContain(__('Backlog age'))
+        ->toContain(__('Under 24 hours'));
 });
 
 it('covers report resource metadata, a no-op form, and the canAccess/canViewAny gate', function (): void {

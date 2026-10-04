@@ -81,7 +81,7 @@ it('resolves the user who settled a ticket payment link', function (): void {
 it('rejects updating or deleting a ticket assignment, even directly on the model', function (): void {
     $assignment = TicketAssignment::factory()->create();
 
-    expect(fn () => $assignment->update(['assigned_at' => now()]))->toThrow(DomainException::class)
+    expect(fn () => $assignment->update(['reason' => 'edited after the fact']))->toThrow(DomainException::class)
         ->and(fn () => $assignment->delete())->toThrow(DomainException::class);
 });
 
