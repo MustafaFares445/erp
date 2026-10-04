@@ -17,6 +17,7 @@ use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\MaintenanceRecord;
 use App\Models\User;
+use App\Services\Support\MaintenanceNextActionResolver;
 use App\Services\Support\MaintenanceRecordService;
 use App\Services\Support\WarrantyClaimService;
 use Closure;
@@ -80,7 +81,7 @@ final class MaintenanceRequestsTable
                     ->state(static fn (MaintenanceRecord $record): string => number_format(self::coverage($record)['customer_amount_minor'] / 100, 2)),
                 TextColumn::make('next_action')
                     ->label(__('Next action'))
-                    ->state(static fn (MaintenanceRecord $record): string => self::nextAction($record))
+                    ->state(static fn (MaintenanceRecord $record): string => app(MaintenanceNextActionResolver::class)->resolve($record))
                     ->wrap(),
                 TextColumn::make('billing_type')
                     ->label(__('Commercial'))
@@ -211,15 +212,6 @@ final class MaintenanceRequestsTable
             ->all();
     }
 
-    private static function nextAction(MaintenanceRecord $record): string
-    {
-        return match ($record->status) {
-            MaintenanceStatus::Closed => 'Commercial follow-up',
-            MaintenanceStatus::Cancelled => 'Cancelled',
-            default => MaintenanceNextStep::forRecord($record)?->label() ?? '',
-        };
-    }
-
     /**
      * The single emphasised row button for the request's next valid step. Form-heavy
      * steps link to the detail page action; plain transitions run the shared
@@ -318,7 +310,7 @@ final class MaintenanceRequestsTable
             Notification::make()
                 ->danger()
                 ->title(__('Unable to change the maintenance request status'))
-                ->body($domainException->getMessage())
+                ->body(__($domainException->getMessage()))
                 ->send();
         }
     }

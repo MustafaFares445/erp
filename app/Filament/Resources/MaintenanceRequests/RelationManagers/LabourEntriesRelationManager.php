@@ -69,7 +69,7 @@ final class LabourEntriesRelationManager extends RelationManager
                                 notes: self::optionalString($data, 'notes'),
                             ), self::currentActor());
                         } catch (DomainException $domainException) {
-                            Notification::make()->danger()->title(__('Unable to record labour'))->body($domainException->getMessage())->send();
+                            Notification::make()->danger()->title(__('Unable to record labour'))->body(__($domainException->getMessage()))->send();
                         }
                     }),
             ])

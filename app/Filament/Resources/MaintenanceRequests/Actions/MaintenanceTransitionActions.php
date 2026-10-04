@@ -33,7 +33,7 @@ final class MaintenanceTransitionActions
                     app(MaintenanceRecordService::class)->transition($record, $to, self::currentActor());
                     Notification::make()->success()->title(__('Maintenance request updated'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title(__('Unable to change maintenance status'))->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to change maintenance status'))->body(__($domainException->getMessage()))->send();
                 }
             });
     }
@@ -59,7 +59,7 @@ final class MaintenanceTransitionActions
                     app(MaintenanceRecordService::class)->transition($record, MaintenanceStatus::ReadyForRepair, self::currentActor());
                     Notification::make()->success()->title(__('Repair approved and ready to start'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title(__('Repair cannot start yet'))->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Repair cannot start yet'))->body(__($domainException->getMessage()))->send();
                 }
             });
     }

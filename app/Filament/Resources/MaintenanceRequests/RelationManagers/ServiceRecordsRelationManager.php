@@ -67,7 +67,7 @@ final class ServiceRecordsRelationManager extends RelationManager
                                 'description' => $data['description'] ?? null,
                             ], self::currentActor());
                         } catch (DomainException $domainException) {
-                            Notification::make()->danger()->title(__('Unable to add this service record'))->body($domainException->getMessage())->send();
+                            Notification::make()->danger()->title(__('Unable to add this service record'))->body(__($domainException->getMessage()))->send();
                         }
                     }),
             ])
@@ -139,7 +139,7 @@ final class ServiceRecordsRelationManager extends RelationManager
         try {
             app(ServiceRecordService::class)->transition($record, $to, self::currentActor(), $note, $workPerformed);
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title(__('Unable to change the service record status'))->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the service record status'))->body(__($domainException->getMessage()))->send();
         }
     }
 

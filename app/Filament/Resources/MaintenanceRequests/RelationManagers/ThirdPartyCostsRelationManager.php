@@ -61,7 +61,7 @@ final class ThirdPartyCostsRelationManager extends RelationManager
                                 supplierId: self::optionalInt($data, 'supplier_id'),
                             ), self::currentActor());
                         } catch (DomainException $domainException) {
-                            Notification::make()->danger()->title(__('Unable to record this cost'))->body($domainException->getMessage())->send();
+                            Notification::make()->danger()->title(__('Unable to record this cost'))->body(__($domainException->getMessage()))->send();
                         }
                     }),
             ])

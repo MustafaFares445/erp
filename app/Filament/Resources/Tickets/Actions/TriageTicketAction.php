@@ -142,7 +142,7 @@ final class TriageTicketAction
                     Notification::make()
                         ->danger()
                         ->title(__('Unable to triage ticket'))
-                        ->body($exception->getMessage())
+                        ->body(__($exception->getMessage()))
                         ->send();
                 }
             });
@@ -170,10 +170,10 @@ final class TriageTicketAction
 
                 $label = sprintf(
                     '%s — %s — %s%s',
-                    $variant instanceof ProductVariant ? $variant->name : 'Product',
+                    $variant instanceof ProductVariant ? $variant->name : __('Product'),
                     $unit->serial_number,
                     $coverage->status->label(),
-                    $expiry !== null ? ' until '.$expiry : '',
+                    $expiry !== null ? ' '.__('until :date', ['date' => $expiry]) : '',
                 );
 
                 return [self::integerKey($unit) => $label];
@@ -184,13 +184,13 @@ final class TriageTicketAction
     private static function warrantyPreview(Ticket $ticket, Get $get): string
     {
         if ($get('equipment_source') === TicketEquipmentSource::External->value) {
-            return 'IERP sale warranty is not applicable. Manufacturer, supplier, service-contract or goodwill coverage can still be recorded after diagnosis.';
+            return __('IERP sale warranty is not applicable. Manufacturer, supplier, service-contract or goodwill coverage can still be recorded after diagnosis.');
         }
 
         $id = $get('serialized_inventory_unit_id');
 
         if (! is_numeric($id)) {
-            return 'Select customer equipment to resolve warranty eligibility.';
+            return __('Select customer equipment to resolve warranty eligibility.');
         }
 
         $unit = SerializedInventoryUnit::query()
@@ -199,18 +199,22 @@ final class TriageTicketAction
         $customer = $ticket->customer;
 
         if (! $unit instanceof SerializedInventoryUnit || ! $customer instanceof CustomerProfile) {
-            return 'Warranty eligibility is unavailable.';
+            return __('Warranty eligibility is unavailable.');
         }
 
         $coverage = app(WarrantyResolver::class)->resolveForSerializedUnit($unit, $customer);
         $expiry = $coverage->expiresOn?->toDateString();
 
         return match ($coverage->status->value) {
-            'covered' => 'Warranty active'.($expiry !== null ? ' until '.$expiry : '').'. Final repair coverage will be confirmed after technical diagnosis.',
-            'expired' => 'Warranty expired'.($expiry !== null ? ' on '.$expiry : '').'. Diagnosis may still qualify for goodwill, service-contract, manufacturer or supplier coverage.',
-            'not_covered' => 'No IERP customer warranty is configured for this equipment.',
-            'unknown' => 'Warranty needs verification before a seller-warranty claim can be approved.',
-            default => 'IERP sale warranty is not applicable.',
+            'covered' => $expiry !== null
+                ? __('Warranty active until :date. Final repair coverage will be confirmed after technical diagnosis.', ['date' => $expiry])
+                : __('Warranty active. Final repair coverage will be confirmed after technical diagnosis.'),
+            'expired' => $expiry !== null
+                ? __('Warranty expired on :date. Diagnosis may still qualify for goodwill, service-contract, manufacturer or supplier coverage.', ['date' => $expiry])
+                : __('Warranty expired. Diagnosis may still qualify for goodwill, service-contract, manufacturer or supplier coverage.'),
+            'not_covered' => __('No IERP customer warranty is configured for this equipment.'),
+            'unknown' => __('Warranty needs verification before a seller-warranty claim can be approved.'),
+            default => __('IERP sale warranty is not applicable.'),
         };
     }
 
@@ -229,14 +233,14 @@ final class TriageTicketAction
             ->first();
 
         if (! $entitlement instanceof WarrantyEntitlement) {
-            return 'No activated entitlement snapshot yet.';
+            return __('No activated entitlement snapshot yet.');
         }
 
         return sprintf(
-            '%s · %s · starts from %s',
+            '%s · %s · %s',
             $entitlement->policy_name,
             $entitlement->state->label(),
-            $entitlement->start_trigger->label(),
+            __('starts from :trigger', ['trigger' => $entitlement->start_trigger->label()]),
         );
     }
 

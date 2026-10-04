@@ -95,7 +95,7 @@ final class WarrantyRecoveryActions
                     app(WarrantyRecoveryService::class)->create($record, $data, self::actor());
                     Notification::make()->success()->title(__('Recovery claim created'))->body(__('Submit it when the external claim has been sent.'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title(__('Unable to create recovery claim'))->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to create recovery claim'))->body(__($exception->getMessage()))->send();
                 }
             });
     }
@@ -127,7 +127,7 @@ final class WarrantyRecoveryActions
                     );
                     Notification::make()->success()->title(__('Recovery claim submitted'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title(__('Unable to submit recovery claim'))->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to submit recovery claim'))->body(__($exception->getMessage()))->send();
                 }
             });
     }
@@ -141,7 +141,7 @@ final class WarrantyRecoveryActions
             ->visible(static fn (MaintenanceRecord $record): bool => self::claim($record)?->status === WarrantyRecoveryStatus::Submitted)
             ->schema([
                 Select::make('decision')
-                    ->options(['approved' => 'Approved', 'rejected' => 'Rejected'])
+                    ->options(['approved' => __('Approved'), 'rejected' => __('Rejected')])
                     ->required()
                     ->live()
                     ->native(false),
@@ -176,7 +176,7 @@ final class WarrantyRecoveryActions
 
                     Notification::make()->success()->title(__('Recovery decision recorded'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title(__('Unable to record recovery decision'))->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to record recovery decision'))->body(__($exception->getMessage()))->send();
                 }
             });
     }
@@ -217,7 +217,7 @@ final class WarrantyRecoveryActions
                     app(WarrantyRecoveryService::class)->recordReceipt($claim, $minor, self::actor());
                     Notification::make()->success()->title(__('Recovery receipt recorded'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title(__('Unable to record recovery receipt'))->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to record recovery receipt'))->body(__($exception->getMessage()))->send();
                 }
             });
     }

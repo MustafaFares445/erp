@@ -11,7 +11,11 @@ use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
 use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
+use App\Filament\Resources\MaintenanceRequests\RelationManagers\CalibrationRelationManager;
+use App\Filament\Resources\MaintenanceRequests\RelationManagers\ExternalRepairRelationManager;
+use App\Filament\Resources\MaintenanceRequests\RelationManagers\InstallationRelationManager;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\LabourEntriesRelationManager;
+use App\Filament\Resources\MaintenanceRequests\RelationManagers\LoanRelationManager;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\ServiceRecordsRelationManager;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\ThirdPartyCostsRelationManager;
 use App\Filament\Resources\MaintenanceRequests\Schemas\MaintenanceRequestForm;
@@ -77,6 +81,10 @@ final class MaintenanceRequestResource extends Resource
         return [
             CollaborationEntriesRelationManager::class,
             CustomFieldsRelationManager::class,
+            InstallationRelationManager::class,
+            CalibrationRelationManager::class,
+            LoanRelationManager::class,
+            ExternalRepairRelationManager::class,
             ServiceRecordsRelationManager::class,
             LabourEntriesRelationManager::class,
             ThirdPartyCostsRelationManager::class,
@@ -93,6 +101,9 @@ final class MaintenanceRequestResource extends Resource
                 'serializedInventoryUnit.productVariant:id,name',
                 'scheduleOccurrence.schedule:id,schedule_number',
             ])
+            ->withSum('coverageLines as coverage_total_amount_minor', 'amount_minor')
+            ->withSum('coverageLines as coverage_covered_amount_minor', 'covered_amount_minor')
+            ->withSum('coverageLines as coverage_customer_amount_minor', 'customer_amount_minor')
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }

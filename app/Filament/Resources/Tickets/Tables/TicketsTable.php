@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketPaymentService;
 use App\Services\Support\TicketSlaStateResolver;
+use App\Services\Support\TicketWorkspaceStateResolver;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -57,44 +58,64 @@ final class TicketsTable
             ->defaultSort('created_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
-                TextColumn::make('ticket_number')->label(__('Ticket #'))->badge()->searchable()->sortable(),
-                TextColumn::make('title')->searchable()->limit(40),
+                TextColumn::make('ticket_number')
+                    ->label(__('Ticket'))
+                    ->badge()
+                    ->searchable(['ticket_number', 'title'])
+                    ->sortable()
+                    ->description(static fn (Ticket $record): string => str($record->title)->limit(44)->toString())
+                    ->tooltip(static fn (Ticket $record): string => $record->title),
                 TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
-                TextColumn::make('type')->badge(),
+                TextColumn::make('type')->badge()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('priority')->badge()->color(static fn (TicketPriority $state): string => match ($state) {
                     TicketPriority::Urgent => 'danger',
                     TicketPriority::High => 'warning',
                     TicketPriority::Normal => 'info',
                     TicketPriority::Low => 'gray',
                 }),
-                TextColumn::make('status')
+                TextColumn::make('workspace_stage')
+                    ->label(config('support.workspace_v2_enabled', true) ? __('Stage / status') : __('Status'))
+                    ->getStateUsing(static fn (Ticket $record): string => config('support.workspace_v2_enabled', true)
+                        ? app(TicketWorkspaceStateResolver::class)->resolve($record)->stage->label()
+                        : $record->status->label())
                     ->badge()
-                    ->formatStateUsing(static fn (TicketStatus $state): string => $state->label())
-                    ->color(static fn (TicketStatus $state): string => $state->color()),
+                    ->description(static fn (Ticket $record): ?string => config('support.workspace_v2_enabled', true) ? $record->status->label() : null)
+                    ->color(static fn (Ticket $record): string => config('support.workspace_v2_enabled', true)
+                        ? app(TicketWorkspaceStateResolver::class)->resolve($record)->stage->color()
+                        : $record->status->color()),
                 TextColumn::make('next_action')
                     ->label(__('Next action'))
-                    ->getStateUsing(static fn (Ticket $record): string => self::nextAction($record))
+                    ->getStateUsing(static fn (Ticket $record): string => app(TicketWorkspaceStateResolver::class)->resolve($record)->nextAction)
                     ->wrap(),
                 TextColumn::make('equipment')->label(__('Equipment'))
                     ->getStateUsing(static function (Ticket $record): string {
                         $unit = $record->serializedInventoryUnit;
 
                         if ($unit instanceof SerializedInventoryUnit) {
-                            $product = $unit->productVariant->name ?? 'Equipment';
+                            $product = $unit->productVariant->name ?? __('Equipment');
 
-                            return $product.' · SN '.$unit->serial_number;
+                            return $product.' · '.__('SN :serial', ['serial' => $unit->serial_number]);
                         }
 
-                        return $record->external_equipment_name ?? 'Not triaged';
+                        return $record->external_equipment_name ?? __('Not triaged');
                     })
-                    ->wrap(),
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('warranty_status')
                     ->label(__('Warranty eligibility'))
                     ->badge()
                     ->placeholder(__('Not checked'))
                     ->formatStateUsing(static fn (WarrantyStatus $state): string => $state->label())
-                    ->color(static fn (WarrantyStatus $state): string => $state->color()),
-                TextColumn::make('pending_reason')->label(__('Blocked by'))->placeholder(__('—'))->limit(32),
+                    ->color(static fn (WarrantyStatus $state): string => $state->color())
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('blocked_by')
+                    ->label(__('Blocked by'))
+                    ->getStateUsing(static fn (Ticket $record): string => app(TicketWorkspaceStateResolver::class)->resolve($record)->blocker->label())
+                    ->badge()
+                    ->color(static fn (Ticket $record): string => app(TicketWorkspaceStateResolver::class)->resolve($record)->blocker->color())
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(static fn (): bool => (bool) config('support.workspace_v2_enabled', true)),
+                TextColumn::make('supportTeam.name')->label(__('Team'))->placeholder(__('Unrouted')),
                 TextColumn::make('assignedEmployee.user.name')->label(__('Assignee'))->placeholder(__('Unassigned')),
                 TextColumn::make('sla_state')
                     ->label(__('SLA'))
@@ -236,23 +257,6 @@ final class TicketsTable
             ]);
     }
 
-    private static function nextAction(Ticket $ticket): string
-    {
-        return match ($ticket->status) {
-            TicketStatus::Pending => 'Triage ticket',
-            TicketStatus::PendingPayment => 'Collect diagnostic fee',
-            TicketStatus::Live => 'Assign owner',
-            TicketStatus::Assigned => 'Start work',
-            TicketStatus::InProgress => in_array($ticket->service_path, [TicketServicePath::Maintenance, TicketServicePath::OnSiteVisit], true)
-                ? 'Continue / raise maintenance'
-                : 'Continue remote support',
-            TicketStatus::WaitingCustomer => 'Waiting for customer',
-            TicketStatus::Resolved => 'Review & close',
-            TicketStatus::Closed => 'Complete',
-            TicketStatus::Cancelled => 'Cancelled',
-        };
-    }
-
     /**
      * @param  Builder<Ticket>  $query
      * @return Builder<Ticket>
@@ -312,7 +316,7 @@ final class TicketsTable
         try {
             app(TicketLifecycleService::class)->transition($record, $to, self::currentActor(), $note);
         } catch (ValidationException|DomainException $exception) {
-            Notification::make()->danger()->title(__('Unable to change the ticket status'))->body($exception->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the ticket status'))->body(__($exception->getMessage()))->send();
         }
     }
 
@@ -321,7 +325,7 @@ final class TicketsTable
         try {
             app(TicketLifecycleService::class)->unassign($record, self::currentActor());
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title(__('Unable to unassign this ticket'))->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to unassign this ticket'))->body(__($domainException->getMessage()))->send();
         }
     }
 
@@ -338,7 +342,7 @@ final class TicketsTable
         try {
             app(TicketPaymentService::class)->settle($link, $methodReference, self::currentActor(), $paymentMethodId);
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title(__('Unable to settle payment'))->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to settle payment'))->body(__($domainException->getMessage()))->send();
         }
     }
 

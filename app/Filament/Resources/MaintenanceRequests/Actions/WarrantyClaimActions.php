@@ -80,7 +80,7 @@ final class WarrantyClaimActions
                         ->body(__('Warranty eligibility was not changed. Determine repair coverage as the next step.'))
                         ->send();
                 } catch (ValidationException $validationException) {
-                    Notification::make()->danger()->title(__('Unable to record diagnosis'))->body($validationException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to record diagnosis'))->body(__($validationException->getMessage()))->send();
                 }
             });
     }
@@ -120,7 +120,7 @@ final class WarrantyClaimActions
                             ->content(static fn (MaintenanceRecord $record): string => self::eligibilityText($record)),
                         Placeholder::make('diagnosis')
                             ->label(__('Diagnosis'))
-                            ->content(static fn (MaintenanceRecord $record): string => $record->diagnosis_summary ?? 'Not recorded'),
+                            ->content(static fn (MaintenanceRecord $record): string => $record->diagnosis_summary ?? __('Not recorded')),
                     ]),
                 Section::make(__('Coverage decision'))
                     ->description(__('Decide whether this diagnosed failure is actually covered. Warranty eligibility by itself does not make the repair free.'))
@@ -233,7 +233,7 @@ final class WarrantyClaimActions
                         ->body(__('Customer responsibility and billing options have been recalculated from this decision.'))
                         ->send();
                 } catch (ValidationException $validationException) {
-                    Notification::make()->danger()->title(__('Unable to save coverage decision'))->body($validationException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to save coverage decision'))->body(__($validationException->getMessage()))->send();
                 }
             });
     }
@@ -243,18 +243,18 @@ final class WarrantyClaimActions
         $expiry = $record->warranty_expiry_date?->toDateString();
 
         return match ($record->warranty_status) {
-            WarrantyStatus::Covered => 'Active'.($expiry !== null ? ' until '.$expiry : ''),
-            WarrantyStatus::Expired => 'Expired'.($expiry !== null ? ' on '.$expiry : ''),
-            WarrantyStatus::NotCovered => 'No seller warranty',
-            WarrantyStatus::NotApplicable => 'Seller warranty not applicable',
-            WarrantyStatus::Unknown => 'Needs verification',
+            WarrantyStatus::Covered => $expiry !== null ? __('Active until :date', ['date' => $expiry]) : __('Active'),
+            WarrantyStatus::Expired => $expiry !== null ? __('Expired on :date', ['date' => $expiry]) : __('Expired'),
+            WarrantyStatus::NotCovered => __('No seller warranty'),
+            WarrantyStatus::NotApplicable => __('Seller warranty not applicable'),
+            WarrantyStatus::Unknown => __('Needs verification'),
         };
     }
 
     private static function coverageLineSummary(mixed $rawLines): string
     {
         if (! is_array($rawLines) || $rawLines === []) {
-            return 'No coverage lines yet.';
+            return __('No coverage lines yet.');
         }
 
         $total = 0.0;

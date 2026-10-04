@@ -81,9 +81,9 @@ final class TicketInfolist
                         ->label(__('Service path'))
                         ->badge()
                         ->formatStateUsing(static fn (TicketServicePath $state): string => match ($state) {
-                            TicketServicePath::RemoteSupport => 'Remote support',
-                            TicketServicePath::Maintenance => 'Workshop / maintenance',
-                            TicketServicePath::OnSiteVisit => 'On-site visit',
+                            TicketServicePath::RemoteSupport => __('Remote support'),
+                            TicketServicePath::Maintenance => __('Workshop / maintenance'),
+                            TicketServicePath::OnSiteVisit => __('On-site visit'),
                         }),
                     TextEntry::make('serializedInventoryUnit.productVariant.name')
                         ->label(__('Product'))
@@ -142,8 +142,8 @@ final class TicketInfolist
                     TextEntry::make('resolution_pause')
                         ->label(__('Resolution clock'))
                         ->state(static fn (Ticket $record): string => $record->waiting_customer_since !== null
-                            ? 'Paused — waiting for customer'
-                            : ($record->live_at === null ? 'Not started' : 'Running')),
+                            ? __('Paused — waiting for customer')
+                            : ($record->live_at === null ? __('Not started') : __('Running'))),
                     TextEntry::make('waiting_customer_accumulated_seconds')
                         ->label(__('Total paused time'))
                         ->formatStateUsing(static fn (mixed $state): string => self::formatDuration(is_numeric($state) ? (int) $state : 0)),
@@ -182,17 +182,17 @@ final class TicketInfolist
     private static function nextAction(Ticket $ticket): string
     {
         return match ($ticket->status) {
-            TicketStatus::Pending => 'Triage equipment & route',
-            TicketStatus::PendingPayment => 'Collect diagnostic fee',
-            TicketStatus::Live => 'Assign support owner',
-            TicketStatus::Assigned => 'Start support work',
+            TicketStatus::Pending => __('Triage equipment & route'),
+            TicketStatus::PendingPayment => __('Collect diagnostic fee'),
+            TicketStatus::Live => __('Assign support owner'),
+            TicketStatus::Assigned => __('Start support work'),
             TicketStatus::InProgress => in_array($ticket->service_path, [TicketServicePath::Maintenance, TicketServicePath::OnSiteVisit], true)
-                ? 'Continue support / raise maintenance job'
-                : 'Continue remote support',
-            TicketStatus::WaitingCustomer => 'Waiting for customer response',
-            TicketStatus::Resolved => 'Review and close',
-            TicketStatus::Closed => 'Complete',
-            TicketStatus::Cancelled => 'Cancelled',
+                ? __('Continue support / raise maintenance job')
+                : __('Continue remote support'),
+            TicketStatus::WaitingCustomer => __('Waiting for customer response'),
+            TicketStatus::Resolved => __('Review and close'),
+            TicketStatus::Closed => __('Complete'),
+            TicketStatus::Cancelled => __('Cancelled'),
         };
     }
 
@@ -201,26 +201,30 @@ final class TicketInfolist
         $expiry = $ticket->warranty_expiry_date?->toDateString();
 
         return match ($ticket->warranty_status) {
-            WarrantyStatus::Covered => 'Warranty is active'.($expiry !== null ? ' until '.$expiry : '').'. This does not automatically make the repair free.',
-            WarrantyStatus::Expired => 'Seller warranty expired'.($expiry !== null ? ' on '.$expiry : '').'. Other coverage sources may still apply after diagnosis.',
-            WarrantyStatus::NotCovered => 'No seller warranty is configured for this equipment.',
-            WarrantyStatus::NotApplicable => 'Seller warranty is not applicable to this external equipment.',
-            WarrantyStatus::Unknown => 'Warranty information requires verification.',
-            null => 'Warranty has not been checked yet.',
+            WarrantyStatus::Covered => $expiry !== null
+                ? __('Warranty is active until :date. This does not automatically make the repair free.', ['date' => $expiry])
+                : __('Warranty is active. This does not automatically make the repair free.'),
+            WarrantyStatus::Expired => $expiry !== null
+                ? __('Seller warranty expired on :date. Other coverage sources may still apply after diagnosis.', ['date' => $expiry])
+                : __('Seller warranty expired. Other coverage sources may still apply after diagnosis.'),
+            WarrantyStatus::NotCovered => __('No seller warranty is configured for this equipment.'),
+            WarrantyStatus::NotApplicable => __('Seller warranty is not applicable to this external equipment.'),
+            WarrantyStatus::Unknown => __('Warranty information requires verification.'),
+            null => __('Warranty has not been checked yet.'),
         };
     }
 
     private static function firstResponseState(Ticket $ticket): string
     {
         if ($ticket->first_response_at !== null) {
-            return $ticket->response_breached ? 'Responded — SLA breached' : 'Responded';
+            return $ticket->response_breached ? __('Responded — SLA breached') : __('Responded');
         }
 
         if ($ticket->response_breached) {
-            return 'Overdue';
+            return __('Overdue');
         }
 
-        return 'Awaiting first response';
+        return __('Awaiting first response');
     }
 
     private static function paymentSummary(Ticket $ticket): string
@@ -228,7 +232,7 @@ final class TicketInfolist
         $link = $ticket->paymentLink;
 
         if ($link === null) {
-            return 'Not required';
+            return __('Not required');
         }
 
         return sprintf('%s — %s %s', $link->status->label(), $link->amount, $link->currency);

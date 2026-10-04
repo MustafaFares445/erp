@@ -64,7 +64,7 @@ final class MaintenanceRequestForm
                                     ->get()
                                     ->mapWithKeys(static function (SerializedInventoryUnit $unit): array {
                                         $variant = $unit->productVariant;
-                                        $product = $variant instanceof ProductVariant ? $variant->name : 'Equipment';
+                                        $product = $variant instanceof ProductVariant ? $variant->name : __('Equipment');
 
                                         return [$unit->id => $product.' — '.$unit->serial_number];
                                     })
@@ -84,18 +84,18 @@ final class MaintenanceRequestForm
                             ->label(__('Warranty'))
                             ->content(static function (Get $get): string {
                                 if (is_numeric($get('ticket_id'))) {
-                                    return 'Inherited from the ticket triage decision.';
+                                    return __('Inherited from the ticket triage decision.');
                                 }
 
                                 if (is_numeric($get('serialized_inventory_unit_id'))) {
-                                    return 'Resolved automatically from the selected customer equipment.';
+                                    return __('Resolved automatically from the selected customer equipment.');
                                 }
 
                                 if (filled($get('serial_number'))) {
-                                    return 'Known serials are validated against customer custody; unmatched serials are treated as external equipment.';
+                                    return __('Known serials are validated against customer custody; unmatched serials are treated as external equipment.');
                                 }
 
-                                return 'Select known equipment or enter an external serial number.';
+                                return __('Select known equipment or enter an external serial number.');
                             })
                             ->columnSpanFull(),
                         Textarea::make('description')

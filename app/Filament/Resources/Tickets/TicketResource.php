@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Tickets;
 
+use App\Enums\MaintenanceStatus;
+use App\Enums\QuotationStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\RelationManagers\CustomFieldsRelationManager;
@@ -13,7 +15,6 @@ use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
-use App\Filament\Resources\Tickets\RelationManagers\MessagesRelationManager;
 use App\Filament\Resources\Tickets\Schemas\TicketForm;
 use App\Filament\Resources\Tickets\Schemas\TicketInfolist;
 use App\Filament\Resources\Tickets\Tables\TicketsTable;
@@ -90,11 +91,10 @@ final class TicketResource extends Resource
     public static function getRelations(): array
     {
         return [
-            CollaborationEntriesRelationManager::class,
-            CustomFieldsRelationManager::class,
-            MessagesRelationManager::class,
             AssignmentsRelationManager::class,
             MaintenanceRecordsRelationManager::class,
+            CollaborationEntriesRelationManager::class,
+            CustomFieldsRelationManager::class,
         ];
     }
 
@@ -102,9 +102,22 @@ final class TicketResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->withExists([
+                'maintenanceRecords as has_active_maintenance' => static fn (Builder $query): Builder => $query->whereNotIn('status', [
+                    MaintenanceStatus::Closed->value,
+                    MaintenanceStatus::Cancelled->value,
+                ]),
+                'maintenanceRecords as has_maintenance_quotation_pending' => static fn (Builder $query): Builder => $query
+                    ->where('status', MaintenanceStatus::AwaitingApproval->value)
+                    ->whereHas('quotation', static fn (Builder $quotation): Builder => $quotation->whereIn('status', [
+                        QuotationStatus::Sent->value,
+                        QuotationStatus::ChangesRequested->value,
+                    ])),
+            ])
             ->with([
                 'customer:id,company_name',
                 'assignedEmployee.user:id,name',
+                'supportTeam:id,name',
                 'serializedInventoryUnit.productVariant:id,name',
                 'paymentLink',
                 'triagedBy:id,name',

@@ -39,44 +39,26 @@ final class ListTickets extends ListRecords
     {
         return [
             'all' => Tab::make(__('All'))->icon(Heroicon::OutlinedQueueList),
-            'mine' => Tab::make(__('My tickets'))
+            'mine' => Tab::make(__('My Queue'))
                 ->icon(Heroicon::OutlinedUser)
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->whereHas(
                     'assignedEmployee',
                     static fn (Builder $employee): Builder => $employee->where('user_id', auth()->id()),
                 )),
-            'open' => Tab::make(__('Open'))
-                ->badge(Ticket::query()->whereNotIn('status', [
-                    TicketStatus::Resolved->value,
-                    TicketStatus::Closed->value,
-                    TicketStatus::Cancelled->value,
-                ])->count())
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNotIn('status', [
-                    TicketStatus::Resolved->value,
-                    TicketStatus::Closed->value,
-                    TicketStatus::Cancelled->value,
-                ])),
-            'new' => Tab::make(__('New'))
+            'triage' => Tab::make(__('Needs Triage'))
                 ->badge(Ticket::query()->where('status', TicketStatus::Pending->value)->count())
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::Pending->value)),
-            'pending_payment' => Tab::make(__('Pending Payment'))
-                ->badge(Ticket::query()->where('status', TicketStatus::PendingPayment->value)->count())
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::PendingPayment->value)),
+                ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', TicketStatus::Pending->value)),
             'unassigned' => Tab::make(__('Unassigned'))
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->badge(Ticket::query()->where('status', TicketStatus::Live->value)->whereNull('assigned_employee_id')->count())
+                ->modifyQueryUsing(static fn (Builder $query): Builder => $query
                     ->where('status', TicketStatus::Live->value)
                     ->whereNull('assigned_employee_id')),
-            'in_progress' => Tab::make(__('In Progress'))
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
-                    TicketStatus::Assigned->value,
-                    TicketStatus::InProgress->value,
-                ])),
+            'sla_risk' => Tab::make(__('SLA Risk'))
+                ->modifyQueryUsing(self::slaRiskQuery(...)),
             'waiting_customer' => Tab::make(__('Waiting Customer'))
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::WaitingCustomer->value)),
-            'sla_breached' => Tab::make(__('SLA Breached'))
-                ->modifyQueryUsing(self::slaBreachedQuery(...)),
+                ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', TicketStatus::WaitingCustomer->value)),
             'resolved' => Tab::make(__('Resolved'))
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
+                ->modifyQueryUsing(static fn (Builder $query): Builder => $query->whereIn('status', [
                     TicketStatus::Resolved->value,
                     TicketStatus::Closed->value,
                 ])),
@@ -87,11 +69,21 @@ final class ListTickets extends ListRecords
      * @param  Builder<Ticket>  $query
      * @return Builder<Ticket>
      */
-    private static function slaBreachedQuery(Builder $query): Builder
+    private static function slaRiskQuery(Builder $query): Builder
     {
         return $query->where(function (Builder $query): void {
             $query->where(fn (Builder $query): Builder => $query->responseBreached())
-                ->orWhere(fn (Builder $query): Builder => $query->resolutionBreached());
+                ->orWhere(fn (Builder $query): Builder => $query->resolutionBreached())
+                ->orWhere(function (Builder $query): void {
+                    $query->whereNull('first_response_at')
+                        ->whereNotNull('response_due_at')
+                        ->whereBetween('response_due_at', [now(), now()->addHour()]);
+                })
+                ->orWhere(function (Builder $query): void {
+                    $query->whereNull('resolved_at')
+                        ->whereNotNull('resolution_due_at')
+                        ->whereBetween('resolution_due_at', [now(), now()->addHours(4)]);
+                });
         });
     }
 }

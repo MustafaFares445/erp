@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceRequests\Schemas;
 
-use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
-use App\Enums\QuotationStatus;
 use App\Enums\SupportPermission;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
@@ -19,6 +17,7 @@ use App\Filament\Resources\Quotations\QuotationResource;
 use App\Models\MaintenanceRecord;
 use App\Models\WarrantyRecoveryClaim;
 use App\Services\Support\MaintenanceCostService;
+use App\Services\Support\MaintenanceNextActionResolver;
 use App\Services\Support\WarrantyClaimService;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -53,15 +52,15 @@ final class MaintenanceRequestInfolist
                         ->color(static fn (MaintenanceStatus $state): string => $state->color()),
                     TextEntry::make('next_action')
                         ->label(__('Next action'))
-                        ->state(static fn (MaintenanceRecord $record): string => self::nextAction($record))
+                        ->state(static fn (MaintenanceRecord $record): string => app(MaintenanceNextActionResolver::class)->resolve($record))
                         ->badge()
                         ->color('primary'),
                     TextEntry::make('source')
                         ->label(__('Source'))
                         ->state(static fn (MaintenanceRecord $record): string => match (true) {
-                            $record->ticket_id !== null => 'Ticket',
-                            $record->scheduleOccurrence !== null => 'Preventive schedule',
-                            default => 'Manual',
+                            $record->ticket_id !== null => __('Ticket'),
+                            $record->scheduleOccurrence !== null => __('Preventive schedule'),
+                            default => __('Manual'),
                         })
                         ->badge(),
                     TextEntry::make('customer.company_name')->label(__('Customer')),
@@ -78,7 +77,7 @@ final class MaintenanceRequestInfolist
                     TextEntry::make('serial_number')->label(__('Serial number'))->placeholder(__('—')),
                     TextEntry::make('is_equipment_unlinked')
                         ->label(__('Equipment status'))
-                        ->formatStateUsing(static fn (bool $state): string => $state ? 'External / unlinked' : 'Known equipment')
+                        ->formatStateUsing(static fn (bool $state): string => $state ? __('External / unlinked') : __('Known equipment'))
                         ->badge()
                         ->color(static fn (bool $state): string => $state ? 'warning' : 'success'),
                     TextEntry::make('warranty_status')
@@ -118,7 +117,7 @@ final class MaintenanceRequestInfolist
                         ->color(static fn (WarrantyClaimDecision $state): string => $state->color()),
                     TextEntry::make('coverage_source')
                         ->label(__('Coverage source'))
-                        ->formatStateUsing(static fn (?WarrantyCoverageSource $state): string => $state?->label() ?? 'Not decided')
+                        ->formatStateUsing(static fn (?WarrantyCoverageSource $state): string => $state?->label() ?? __('Not decided'))
                         ->badge(),
                     TextEntry::make('coverage_decided_at')->label(__('Decided at'))->dateTime()->placeholder(__('—')),
                     TextEntry::make('coverage_reason')->label(__('Internal decision reason'))->placeholder(__('—'))->columnSpanFull(),
@@ -170,7 +169,7 @@ final class MaintenanceRequestInfolist
                         ->label(__('Recovery status'))
                         ->badge()
                         ->placeholder(__('Claim not created'))
-                        ->formatStateUsing(static fn (?WarrantyRecoveryStatus $state): string => $state?->label() ?? 'Claim not created')
+                        ->formatStateUsing(static fn (?WarrantyRecoveryStatus $state): string => $state?->label() ?? __('Claim not created'))
                         ->color(static fn (?WarrantyRecoveryStatus $state): string => $state?->color() ?? 'gray'),
                     TextEntry::make('warrantyRecoveryClaim.coverage_source')
                         ->label(__('Recovery source'))
@@ -228,67 +227,18 @@ final class MaintenanceRequestInfolist
         ]);
     }
 
-    private static function nextAction(MaintenanceRecord $record): string
-    {
-        return match ($record->status) {
-            MaintenanceStatus::Open => 'Record diagnosis',
-            MaintenanceStatus::Diagnosing => 'Determine coverage',
-            MaintenanceStatus::AwaitingApproval => self::approvalNextAction($record),
-            MaintenanceStatus::ReadyForRepair => 'Start repair',
-            MaintenanceStatus::InProgress => 'Complete work and send to QA',
-            MaintenanceStatus::QualityAssurance => 'QA check and complete',
-            MaintenanceStatus::Closed => self::closedNextAction($record),
-            MaintenanceStatus::Cancelled => 'No action — cancelled',
-        };
-    }
-
-    private static function approvalNextAction(MaintenanceRecord $record): string
-    {
-        $customerAmount = (int) $record->coverageLines()->sum('customer_amount_minor');
-
-        if ($customerAmount <= 0) {
-            return 'Confirm customer approval';
-        }
-
-        if ($record->quotation_id === null) {
-            return 'Create customer quotation';
-        }
-
-        $record->loadMissing('quotation');
-
-        return $record->quotation?->status === QuotationStatus::Accepted
-            ? 'Customer accepted — mark ready for repair'
-            : 'Waiting for customer quotation approval';
-    }
-
-    private static function closedNextAction(MaintenanceRecord $record): string
-    {
-        if ($record->billing_type !== MaintenanceBillingType::Unbilled
-            && $record->billing_type !== MaintenanceBillingType::Quoted) {
-            return 'Commercial follow-up complete';
-        }
-
-        return match ($record->coverage_decision) {
-            WarrantyClaimDecision::FullyCovered,
-            WarrantyClaimDecision::Goodwill,
-            WarrantyClaimDecision::ThirdPartyWarranty,
-            WarrantyClaimDecision::ServiceContract => 'Settle covered repair',
-            WarrantyClaimDecision::PartiallyCovered,
-            WarrantyClaimDecision::Rejected => 'Create final customer invoice',
-            WarrantyClaimDecision::PendingDiagnosis => 'Review billing',
-        };
-    }
-
     private static function warrantyGuidance(MaintenanceRecord $record): string
     {
         $expiry = $record->warranty_expiry_date?->toDateString();
 
         return match ($record->warranty_status) {
-            WarrantyStatus::Covered => 'Warranty is active'.($expiry !== null ? ' until '.$expiry : '').'. Coverage for this failure still depends on diagnosis.',
-            WarrantyStatus::Expired => 'The seller warranty has expired. Goodwill, service-contract, manufacturer or supplier coverage may still apply.',
-            WarrantyStatus::NotCovered => 'No seller warranty is configured for this equipment.',
-            WarrantyStatus::NotApplicable => 'Seller warranty does not apply to this external/unlinked equipment.',
-            WarrantyStatus::Unknown => 'Warranty data needs verification before seller-warranty coverage can be approved.',
+            WarrantyStatus::Covered => $expiry !== null
+                ? __('Warranty is active until :date. Coverage for this failure still depends on diagnosis.', ['date' => $expiry])
+                : __('Warranty is active. Coverage for this failure still depends on diagnosis.'),
+            WarrantyStatus::Expired => __('The seller warranty has expired. Goodwill, service-contract, manufacturer or supplier coverage may still apply.'),
+            WarrantyStatus::NotCovered => __('No seller warranty is configured for this equipment.'),
+            WarrantyStatus::NotApplicable => __('Seller warranty does not apply to this external/unlinked equipment.'),
+            WarrantyStatus::Unknown => __('Warranty data needs verification before seller-warranty coverage can be approved.'),
         };
     }
 

@@ -55,7 +55,7 @@ final class MaintenanceBillingActions
                     app(MaintenanceBillingService::class)->settleCoverage($record, self::currentActor(), $reason);
                     Notification::make()->success()->title(__('Covered repair settled'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title(__('Unable to settle covered repair'))->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to settle covered repair'))->body(__($exception->getMessage()))->send();
                 }
             });
     }
@@ -74,7 +74,7 @@ final class MaintenanceBillingActions
                     app(MaintenanceBillingService::class)->createQuotation($record, self::currentActor());
                     Notification::make()->success()->title(__('Quotation created'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title(__('Unable to create the quotation'))->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to create the quotation'))->body(__($exception->getMessage()))->send();
                 }
             });
     }
@@ -132,7 +132,7 @@ final class MaintenanceBillingActions
                     app(MaintenanceBillingService::class)->createInvoice($record, self::currentActor());
                     Notification::make()->success()->title(__('Invoice created'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title(__('Unable to create the invoice'))->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to create the invoice'))->body(__($exception->getMessage()))->send();
                 }
             });
     }
@@ -159,7 +159,7 @@ final class MaintenanceBillingActions
                     app(MaintenanceBillingService::class)->reclassifyWarrantyForBilling($record, self::currentActor(), $reason);
                     Notification::make()->success()->title(__('Warranty billing reclassified'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title(__('Unable to reclassify warranty billing'))->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to reclassify warranty billing'))->body(__($domainException->getMessage()))->send();
                 }
             });
     }
