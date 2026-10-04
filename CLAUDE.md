@@ -31,9 +31,15 @@ When Laravel Boost tools are available:
 
 ## Verification
 
-Run focused tests during iteration.
+Before selecting a test scope, read/use:
 
-Before completion, follow `Docs/onboarding/TESTING_AND_QUALITY.md` and the applicable Composer/CI gates.
+```text
+.agents/skills/ierp-test-selection/SKILL.md
+```
+
+During iteration, run the exact regression test first. Before completion, run the owning domain suite and escalate according to risk/cross-domain impact. `composer test:fast` is the broad local regression path without coverage; the expensive `composer test` / coverage gate is not required after every small edit but remains authoritative for full verification and CI.
+
+Use the generic `pest-testing` skill for Pest syntax and `test-guard` to review test changes.
 
 If PHP files are modified, apply the repository's Pint/Rector conventions without formatting unrelated user work.
 

@@ -43,9 +43,27 @@ Key requirements:
 - Do not discard or rewrite unrelated working-tree changes.
 - Update canonical documentation when a business invariant, lifecycle, permission, cross-domain effect, public/mobile contract or operational requirement changes.
 
+## Test Selection for Agents
+
+Before choosing tests for any code change, use the project skill:
+
+```text
+.agents/skills/ierp-test-selection/SKILL.md
+```
+
+Use the generic `pest-testing` skill for Pest syntax, and `test-guard` after writing or editing tests.
+
+Agents must run the smallest exact regression while iterating, then the owning domain suite before completion. Escalate to `composer test:fast`, MySQL acceptance, or the full Composer/coverage gate only when the change scope/risk requires it. Do not run the entire coverage gate after every small edit.
+
 ## Quality Gates
 
 See `Docs/onboarding/TESTING_AND_QUALITY.md`.
+
+Fast broad local regression:
+
+```bash
+composer test:fast
+```
 
 The full project gate is:
 
@@ -53,7 +71,7 @@ The full project gate is:
 composer test
 ```
 
-Current CI requires 100% type coverage and 100% code coverage.
+Current CI requires 100% type coverage and 100% code coverage. The full gate remains authoritative even though focused/domain tests are preferred during iteration.
 
 ## Architecture Non-Negotiables
 
