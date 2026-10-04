@@ -13,15 +13,17 @@
 
         @forelse (collect($this->cards())->groupBy('group') as $group => $cards)
             <section class="space-y-3">
-                <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <h2 class="ierp-eyebrow">
                     {{ __($group) }}
                 </h2>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     @foreach ($cards as $card)
-                        <a href="{{ $card['url'] }}" class="block rounded-xl border border-gray-200 p-4 transition hover:border-primary-400 hover:shadow-sm dark:border-white/10">
+                        <a href="{{ $card['url'] }}" class="ierp-card-link">
                             <div class="flex items-center gap-3">
-                                <x-filament::icon :icon="$card['icon']" class="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                                <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-500/15 dark:text-primary-400">
+                                    <x-filament::icon :icon="$card['icon']" class="size-5" />
+                                </span>
                                 <span class="font-semibold">{{ $card['label'] }}</span>
                             </div>
                             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $card['description'] }}</p>

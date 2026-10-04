@@ -7,13 +7,17 @@
                     <p class="text-sm text-gray-500">Tax follows collection, not issuance: deferred tax charged on issued invoices only becomes payable once collected.</p>
                 </div>
                 <div class="flex items-end gap-3">
-                    <label class="text-sm font-medium">
+                    <label class="ierp-label grid gap-1.5">
                         From
-                        <input type="date" wire:model.live="from" class="fi-input mt-1 block rounded-lg border-gray-300" />
+                        <x-filament::input.wrapper>
+                            <x-filament::input type="date" wire:model.live="from" />
+                        </x-filament::input.wrapper>
                     </label>
-                    <label class="text-sm font-medium">
+                    <label class="ierp-label grid gap-1.5">
                         To
-                        <input type="date" wire:model.live="to" class="fi-input mt-1 block rounded-lg border-gray-300" />
+                        <x-filament::input.wrapper>
+                            <x-filament::input type="date" wire:model.live="to" />
+                        </x-filament::input.wrapper>
                     </label>
                 </div>
             </div>
@@ -28,8 +32,8 @@
                 'Net position' => $summary['net_position'] ?? '0.00',
             ] as $label => $amount)
                 <x-filament::section>
-                    <p class="text-sm text-gray-500">{{ $label }}</p>
-                    <p class="mt-1 text-2xl font-semibold">{{ number_format((float) $amount, 2) }}</p>
+                    <p class="ierp-metric-label">{{ $label }}</p>
+                        <p class="ierp-metric-value mt-1">{{ number_format((float) $amount, 2) }}</p>
                 </x-filament::section>
             @endforeach
         </div>
@@ -40,23 +44,23 @@
                 <p class="text-sm text-gray-500">Each tax account's register-derived movement compared to its actual ledger movement. A nonzero difference means a posting bypassed the canonical document flows.</p>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
+                <table class="ierp-table">
                     <thead>
-                        <tr class="border-b text-gray-500">
-                            <th class="px-3 py-2">Account</th>
-                            <th class="px-3 py-2">Register</th>
-                            <th class="px-3 py-2">Journal</th>
-                            <th class="px-3 py-2">Difference</th>
+                        <tr>
+                            <th>Account</th>
+                            <th>Register</th>
+                            <th>Journal</th>
+                            <th>Difference</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach(($reconciliation ?? []) as $account => $figures)
-                            <tr class="border-b">
-                                <td class="px-3 py-2 capitalize">{{ $account }}</td>
-                                <td class="px-3 py-2">{{ number_format((float) $figures['register'], 2) }}</td>
-                                <td class="px-3 py-2">{{ number_format((float) $figures['journal'], 2) }}</td>
-                                <td class="px-3 py-2">
-                                    <span class="rounded-full px-3 py-1 text-sm font-medium {{ $figures['difference'] === '0.00' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700' }}">
+                            <tr>
+                                <td class="capitalize">{{ $account }}</td>
+                                <td>{{ number_format((float) $figures['register'], 2) }}</td>
+                                <td>{{ number_format((float) $figures['journal'], 2) }}</td>
+                                <td>
+                                    <span class="ierp-status" data-tone="{{ $figures['difference'] === '0.00' ? 'success' : 'danger' }}">
                                         {{ $figures['difference'] === '0.00' ? 'Reconciled' : 'Difference: '.number_format((float) $figures['difference'], 2) }}
                                     </span>
                                 </td>
@@ -80,32 +84,32 @@
                 </div>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
+                <table class="ierp-table">
                     <thead>
-                        <tr class="border-b text-gray-500">
-                            <th class="px-3 py-2">Date</th>
-                            <th class="px-3 py-2">Direction</th>
-                            <th class="px-3 py-2">Tax type</th>
-                            <th class="px-3 py-2">Amount</th>
-                            <th class="px-3 py-2">Document</th>
-                            <th class="px-3 py-2">Invoice</th>
+                        <tr>
+                            <th>Date</th>
+                            <th>Direction</th>
+                            <th>Tax type</th>
+                            <th>Amount</th>
+                            <th>Document</th>
+                            <th>Invoice</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse(($entries ?? []) as $entry)
-                            <tr class="border-b">
-                                <td class="px-3 py-2">{{ $entry['tax_date'] }}</td>
-                                <td class="px-3 py-2"><span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium">{{ $entry['direction'] }}</span></td>
-                                <td class="px-3 py-2">{{ $entry['tax_type'] }}</td>
-                                <td class="px-3 py-2">{{ number_format((float) $entry['tax_amount'], 2) }}</td>
-                                <td class="px-3 py-2">
+                            <tr>
+                                <td>{{ $entry['tax_date'] }}</td>
+                                <td><span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium">{{ $entry['direction'] }}</span></td>
+                                <td>{{ $entry['tax_type'] }}</td>
+                                <td>{{ number_format((float) $entry['tax_amount'], 2) }}</td>
+                                <td>
                                     @if($entry['document_url'] !== null)
                                         <a href="{{ $entry['document_url'] }}" class="text-primary-600 hover:underline">{{ $entry['document_label'] }}</a>
                                     @else
                                         {{ $entry['document_label'] }}
                                     @endif
                                 </td>
-                                <td class="px-3 py-2">
+                                <td>
                                     @if($entry['invoice_url'] !== null)
                                         <a href="{{ $entry['invoice_url'] }}" class="text-primary-600 hover:underline">#{{ $entry['id'] }}</a>
                                     @endif
@@ -113,7 +117,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-3 py-6 text-center text-gray-500">No tax entries in this period.</td>
+                                <td colspan="6" class="py-6 text-center text-gray-500">No tax entries in this period.</td>
                             </tr>
                         @endforelse
                     </tbody>

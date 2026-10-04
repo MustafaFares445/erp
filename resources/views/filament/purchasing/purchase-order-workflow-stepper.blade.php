@@ -1,37 +1,34 @@
-<div class="w-full overflow-x-auto py-1">
-    <div class="flex min-w-[760px] items-start gap-0">
+<div class="w-full">
+    <ol class="ierp-stepper" role="list">
         @foreach ($steps as $index => $step)
-            <div class="flex min-w-0 flex-1 items-start">
-                <div class="flex min-w-[88px] flex-col items-center text-center">
-                    <div @class([
-                        'flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold',
-                        'border-success-500 bg-success-500 text-white' => $step['state'] === 'done',
-                        'border-primary-500 bg-primary-500 text-white ring-4 ring-primary-500/15' => $step['state'] === 'current',
-                        'border-gray-300 bg-white text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400' => $step['state'] === 'pending',
-                    ])>
-                        @if ($step['state'] === 'done')
-                            ✓
-                        @else
-                            {{ $index + 1 }}
-                        @endif
-                    </div>
-                    <div @class([
-                        'mt-2 text-xs font-medium',
-                        'text-success-600 dark:text-success-400' => $step['state'] === 'done',
-                        'text-primary-600 dark:text-primary-400' => $step['state'] === 'current',
-                        'text-gray-500 dark:text-gray-400' => $step['state'] === 'pending',
-                    ])>
-                        {{ $step['label'] }}
-                    </div>
-                </div>
-                @if (! $loop->last)
-                    <div @class([
-                        'mt-4 h-0.5 flex-1',
-                        'bg-success-500' => $step['state'] === 'done',
-                        'bg-gray-200 dark:bg-gray-700' => $step['state'] !== 'done',
-                    ])></div>
-                @endif
-            </div>
+            @php
+                $state = match ($step['state']) {
+                    'done' => 'completed',
+                    'current' => 'current',
+                    default => 'upcoming',
+                };
+            @endphp
+
+            <li class="ierp-stepper-step" data-state="{{ $state }}" @if ($state === 'current') aria-current="step" @endif>
+                <span class="ierp-stepper-marker" aria-hidden="true">
+                    @if ($state === 'completed')
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7" /></svg>
+                    @else
+                        {{ $index + 1 }}
+                    @endif
+                </span>
+
+                <span class="ierp-stepper-label">
+                    {{ $step['label'] }}
+                    <span class="sr-only">
+                        — {{ match ($state) {
+                            'completed' => __('Completed'),
+                            'current' => __('Current step'),
+                            default => __('Upcoming'),
+                        } }}
+                    </span>
+                </span>
+            </li>
         @endforeach
-    </div>
+    </ol>
 </div>

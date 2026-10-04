@@ -11,12 +11,13 @@
 @endphp
 
 {{--
-    Wide screens have room for every module as its own tab. Below `lg` there isn't room for 7+
-    tabs next to the sidebar toggle, search and user menu, so we collapse the switcher into a
-    single dropdown trigger (the same `<x-filament::dropdown>` Filament itself uses for grouped
-    topbar navigation) instead of forcing the tab strip into a horizontally scrollable row.
+    Wide screens have room for every module as its own tab. Below 90rem (1440px) there isn't room
+    for 9 tabs next to the logo, search and user menu, so we collapse the switcher into a single
+    dropdown trigger (the same `<x-filament::dropdown>` Filament itself uses for grouped topbar
+    navigation) instead of forcing the tab strip into a horizontally scrollable row. Which of the
+    two lists is visible is decided in resources/css/filament/admin/shell.css.
 --}}
-<ul class="fi-topbar-nav-groups app-module-switcher hidden lg:flex">
+<ul class="fi-topbar-nav-groups app-module-switcher">
     @foreach ($groups as $group)
         <x-filament-panels::topbar.item
             :active="$activeKey === $group['key']"
@@ -28,7 +29,7 @@
     @endforeach
 </ul>
 
-<ul class="fi-topbar-nav-groups app-module-switcher-compact flex lg:hidden">
+<ul class="fi-topbar-nav-groups app-module-switcher-compact">
     <x-filament::dropdown placement="bottom-start" teleport>
         <x-slot name="trigger">
             <x-filament-panels::topbar.item :active="true" :icon="$activeGroup['icon'] ?? null">

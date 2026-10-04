@@ -95,9 +95,9 @@
                                     type="button"
                                     x-on:click="previewFormat = @js($format['channel'])"
                                     x-bind:class="previewFormat === @js($format['channel'])
-                                        ? 'bg-gray-100 text-primary-600 dark:bg-white/10 dark:text-primary-400'
+                                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'
                                         : 'text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5'"
-                                    class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-gray-950/10 transition dark:ring-white/10"
+                                    class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-gray-200 transition dark:ring-white/10"
                                 >
                                     {{ $format['label'] }}
                                 </button>
@@ -112,8 +112,8 @@
                             dir="{{ $section['rtl'] ? 'rtl' : 'ltr' }}"
                         >
                             @if ($section['channel'] === 'mail')
-                                <div class="overflow-hidden rounded-lg bg-white ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
-                                    <div class="flex items-center gap-2 border-b border-gray-950/5 px-4 py-2 text-xs text-gray-500 dark:border-white/10 dark:text-gray-400">
+                                <div class="ierp-tile overflow-hidden p-0">
+                                    <div class="flex items-center gap-2 border-b border-gray-200 px-4 py-2 text-xs text-gray-500 dark:border-white/10 dark:text-gray-400">
                                         <x-filament::icon icon="heroicon-o-envelope" class="h-4 w-4" />
                                         <span>{{ $config['texts']['email_hint'] }}</span>
                                     </div>
@@ -123,7 +123,7 @@
                                     </div>
                                 </div>
                             @else
-                                <div class="flex items-start gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
+                                <div class="ierp-tile flex items-start gap-3">
                                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-400/10 dark:text-primary-400">
                                         <x-filament::icon icon="heroicon-o-bell" class="h-4 w-4" />
                                     </span>

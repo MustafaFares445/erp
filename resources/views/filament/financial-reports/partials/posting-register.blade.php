@@ -3,7 +3,7 @@
 
 <div class="space-y-6">
     @forelse ($report as $entry)
-        <div class="border border-gray-200 rounded-lg p-4 dark:border-gray-700">
+        <div class="ierp-tile">
             <div class="mb-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-5">
                 <div><span class="text-gray-500 dark:text-gray-400">{{ __('admin.accounting.reports.columns.entry_number') }}:</span> {{ $entry['entryNumber'] }}</div>
                 <div><span class="text-gray-500 dark:text-gray-400">{{ __('admin.accounting.reports.columns.entry_date') }}:</span> {{ $entry['entryDate'] }}</div>
@@ -24,22 +24,22 @@
             @endif
 
             <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+                <table class="ierp-table">
                     <thead>
-                        <tr class="text-left text-gray-500 dark:text-gray-400">
-                            <th class="py-1 pr-4">{{ __('admin.accounting.reports.columns.account_code') }}</th>
-                            <th class="py-1 pr-4">{{ __('admin.accounting.reports.columns.account_name') }}</th>
-                            <th class="py-1 pr-4 text-right">{{ __('admin.accounting.reports.columns.debit') }}</th>
-                            <th class="py-1 text-right">{{ __('admin.accounting.reports.columns.credit') }}</th>
+                        <tr>
+                            <th>{{ __('admin.accounting.reports.columns.account_code') }}</th>
+                            <th>{{ __('admin.accounting.reports.columns.account_name') }}</th>
+                            <th class="ierp-table-num">{{ __('admin.accounting.reports.columns.debit') }}</th>
+                            <th class="ierp-table-num">{{ __('admin.accounting.reports.columns.credit') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($entry['lines'] as $line)
-                            <tr class="border-t border-gray-100 dark:border-gray-800">
-                                <td class="py-1 pr-4">{{ $line['accountCode'] }}</td>
-                                <td class="py-1 pr-4">{{ $line['accountName'] }}</td>
-                                <td class="py-1 pr-4 text-right">{{ $line['debit'] }}</td>
-                                <td class="py-1 text-right">{{ $line['credit'] }}</td>
+                            <tr>
+                                <td>{{ $line['accountCode'] }}</td>
+                                <td>{{ $line['accountName'] }}</td>
+                                <td class="ierp-table-num">{{ $line['debit'] }}</td>
+                                <td class="ierp-table-num">{{ $line['credit'] }}</td>
                             </tr>
                         @endforeach
                     </tbody>

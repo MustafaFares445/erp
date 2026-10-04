@@ -2,16 +2,13 @@
     @php($mappableRoutes = collect($routes)->filter(fn (array $route): bool => $route['map_x'] !== null && $route['map_y'] !== null))
 
     @if($mappableRoutes->isNotEmpty())
-        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
-            <div class="flex flex-col gap-3 border-b border-gray-100 bg-gradient-to-r from-primary-50 to-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:from-primary-500/10 dark:to-gray-900">
+        <section class="ierp-card overflow-hidden p-0">
+            <div class="flex flex-col gap-3 border-b border-gray-200 bg-primary-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-primary-500/10">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700 dark:text-primary-300">Delivery plan</p>
+                    <p class="ierp-eyebrow text-primary-700 dark:text-primary-300">Delivery plan</p>
                     <h3 class="mt-1 text-base font-semibold text-gray-950 dark:text-white">Warehouse routes to {{ $customer->company_name }}</h3>
                 </div>
-                <div class="inline-flex items-center gap-2 self-start rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 sm:self-auto dark:bg-white/10 dark:text-gray-200 dark:ring-white/10">
-                    <span class="inline-block size-2.5 rounded-full bg-primary-600"></span>
-                    Customer destination
-                </div>
+                <span class="ierp-status self-start sm:self-auto" data-tone="primary">Customer destination</span>
             </div>
 
             <div class="p-4 sm:p-5">
@@ -55,20 +52,23 @@
             </div>
         </section>
     @else
-        <div class="rounded-2xl border border-warning-300 bg-warning-50 p-5 text-sm text-warning-800 shadow-sm dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-200">
-            <p class="font-semibold">Map preview is not ready yet</p>
-            <p class="mt-1">Add map coordinates to the customer and each selected warehouse to display delivery routes and estimates.</p>
+        <div class="ierp-alert" data-tone="warning">
+            <x-filament::icon icon="heroicon-m-exclamation-triangle" class="ierp-alert-icon" />
+            <div>
+                <p class="font-semibold">Map preview is not ready yet</p>
+                <p class="mt-1">Add map coordinates to the customer and each selected warehouse to display delivery routes and estimates.</p>
+            </div>
         </div>
     @endif
 
     <div class="grid gap-4 lg:grid-cols-2">
         @foreach($routes as $route)
-            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-gray-900">
+            <section class="ierp-card overflow-hidden p-0">
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex min-w-0 items-start gap-3 px-5 pt-5">
                         <span class="mt-1 inline-block size-3 shrink-0 rounded-full ring-4 ring-gray-100 dark:ring-white/10" style="background-color: {{ $route['color'] }}"></span>
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Shipment source</p>
+                            <p class="ierp-eyebrow">Shipment source</p>
                             <h3 class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $route['warehouse_name'] }}</h3>
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $route['warehouse_address'] ?? 'Warehouse address not recorded' }}</p>
                         </div>

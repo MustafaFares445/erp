@@ -128,14 +128,14 @@
 
             @forelse ($groupedEvents as $dateLabel => $events)
                 <div class="mb-4">
-                    <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{{ $dateLabel }}</p>
+                    <p class="ierp-eyebrow mb-2">{{ $dateLabel }}</p>
 
                     @foreach ($events as $event)
                         @include('filament.partials.customer-timeline-event', ['event' => $event])
                     @endforeach
                 </div>
             @empty
-                <p class="py-3 text-gray-400">Nothing to show in this range.</p>
+                <div class="ierp-empty">Nothing to show in this range.</div>
             @endforelse
 
             <div class="mt-4">

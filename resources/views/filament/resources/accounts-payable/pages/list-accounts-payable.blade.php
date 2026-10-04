@@ -6,10 +6,12 @@
                     <h2 class="text-lg font-semibold">Payable aging</h2>
                     <p class="text-sm text-gray-500">Computed from approved supplier bills and expenses as of the selected date.</p>
                 </div>
-                <label class="text-sm font-medium">
-                    As of
-                    <input type="date" wire:model.live="asOf" class="fi-input mt-1 block rounded-lg border-gray-300" />
-                </label>
+                <label class="ierp-label grid gap-1.5">
+                        As of
+                        <x-filament::input.wrapper>
+                            <x-filament::input type="date" wire:model.live="asOf" />
+                        </x-filament::input.wrapper>
+                    </label>
             </div>
         </x-filament::section>
 
@@ -22,8 +24,8 @@
                     'Payable control account' => $summary['control_account_minor'],
                 ] as $label => $minor)
                     <x-filament::section>
-                        <p class="text-sm text-gray-500">{{ $label }}</p>
-                        <p class="mt-1 text-2xl font-semibold">{{ number_format($minor / 100, 2) }}</p>
+                        <p class="ierp-metric-label">{{ $label }}</p>
+                        <p class="ierp-metric-value mt-1">{{ number_format($minor / 100, 2) }}</p>
                     </x-filament::section>
                 @endforeach
             </div>
@@ -34,7 +36,7 @@
                         <h2 class="text-lg font-semibold">Tie-out proof</h2>
                         <p class="text-sm text-gray-500">Subledger outstanding minus payable control account.</p>
                     </div>
-                    <span class="rounded-full px-3 py-1 text-sm font-medium {{ $summary['is_reconciled'] ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700' }}">
+                    <span class="ierp-status" data-tone="{{ $summary['is_reconciled'] ? 'success' : 'danger' }}">
                         {{ $summary['is_reconciled'] ? 'Reconciled' : 'Difference: '.number_format($summary['tie_out_difference_minor'] / 100, 2) }}
                     </span>
                 </div>
@@ -42,45 +44,45 @@
 
             <x-filament::section>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
+                    <table class="ierp-table">
                         <thead>
-                            <tr class="border-b text-gray-500">
-                                <th class="px-3 py-2">Supplier</th>
-                                <th class="px-3 py-2">Billed</th>
-                                <th class="px-3 py-2">Paid</th>
-                                <th class="px-3 py-2">Outstanding</th>
-                                <th class="px-3 py-2">Current</th>
-                                <th class="px-3 py-2">1–30</th>
-                                <th class="px-3 py-2">31–60</th>
-                                <th class="px-3 py-2">61–90</th>
-                                <th class="px-3 py-2">Over 90</th>
-                                <th class="px-3 py-2"></th>
+                            <tr>
+                                <th>Supplier</th>
+                                <th>Billed</th>
+                                <th>Paid</th>
+                                <th>Outstanding</th>
+                                <th>Current</th>
+                                <th>1–30</th>
+                                <th>31–60</th>
+                                <th>61–90</th>
+                                <th>Over 90</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($summary['suppliers'] as $supplier)
-                                <tr class="border-b">
-                                    <td class="px-3 py-2">
+                                <tr>
+                                    <td>
                                         {{ $supplier['supplier_name'] }}
                                         @if($supplier['supplier_deleted'])
                                             <span class="text-xs text-danger-600">(deleted)</span>
                                         @endif
                                     </td>
-                                    <td class="px-3 py-2">{{ number_format($supplier['billed_minor'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2">{{ number_format($supplier['paid_minor'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2 font-medium">{{ number_format($supplier['outstanding_minor'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2">{{ number_format($supplier['buckets']['current'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2">{{ number_format($supplier['buckets']['1_30'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2">{{ number_format($supplier['buckets']['31_60'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2">{{ number_format($supplier['buckets']['61_90'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2">{{ number_format($supplier['buckets']['over_90'] / 100, 2) }}</td>
-                                    <td class="px-3 py-2">
+                                    <td>{{ number_format($supplier['billed_minor'] / 100, 2) }}</td>
+                                    <td>{{ number_format($supplier['paid_minor'] / 100, 2) }}</td>
+                                    <td class="font-medium">{{ number_format($supplier['outstanding_minor'] / 100, 2) }}</td>
+                                    <td>{{ number_format($supplier['buckets']['current'] / 100, 2) }}</td>
+                                    <td>{{ number_format($supplier['buckets']['1_30'] / 100, 2) }}</td>
+                                    <td>{{ number_format($supplier['buckets']['31_60'] / 100, 2) }}</td>
+                                    <td>{{ number_format($supplier['buckets']['61_90'] / 100, 2) }}</td>
+                                    <td>{{ number_format($supplier['buckets']['over_90'] / 100, 2) }}</td>
+                                    <td>
                                         <button type="button" wire:click="showSupplier({{ $supplier['supplier_id'] }})" class="text-primary-600 hover:underline">View detail</button>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="10" class="px-3 py-6 text-center text-gray-500">No outstanding payables.</td>
+                                    <td colspan="10" class="py-6 text-center text-gray-500">No outstanding payables.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -101,25 +103,25 @@
                         </div>
                     </div>
                     <div class="mt-4 overflow-x-auto">
-                        <table class="w-full text-left text-sm">
+                        <table class="ierp-table">
                             <thead>
-                                <tr class="border-b text-gray-500">
-                                    <th class="px-3 py-2">Type</th>
-                                    <th class="px-3 py-2">Number</th>
-                                    <th class="px-3 py-2">Supplier reference</th>
-                                    <th class="px-3 py-2">Date</th>
-                                    <th class="px-3 py-2">Due date</th>
-                                    <th class="px-3 py-2">Days overdue</th>
-                                    <th class="px-3 py-2">Total</th>
-                                    <th class="px-3 py-2">Paid</th>
-                                    <th class="px-3 py-2">Remaining</th>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Number</th>
+                                    <th>Supplier reference</th>
+                                    <th>Date</th>
+                                    <th>Due date</th>
+                                    <th>Days overdue</th>
+                                    <th>Total</th>
+                                    <th>Paid</th>
+                                    <th>Remaining</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($detail['documents'] ?? [] as $document)
-                                    <tr class="border-b">
-                                        <td class="px-3 py-2">{{ ucfirst($document['type']) }}</td>
-                                        <td class="px-3 py-2">
+                                    <tr>
+                                        <td>{{ ucfirst($document['type']) }}</td>
+                                        <td>
                                             @php($documentUrl = $this->documentUrl((string) $document['type'], (int) $document['document_id']))
                                             @if($documentUrl)
                                                 <a href="{{ $documentUrl }}" class="font-medium text-primary-600 hover:underline">{{ $document['number'] }}</a>
@@ -127,13 +129,13 @@
                                                 {{ $document['number'] }}
                                             @endif
                                         </td>
-                                        <td class="px-3 py-2">{{ $document['supplier_reference'] ?? '—' }}</td>
-                                        <td class="px-3 py-2">{{ $document['date'] }}</td>
-                                        <td class="px-3 py-2">{{ $document['due_date'] }}</td>
-                                        <td class="px-3 py-2">{{ $document['days_overdue'] }}</td>
-                                        <td class="px-3 py-2">{{ number_format($document['total_minor'] / 100, 2) }}</td>
-                                        <td class="px-3 py-2">{{ number_format($document['paid_minor'] / 100, 2) }}</td>
-                                        <td class="px-3 py-2 font-medium">{{ number_format($document['remaining_minor'] / 100, 2) }}</td>
+                                        <td>{{ $document['supplier_reference'] ?? '—' }}</td>
+                                        <td>{{ $document['date'] }}</td>
+                                        <td>{{ $document['due_date'] }}</td>
+                                        <td>{{ $document['days_overdue'] }}</td>
+                                        <td>{{ number_format($document['total_minor'] / 100, 2) }}</td>
+                                        <td>{{ number_format($document['paid_minor'] / 100, 2) }}</td>
+                                        <td class="font-medium">{{ number_format($document['remaining_minor'] / 100, 2) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

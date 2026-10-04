@@ -1,134 +1,149 @@
 <x-filament-panels::page>
-    <x-filament::section>
-        <x-slot name="heading">{{ __('admin.purchasing.reports.open_commitments') }}</x-slot>
-        <x-slot name="description">What is still owed to each supplier: ordered value less what has already been received. Drafts and finished orders are excluded.</x-slot>
+    <div class="space-y-6">
+        <x-filament::section>
+            <x-slot name="heading">{{ $reportLabel }}</x-slot>
+            <x-slot name="description">{{ $reportDescription }}</x-slot>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-gray-500 dark:text-gray-400">
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.supplier') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.currency_code') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.orders') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.ordered_value') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.received_value') }}</th>
-                        <th class="py-2">{{ __('admin.purchasing.reports.outstanding_value') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($openCommitments as $row)
-                        <tr class="border-t border-gray-200 dark:border-gray-700">
-                            <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['currency_code'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['orders'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['ordered_value'], 2) }}</td>
-                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['received_value'], 2) }}</td>
-                            <td class="py-2 font-semibold">{{ $row['currency_code'] }} {{ number_format($row['outstanding_value'], 2) }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="6" class="py-3 text-gray-400">No open commitments.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+            <div class="grid gap-4 lg:grid-cols-[minmax(0,24rem)_1fr] lg:items-end">
+                <div>
+                    <label class="ierp-label" for="purchasing-report-type">{{ __('Report') }}</label>
+                    <x-filament::input.wrapper class="mt-2">
+                        <x-filament::input.select id="purchasing-report-type" wire:model.live="reportType">
+                            @foreach ($this->reportOptions() as $value => $option)
+                                <option value="{{ $value }}">{{ $option['label'] }}</option>
+                            @endforeach
+                        </x-filament::input.select>
+                    </x-filament::input.wrapper>
+                </div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ __('The export action always uses the report currently shown on this page.') }}
+                </div>
+            </div>
+        </x-filament::section>
+
+        <div wire:loading.delay>
+            <div class="ierp-card flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <x-filament::loading-indicator class="h-5 w-5" />
+                <span>{{ __('reporting.states.loading') }}</span>
+            </div>
         </div>
-    </x-filament::section>
 
-    <x-filament::section>
-        <x-slot name="heading">{{ __('admin.purchasing.reports.receiving_performance') }}</x-slot>
-        <x-slot name="description">Measured against the date each supplier promised, not the date the buyer hoped for. Orders with no confirmed promise are not counted either way.</x-slot>
+        <div wire:loading.remove class="space-y-6">
+            @if ($summary !== [])
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($summary as $metric)
+                        <div class="ierp-card ierp-metric">
+                            <div class="ierp-metric-label">{{ $metric['label'] }}</div>
+                            <div class="ierp-metric-value">{{ $metric['value'] }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-gray-500 dark:text-gray-400">
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.supplier') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.promised_at') }}</th>
-                        <th class="py-2">{{ __('admin.purchasing.reports.on_time_rate') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($receivingPerformance as $row)
-                        <tr class="border-t border-gray-200 dark:border-gray-700">
-                            <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['on_time'] }} / {{ $row['promised'] }}</td>
-                            <td class="py-2 font-semibold">{{ number_format($row['on_time_rate'], 1) }}%</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="3" class="py-3 text-gray-400">No confirmed promises have come due yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+            <x-filament::section>
+                <div class="ierp-section-bleed overflow-x-auto">
+                    <table class="ierp-table ierp-table-band">
+                        @switch($reportKey)
+                            @case('receiving_performance')
+                                <thead><tr>
+                                    <th>{{ __('admin.purchasing.fields.supplier') }}</th>
+                                    <th>{{ __('Confirmed promises') }}</th>
+                                    <th>{{ __('On time') }}</th>
+                                    <th>{{ __('admin.purchasing.reports.on_time_rate') }}</th>
+                                </tr></thead>
+                                <tbody>
+                                    @forelse ($rows as $row)
+                                        <tr>
+                                            <td class="font-medium">{{ $row['supplier'] }}</td>
+                                            <td>{{ $row['promised'] }}</td>
+                                            <td>{{ $row['on_time'] }}</td>
+                                            <td class="font-semibold">{{ number_format($row['on_time_rate'], 1) }}%</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="4" class="py-10 text-center text-gray-500 dark:text-gray-400">{{ __('reporting.states.no_data') }}</td></tr>
+                                    @endforelse
+                                </tbody>
+                                @break
+
+                            @case('cost_variance')
+                                <thead><tr>
+                                    <th>{{ __('admin.purchasing.fields.purchase_order_number') }}</th>
+                                    <th>{{ __('admin.purchasing.fields.supplier') }}</th>
+                                    <th>{{ __('admin.purchasing.fields.product_variant') }}</th>
+                                    <th>{{ __('admin.purchasing.fields.unit_cost') }}</th>
+                                    <th>{{ __('admin.purchasing.fields.last_received_unit_cost') }}</th>
+                                    <th>{{ __('admin.purchasing.fields.cost_variance') }}</th>
+                                </tr></thead>
+                                <tbody>
+                                    @forelse ($rows as $row)
+                                        <tr>
+                                            <td class="font-medium">{{ $row['purchase_order_number'] }}</td>
+                                            <td>{{ $row['supplier'] }}</td>
+                                            <td>{{ $row['variant'] }}</td>
+                                            <td class="tabular-nums">{{ $row['currency_code'] }} {{ number_format($row['ordered_cost'], 2) }}</td>
+                                            <td class="tabular-nums">{{ $row['currency_code'] }} {{ number_format($row['received_cost'], 2) }}</td>
+                                            <td @class([
+                                                'font-semibold tabular-nums',
+                                                'text-danger-600 dark:text-danger-400' => $row['variance'] > 0,
+                                                'text-success-600 dark:text-success-400' => $row['variance'] < 0,
+                                            ])>{{ $row['currency_code'] }} {{ number_format($row['variance'], 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="6" class="py-10 text-center text-gray-500 dark:text-gray-400">{{ __('reporting.states.no_data') }}</td></tr>
+                                    @endforelse
+                                </tbody>
+                                @break
+
+                            @case('duplicate_reference_attempts')
+                                <thead><tr>
+                                    <th>{{ __('admin.purchasing.reports.attempted_at') }}</th>
+                                    <th>{{ __('admin.purchasing.fields.supplier') }}</th>
+                                    <th>{{ __('admin.purchasing.reports.supplier_reference') }}</th>
+                                    <th>{{ __('admin.purchasing.reports.attempted_by') }}</th>
+                                    <th>{{ __('Reason') }}</th>
+                                </tr></thead>
+                                <tbody>
+                                    @forelse ($rows as $row)
+                                        <tr>
+                                            <td>{{ $row['attempted_at'] }}</td>
+                                            <td>{{ $row['supplier'] }}</td>
+                                            <td class="font-medium">{{ $row['supplier_reference'] }}</td>
+                                            <td>{{ $row['attempted_by'] }}</td>
+                                            <td>{{ $row['message'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="5" class="py-10 text-center text-gray-500 dark:text-gray-400">{{ __('reporting.states.no_data') }}</td></tr>
+                                    @endforelse
+                                </tbody>
+                                @break
+
+                            @default
+                                <thead><tr>
+                                    <th>{{ __('admin.purchasing.fields.supplier') }}</th>
+                                    <th>{{ __('admin.purchasing.fields.currency_code') }}</th>
+                                    <th>{{ __('admin.purchasing.reports.orders') }}</th>
+                                    <th>{{ __('admin.purchasing.reports.ordered_value') }}</th>
+                                    <th>{{ __('admin.purchasing.reports.received_value') }}</th>
+                                    <th>{{ __('admin.purchasing.reports.outstanding_value') }}</th>
+                                </tr></thead>
+                                <tbody>
+                                    @forelse ($rows as $row)
+                                        <tr>
+                                            <td class="font-medium">{{ $row['supplier'] }}</td>
+                                            <td>{{ $row['currency_code'] }}</td>
+                                            <td>{{ $row['orders'] }}</td>
+                                            <td class="tabular-nums">{{ $row['currency_code'] }} {{ number_format($row['ordered_value'], 2) }}</td>
+                                            <td class="tabular-nums">{{ $row['currency_code'] }} {{ number_format($row['received_value'], 2) }}</td>
+                                            <td class="font-semibold tabular-nums">{{ $row['currency_code'] }} {{ number_format($row['outstanding_value'], 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="6" class="py-10 text-center text-gray-500 dark:text-gray-400">{{ __('reporting.states.no_data') }}</td></tr>
+                                    @endforelse
+                                </tbody>
+                        @endswitch
+                    </table>
+                </div>
+            </x-filament::section>
         </div>
-    </x-filament::section>
-
-    <x-filament::section>
-        <x-slot name="heading">{{ __('admin.purchasing.reports.cost_variance') }}</x-slot>
-        <x-slot name="description">Lines where the price actually paid differed from the price ordered. A negative variance means the goods came in under the agreed price.</x-slot>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-gray-500 dark:text-gray-400">
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.purchase_order_number') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.supplier') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.product_variant') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.unit_cost') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.last_received_unit_cost') }}</th>
-                        <th class="py-2">{{ __('admin.purchasing.fields.cost_variance') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($costVariance as $row)
-                        <tr class="border-t border-gray-200 dark:border-gray-700">
-                            <td class="py-2 pr-4">{{ $row['purchase_order_number'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['variant'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['ordered_cost'], 2) }}</td>
-                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['received_cost'], 2) }}</td>
-                            <td @class([
-                                'py-2 font-semibold',
-                                'text-danger-600 dark:text-danger-400' => $row['variance'] > 0,
-                                'text-success-600 dark:text-success-400' => $row['variance'] < 0,
-                            ])>{{ $row['currency_code'] }} {{ number_format($row['variance'], 2) }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="6" class="py-3 text-gray-400">Every received line came in at the ordered cost.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </x-filament::section>
-
-    <x-filament::section>
-        <x-slot name="heading">{{ __('admin.purchasing.reports.duplicate_reference_attempts') }}</x-slot>
-        <x-slot name="description">Supplier invoice references that the payable duplicate-payment control refused. These attempts are audit evidence; no bill was created.</x-slot>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-gray-500 dark:text-gray-400">
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.attempted_at') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.supplier') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.supplier_reference') }}</th>
-                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.attempted_by') }}</th>
-                        <th class="py-2">Reason</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($duplicateReferenceAttempts as $row)
-                        <tr class="border-t border-gray-200 dark:border-gray-700">
-                            <td class="py-2 pr-4">{{ $row['attempted_at'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
-                            <td class="py-2 pr-4 font-medium">{{ $row['supplier_reference'] }}</td>
-                            <td class="py-2 pr-4">{{ $row['attempted_by'] }}</td>
-                            <td class="py-2">{{ $row['message'] }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="5" class="py-3 text-gray-400">No duplicate supplier invoice attempts recorded.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </x-filament::section>
-
+    </div>
 </x-filament-panels::page>

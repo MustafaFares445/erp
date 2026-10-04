@@ -1,43 +1,99 @@
 <x-filament-panels::page>
     <div class="space-y-6">
         <x-filament::section>
-            <x-slot name="heading">CRM report</x-slot>
-            <select wire:model.live="reportType" class="fi-input w-full rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5">
-                @foreach ($this->reportOptions() as $value => $label)
-                    <option value="{{ $value }}">{{ $label }}</option>
-                @endforeach
-            </select>
-            @if ($reportType === 'pipeline_value_and_age')
-                <p class="mt-3 text-sm text-gray-500">Lead age is available now. Monetary pipeline value is intentionally deferred until WP-2.2 introduces the canonical lead/opportunity link; this screen does not invent a duplicate value source.</p>
-            @endif
-        </x-filament::section>
+            <x-slot name="heading">{{ $this->reportOptions()[$reportType] ?? __('CRM report') }}</x-slot>
+            <x-slot name="description">{{ $this->reportDescription() }}</x-slot>
 
-        <x-filament::section>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    @php($rows = $this->rows())
-                    @if ($rows->isNotEmpty())
-                        <thead>
-                            <tr class="border-b border-gray-200 dark:border-white/10">
-                                @foreach (array_keys($rows->first()) as $heading)
-                                    <th class="px-3 py-2 text-start font-semibold">{{ $heading }}</th>
-                                @endforeach
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($rows as $row)
-                                <tr class="border-b border-gray-100 dark:border-white/5">
-                                    @foreach ($row as $value)
-                                        <td class="px-3 py-2">{{ $value }}</td>
-                                    @endforeach
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    @else
-                        <tbody><tr><td class="px-3 py-4 text-gray-500">No data for this report.</td></tr></tbody>
-                    @endif
-                </table>
+            <div class="max-w-md">
+                <label class="ierp-label" for="crm-report-type">{{ __('Report') }}</label>
+                <x-filament::input.wrapper class="mt-2">
+                    <x-filament::input.select id="crm-report-type" wire:model.live="reportType">
+                        @foreach ($this->reportOptions() as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
             </div>
         </x-filament::section>
+
+        <div wire:loading.delay>
+            <div class="ierp-card flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <x-filament::loading-indicator class="h-5 w-5" />
+                <span>{{ __('reporting.states.loading') }}</span>
+            </div>
+        </div>
+
+        <div wire:loading.remove class="space-y-6">
+            @if ($reportSummary !== [])
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    @foreach ($reportSummary as $metric)
+                        <div class="ierp-card ierp-metric">
+                            <div class="ierp-metric-label">{{ $metric['label'] }}</div>
+                            <div class="ierp-metric-value">{{ $metric['value'] }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            @if ($reportType === \App\Enums\CrmReportType::StageConversion && $reportRows->isNotEmpty())
+                @php
+                    $stageMax = max(1, (int) $reportRows->max(__('Leads')));
+                @endphp
+
+                <x-filament::section>
+                    <x-slot name="heading">{{ __('Pipeline stage distribution') }}</x-slot>
+                    <x-slot name="description">{{ __('A visual comparison of lead volume across the current pipeline stages.') }}</x-slot>
+
+                    <div class="space-y-3">
+                        @foreach ($reportRows as $row)
+                            @php
+                                $count = is_numeric($row[__('Leads')] ?? null) ? (int) $row[__('Leads')] : 0;
+                                $width = $count > 0 ? max(4, round(($count / $stageMax) * 100, 1)) : 0;
+                            @endphp
+                            <div class="grid gap-2 sm:grid-cols-[11rem_minmax(0,1fr)_4rem] sm:items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $row[__('Stage')] ?? '—' }}</span>
+                                <div class="h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10" role="img" aria-label="{{ ($row[__('Stage')] ?? __('Stage')).': '.$count }}">
+                                    <div class="h-full rounded-full bg-primary-600 transition-all dark:bg-primary-500" style="width: {{ $width }}%"></div>
+                                </div>
+                                <span class="text-sm font-semibold tabular-nums text-gray-950 dark:text-white sm:text-end">{{ $count }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </x-filament::section>
+            @endif
+
+            <x-filament::section>
+                <div class="ierp-section-bleed overflow-x-auto">
+                    <table class="ierp-table ierp-table-band">
+                        @if ($reportRows->isNotEmpty())
+                            <thead>
+                                <tr>
+                                    @foreach (array_keys($reportRows->first()) as $heading)
+                                        <th>{{ $heading }}</th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($reportRows as $row)
+                                    <tr>
+                                        @foreach ($row as $value)
+                                            <td class="tabular-nums">{{ $value === null || $value === '' ? '—' : $value }}</td>
+                                        @endforeach
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        @else
+                            <tbody>
+                                <tr>
+                                    <td class="py-10 text-center text-gray-500 dark:text-gray-400">
+                                        {{ __('reporting.states.no_data') }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        @endif
+                    </table>
+                </div>
+            </x-filament::section>
+        </div>
     </div>
 </x-filament-panels::page>

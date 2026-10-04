@@ -15,16 +15,16 @@
                 </p>
             @else
                 <div>
-                    <div class="flex h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div class="ierp-progress-track flex w-full">
                         @foreach ($segments as $segment)
                             @php $width = $totalCount > 0 ? $segment['data']['count'] / $totalCount * 100 : 0; @endphp
                             @if ($width > 0)
                                 <div
                                     @class([
                                         'h-2',
-                                        'bg-success-500' => $segment['color'] === 'success',
-                                        'bg-info-500' => $segment['color'] === 'info',
-                                        'bg-danger-500' => $segment['color'] === 'danger',
+                                        'bg-success-600' => $segment['color'] === 'success',
+                                        'bg-info-600' => $segment['color'] === 'info',
+                                        'bg-danger-600' => $segment['color'] === 'danger',
                                     ])
                                     style="width: {{ $width }}%"
                                 ></div>

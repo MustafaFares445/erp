@@ -10,108 +10,113 @@
         @endphp
 
         <div class="grid gap-3 md:grid-cols-3">
-            <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
-                <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Needs sourcing</div>
-                <div class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">{{ count($needs) }}</div>
-                <div class="mt-1 text-xs text-gray-500">{{ $salesNeeds }} driven by Sales demand</div>
+            <div class="ierp-card ierp-metric">
+                <div class="ierp-metric-label">Needs sourcing</div>
+                <div class="ierp-metric-value">{{ count($needs) }}</div>
+                <div class="ierp-metric-helper">{{ $salesNeeds }} driven by Sales demand</div>
             </div>
-            <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
-                <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Missing supplier setup</div>
-                <div class="mt-1 text-2xl font-semibold {{ $withoutSupplier > 0 ? 'text-warning-600' : 'text-success-600' }}">{{ $withoutSupplier }}</div>
-                <div class="mt-1 text-xs text-gray-500">Products with no active Supplier Product</div>
+            <div class="ierp-card ierp-metric">
+                <div class="ierp-metric-label">Missing supplier setup</div>
+                <div class="ierp-metric-value {{ $withoutSupplier > 0 ? 'text-warning-600 dark:text-warning-400' : 'text-success-600 dark:text-success-400' }}">{{ $withoutSupplier }}</div>
+                <div class="ierp-metric-helper">Products with no active Supplier Product</div>
             </div>
-            <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
-                <label for="purchase-needs-search" class="text-xs font-medium uppercase tracking-wide text-gray-500">Find a need</label>
-                <input
-                    id="purchase-needs-search"
-                    type="search"
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="Search product, SKU, Sales Order, or warehouse…"
-                    class="mt-2 w-full rounded-lg border-gray-300 bg-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-950"
-                />
+            <div class="ierp-card">
+                <label for="purchase-needs-search" class="ierp-label">Find a need</label>
+                <x-filament::input.wrapper class="mt-2" prefix-icon="heroicon-m-magnifying-glass">
+                    <x-filament::input
+                        id="purchase-needs-search"
+                        type="search"
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="Search product, SKU, Sales Order, or warehouse…"
+                    />
+                </x-filament::input.wrapper>
             </div>
         </div>
 
-        <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
-            <div class="text-sm font-medium text-gray-950 dark:text-white">Purchase demand queue</div>
+        <div class="ierp-card">
+            <div class="text-sm font-semibold text-gray-950 dark:text-white">Purchase demand queue</div>
             <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Sales shortages and Inventory replenishment that still need a commercial Purchase Order.
             </div>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900">
+        <div class="ierp-card overflow-hidden p-0">
             <div class="overflow-x-auto">
-                <table class="w-full divide-y divide-gray-200 text-sm dark:divide-white/10">
-                    <thead class="bg-gray-50 dark:bg-white/5">
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            <th class="px-4 py-3">Source</th>
-                            <th class="px-4 py-3">Product</th>
-                            <th class="px-4 py-3">Warehouse</th>
-                            <th class="px-4 py-3">Required</th>
-                            <th class="px-4 py-3">Covered</th>
-                            <th class="px-4 py-3">Remaining</th>
-                            <th class="px-4 py-3">Suppliers</th>
-                            <th class="px-4 py-3">Linked PO</th>
-                            <th class="px-4 py-3">Status</th>
-                            <th class="px-4 py-3">Next action</th>
+                <table class="ierp-table ierp-table-band">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Product</th>
+                            <th>Warehouse</th>
+                            <th>Required</th>
+                            <th>Covered</th>
+                            <th>Remaining</th>
+                            <th>Suppliers</th>
+                            <th>Linked PO</th>
+                            <th>Status</th>
+                            <th>Next action</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+                    <tbody>
                         @forelse ($needs as $need)
                             <tr>
-                                <td class="px-4 py-3">
+                                <td>
                                     <div class="font-medium text-gray-950 dark:text-white">{{ $need['source'] }}</div>
                                     @if ($need['source_url'])
                                         <a href="{{ $need['source_url'] }}" class="text-xs font-medium text-primary-600 hover:underline dark:text-primary-400">
                                             {{ $need['source_reference'] }}
                                         </a>
                                     @else
-                                        <div class="text-xs text-gray-500">{{ $need['source_reference'] }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ $need['source_reference'] }}</div>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">
+                                <td>
                                     <div class="flex items-center gap-3">
                                         @if ($need['image'])
                                             <img src="{{ $need['image'] }}" alt="" class="h-10 w-10 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-white/10" />
                                         @else
-                                            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-500 dark:bg-white/5">
+                                            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-500 dark:bg-white/5 dark:text-gray-400">
                                                 {{ mb_substr($need['product'], 0, 2) }}
                                             </div>
                                         @endif
                                         <div>
                                             <div class="font-medium text-gray-950 dark:text-white">{{ $need['product'] }}</div>
-                                            <div class="text-xs text-gray-500">{{ $need['sku'] }}</div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $need['sku'] }}</div>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3">{{ $need['warehouse'] }}</td>
-                                <td class="px-4 py-3">{{ \App\Support\QuantityFormatter::display($need['required']) }}</td>
-                                <td class="px-4 py-3">{{ \App\Support\QuantityFormatter::display($need['covered']) }}</td>
-                                <td class="px-4 py-3 font-semibold">{{ \App\Support\QuantityFormatter::display($need['remaining']) }}</td>
-                                <td class="px-4 py-3">{{ $need['supplier_count'] }}</td>
-                                <td class="px-4 py-3">
+                                <td>{{ $need['warehouse'] }}</td>
+                                <td>{{ \App\Support\QuantityFormatter::display($need['required']) }}</td>
+                                <td>{{ \App\Support\QuantityFormatter::display($need['covered']) }}</td>
+                                <td class="font-semibold">{{ \App\Support\QuantityFormatter::display($need['remaining']) }}</td>
+                                <td>{{ $need['supplier_count'] }}</td>
+                                <td>
                                     @if ($need['linked_po_url'])
                                         <a href="{{ $need['linked_po_url'] }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">
                                             {{ $need['linked_po'] }}
                                         </a>
                                     @else
-                                        <span class="text-gray-500">Needs PO</span>
+                                        <span class="text-gray-500 dark:text-gray-400">Needs PO</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">{{ str($need['status'])->replace('_', ' ')->title() }}</td>
-                                <td class="px-4 py-3">
+                                <td>{{ str($need['status'])->replace('_', ' ')->title() }}</td>
+                                <td>
                                     @if ($need['next_action_type'] === 'sales_create' && $need['sales_order_id'])
-                                        <button
+                                        {{-- Blade compiles component tags before directives, so @js() cannot sit inside the attribute. --}}
+                                        @php
+                                            $createArguments = \Illuminate\Support\Js::from(['order_id' => $need['sales_order_id']]);
+                                        @endphp
+                                        <x-filament::button
                                             type="button"
-                                            wire:click="mountAction('createFromSalesDemand', @js(['order_id' => $need['sales_order_id']]))"
-                                            class="inline-flex items-center rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-500"
+                                            size="sm"
+                                            wire:click="mountAction('createFromSalesDemand', {{ $createArguments }})"
                                         >
                                             {{ $need['next_action'] }}
-                                        </button>
+                                        </x-filament::button>
                                     @elseif ($need['next_action_url'])
-                                        <a href="{{ $need['next_action_url'] }}" class="inline-flex items-center rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-500">
+                                        <x-filament::button tag="a" size="sm" :href="$need['next_action_url']">
                                             {{ $need['next_action'] }}
-                                        </a>
+                                        </x-filament::button>
                                     @else
                                         <span class="text-gray-600 dark:text-gray-300">{{ $need['next_action'] }}</span>
                                     @endif
@@ -119,7 +124,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="px-4 py-10 text-center text-gray-500">
+                                <td colspan="10" class="py-10 text-center text-gray-500 dark:text-gray-400">
                                     No uncovered purchase demand currently requires Purchasing attention.
                                 </td>
                             </tr>

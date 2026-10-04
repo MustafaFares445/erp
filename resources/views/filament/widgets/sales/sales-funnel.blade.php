@@ -16,9 +16,9 @@
                             </span>
                         </div>
 
-                        <div class="mt-1 h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800">
+                        <div class="ierp-progress-track mt-1">
                             <div
-                                class="h-2 rounded-full bg-primary-500"
+                                class="ierp-progress-fill"
                                 style="width: {{ max(4, round($stage['count'] / $maxCount * 100)) }}%"
                             ></div>
                         </div>
