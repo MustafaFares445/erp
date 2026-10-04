@@ -8,11 +8,7 @@ use App\Enums\SupportPermission;
 use App\Models\User;
 use App\Policies\Concerns\ChecksSupportPermissions;
 
-/**
- * List + Edit only (data-model.md §5 — 4 fixed rows, no Create/Delete), so
- * only the read/update abilities are ever consulted.
- */
-final class SlaPolicyPolicy
+final class SupportEntitlementPolicy
 {
     use ChecksSupportPermissions;
 
@@ -41,21 +37,15 @@ final class SlaPolicyPolicy
         return $this->authorizeSupportAbility($user, 'delete');
     }
 
-    public function deleteAny(User $user): bool
-    {
-        return $this->authorizeSupportAbility($user, 'deleteAny');
-    }
-
     /** @return array<string, string> */
     protected function supportPermissionMap(): array
     {
         return [
-            'viewAny' => SupportPermission::SlaPolicyView->value,
-            'view' => SupportPermission::SlaPolicyView->value,
-            'create' => SupportPermission::SlaPolicyManage->value,
-            'update' => SupportPermission::SlaPolicyManage->value,
-            'delete' => SupportPermission::SlaPolicyManage->value,
-            'deleteAny' => SupportPermission::SlaPolicyManage->value,
+            'viewAny' => SupportPermission::EntitlementView->value,
+            'view' => SupportPermission::EntitlementView->value,
+            'create' => SupportPermission::EntitlementManage->value,
+            'update' => SupportPermission::EntitlementManage->value,
+            'delete' => SupportPermission::EntitlementManage->value,
         ];
     }
 }

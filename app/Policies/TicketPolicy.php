@@ -65,6 +65,11 @@ final class TicketPolicy
         return $this->authorizeSupportAbility($user, 'assign');
     }
 
+    public function route(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'route');
+    }
+
     /**
      * Settlement is System-Admin-only (permissions.md) — never granted to
      * Support Manager, unlike every other ticket ability.
@@ -121,6 +126,7 @@ final class TicketPolicy
             'restoreAny' => SupportPermission::RecordRestore->value,
             'manage' => SupportPermission::TicketManage->value,
             'assign' => SupportPermission::TicketAssign->value,
+            'route' => SupportPermission::TicketRoute->value,
             'settlePayment' => SupportPermission::TicketSettlePayment->value,
             'work' => SupportPermission::TicketWork->value,
             'message' => SupportPermission::TicketMessage->value,

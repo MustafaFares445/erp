@@ -16,7 +16,11 @@ final class CurrencyPolicy
 {
     private function canView(User $user): bool
     {
-        return $user->can(AccountingPermission::CurrencyView->value) || $this->canManage($user);
+        if ($user->can(AccountingPermission::CurrencyView->value)) {
+            return true;
+        }
+
+        return $this->canManage($user);
     }
 
     private function canManage(User $user): bool
