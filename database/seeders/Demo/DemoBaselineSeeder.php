@@ -47,7 +47,7 @@ final class DemoBaselineSeeder extends DemoSeeder
         $this->seedStaff();
         $this->seedSalesSettings();
         $this->seedPurchaseSettings();
-        $this->seedPaymentTerms($context);
+        $this->seedPaymentTerms();
         $this->seedPaymentMethods();
         $this->seedFiscalPeriods($context);
     }
@@ -97,10 +97,9 @@ final class DemoBaselineSeeder extends DemoSeeder
         ]);
     }
 
-    private function seedPaymentTerms(DemoContext $context): void
+    private function seedPaymentTerms(): void
     {
         $service = app(PaymentTermService::class);
-
         foreach (DemoFixtures::PaymentTerms as $name => $term) {
             if (PaymentTerm::query()->where('name', $name)->exists()) {
                 continue;
@@ -144,7 +143,7 @@ final class DemoBaselineSeeder extends DemoSeeder
         $service = app(FiscalPeriodService::class);
 
         for ($month = 1; $month <= 12; $month++) {
-            $start = Carbon::create(2026, $month, 1)->startOfDay();
+            $start = Carbon::create(2026, $month, 1)?->startOfDay() ?? throw new LogicException("Cannot build fiscal period start for month [{$month}].");
             $end = $start->copy()->endOfMonth();
 
             if (FiscalPeriod::query()->whereDate('starts_at', $start->toDateString())->exists()) {
@@ -163,6 +162,6 @@ final class DemoBaselineSeeder extends DemoSeeder
             throw new LogicException("Chart of accounts is missing account [{$code}]. Run ChartOfAccountsSeeder first.");
         }
 
-        return (int) $account->getKey();
+        return $account->id;
     }
 }

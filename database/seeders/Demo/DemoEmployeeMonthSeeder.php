@@ -444,7 +444,7 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
             return;
         }
 
-        $offset = (($visit->getKey() % 5) + 1) * 0.0001;
+        $offset = ((DemoContext::keyOf($visit) % 5) + 1) * 0.0001;
 
         $visit->gpsLogs()->create([
             'latitude' => round((float) $customer->latitude + ($phase === 0 ? $offset : -$offset), 7),
@@ -473,7 +473,7 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
     private function planVoiceNotes(): void
     {
         foreach (self::VoiceNotes as $visitKey => [$file, $language, $duration]) {
-            $checkOut = self::Visits[$visitKey][3] ?? throw new LogicException("Voice note visit {$visitKey} has no check-out.");
+            $checkOut = self::Visits[$visitKey][3];
             $number = self::Tasks[self::Visits[$visitKey][0]][0];
 
             $this->on(Carbon::parse($checkOut)->addMinutes(12)->format('Y-m-d H:i'), function () use ($visitKey, $file, $language, $duration, $number): void {
@@ -620,7 +620,7 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
                 ->latest('id')
                 ->first();
 
-            $this->note(sprintf('%s performance %s%% (%s)', $this->employee($number)->employee_code, $calculation?->performance_percent ?? 'n/a', $calculation?->status->value ?? 'n/a'));
+            $this->note(sprintf('%s performance %s%% (%s)', $this->employee($number)->employee_code, $calculation->performance_percent ?? 'n/a', $calculation?->status->value ?? 'n/a'));
         }
     }
 

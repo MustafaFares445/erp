@@ -80,6 +80,7 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
         $journals->reverse($chief, $misposted->refresh(), CarbonImmutable::parse('2026-09-25'), 'Booked to utilities instead of marketing; re-entered below.');
         $context->at('2026-09-25 10:15');
         $context->as('accountant');
+
         $journals->postNew($context->actor('accountant'), CarbonImmutable::parse('2026-09-25'), [
             $this->line('5900', '1100.00', '0.00', 'Marketing print run'),
             $this->line('1110', '0.00', '1100.00', 'Bank'),
@@ -94,6 +95,7 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
 
         $context->at('2026-09-30 17:00');
         $context->as('accountant');
+
         $journals->draft($accountant, CarbonImmutable::parse('2026-09-30'), [
             $this->line('5200', '18500.00', '0.00', 'September salaries'),
             $this->line('2200', '0.00', '18500.00', 'Accrued salaries'),
@@ -101,6 +103,7 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
 
         $context->at('2026-10-02 11:00');
         $context->as('accountant');
+
         $journals->draft($accountant, CarbonImmutable::parse('2026-10-02'), [
             $this->line('5500', '1250.00', '0.00', 'Monthly depreciation'),
             $this->line('1500', '0.00', '1250.00', 'Accumulated depreciation'),
@@ -175,7 +178,7 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
     /** @return array{chart_account_id: int, debit: string, credit: string, description: string} */
     private function line(string $code, string $debit, string $credit, string $description): array
     {
-        return ['chart_account_id' => (int) $this->account($code)->getKey(), 'debit' => $debit, 'credit' => $credit, 'description' => $description];
+        return ['chart_account_id' => $this->account($code)->id, 'debit' => $debit, 'credit' => $credit, 'description' => $description];
     }
 
     private function account(string $code): ChartAccount

@@ -27,11 +27,11 @@ final class DemoSalesMonthSeeder extends DemoSeeder
         $kit = DemoSalesKit::make($context);
         $timeline = new DemoSalesTimeline;
 
-        (new DemoSalesQuotationScenes($kit, $timeline))->register();
-        (new DemoSalesFulfilmentScenes($kit, $timeline))->register();
-        (new DemoSalesInvoiceScenes($kit, $timeline))->register();
-        (new DemoSalesCollectionScenes($kit, $timeline))->register();
-        (new DemoSalesCreditScenes($kit, $timeline))->register();
+        new DemoSalesQuotationScenes($kit, $timeline)->register();
+        new DemoSalesFulfilmentScenes($kit, $timeline)->register();
+        new DemoSalesInvoiceScenes($kit, $timeline)->register();
+        new DemoSalesCollectionScenes($kit, $timeline)->register();
+        new DemoSalesCreditScenes($kit, $timeline)->register();
 
         $timeline->run($context, fn (string $when, string $label) => $this->note("{$when} {$label}"));
 

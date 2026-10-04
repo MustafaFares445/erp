@@ -96,6 +96,8 @@ final class InventoryPermissionSeeder extends Seeder
             InventoryPermission::AlertView->value,
             InventoryPermission::ShipmentView->value,
             InventoryPermission::ShipmentConfirm->value,
+            InventoryPermission::LoanManage->value,
+            InventoryPermission::SupplierCustodyManage->value,
         ];
     }
 }

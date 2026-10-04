@@ -129,7 +129,7 @@ final class DemoSalesKit
         $lines = [];
 
         foreach ($spec as $key => $quantity) {
-            $lines[] = ['product_variant_id' => (int) $this->variant($key)->getKey(), 'quantity' => $quantity];
+            $lines[] = ['product_variant_id' => DemoContext::keyOf($this->variant($key)), 'quantity' => $quantity];
         }
 
         return $lines;
@@ -205,13 +205,13 @@ final class DemoSalesKit
 
                 $warehouse = $this->inventory->warehouse($code);
                 $stock = InventoryStock::query()
-                    ->where('product_variant_id', $variant->getKey())
-                    ->where('warehouse_id', $warehouse->getKey())
+                    ->where('product_variant_id', DemoContext::keyOf($variant))
+                    ->where('warehouse_id', DemoContext::keyOf($warehouse))
                     ->first();
                 $available = $stock instanceof InventoryStock ? (float) $stock->available_quantity : 0.0;
 
                 if (! $overbook) {
-                    $available -= array_sum($this->pendingLots((int) $variant->getKey(), (int) $warehouse->getKey())) + count($this->pendingSerials((int) $variant->getKey(), (int) $warehouse->getKey()));
+                    $available -= array_sum($this->pendingLots(DemoContext::keyOf($variant), DemoContext::keyOf($warehouse))) + count($this->pendingSerials(DemoContext::keyOf($variant), DemoContext::keyOf($warehouse)));
                 }
 
                 if ($available <= 0.0) {
@@ -220,7 +220,7 @@ final class DemoSalesKit
 
                 $take = min($left, $available);
 
-                foreach ($this->assignmentsFor($variant, (int) $warehouse->getKey(), $take, $lots, $overbook) as $assignment) {
+                foreach ($this->assignmentsFor($variant, DemoContext::keyOf($warehouse), $take, $lots, $overbook) as $assignment) {
                     $byWarehouse[$code]['assignments'][] = $assignment;
                 }
 
@@ -236,7 +236,7 @@ final class DemoSalesKit
 
         foreach ($byWarehouse as $code => $shipment) {
             $shipments[] = [
-                'warehouse_id' => (int) $this->inventory->warehouse($code)->getKey(),
+                'warehouse_id' => DemoContext::keyOf($this->inventory->warehouse($code)),
                 'tracking_number' => $tracking,
                 'attachments' => [],
                 'delivery_type' => null,
@@ -250,7 +250,7 @@ final class DemoSalesKit
     /** @return list<array{product_variant_id: int, quantity: float, inventory_lot_id: int|null, serialized_inventory_unit_ids: list<int>}> */
     private function assignmentsFor(ProductVariant $variant, int $warehouseId, float $quantity, InventoryLotService $lots, bool $overbook): array
     {
-        $variantId = (int) $variant->getKey();
+        $variantId = DemoContext::keyOf($variant);
 
         $pendingLots = $overbook ? [] : $this->pendingLots($variantId, $warehouseId);
         $pendingSerials = $overbook ? [] : $this->pendingSerials($variantId, $warehouseId);
@@ -264,14 +264,14 @@ final class DemoSalesKit
                 ->orderBy('id')
                 ->limit((int) $quantity)
                 ->pluck('id')
-                ->map(static fn (mixed $id): int => (int) $id)
+                ->map(static fn (mixed $id): int => DemoContext::intOf($id))
                 ->all();
 
             return [[
                 'product_variant_id' => $variantId,
                 'quantity' => (float) count($ids),
                 'inventory_lot_id' => null,
-                'serialized_inventory_unit_ids' => $ids,
+                'serialized_inventory_unit_ids' => array_values($ids),
             ]];
         }
 
@@ -293,7 +293,7 @@ final class DemoSalesKit
                 break;
             }
 
-            $allocated = min($left, (float) $lot->availableQuantity($warehouseId) - ($pendingLots[(int) $lot->getKey()] ?? 0.0));
+            $allocated = min($left, (float) $lot->availableQuantity($warehouseId) - ($pendingLots[DemoContext::keyOf($lot)] ?? 0.0));
 
             if ($allocated <= 0.0) {
                 continue;
@@ -302,7 +302,7 @@ final class DemoSalesKit
             $assignments[] = [
                 'product_variant_id' => $variantId,
                 'quantity' => round($allocated, 6),
-                'inventory_lot_id' => (int) $lot->getKey(),
+                'inventory_lot_id' => DemoContext::keyOf($lot),
                 'serialized_inventory_unit_ids' => [],
             ];
             $left -= $allocated;
@@ -334,12 +334,11 @@ final class DemoSalesKit
     /** @return list<int> */
     private function pendingSerials(int $variantId, int $warehouseId): array
     {
-        return $this->draftDeliveryLines($variantId, $warehouseId)
+        return array_values($this->draftDeliveryLines($variantId, $warehouseId)
             ->pluck('serialized_inventory_unit_id')
             ->filter()
-            ->map(static fn (mixed $id): int => (int) $id)
-            ->values()
-            ->all();
+            ->map(static fn (mixed $id): int => DemoContext::intOf($id))
+            ->all());
     }
 
     /** @return Collection<int, InventoryOperationLine> */

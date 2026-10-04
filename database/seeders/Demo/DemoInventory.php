@@ -16,14 +16,15 @@ use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use LogicException;
 
 /**
  * Deterministic helpers that turn "receive N of variant V" into a valid inventory receipt:
  * lot numbers, expiry dates and serial units are derived from the variant, never random.
  */
-final class DemoInventory
+final readonly class DemoInventory
 {
-    public function __construct(private readonly InventoryOperationService $operations) {}
+    public function __construct(private InventoryOperationService $operations) {}
 
     public static function make(): self
     {
@@ -53,7 +54,7 @@ final class DemoInventory
      */
     public function lotIdentity(ProductVariant $variant, string $tag, ?string $expiresOn = null): array
     {
-        $type = $variant->productType();
+        $type = $variant->productType() ?? throw new LogicException("Variant [{$variant->sku}] has no product type.");
         $lot = 'LOT-'.preg_replace('/^DEMO-/', '', (string) $variant->sku).'-'.$tag;
 
         return match ($type) {
@@ -69,7 +70,7 @@ final class DemoInventory
     /**
      * Create, ready and complete a receipt in one go.
      *
-     * @param  list<array{variant: ProductVariant, quantity: int, tag: string, expires?: string}>  $lines
+     * @param  list<array{variant: ProductVariant, quantity: int, tag: string, expires?: string|null}>  $lines
      */
     public function receive(
         User $actor,
@@ -148,7 +149,7 @@ final class DemoInventory
                 continue;
             }
 
-            $type = $variant->productType();
+            $type = $variant->productType() ?? throw new LogicException("Variant [{$variant->sku}] has no product type.");
 
             if ($type === ProductType::Machine && $line->serialized_inventory_unit_id === null) {
                 $unit = SerializedInventoryUnit::query()->create([

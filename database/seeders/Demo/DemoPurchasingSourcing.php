@@ -26,7 +26,7 @@ final readonly class DemoPurchasingSourcing
         foreach ($lines as [$key, $price, $minimum, $lead]) {
             $variant = $this->toolkit->variant($key);
             $payload[] = [
-                'product_variant_id' => $variant->getKey(),
+                'product_variant_id' => DemoContext::keyOf($variant),
                 'unit_id' => $variant->unit_id,
                 'unit_price' => $price,
                 'minimum_order_quantity' => $minimum,
@@ -35,7 +35,7 @@ final readonly class DemoPurchasingSourcing
         }
 
         return app(PurchaseAgreementService::class)->create($manager, [
-            'supplier_id' => $this->toolkit->supplier($supplier)->getKey(),
+            'supplier_id' => DemoContext::keyOf($this->toolkit->supplier($supplier)),
             'currency_code' => 'AED',
             'starts_on' => $startsOn,
             'ends_on' => $endsOn,
@@ -68,7 +68,7 @@ final readonly class DemoPurchasingSourcing
 
         foreach ($lines as [$key, $quantity]) {
             $variant = $this->toolkit->variant($key);
-            $payload[] = ['product_variant_id' => $variant->getKey(), 'unit_id' => $variant->unit_id, 'quantity' => (string) $quantity, 'notes' => null];
+            $payload[] = ['product_variant_id' => DemoContext::keyOf($variant), 'unit_id' => $variant->unit_id, 'quantity' => (string) $quantity, 'notes' => null];
         }
 
         return app(PurchaseRfqService::class)->create($this->context->actor('purchasing_officer'), [
@@ -76,7 +76,7 @@ final readonly class DemoPurchasingSourcing
             'needed_by' => $neededBy,
             'closes_at' => $closesAt,
             'notes' => $note,
-        ], $payload, array_map(fn (int $number): int => $this->toolkit->supplier($number)->getKey(), $suppliers));
+        ], $payload, array_map(fn (int $number): int => DemoContext::keyOf($this->toolkit->supplier($number)), $suppliers));
     }
 
     public function sendRfq(string $note): void
@@ -90,12 +90,12 @@ final readonly class DemoPurchasingSourcing
     public function quote(string $note, int $supplier, array $unitPrices, int $leadDays): void
     {
         $rfq = $this->rfqByNote($note);
-        $row = $rfq->suppliers()->where('supplier_id', $this->toolkit->supplier($supplier)->getKey())->sole();
+        $row = $rfq->suppliers()->where('supplier_id', DemoContext::keyOf($this->toolkit->supplier($supplier)))->sole();
         $responses = [];
 
         foreach ($rfq->lines()->orderBy('id')->get()->values() as $index => $line) {
             $responses[] = [
-                'rfq_line_id' => $line->getKey(),
+                'rfq_line_id' => DemoContext::keyOf($line),
                 'unit_price' => $unitPrices[$index],
                 'offered_quantity' => (string) $line->quantity,
                 'lead_time_days' => $leadDays,
@@ -110,7 +110,7 @@ final readonly class DemoPurchasingSourcing
     public function award(string $note, int $supplier): void
     {
         $rfq = $this->rfqByNote($note);
-        $row = $rfq->suppliers()->where('supplier_id', $this->toolkit->supplier($supplier)->getKey())->sole();
+        $row = $rfq->suppliers()->where('supplier_id', DemoContext::keyOf($this->toolkit->supplier($supplier)))->sole();
 
         app(PurchaseRfqService::class)->award($this->context->actor('purchasing_manager'), $row);
     }
@@ -136,8 +136,8 @@ final readonly class DemoPurchasingSourcing
         $inventory = DemoInventory::make();
 
         return WarehouseReplenishmentPolicy::query()->create([
-            'warehouse_id' => $inventory->warehouse($warehouseCode)->getKey(),
-            'product_variant_id' => $this->toolkit->variant($variantKey)->getKey(),
+            'warehouse_id' => DemoContext::keyOf($inventory->warehouse($warehouseCode)),
+            'product_variant_id' => DemoContext::keyOf($this->toolkit->variant($variantKey)),
             'min_quantity' => (string) $min,
             'max_quantity' => (string) $max,
             'is_active' => true,
@@ -149,8 +149,8 @@ final readonly class DemoPurchasingSourcing
         $inventory = DemoInventory::make();
 
         WarehouseReplenishmentPolicy::query()
-            ->where('warehouse_id', $inventory->warehouse($warehouseCode)->getKey())
-            ->where('product_variant_id', $this->toolkit->variant($variantKey)->getKey())
+            ->where('warehouse_id', DemoContext::keyOf($inventory->warehouse($warehouseCode)))
+            ->where('product_variant_id', DemoContext::keyOf($this->toolkit->variant($variantKey)))
             ->firstOrFail()
             ->update(['is_active' => false]);
     }

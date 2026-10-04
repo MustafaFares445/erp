@@ -23,6 +23,7 @@ use App\Services\Payments\StripeRefundService;
 use App\Services\Sales\CreditNoteService;
 use App\Services\Sales\DocumentNumberGenerator;
 use Illuminate\Support\Carbon;
+use LogicException;
 
 /**
  * After-sales corrections: customer returns tied to credit notes, price-adjustment credits,
@@ -31,7 +32,7 @@ use Illuminate\Support\Carbon;
  * The credit note and refund headers have no creating service, so they are written with the
  * model (blameable columns follow the signed-in maker) and then driven by the services.
  */
-final class DemoSalesCreditScenes
+final readonly class DemoSalesCreditScenes
 {
     /**
      * Posted customer returns: `lines` is variant key => quantity returned.
@@ -110,8 +111,8 @@ final class DemoSalesCreditScenes
     ];
 
     public function __construct(
-        private readonly DemoSalesKit $kit,
-        private readonly DemoSalesTimeline $timeline,
+        private DemoSalesKit $kit,
+        private DemoSalesTimeline $timeline,
     ) {}
 
     public function register(): void
@@ -169,7 +170,7 @@ final class DemoSalesCreditScenes
         $service = app(InventoryReturnService::class);
         $delivery = $this->kit->deliveries[$definition['delivery']][0]->refresh();
 
-        $return = $service->createCustomerReturn($operations, $delivery, $delivery->sourceWarehouse, $definition['reason'], "[DEMO-SALES] {$code}");
+        $return = $service->createCustomerReturn($operations, $delivery, $delivery->sourceWarehouse ?? throw new LogicException("Delivery for return {$code} has no source warehouse."), $definition['reason'], "[DEMO-SALES] {$code}");
 
         foreach ($definition['lines'] as $key => $quantity) {
             $variant = $this->kit->variant($key);
@@ -235,7 +236,7 @@ final class DemoSalesCreditScenes
         } else {
             $invoiceLines = $invoice->lines()->orderBy('id')->get();
 
-            foreach ($definition['lines'] ?? [] as [$description, $quantity, $unitPrice, $tax, $lineIndex]) {
+            foreach ($definition['lines'] as [$description, $quantity, $unitPrice, $tax, $lineIndex]) {
                 $service->addLine($billing, $creditNote, $description, $quantity, $unitPrice, $tax, $invoiceLines[$lineIndex]);
             }
         }
@@ -346,7 +347,7 @@ final class DemoSalesCreditScenes
         $this->kit->writeOffs[$code] = app(ReceivableWriteOffService::class)->record(
             new WriteOffData(
                 (int) $invoice->customer_id,
-                (int) $invoice->getKey(),
+                DemoContext::keyOf($invoice),
                 $invoice->outstandingMinor(),
                 $definition['reason'],
                 $definition['text'],
@@ -373,6 +374,6 @@ final class DemoSalesCreditScenes
             }
         }
 
-        throw new \LogicException("No settled card payment found for invoice [{$invoiceId}].");
+        throw new LogicException("No settled card payment found for invoice [{$invoiceId}].");
     }
 }

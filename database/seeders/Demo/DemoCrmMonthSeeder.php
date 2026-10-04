@@ -290,7 +290,7 @@ final class DemoCrmMonthSeeder extends DemoSeeder
             email: $email,
             phone: $phone,
             preferredLanguage: 'en',
-            assignedTo: $assignee === null ? null : $this->employeeUser($assignee)->getKey(),
+            assignedTo: $assignee === null ? null : DemoContext::keyOf($this->employeeUser($assignee)),
         ), $crm);
     }
 
@@ -381,14 +381,14 @@ final class DemoCrmMonthSeeder extends DemoSeeder
 
         $this->opportunities[$key] = app(OpportunityService::class)->create(new OpportunityData(
             summary: $summary,
-            customerId: $customerCode === null ? null : (int) $this->customer($customerCode)->getKey(),
-            leadId: $leadKey === null ? null : (int) $this->leads[$leadKey]->getKey(),
+            customerId: $customerCode === null ? null : DemoContext::keyOf($this->customer($customerCode)),
+            leadId: $leadKey === null ? null : DemoContext::keyOf($this->leads[$leadKey]),
             title: $title,
             estimatedValueMinor: $valueMinor,
             currency: 'AED',
             expectedCloseDate: $closeDate,
             probabilityPercent: $probability,
-            ownerId: (int) $this->employeeUser($ownerNumber)->getKey(),
+            ownerId: DemoContext::keyOf($this->employeeUser($ownerNumber)),
             origin: OpportunityOrigin::Manual,
         ), $actor);
     }
@@ -438,8 +438,8 @@ final class DemoCrmMonthSeeder extends DemoSeeder
         $this->campaigns[$key] = app(CampaignService::class)->create(new CampaignData(
             name: $name,
             channel: $channel,
-            contentTemplateId: (int) $template->getKey(),
-            scheduledAt: $scheduledAt === null ? null : Carbon::parse($scheduledAt, (string) config('app.timezone')),
+            contentTemplateId: DemoContext::keyOf($template),
+            scheduledAt: $scheduledAt === null ? null : Carbon::parse($scheduledAt, config()->string('app.timezone')),
         ), $actor);
     }
 
@@ -455,8 +455,8 @@ final class DemoCrmMonthSeeder extends DemoSeeder
         $this->campaigns[$key] = app(CampaignService::class)->buildRecipients($this->campaigns[$key]->refresh(), [
             'include_leads' => $leadKeys !== [],
             'include_customers' => $customerCodes !== [],
-            'lead_ids' => array_map(fn (string $leadKey): int => (int) $this->leads[$leadKey]->getKey(), $leadKeys),
-            'customer_ids' => array_map(fn (string $code): int => (int) $this->customer($code)->getKey(), $customerCodes),
+            'lead_ids' => array_map(fn (string $leadKey): int => DemoContext::keyOf($this->leads[$leadKey]), $leadKeys),
+            'customer_ids' => array_map(fn (string $code): int => DemoContext::keyOf($this->customer($code)), $customerCodes),
         ], $actor);
     }
 
@@ -590,7 +590,7 @@ final class DemoCrmMonthSeeder extends DemoSeeder
         $this->quotationRequests[$key] = app(CustomerQuotationRequestService::class)->submit(
             $this->customer($code),
             array_map(fn (array $line): array => [
-                'product_variant_id' => (int) $this->variant($line[0], $line[1])->getKey(),
+                'product_variant_id' => DemoContext::keyOf($this->variant($line[0], $line[1])),
                 'requested_quantity' => $line[2],
                 'customer_note' => $line[3],
             ], $lines),

@@ -170,6 +170,12 @@ final class NotificationTemplateSeeder extends Seeder
                 'en' => ['Ticket {{ ticket_number }} updated', 'Ticket {{ ticket_number }} is now {{ status }}.'],
                 'ar' => ['تم تحديث التذكرة {{ ticket_number }}', 'أصبحت حالة التذكرة {{ ticket_number }}: {{ status }}.'],
             ],
+            NotificationEventKey::TicketFeedbackRequested->value => [
+                'variables' => ['ticket_number'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['How was support for {{ ticket_number }}?', 'Ticket {{ ticket_number }} is closed. Please rate your support experience in the customer app.'],
+                'ar' => ['كيف كانت تجربة الدعم للتذكرة {{ ticket_number }}؟', 'تم إغلاق التذكرة {{ ticket_number }}. يرجى تقييم تجربة الدعم من تطبيق العميل.'],
+            ],
             NotificationEventKey::SlaAtRisk->value => [
                 'variables' => ['ticket_number', 'sla_kind'],
                 'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
@@ -205,6 +211,72 @@ final class NotificationTemplateSeeder extends Seeder
                 'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
                 'en' => ['Maintenance billed: {{ maintenance_reference }}', 'Maintenance {{ maintenance_reference }} was billed on invoice {{ invoice_number }}.'],
                 'ar' => ['تمت فوترة الصيانة: {{ maintenance_reference }}', 'تمت فوترة الصيانة {{ maintenance_reference }} ضمن الفاتورة {{ invoice_number }}.'],
+            ],
+            NotificationEventKey::InstallationScheduled->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name', 'scheduled_at'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Installation scheduled: {{ maintenance_reference }}', 'Installation of {{ serial_number }} for {{ customer_name }} is scheduled for {{ scheduled_at }}.'],
+                'ar' => ['تمت جدولة التركيب: {{ maintenance_reference }}', 'تمت جدولة تركيب {{ serial_number }} للعميل {{ customer_name }} بتاريخ {{ scheduled_at }}.'],
+            ],
+            NotificationEventKey::InstallationCompleted->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Installation completed: {{ maintenance_reference }}', 'Equipment {{ serial_number }} for {{ customer_name }} has been installed. Commissioning is next.'],
+                'ar' => ['اكتمل التركيب: {{ maintenance_reference }}', 'تم تركيب الجهاز {{ serial_number }} للعميل {{ customer_name }}. الخطوة التالية هي التشغيل التجريبي.'],
+            ],
+            NotificationEventKey::CommissioningPassed->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Commissioning passed: {{ maintenance_reference }}', 'Equipment {{ serial_number }} for {{ customer_name }} passed commissioning and awaits customer acceptance.'],
+                'ar' => ['نجح التشغيل التجريبي: {{ maintenance_reference }}', 'اجتاز الجهاز {{ serial_number }} للعميل {{ customer_name }} التشغيل التجريبي وبانتظار قبول العميل.'],
+            ],
+            NotificationEventKey::CommissioningFailed->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name', 'reason'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Commissioning failed: {{ maintenance_reference }}', 'Commissioning of {{ serial_number }} for {{ customer_name }} failed: {{ reason }}'],
+                'ar' => ['فشل التشغيل التجريبي: {{ maintenance_reference }}', 'فشل التشغيل التجريبي للجهاز {{ serial_number }} للعميل {{ customer_name }}: {{ reason }}'],
+            ],
+            NotificationEventKey::CustomerAcceptanceRecorded->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name', 'reason'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Customer acceptance recorded: {{ maintenance_reference }}', '{{ customer_name }} responded to the installation of {{ serial_number }}: {{ reason }}'],
+                'ar' => ['تم تسجيل رد العميل على التركيب: {{ maintenance_reference }}', 'رد العميل {{ customer_name }} على تركيب الجهاز {{ serial_number }}: {{ reason }}'],
+            ],
+            NotificationEventKey::CalibrationDue->value => [
+                'variables' => ['schedule_number', 'schedule_name', 'due_on'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Calibration due: {{ schedule_name }}', 'Schedule {{ schedule_number }} ({{ schedule_name }}) has a calibration due on {{ due_on }}.'],
+                'ar' => ['معايرة مستحقة: {{ schedule_name }}', 'الجدول {{ schedule_number }} ({{ schedule_name }}) لديه معايرة مستحقة بتاريخ {{ due_on }}.'],
+            ],
+            NotificationEventKey::CalibrationCompleted->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name', 'result'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Calibration completed: {{ maintenance_reference }}', 'Calibration of {{ serial_number }} for {{ customer_name }} finished: {{ result }}.'],
+                'ar' => ['اكتملت المعايرة: {{ maintenance_reference }}', 'انتهت معايرة الجهاز {{ serial_number }} للعميل {{ customer_name }}: {{ result }}.'],
+            ],
+            NotificationEventKey::CalibrationFailed->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name', 'reason'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Calibration failed: {{ maintenance_reference }}', 'Calibration of {{ serial_number }} for {{ customer_name }} failed: {{ reason }}'],
+                'ar' => ['فشلت المعايرة: {{ maintenance_reference }}', 'فشلت معايرة الجهاز {{ serial_number }} للعميل {{ customer_name }}: {{ reason }}'],
+            ],
+            NotificationEventKey::LoanerOverdue->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'customer_name', 'loaner_serial', 'expected_return_at'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Loaner overdue: {{ maintenance_reference }}', 'Loaner {{ loaner_serial }} lent to {{ customer_name }} for {{ serial_number }} was due back on {{ expected_return_at }}.'],
+                'ar' => ['جهاز مستعار متأخر: {{ maintenance_reference }}', 'الجهاز المستعار {{ loaner_serial }} المعار للعميل {{ customer_name }} بدلاً من {{ serial_number }} كان مستحق الإرجاع في {{ expected_return_at }}.'],
+            ],
+            NotificationEventKey::RmaStatusChanged->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'supplier_name', 'rma_status'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Supplier repair update: {{ maintenance_reference }}', 'The supplier repair of {{ serial_number }} with {{ supplier_name }} is now: {{ rma_status }}.'],
+                'ar' => ['تحديث إصلاح المورد: {{ maintenance_reference }}', 'أصبحت حالة إصلاح الجهاز {{ serial_number }} لدى المورد {{ supplier_name }}: {{ rma_status }}.'],
+            ],
+            NotificationEventKey::EquipmentReturnedFromSupplier->value => [
+                'variables' => ['maintenance_reference', 'serial_number', 'supplier_name', 'rma_status'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Equipment back from supplier: {{ maintenance_reference }}', 'The supplier repair of {{ serial_number }} with {{ supplier_name }} is complete: {{ rma_status }}.'],
+                'ar' => ['عودة الجهاز من المورد: {{ maintenance_reference }}', 'اكتمل إصلاح الجهاز {{ serial_number }} لدى المورد {{ supplier_name }}: {{ rma_status }}.'],
             ],
         ] as $key => $definition) {
             foreach ($definition['channels'] as $channel) {

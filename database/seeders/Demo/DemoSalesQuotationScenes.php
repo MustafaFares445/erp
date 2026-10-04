@@ -12,6 +12,7 @@ use App\Services\Sales\QuotationService;
 use App\Services\Sales\SalesOrderService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
+use LogicException;
 
 /**
  * The quotation book of the month: 28 quotations issued by the six sales employees, covering
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\Artisan;
  * Timestamps are scene moments (application timezone); the quotation's own `issue_date` is the
  * day part of `issued`.
  */
-final class DemoSalesQuotationScenes
+final readonly class DemoSalesQuotationScenes
 {
     /**
      * @var array<string, array{
@@ -117,8 +118,8 @@ final class DemoSalesQuotationScenes
     ];
 
     public function __construct(
-        private readonly DemoSalesKit $kit,
-        private readonly DemoSalesTimeline $timeline,
+        private DemoSalesKit $kit,
+        private DemoSalesTimeline $timeline,
     ) {}
 
     public function register(): void
@@ -131,11 +132,11 @@ final class DemoSalesQuotationScenes
             }
 
             match ($quote['path']) {
-                'accepted' => $this->timeline->add($quote['decided'], "quotation {$code} accepted", fn () => $this->accept($code)),
+                'accepted' => $this->timeline->add($this->field($code, 'decided'), "quotation {$code} accepted", fn () => $this->accept($code)),
                 'converted' => $this->registerConversion($code),
-                'rejected' => $this->timeline->add($quote['decided'], "quotation {$code} rejected", fn () => $this->reject($code)),
+                'rejected' => $this->timeline->add($this->field($code, 'decided'), "quotation {$code} rejected", fn () => $this->reject($code)),
                 'changes' => $this->registerChanges($code),
-                'expired' => $this->timeline->add($quote['decided'], "quotation {$code} swept as expired", fn () => $this->sweep()),
+                'expired' => $this->timeline->add($this->field($code, 'decided'), "quotation {$code} swept as expired", fn () => $this->sweep()),
                 'cancelled' => $this->registerCancellation($code),
                 default => null,
             };
@@ -175,7 +176,7 @@ final class DemoSalesQuotationScenes
         $quote = self::Quotes[$code];
         $this->kit->quotes[$code] = app(QuotationResponseService::class)->accept(
             $this->kit->quotes[$code]->refresh(),
-            Carbon::parse($quote['decided']),
+            Carbon::parse($this->field($code, 'decided')),
             $quote['note'] ?? null,
             null,
             $this->kit->context->as('sales_manager'),
@@ -184,11 +185,10 @@ final class DemoSalesQuotationScenes
 
     private function reject(string $code): void
     {
-        $quote = self::Quotes[$code];
         $this->kit->quotes[$code] = app(QuotationResponseService::class)->reject(
             $this->kit->quotes[$code]->refresh(),
-            Carbon::parse($quote['decided']),
-            (string) $quote['note'],
+            Carbon::parse($this->field($code, 'decided')),
+            $this->field($code, 'note'),
             null,
             $this->kit->context->as('sales_manager'),
         );
@@ -196,18 +196,18 @@ final class DemoSalesQuotationScenes
 
     private function registerConversion(string $code): void
     {
-        $quote = self::Quotes[$code];
-        $this->timeline->add($quote['decided'], "quotation {$code} accepted", fn () => $this->accept($code));
-        $this->timeline->add($quote['converted'], "quotation {$code} converted to {$quote['order']}", function () use ($code, $quote): void {
+        $orderKey = $this->field($code, 'order');
+        $this->timeline->add($this->field($code, 'decided'), "quotation {$code} accepted", fn () => $this->accept($code));
+        $this->timeline->add($this->field($code, 'converted'), "quotation {$code} converted to {$orderKey}", function () use ($code, $orderKey): void {
             $this->kit->context->as('sales_manager');
             $order = app(QuotationConversionService::class)->convert($this->kit->quotes[$code]->refresh());
-            $this->kit->orders[$quote['order']] = $order;
+            $this->kit->orders[$orderKey] = $order;
             $this->kit->quotes[$code] = $this->kit->quotes[$code]->refresh();
         });
-        $this->timeline->add($quote['release'], "order {$quote['order']} released", function () use ($quote): void {
-            $this->kit->orders[$quote['order']] = app(SalesOrderService::class)->release(
+        $this->timeline->add($this->field($code, 'release'), "order {$orderKey} released", function () use ($orderKey): void {
+            $this->kit->orders[$orderKey] = app(SalesOrderService::class)->release(
                 $this->kit->context->as('sales_manager'),
-                $this->kit->orders[$quote['order']]->refresh(),
+                $this->kit->orders[$orderKey]->refresh(),
             );
         });
     }
@@ -215,11 +215,13 @@ final class DemoSalesQuotationScenes
     private function registerChanges(string $code): void
     {
         $quote = self::Quotes[$code];
-        $this->timeline->add($quote['decided'], "quotation {$code} changes requested", function () use ($code, $quote): void {
+        $decided = $this->field($code, 'decided');
+        $note = $this->field($code, 'note');
+        $this->timeline->add($decided, "quotation {$code} changes requested", function () use ($code, $decided, $note): void {
             $this->kit->quotes[$code] = app(QuotationResponseService::class)->requestChanges(
                 $this->kit->quotes[$code]->refresh(),
-                Carbon::parse($quote['decided']),
-                (string) $quote['note'],
+                Carbon::parse($decided),
+                $note,
                 null,
                 $this->kit->context->as('sales_manager'),
             );
@@ -235,9 +237,7 @@ final class DemoSalesQuotationScenes
 
     private function registerCancellation(string $code): void
     {
-        $quote = self::Quotes[$code];
-
-        $this->timeline->add($quote['cancelled'], "quotation {$code} cancelled", function () use ($code): void {
+        $this->timeline->add($this->field($code, 'cancelled'), "quotation {$code} cancelled", function () use ($code): void {
             // No service owns this transition; Quotation::update is the only writer (see QuotationStatus).
             $this->kit->context->as('sales_manager');
             $this->kit->quotes[$code]->refresh()->update(['status' => QuotationStatus::Cancelled]);
@@ -247,6 +247,14 @@ final class DemoSalesQuotationScenes
     private function sweep(): void
     {
         Artisan::call('sales:quotations:expire');
+    }
+
+    /** A string field that the quotation's path requires (decision, conversion and cancellation moments, notes). */
+    private function field(string $code, string $field): string
+    {
+        $value = self::Quotes[$code][$field] ?? null;
+
+        return is_string($value) ? $value : throw new LogicException("Quotation scene {$code} has no [{$field}].");
     }
 
     /** Number of quotations a rerun guard may rely on. */

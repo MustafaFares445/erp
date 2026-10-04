@@ -42,7 +42,6 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Payments\Providers\FakeStripeClient;
-use App\Services\Payments\Providers\StripeClientInterface;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Payments\StripePaymentReconciliationService;
 use App\Services\Support\MaintenanceBillingService;
@@ -365,12 +364,12 @@ final class DemoSupportMonthSeeder extends DemoSeeder
     {
         $this->on($at, function () use ($recordKey, $taskKey, $agent, $minutes, $note): void {
             $user = $this->actor('manager');
-            $agentUser = $this->agents[$agent]->user;
+            $agentUser = $this->agents[$agent]->user ?? throw new LogicException("Support agent [{$agent}] has no login user.");
 
             app(MaintenanceCostService::class)->recordLabour(new LabourEntryData(
-                maintenanceRecordId: (int) $this->records[$recordKey]->getKey(),
-                serviceRecordId: (int) $this->tasks[$taskKey]->getKey(),
-                employeeId: (int) $agentUser?->getKey(),
+                maintenanceRecordId: DemoContext::keyOf($this->records[$recordKey]),
+                serviceRecordId: DemoContext::keyOf($this->tasks[$taskKey]),
+                employeeId: DemoContext::keyOf($agentUser),
                 performedOn: now()->toDateString(),
                 minutes: $minutes,
                 notes: $note,
@@ -383,7 +382,7 @@ final class DemoSupportMonthSeeder extends DemoSeeder
         $this->on($at, function () use ($partKey, $taskKey, $agent, $quantity): void {
             $variant = ProductVariant::query()->where('sku', DemoMasterDataSeeder::sku('P020', 'BASIC'))->firstOrFail();
             $warehouse = Warehouse::query()->where('code', 'WH-REPAIR')->firstOrFail();
-            $lot = app(InventoryLotService::class)->availableLots((int) $variant->getKey(), (int) $warehouse->getKey())->first();
+            $lot = app(InventoryLotService::class)->availableLots(DemoContext::keyOf($variant), DemoContext::keyOf($warehouse))->first();
 
             if (! $lot instanceof InventoryLot) {
                 throw new LogicException('Repair bench has no usable maintenance kit lot; run DemoInventoryOpeningSeeder first.');
@@ -391,11 +390,11 @@ final class DemoSupportMonthSeeder extends DemoSeeder
 
             $this->parts[$partKey] = app(ServiceRecordPartService::class)->consume(
                 $this->tasks[$taskKey]->refresh(),
-                (int) $variant->getKey(),
-                (int) $warehouse->getKey(),
+                DemoContext::keyOf($variant),
+                DemoContext::keyOf($warehouse),
                 $quantity,
                 $this->actor($agent),
-                (int) $lot->getKey(),
+                DemoContext::keyOf($lot),
             );
         });
     }
@@ -463,7 +462,7 @@ final class DemoSupportMonthSeeder extends DemoSeeder
             $ticket = $this->tickets['T04']->refresh();
             $method = PaymentMethod::query()->where('name', 'Customer Bank Transfer')->firstOrFail();
 
-            app(TicketPaymentService::class)->settle($ticket->paymentLink()->firstOrFail(), 'BT-20260915-0457', $this->actor('admin'), (int) $method->getKey());
+            app(TicketPaymentService::class)->settle($ticket->paymentLink()->firstOrFail(), 'BT-20260915-0457', $this->actor('admin'), DemoContext::keyOf($method));
         });
         $this->assign('T04', '2026-09-15 10:45', 'agent2');
         $this->say('T04', '2026-09-15 11:30', 'agent2', 'Payment received, thank you. Please keep the controller powered on; we will connect remotely at 14:00.');
@@ -489,7 +488,7 @@ final class DemoSupportMonthSeeder extends DemoSeeder
         $this->taskMove('M2-repair', '2026-09-24 09:00', 'agent1', MaintenanceStatus::InProgress);
         $this->on('2026-09-19 09:00', function (): void {
             app(MaintenanceCostService::class)->recordThirdPartyCost(new ThirdPartyCostData(
-                maintenanceRecordId: (int) $this->records['M2']->getKey(),
+                maintenanceRecordId: DemoContext::keyOf($this->records['M2']),
                 description: 'Express courier for the replacement motor',
                 amountMinor: 12500,
                 incurredOn: '2026-09-19',
@@ -533,7 +532,7 @@ final class DemoSupportMonthSeeder extends DemoSeeder
 
     private function settleWithStripe(): void
     {
-        $client = app(StripeClientInterface::class);
+        $client = DemoContext::fakeStripe();
         $ticket = $this->tickets['T05']->refresh();
         $link = $ticket->paymentLink()->firstOrFail();
 
@@ -626,7 +625,7 @@ final class DemoSupportMonthSeeder extends DemoSeeder
                 }
 
                 app(MaintenanceScheduleService::class)->create(new MaintenanceScheduleData(
-                    serializedInventoryUnitId: (int) $unit->getKey(),
+                    serializedInventoryUnitId: DemoContext::keyOf($unit),
                     customerId: (int) $unit->custody_reference_id,
                     name: 'Annual preventive service',
                     intervalType: MaintenanceIntervalType::Months,

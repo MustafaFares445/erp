@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use RuntimeException;
@@ -20,6 +21,17 @@ use RuntimeException;
  */
 abstract class DemoSeeder extends Seeder
 {
+    /** Console command driving this run, when seeded from Artisan (the parent property is untyped and never null in its phpdoc). */
+    private ?Command $console = null;
+
+    #[\Override]
+    public function setCommand(Command $command): static
+    {
+        $this->console = $command;
+
+        return parent::setCommand($command);
+    }
+
     final public function run(): void
     {
         if (app()->isProduction()) {
@@ -51,8 +63,8 @@ abstract class DemoSeeder extends Seeder
 
     protected function note(string $message): void
     {
-        if (isset($this->command)) {
-            $this->command->getOutput()->writeln('  <comment>demo</comment> '.$message);
+        if ($this->console instanceof Command) {
+            $this->console->getOutput()->writeln('  <comment>demo</comment> '.$message);
         }
     }
 }

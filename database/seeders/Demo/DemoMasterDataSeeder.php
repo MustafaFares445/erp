@@ -35,7 +35,7 @@ final class DemoMasterDataSeeder extends DemoSeeder
         $categories = $this->seedCategories();
         $variants = $this->seedCatalogue($units, $categories);
         $this->seedSuppliers($variants);
-        $this->seedCustomers($context);
+        $this->seedCustomers();
     }
 
     private function seedWarehouses(): void
@@ -195,11 +195,10 @@ final class DemoMasterDataSeeder extends DemoSeeder
         }
     }
 
-    private function seedCustomers(DemoContext $context): void
+    private function seedCustomers(): void
     {
         $provisioner = app(CustomerAccountProvisioningService::class);
         $terms = PaymentTerm::query()->pluck('id', 'name');
-
         foreach (DemoFixtures::Customers as $code => $customer) {
             $number = mb_substr($code, -3);
 

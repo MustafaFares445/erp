@@ -82,7 +82,7 @@ final class DemoSystemActivitySeeder extends DemoSeeder
 
         $this->note('Notification deliveries by status: '.json_encode($deliveries));
 
-        $queued = (int) ($deliveries['queued'] ?? 0);
+        $queued = DemoContext::intOf($deliveries['queued'] ?? 0);
         if ($queued > 0) {
             $this->note("WARNING: {$queued} deliveries are still Queued; a worker would send them.");
         }

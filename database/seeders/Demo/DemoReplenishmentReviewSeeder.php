@@ -46,8 +46,10 @@ final class DemoReplenishmentReviewSeeder extends DemoSeeder
                 ->where('warehouse_id', $inventory->warehouse($warehouse)->getKey())
                 ->where('product_variant_id', $inventory->variant($product, $suffix)->getKey())
                 ->first();
-
-            if (! $policy instanceof WarehouseReplenishmentPolicy || ! $policy->is_active) {
+            if (! $policy instanceof WarehouseReplenishmentPolicy) {
+                continue;
+            }
+            if (! $policy->is_active) {
                 continue;
             }
 

@@ -17,8 +17,10 @@ use App\Enums\StockCondition;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryConditionChangeService;
@@ -26,6 +28,7 @@ use App\Services\Inventory\InventoryCorrectionService;
 use App\Services\Inventory\InventoryCountService;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 
@@ -77,24 +80,26 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
         // T5: discrepancy - shortage recorded on receipt.
         $context->at('2026-09-22 09:30');
         $context->as('operations');
+
         $shortage = $this->transfer($actor, 'WH-MAIN', 'WH-REPAIR', [['P016', 'PREMIUM', 4]], 'T5 premium burs, short receipt', dispatchOnly: true);
         $context->at('2026-09-23 14:00');
         $line = $shortage?->lines()->first();
         if ($shortage instanceof InventoryOperation && $line !== null) {
             $this->operations->receiveTransfer($shortage->refresh(), $actor, new TransferReceiptCommand([
-                new TransferReceiptLine($line->getKey(), $this->receivable($line, 1), TransferDiscrepancyDisposition::Shortage, 'One set missing from the sealed carton on arrival.'),
+                new TransferReceiptLine(DemoContext::keyOf($line), $this->receivable($line, 1), TransferDiscrepancyDisposition::Shortage, 'One set missing from the sealed carton on arrival.'),
             ]));
         }
 
         // T6: partially received (stays open), Main -> Cold.
         $context->at('2026-09-25 10:00');
         $context->as('operations');
+
         $partial = $this->transfer($actor, 'WH-MAIN', 'WH-COLD', [['P005', '35MM', 10]], 'T6 abutments to cold storage, first pallet', dispatchOnly: true);
         $context->at('2026-09-26 15:00');
         $line = $partial?->lines()->first();
         if ($partial instanceof InventoryOperation && $line !== null) {
             $this->operations->receiveTransfer($partial->refresh(), $actor, new TransferReceiptCommand([
-                new TransferReceiptLine($line->getKey(), $this->receivable($line, 6)),
+                new TransferReceiptLine(DemoContext::keyOf($line), $this->receivable($line, 6)),
             ]));
         }
 
@@ -121,6 +126,7 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
         // T9: cancelled before dispatch.
         $context->at('2026-10-02 14:00');
         $context->as('operations');
+
         $cancelled = $this->transfer($actor, 'WH-MAIN', 'WH-COLD', [['P018', 'UPPER', 5]], 'T9 duplicate request', draft: true);
         if ($cancelled instanceof InventoryOperation) {
             $this->operations->cancel($cancelled->refresh(), $actor, 'Duplicate of an existing request.');
@@ -131,7 +137,7 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
      * @param  list<array{0: string, 1: string, 2: int}>  $items
      */
     private function transfer(
-        $actor,
+        User $actor,
         string $from,
         string $to,
         array $items,
@@ -200,7 +206,7 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
         }
 
         if ($variant->track_batches) {
-            $lot = app(InventoryLotService::class)->availableLots($variant->getKey(), $source->getKey())->first();
+            $lot = app(InventoryLotService::class)->availableLots(DemoContext::keyOf($variant), DemoContext::keyOf($source))->first();
             if ($lot === null) {
                 return 0;
             }
@@ -212,7 +218,7 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
         return 1;
     }
 
-    private function receivable($line, int $wanted): string
+    private function receivable(InventoryOperationLine $line, int $wanted): string
     {
         return number_format(min($wanted, (float) $line->dispatched_base_quantity), 6, '.', '');
     }
@@ -233,13 +239,13 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
             $context->at($moment);
             $maker = $context->as('operations');
             $variant = $this->inventory->variant($product, $suffix);
-            $lot = app(InventoryLotService::class)->availableLots($variant->getKey(), $main->getKey())->first();
+            $lot = app(InventoryLotService::class)->availableLots(DemoContext::keyOf($variant), DemoContext::keyOf($main))->first();
 
             if ($lot === null) {
                 continue;
             }
 
-            $current = (float) $lot->conditionOnHandQuantity(StockCondition::Saleable, $main->getKey());
+            $current = (float) $lot->conditionOnHandQuantity(StockCondition::Saleable, DemoContext::keyOf($main));
             $target = max(0, $current + $delta);
 
             $adjustment = InventoryAdjustment::query()->create([
@@ -255,7 +261,7 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
             ]);
 
             if ($confirm) {
-                $context->at(date('Y-m-d H:i', strtotime($moment.' +30 minutes')));
+                $context->at(Carbon::parse($moment)->addMinutes(30)->format('Y-m-d H:i'));
                 $service->confirm($adjustment->refresh(), $context->actor('admin'));
             }
         }
@@ -270,7 +276,7 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
 
         $context->at('2026-09-29 09:00');
         $counter = $context->as('operations');
-        $count = $service->open(new CountScopeData($repair->getKey(), CountScope::Warehouse, null, null, null, [StockCondition::Saleable->value], null), $counter);
+        $count = $service->open(new CountScopeData(DemoContext::keyOf($repair), CountScope::Warehouse, null, null, null, [StockCondition::Saleable->value], null), $counter);
 
         $first = true;
         foreach ($count->lines as $line) {
@@ -310,7 +316,7 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
         $service = app(InventoryConditionChangeService::class);
         $main = $this->inventory->warehouse('WH-MAIN');
         $variant = $this->inventory->variant('P012', '21MM');
-        $lot = app(InventoryLotService::class)->availableLots($variant->getKey(), $main->getKey())->first();
+        $lot = app(InventoryLotService::class)->availableLots(DemoContext::keyOf($variant), DemoContext::keyOf($main))->first();
 
         if ($lot === null) {
             return;
@@ -318,19 +324,19 @@ final class DemoInventoryOperationsSeeder extends DemoSeeder
 
         $context->at('2026-09-26 10:00');
         $admin = $context->as('admin');
-        $damage = $service->draftDamage(new DamageDraftData($variant->getKey(), $main->getKey(), $lot->getKey(), null, '3.000000', ConditionChangeReason::DamagedInTransit, 'Cartons crushed during an internal move.'), $admin);
+        $damage = $service->draftDamage(new DamageDraftData(DemoContext::keyOf($variant), DemoContext::keyOf($main), DemoContext::keyOf($lot), null, '3.000000', ConditionChangeReason::DamagedInTransit, 'Cartons crushed during an internal move.'), $admin);
         $service->post($damage->refresh(), $admin);
 
         $context->at('2026-09-27 09:30');
-        $recovery = $service->draftRecovery(new RecoveryDraftData($damage->getKey(), '1.000000', ConditionChangeReason::QualityInspectionPassed, 'One set passed inspection and is repackaged.'), $admin);
+        $recovery = $service->draftRecovery(new RecoveryDraftData(DemoContext::keyOf($damage), '1.000000', ConditionChangeReason::QualityInspectionPassed, 'One set passed inspection and is repackaged.'), $admin);
         $service->post($recovery->refresh(), $admin);
 
         $context->at('2026-09-30 14:00');
         $maker = $context->as('operations');
-        $disposal = $service->draftDisposal(new DisposalDraftData($variant->getKey(), $main->getKey(), $lot->getKey(), null, '2.000000', ConditionChangeReason::Other, 'Beyond repair after the crushed-carton incident.', $admin->getKey()), $maker);
+        $disposal = $service->draftDisposal(new DisposalDraftData(DemoContext::keyOf($variant), DemoContext::keyOf($main), DemoContext::keyOf($lot), null, '2.000000', ConditionChangeReason::Other, 'Beyond repair after the crushed-carton incident.', DemoContext::keyOf($admin)), $maker);
         $disposal->addMediaFromString('DEMO-DISPOSAL-EVIDENCE-PLACEHOLDER')->usingFileName('disposal-evidence.jpg')->toMediaCollection('disposal-evidence');
         $context->at('2026-09-30 15:00');
-        $service->post($disposal->fresh(), $admin);
+        $service->post($disposal->refresh(), $admin);
     }
 
     private function available(ProductVariant $variant, Warehouse $warehouse): int

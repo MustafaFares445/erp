@@ -10,6 +10,7 @@ use App\Models\InventoryOperation;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTerm;
 use App\Models\ProductVariant;
+use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
@@ -84,16 +85,21 @@ final readonly class DemoPurchasingToolkit
 
         foreach ($lines as $line) {
             $variant = $this->variant($line[0]);
-            $payload[] = array_filter([
-                'product_variant_id' => $variant->getKey(),
+            $row = [
+                'product_variant_id' => DemoContext::keyOf($variant),
                 'unit_id' => $variant->unit_id,
                 'quantity_ordered' => (string) $line[1],
-                'unit_cost' => $line[2] ?? null,
-            ], static fn (mixed $value): bool => $value !== null);
+            ];
+
+            if (isset($line[2])) {
+                $row['unit_cost'] = $line[2];
+            }
+
+            $payload[] = $row;
         }
 
         return app(PurchaseOrderService::class)->createDraftWithLines($officer, [
-            'supplier_id' => $this->supplier($supplier)->getKey(),
+            'supplier_id' => DemoContext::keyOf($this->supplier($supplier)),
             'currency_code' => 'AED',
             'ordered_at' => $orderedAt,
             'expected_at' => $expectedAt,
@@ -141,7 +147,7 @@ final readonly class DemoPurchasingToolkit
             foreach ($confirmation->items->values() as $index => $item) {
                 [$confirmed, $backordered] = $quantities[$index] ?? [(string) $item->requested_base_quantity, '0'];
                 $items[] = [
-                    'id' => $item->getKey(),
+                    'id' => DemoContext::keyOf($item),
                     'confirmed_base_quantity' => $confirmed,
                     'backordered_base_quantity' => $backordered,
                     'promised_at' => $promisedAt,
@@ -176,7 +182,7 @@ final readonly class DemoPurchasingToolkit
     public function allocatePartial(string $key, string $warehouseCode, string $baseQuantity): void
     {
         $order = $this->order($key);
-        $line = $order->purchaseInbound->lines()->sole();
+        $line = $this->inbound($order)->lines()->sole();
 
         app(PurchaseInboundService::class)->allocate(
             $this->context->actor('operations'),
@@ -210,7 +216,7 @@ final readonly class DemoPurchasingToolkit
         $order = $this->order($key)->load('purchaseInbound.lines.allocations');
         $lines = [];
 
-        foreach ($order->purchaseInbound->lines as $inboundLine) {
+        foreach ($this->inbound($order)->lines as $inboundLine) {
             foreach ($inboundLine->allocations as $allocation) {
                 $available = $receiving->availableBaseQuantityForAllocation($allocation);
 
@@ -219,7 +225,7 @@ final readonly class DemoPurchasingToolkit
                 }
 
                 $lines[] = [
-                    'purchase_inbound_allocation_id' => $allocation->getKey(),
+                    'purchase_inbound_allocation_id' => DemoContext::keyOf($allocation),
                     'quantity' => $limit !== null && $lines === [] ? $limit : $available,
                 ];
             }
@@ -234,14 +240,14 @@ final readonly class DemoPurchasingToolkit
 
     public function remainderDraftReceipt(string $key): InventoryOperation
     {
-        $allocation = $this->order($key)->purchaseInbound->lines()->sole()->allocations()->sole();
+        $allocation = $this->inbound($this->order($key))->lines()->sole()->allocations()->sole();
 
         return app(PurchaseOrderReceivingService::class)->ensureDraftReceiptForAllocation($this->context->actor('operations'), $allocation->fresh() ?? $allocation);
     }
 
     public function allocationOf(string $key): PurchaseInboundAllocation
     {
-        return $this->order($key)->purchaseInbound->lines()->sole()->allocations()->sole();
+        return $this->inbound($this->order($key))->lines()->sole()->allocations()->sole();
     }
 
     /**
@@ -251,7 +257,7 @@ final readonly class DemoPurchasingToolkit
     public function prepareBill(string $key, string $reference, string $billDate, string $term): Bill
     {
         $this->context->as('accountant');
-        $bill = Bill::query()->where('purchase_order_id', $this->order($key)->getKey())->sole();
+        $bill = Bill::query()->where('purchase_order_id', DemoContext::keyOf($this->order($key)))->sole();
 
         foreach ($bill->lines as $line) {
             $line->update(['tax_amount' => number_format(round((float) $line->line_total * (float) self::TaxRate, 2), 2, '.', '')]);
@@ -264,7 +270,7 @@ final readonly class DemoPurchasingToolkit
         $bill->update([
             'supplier_reference' => $reference,
             'bill_date' => $billDate,
-            'payment_term_id' => $this->term($term)->getKey(),
+            'payment_term_id' => DemoContext::keyOf($this->term($term)),
             'subtotal' => number_format($subtotal, 2, '.', ''),
             'tax_total' => number_format($tax, 2, '.', ''),
             'total_amount' => $total,
@@ -281,7 +287,7 @@ final readonly class DemoPurchasingToolkit
 
     public function billOf(string $key): Bill
     {
-        return Bill::query()->where('purchase_order_id', $this->order($key)->getKey())->sole();
+        return Bill::query()->where('purchase_order_id', DemoContext::keyOf($this->order($key)))->sole();
     }
 
     /**
@@ -295,17 +301,22 @@ final readonly class DemoPurchasingToolkit
         $documents = app(AccountingDocumentService::class);
 
         $payment = $documents->recordSupplierPayment($accountant, [
-            'supplier_id' => $this->supplier($supplier)->getKey(),
-            'payment_method_id' => PaymentMethod::query()->where('name', $method)->firstOrFail()->getKey(),
+            'supplier_id' => DemoContext::keyOf($this->supplier($supplier)),
+            'payment_method_id' => DemoContext::keyOf(PaymentMethod::query()->where('name', $method)->firstOrFail()),
             'amount' => $amount,
             'payment_date' => $date,
             'reference' => $reference,
         ]);
 
         return $documents->paySupplierPayment($accountant, $payment, array_map(
-            static fn (array $allocation): array => ['bill_id' => $allocation[0]->getKey(), 'amount' => $allocation[1]],
+            static fn (array $allocation): array => ['bill_id' => DemoContext::keyOf($allocation[0]), 'amount' => $allocation[1]],
             $allocations,
         ));
+    }
+
+    private function inbound(PurchaseOrder $order): PurchaseInbound
+    {
+        return $order->purchaseInbound ?? throw new RuntimeException(sprintf('Purchase order [%d] has no purchase inbound.', DemoContext::keyOf($order)));
     }
 
     public function term(string $name): PaymentTerm

@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
  * `send` false leaves the invoice Issued; `draft` leaves it Draft. `confirm` is
  * [type, moment] for receipt evidence on a Sent invoice.
  */
-final class DemoSalesInvoiceScenes
+final readonly class DemoSalesInvoiceScenes
 {
     /**
      * @var array<string, array{deliveries: string, at: string, send?: bool, draft?: bool, confirm?: array{0: string, 1: string}}>
@@ -59,8 +59,8 @@ final class DemoSalesInvoiceScenes
     ];
 
     public function __construct(
-        private readonly DemoSalesKit $kit,
-        private readonly DemoSalesTimeline $timeline,
+        private DemoSalesKit $kit,
+        private DemoSalesTimeline $timeline,
     ) {}
 
     public function register(): void
@@ -132,7 +132,7 @@ final class DemoSalesInvoiceScenes
         $billing = $this->kit->context->as('billing');
         $invoice = $this->kit->invoices[$code]->refresh();
 
-        GenerateInvoiceDocument::dispatchSync((int) $invoice->getKey(), (int) $billing->getKey());
+        GenerateInvoiceDocument::dispatchSync(DemoContext::keyOf($invoice), DemoContext::keyOf($billing));
         $this->kit->invoices[$code] = app(InvoiceService::class)->send($billing, $invoice->refresh())->refresh();
     }
 
@@ -144,7 +144,7 @@ final class DemoSalesInvoiceScenes
             $type === 'customer' ? InvoiceConfirmationType::CustomerReceived : InvoiceConfirmationType::EmployeeConfirmedReceived,
             $type === 'customer' ? 'Customer confirmed receipt of the invoice by email.' : 'Employee confirmed the invoice was handed over with the goods.',
         );
-        $this->kit->invoices[$code] = Invoice::query()->findOrFail($this->kit->invoices[$code]->getKey());
+        $this->kit->invoices[$code] = Invoice::query()->findOrFail(DemoContext::keyOf($this->kit->invoices[$code]));
     }
 
     private function after(string $moment, int $minutes): string

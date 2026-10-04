@@ -7,8 +7,6 @@ namespace Database\Seeders\Demo;
 use App\Models\Invoice;
 use App\Services\Payments\PaymentService;
 use App\Services\Payments\ProviderPaymentSettlementService;
-use App\Services\Payments\Providers\FakeStripeClient;
-use App\Services\Payments\Providers\StripeClientInterface;
 use App\Services\Payments\Providers\StripePaymentIntentData;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Payments\StripePaymentReconciliationService;
@@ -20,7 +18,7 @@ use LogicException;
  * customer deposit, and card payments driven through the in-memory Stripe client
  * (checkout -> provider confirmation -> reconciliation -> settlement).
  */
-final class DemoSalesCollectionScenes
+final readonly class DemoSalesCollectionScenes
 {
     /**
      * Manual payments. `invoice` null = unallocated customer deposit for `customer`;
@@ -65,8 +63,8 @@ final class DemoSalesCollectionScenes
     ];
 
     public function __construct(
-        private readonly DemoSalesKit $kit,
-        private readonly DemoSalesTimeline $timeline,
+        private DemoSalesKit $kit,
+        private DemoSalesTimeline $timeline,
     ) {}
 
     public function register(): void
@@ -112,7 +110,7 @@ final class DemoSalesCollectionScenes
             return;
         }
 
-        $allocations = $invoice instanceof Invoice ? [['invoice_id' => (int) $invoice->getKey(), 'amount' => (float) $amount]] : [];
+        $allocations = $invoice instanceof Invoice ? [['invoice_id' => DemoContext::keyOf($invoice), 'amount' => (float) $amount]] : [];
 
         $this->kit->payments[$code] = app(PaymentService::class)->post($billing, $draft, $allocations);
     }
@@ -128,11 +126,7 @@ final class DemoSalesCollectionScenes
     private function card(string $code): void
     {
         $card = self::Card[$code];
-        $fake = app(StripeClientInterface::class);
-
-        if (! $fake instanceof FakeStripeClient) {
-            throw new LogicException('Demo seeding must run against the in-memory Stripe client.');
-        }
+        $fake = DemoContext::fakeStripe() ?? throw new LogicException('Demo seeding must run against the in-memory Stripe client.');
 
         $customer = $this->kit->customer($card['customer']);
         $checkout = app(StripeCheckoutService::class);
@@ -145,7 +139,7 @@ final class DemoSalesCollectionScenes
         $intent = (string) $transaction->payment_intent_id;
 
         match ($card['outcome']) {
-            'failed' => $fake->markFailed($intent, $card['code'] ?? 'card_declined', 'Your card was declined.'),
+            'failed' => $fake->markFailed($intent, $card['code'], 'Your card was declined.'),
             'requires_action' => $fake->paymentIntents[$intent] = new StripePaymentIntentData(
                 $intent,
                 'requires_action',

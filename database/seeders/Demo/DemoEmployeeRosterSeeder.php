@@ -7,6 +7,7 @@ namespace Database\Seeders\Demo;
 use App\Models\EmployeeProfile;
 use App\Services\Employees\EmployeeOnboardingService;
 use Illuminate\Support\Facades\Hash;
+use LogicException;
 
 /**
  * The six demo employees. They are created first because quotations, visits, plans and
@@ -52,7 +53,7 @@ final class DemoEmployeeRosterSeeder extends DemoSeeder
                 'default_hourly_rate_minor' => $employee['rate'],
             ])->saveQuietly();
 
-            $profile->user->forceFill(['password' => Hash::make(DemoContext::Password)])->save();
+            ($profile->user ?? throw new LogicException("Onboarded employee [{$code}] has no login user."))->forceFill(['password' => Hash::make(DemoContext::Password)])->save();
         }
     }
 }

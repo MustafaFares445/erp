@@ -152,21 +152,21 @@ final class DemoSalesFulfilmentScenes
         });
 
         if ($order['confirm'] !== null) {
-            $this->timeline->add($order['confirm'], "order {$code} confirmed", fn () => $this->kit->orders[$code] = $service()->confirm(
+            $this->timeline->add($order['confirm'], "order {$code} confirmed", fn (): Order => $this->kit->orders[$code] = $service()->confirm(
                 $this->kit->context->as('sales_manager'),
                 $this->kit->orders[$code]->refresh(),
             ));
         }
 
         if ($order['release'] !== null) {
-            $this->timeline->add($order['release'], "order {$code} released", fn () => $this->kit->orders[$code] = $service()->release(
+            $this->timeline->add($order['release'], "order {$code} released", fn (): Order => $this->kit->orders[$code] = $service()->release(
                 $this->kit->context->as('sales_manager'),
                 $this->kit->orders[$code]->refresh(),
             ));
         }
 
         if (isset($order['cancel'])) {
-            $this->timeline->add($order['cancel'], "order {$code} cancelled", fn () => $this->kit->orders[$code] = $service()->cancel(
+            $this->timeline->add($order['cancel'], "order {$code} cancelled", fn (): Order => $this->kit->orders[$code] = $service()->cancel(
                 $this->kit->context->as('sales_manager'),
                 $this->kit->orders[$code]->refresh(),
                 'Customer postponed the project before delivery.',
@@ -183,7 +183,7 @@ final class DemoSalesFulfilmentScenes
             /** @var Order $order */
             $order = $this->kit->orders[$flow['order']]->refresh();
             $spec = $flow['spec'] ?? $this->orderSpec($flow['order']);
-            $this->kit->deliveries[$key] = $this->kit->plan('operations', $order, $spec, null, $flow['overbook'] ?? false)->all();
+            $this->kit->deliveries[$key] = array_values($this->kit->plan('operations', $order, $spec, null, $flow['overbook'] ?? false)->all());
         });
 
         if (isset($flow['prepare'])) {

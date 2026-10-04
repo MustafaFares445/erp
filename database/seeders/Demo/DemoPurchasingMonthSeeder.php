@@ -62,6 +62,8 @@ final class DemoPurchasingMonthSeeder extends DemoSeeder
 
     private DemoPurchasingSourcing $s;
 
+    private int $sceneSequence = 0;
+
     protected function seed(DemoContext $context): void
     {
         if (PurchaseOrder::query()->where('notes', 'like', '[DEMO] %')->exists()) {
@@ -95,16 +97,18 @@ final class DemoPurchasingMonthSeeder extends DemoSeeder
     /**
      * Scene tuples are [moment, actor, closure, sequence]; the sequence keeps same-minute scenes in source order.
      *
-     * @return list<array{0: string, 1: string, 2: Closure, 3: int}>
+     * @return array{0: string, 1: string, 2: Closure, 3: int}
      */
     private function scene(string $moment, string $actor, Closure $scene): array
     {
-        static $sequence = 0;
-
-        return [$moment.':00', $actor, $scene, ++$sequence];
+        return [$moment.':00', $actor, $scene, ++$this->sceneSequence];
     }
 
-    /** Create a draft and submit it (auto-approves at or below the AED 5,000 threshold). */
+    /**
+     * Create a draft and submit it (auto-approves at or below the AED 5,000 threshold).
+     *
+     * @return array{0: string, 1: string, 2: Closure, 3: int}
+     */
     private function place(string $key, string $moment): array
     {
         [$supplier, $lines, $orderedAt, $expectedAt, $label] = self::Orders[$key];
@@ -266,8 +270,8 @@ final class DemoPurchasingMonthSeeder extends DemoSeeder
 
         $conditions = app(InventoryConditionChangeService::class);
         $damage = $conditions->draftDamage(new DamageDraftData(
-            $variant->getKey(),
-            $warehouse->getKey(),
+            DemoContext::keyOf($variant),
+            DemoContext::keyOf($warehouse),
             $receiptLine->inventory_lot_id,
             null,
             '6.000000',
@@ -282,7 +286,7 @@ final class DemoPurchasingMonthSeeder extends DemoSeeder
             $this->t->supplier(1),
             $warehouse,
             $receipt,
-            $order->getKey(),
+            DemoContext::keyOf($order),
             'Damaged in transit',
             '[DEMO] Leaking irrigation bottles returned to MedSupply Gulf.',
         );

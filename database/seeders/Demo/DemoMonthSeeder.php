@@ -66,6 +66,10 @@ final class DemoMonthSeeder extends DemoSeeder
         DemoCrmMonthSeeder::class,
         DemoEmployeeMonthSeeder::class,
         DemoSupportMonthSeeder::class,
+        DemoSupportOperationsSeeder::class,
+        DemoInstallationSeeder::class,
+        DemoCalibrationSeeder::class,
+        DemoContinuitySeeder::class,
         DemoSystemActivitySeeder::class,
         DemoAccountingMonthSeeder::class,
     ];
