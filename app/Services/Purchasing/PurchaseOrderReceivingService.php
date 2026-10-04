@@ -523,6 +523,24 @@ final readonly class PurchaseOrderReceivingService
             throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
         }
 
+        if ($allocation->relationLoaded('inventoryOperationLines')) {
+            $reserved = $allocation->inventoryOperationLines
+                ->filter(static fn (InventoryOperationLine $line): bool => $line->operation instanceof InventoryOperation
+                    && $line->operation->operation_type === OperationType::Receipt
+                    && $line->operation->stage !== OperationStage::Canceled)
+                ->sum('base_quantity');
+
+            $remaining = bcsub(
+                $allocation->allocated_base_quantity,
+                $this->aggregateQuantity($reserved),
+                self::QUANTITY_SCALE,
+            );
+
+            return bccomp($remaining, '0.000000', self::QUANTITY_SCALE) === -1
+                ? '0.000000'
+                : $remaining;
+        }
+
         $reserved = InventoryOperationLine::query()
             ->where('purchase_inbound_allocation_id', $allocation->id)
             ->whereNotNull('base_quantity')

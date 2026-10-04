@@ -22,9 +22,13 @@ final readonly class OrderWorkflowService
     public function project(Order $order): OrderWorkflowProjection
     {
         $totals = $this->quantities->totals($order);
-        $requirements = $order->procurementRequirements()
-            ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
-            ->get(['required_base_quantity', 'fulfilled_base_quantity', 'status']);
+        $requirements = $order->relationLoaded('procurementRequirements')
+            ? $order->procurementRequirements
+            : $order->procurementRequirements()
+                ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
+                ->get(['required_base_quantity', 'fulfilled_base_quantity', 'status']);
+        $requirements = $requirements->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded']);
+
         $procurementOutstanding = round((float) $requirements->sum(
             fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity(),
         ), 6);

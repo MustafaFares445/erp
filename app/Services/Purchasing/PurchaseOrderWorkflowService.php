@@ -25,9 +25,12 @@ final readonly class PurchaseOrderWorkflowService
     {
         $order->loadMissing([
             'supplier',
+            'lines.productVariant.unit',
             'lines.purchaseInboundLine.allocations',
             'purchaseInbound.lines.allocations.warehouse',
+            'purchaseInbound.lines.allocations.inventoryOperationLines.operation',
             'purchaseInbound.lines.purchaseOrderLine.productVariant.product',
+            'purchaseInbound.lines.purchaseOrderLine.productVariant.unit',
             'receipts.lines',
             'confirmations.items',
             'bills.paymentAllocations.supplierPayment',

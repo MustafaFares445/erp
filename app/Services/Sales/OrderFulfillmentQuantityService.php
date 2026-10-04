@@ -12,6 +12,7 @@ use App\Enums\ShipmentStatus;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturnLine;
+use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\Order;
 use App\Models\OrderLine;
@@ -26,40 +27,68 @@ final class OrderFulfillmentQuantityService
      */
     public function forOrder(Order $order): Collection
     {
-        $lines = $order->lines()->orderBy('id')->get();
+        $lines = $order->relationLoaded('lines')
+            ? $order->lines->sortBy('id')->values()
+            : $order->lines()->orderBy('id')->get();
         $lineIds = $lines->pluck('id')->all();
 
-        $deliveries = $order->deliveries()
-            ->with('lines')
-            ->orderBy('id')
-            ->get();
+        if ($order->relationLoaded('deliveries')) {
+            $order->deliveries->loadMissing('lines.returnLines.inventoryReturn');
+            $deliveries = $order->deliveries->sortBy('id')->values();
+        } else {
+            $deliveries = $order->deliveries()
+                ->with('lines.returnLines.inventoryReturn')
+                ->orderBy('id')
+                ->get();
+        }
 
-        $shipmentsByDelivery = $order->shipments()
-            ->get()
-            ->keyBy('inventory_operation_id');
+        $shipments = $order->relationLoaded('shipments')
+            ? $order->shipments
+            : $order->shipments()->get();
+        $shipmentsByDelivery = $shipments->keyBy('inventory_operation_id');
 
         $deliveryLines = $deliveries->flatMap(
             static fn (InventoryOperation $operation) => $operation->lines,
         );
         $deliveryLineIds = $deliveryLines->pluck('id')->all();
 
-        $returnedByDeliveryLine = $deliveryLineIds === []
-            ? collect()
-            : InventoryReturnLine::query()
-                ->whereIn('original_inventory_operation_line_id', $deliveryLineIds)
-                ->whereHas('inventoryReturn', fn (Builder $query): Builder => $query->where('status', InventoryReturnStatus::Posted->value))
-                ->get(['original_inventory_operation_line_id', 'posted_base_quantity', 'base_quantity'])
+        $allReturnLinesLoaded = $deliveryLines->every(
+            static fn (InventoryOperationLine $line): bool => $line->relationLoaded('returnLines'),
+        );
+
+        $returnedByDeliveryLine = $allReturnLinesLoaded
+            ? $deliveryLines
+                ->flatMap(static fn (InventoryOperationLine $line) => $line->returnLines)
+                ->filter(static fn (InventoryReturnLine $row): bool => $row->inventoryReturn?->status === InventoryReturnStatus::Posted)
                 ->groupBy('original_inventory_operation_line_id')
                 ->map(fn (Collection $rows): float => round($this->floatValue($rows->sum(
                     fn (InventoryReturnLine $row): float => $this->floatValue($row->posted_base_quantity ?? $row->base_quantity),
-                )), 6));
+                )), 6))
+            : ($deliveryLineIds === []
+                ? collect()
+                : InventoryReturnLine::query()
+                    ->whereIn('original_inventory_operation_line_id', $deliveryLineIds)
+                    ->whereHas('inventoryReturn', fn (Builder $query): Builder => $query->where('status', InventoryReturnStatus::Posted->value))
+                    ->get(['original_inventory_operation_line_id', 'posted_base_quantity', 'base_quantity'])
+                    ->groupBy('original_inventory_operation_line_id')
+                    ->map(fn (Collection $rows): float => round($this->floatValue($rows->sum(
+                        fn (InventoryReturnLine $row): float => $this->floatValue($row->posted_base_quantity ?? $row->base_quantity),
+                    )), 6)));
 
-        $invoiceLines = InvoiceLine::query()
-            ->whereIn('order_line_id', $lineIds)
-            ->whereHas('invoice', fn (Builder $query): Builder => $query
-                ->where('order_id', $order->getKey())
-                ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value]))
-            ->get(['order_line_id', 'quantity']);
+        if ($order->relationLoaded('invoices')) {
+            $order->invoices->loadMissing('lines');
+            $invoiceLines = $order->invoices
+                ->filter(static fn (Invoice $invoice): bool => ! in_array($invoice->status, [InvoiceStatus::Draft, InvoiceStatus::Cancelled], true))
+                ->flatMap(static fn (Invoice $invoice) => $invoice->lines)
+                ->whereIn('order_line_id', $lineIds);
+        } else {
+            $invoiceLines = InvoiceLine::query()
+                ->whereIn('order_line_id', $lineIds)
+                ->whereHas('invoice', fn (Builder $query): Builder => $query
+                    ->where('order_id', $order->getKey())
+                    ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value]))
+                ->get(['order_line_id', 'quantity']);
+        }
 
         $invoiceByOrderLine = $invoiceLines
             ->groupBy('order_line_id')

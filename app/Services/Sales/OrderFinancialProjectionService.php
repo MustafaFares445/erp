@@ -26,7 +26,9 @@ final readonly class OrderFinancialProjectionService
     {
         [$postedPrepayments, $unallocatedDeposit] = $this->orderPrepayments($order);
 
-        $invoices = $order->invoices()->with('writeOffs')->get();
+        $invoices = $order->relationLoaded('invoices')
+            ? $order->invoices->loadMissing('writeOffs')
+            : $order->invoices()->with('writeOffs')->get();
         $issued = $invoices->filter(fn (Invoice $invoice): bool => $invoice->isIssued());
         $draftCount = $invoices->filter(fn (Invoice $invoice): bool => $invoice->isDraft())->count();
 
@@ -59,6 +61,28 @@ final readonly class OrderFinancialProjectionService
     /** @return array{0: float, 1: float} posted prepayments, unallocated deposit remainder */
     private function orderPrepayments(Order $order): array
     {
+        if ($order->relationLoaded('workflowPaymentTransactions')) {
+            $payments = $order->workflowPaymentTransactions
+                ->where('status', PaymentTransactionStatus::Succeeded)
+                ->map(static fn (PaymentTransaction $transaction): ?Payment => $transaction->payment)
+                ->filter(static fn (?Payment $payment): bool => $payment instanceof Payment
+                    && $payment->status === PaymentStatus::Posted
+                    && $payment->reversed_at === null);
+
+            $posted = 0.0;
+            $unallocated = 0.0;
+
+            foreach ($payments as $payment) {
+                $amount = (float) $payment->amount;
+                $allocatedValue = $payment->allocations->sum('amount');
+                $allocated = is_numeric($allocatedValue) ? (float) $allocatedValue : 0.0;
+                $posted += $amount;
+                $unallocated += max(0.0, round($amount - $allocated, 2));
+            }
+
+            return [$posted, $unallocated];
+        }
+
         $paymentIds = PaymentTransaction::query()
             ->where('purpose_type', Order::class)
             ->where('purpose_id', $order->getKey())

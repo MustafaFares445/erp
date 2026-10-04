@@ -47,11 +47,20 @@ use Illuminate\Support\Number;
  * attributed to a salesperson only by tracing `Order.quotation_id ->
  * Quotation.employee_id`; direct orders with no quotation have none.
  */
-final readonly class SalesDashboardMetricsService
+final class SalesDashboardMetricsService
 {
+    /** @var array<string, array{count: int, value: float}> */
+    private array $confirmedAggregateCache = [];
+
+    /** @var array<string, array{numerator: int, denominator: int, percent: float|null}> */
+    private array $conversionCache = [];
+
+    /** @var array<string, array{labels: list<string>, values: list<float>, counts: list<int>}> */
+    private array $trendSeriesCache = [];
+
     public function __construct(
-        private SalesReportService $salesReports,
-        private CurrencyCatalogService $currency,
+        private readonly SalesReportService $salesReports,
+        private readonly CurrencyCatalogService $currency,
     ) {}
 
     /**
@@ -473,6 +482,12 @@ final readonly class SalesDashboardMetricsService
     /** @return array{count: int, value: float} */
     private function confirmedOrderAggregate(SalesDashboardFilters $filters, CarbonImmutable $from, CarbonImmutable $to): array
     {
+        $key = $this->cacheKey($filters, $from, $to, 'confirmed-aggregate');
+
+        if (isset($this->confirmedAggregateCache[$key])) {
+            return $this->confirmedAggregateCache[$key];
+        }
+
         $row = $this->confirmedOrdersQuery($filters, $from, $to)
             ->selectRaw('COUNT(*) as aggregate_count, COALESCE(SUM(grand_total), 0) as aggregate_value')
             ->first();
@@ -480,7 +495,7 @@ final readonly class SalesDashboardMetricsService
         $count = $row?->getAttribute('aggregate_count');
         $value = $row?->getAttribute('aggregate_value');
 
-        return [
+        return $this->confirmedAggregateCache[$key] = [
             'count' => is_numeric($count) ? (int) $count : 0,
             'value' => is_numeric($value) ? (float) $value : 0.0,
         ];
@@ -500,7 +515,13 @@ final readonly class SalesDashboardMetricsService
     /** @return array{numerator: int, denominator: int, percent: float|null} */
     private function conversion(SalesDashboardFilters $filters, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $baseQuery = fn (): Builder => $this->applyQuotationFilters(
+        $key = $this->cacheKey($filters, $from, $to, 'conversion');
+
+        if (isset($this->conversionCache[$key])) {
+            return $this->conversionCache[$key];
+        }
+
+        $row = $this->applyQuotationFilters(
             Quotation::query()
                 ->whereDate('decided_at', '>=', $from->toDateString())
                 ->whereDate('decided_at', '<=', $to->toDateString())
@@ -510,12 +531,16 @@ final readonly class SalesDashboardMetricsService
                     QuotationStatus::Rejected->value,
                 ]),
             $filters,
-        );
+        )
+            ->selectRaw('COUNT(*) as denominator, SUM(CASE WHEN converted_order_id IS NOT NULL THEN 1 ELSE 0 END) as numerator')
+            ->first();
 
-        $denominator = $baseQuery()->count();
-        $numerator = $baseQuery()->whereNotNull('converted_order_id')->count();
+        $denominatorRaw = $row?->getAttribute('denominator');
+        $numeratorRaw = $row?->getAttribute('numerator');
+        $denominator = is_numeric($denominatorRaw) ? (int) $denominatorRaw : 0;
+        $numerator = is_numeric($numeratorRaw) ? (int) $numeratorRaw : 0;
 
-        return [
+        return $this->conversionCache[$key] = [
             'numerator' => $numerator,
             'denominator' => $denominator,
             'percent' => $denominator > 0 ? round($numerator / $denominator * 100, 1) : null,
@@ -527,9 +552,15 @@ final readonly class SalesDashboardMetricsService
     {
         $from = $previous ? $filters->previousFrom : $filters->from;
         $to = $previous ? $filters->previousTo : $filters->to;
+        $key = $this->cacheKey($filters, $from, $to, $previous ? 'trend-previous' : 'trend-current');
+
+        if (isset($this->trendSeriesCache[$key])) {
+            return $this->trendSeriesCache[$key];
+        }
+
         $orders = $this->confirmedOrdersQuery($filters, $from, $to)->get(['confirmed_at', 'grand_total']);
 
-        return [
+        return $this->trendSeriesCache[$key] = [
             'labels' => $filters->period->labels($previous),
             'values' => $filters->period->sumSeries(
                 $orders->map(static fn (Order $order): array => [$order->confirmed_at, $order->grand_total]),
@@ -567,14 +598,18 @@ final readonly class SalesDashboardMetricsService
     /** @return array{count: int, value: float} */
     private static function countAndValue(Closure $queryFactory): array
     {
-        /** @var Builder<Quotation> $countQuery */
-        $countQuery = $queryFactory();
-        /** @var Builder<Quotation> $valueQuery */
-        $valueQuery = $queryFactory();
+        /** @var Builder<Quotation> $query */
+        $query = $queryFactory();
+        $row = $query
+            ->selectRaw('COUNT(*) as aggregate_count, COALESCE(SUM(grand_total), 0) as aggregate_value')
+            ->first();
+
+        $count = $row?->getAttribute('aggregate_count');
+        $value = $row?->getAttribute('aggregate_value');
 
         return [
-            'count' => $countQuery->count(),
-            'value' => (float) $valueQuery->sum('grand_total'),
+            'count' => is_numeric($count) ? (int) $count : 0,
+            'value' => is_numeric($value) ? (float) $value : 0.0,
         ];
     }
 
@@ -618,6 +653,22 @@ final readonly class SalesDashboardMetricsService
         }
 
         return $customerId !== null ? __('dashboards.fallback.customer', ['id' => $customerId]) : __('dashboards.fallback.unknown_customer');
+    }
+
+    private function cacheKey(
+        SalesDashboardFilters $filters,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+        string $metric,
+    ): string {
+        return implode('|', [
+            $metric,
+            $from->toIso8601String(),
+            $to->toIso8601String(),
+            (string) ($filters->employeeId ?? 0),
+            (string) ($filters->customerId ?? 0),
+            $filters->granularity,
+        ]);
     }
 
     private static function formatMoney(float $amount, string $currency): string

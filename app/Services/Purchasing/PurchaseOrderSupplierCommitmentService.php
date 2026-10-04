@@ -118,7 +118,7 @@ final readonly class PurchaseOrderSupplierCommitmentService
     ): array {
         $loaded = $preferLoaded ? $this->loadedConfirmations($order) : null;
 
-        $items = $loaded instanceof \Illuminate\Database\Eloquent\Collection
+        $items = $loaded instanceof Collection
             ? $loaded->flatMap(static fn (SupplierConfirmation $confirmation): Collection => $confirmation->items)
                 ->where('purchase_order_line_id', $line->id)
                 ->sortBy('id')
@@ -134,7 +134,7 @@ final readonly class PurchaseOrderSupplierCommitmentService
                 ]);
 
         if ($items->isEmpty()) {
-            $confirmation = $loaded instanceof \Illuminate\Database\Eloquent\Collection
+            $confirmation = $loaded instanceof Collection
                 ? $loaded->sortByDesc('id')->first()
                 : $order->confirmations()->latest('id')->first();
 
