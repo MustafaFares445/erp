@@ -16,7 +16,7 @@ use App\Models\User;
 use App\Services\Logistics\OutboundAvailabilityService;
 use App\Services\Logistics\OutboundDispatchService;
 use App\Services\Logistics\OutboundFulfillmentService;
-use App\Services\Sales\OrderWorkflowService;
+use App\Services\Sales\OrderWorkflowProjectionStore;
 use App\Services\Sales\SalesProcurementRequirementService;
 use App\Services\Shipments\ShipmentService;
 use Filament\Actions\Action;
@@ -51,7 +51,7 @@ final class OutboundFulfillmentActions
      */
     public static function nextStep(Order $order): ?string
     {
-        $projection = app(OrderWorkflowService::class)->project($order);
+        $projection = app(OrderWorkflowProjectionStore::class)->project($order);
 
         if ($projection->procurementOutstandingBase > 0.000001) {
             return self::STEP_SUPPLY;
@@ -138,7 +138,7 @@ final class OutboundFulfillmentActions
                 ->whereIn('stage', [OperationStage::Draft->value, OperationStage::Waiting->value, OperationStage::Ready->value])
                 ->exists() ? 'gray' : 'primary')
             ->visible(fn (Order $record): bool => round(
-                app(OrderWorkflowService::class)->project($record)->remainingBase,
+                app(OrderWorkflowProjectionStore::class)->project($record)->remainingBase,
                 6,
             ) > 0.0);
     }

@@ -51,7 +51,10 @@ final class ServiceRecordsTable
                 TextColumn::make('title')->label(__('Work'))->searchable()->limit(40),
                 TextColumn::make('started_at')->label(__('Started'))->dateTime()->placeholder(__('—'))->sortable(),
                 TextColumn::make('completed_at')->label(__('Completed'))->dateTime()->placeholder(__('—'))->sortable(),
-                TextColumn::make('status')->badge(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (MaintenanceStatus $state): string => $state->label())
+                    ->color(static fn (MaintenanceStatus $state): string => $state->color()),
                 TextColumn::make('due_at')
                     ->label(__('Due'))
                     ->dateTime()
@@ -203,7 +206,7 @@ final class ServiceRecordsTable
                         $workPerformed,
                     );
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title(__('Unable to complete the service record'))->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to complete the service record'))->body(__($domainException->getMessage()))->send();
                 }
             });
     }
@@ -213,7 +216,7 @@ final class ServiceRecordsTable
         try {
             app(ServiceRecordService::class)->transition($record, $to, self::currentActor());
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title(__('Unable to change the service record status'))->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the service record status'))->body(__($domainException->getMessage()))->send();
         }
     }
 

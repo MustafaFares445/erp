@@ -125,7 +125,7 @@ final class ConsumedPartsRelationManager extends RelationManager
             // The row action's own ->visible() guard (reversed_at === null) means this
             // can never actually be reached through the action.
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title(__('Unable to reverse this consumption'))->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to reverse this consumption'))->body(__($domainException->getMessage()))->send();
         }
 
     }
@@ -197,14 +197,8 @@ final class ConsumedPartsRelationManager extends RelationManager
                 fn (Builder $query): Builder => $query->where('inventory_lot_id', $inventoryLotId),
             )
             ->orderBy('serial_number')
-            ->pluck('serial_number', 'id')
-            ->mapWithKeys(static function (mixed $serialNumber, mixed $id): array {
-                if (! is_numeric($id) || ! is_scalar($serialNumber)) {
-                    return [];
-                }
-
-                return [(int) $id => (string) $serialNumber];
-            })
+            ->get(['id', 'serial_number'])
+            ->mapWithKeys(static fn (SerializedInventoryUnit $unit): array => [$unit->id => $unit->serial_number])
             ->all();
     }
 

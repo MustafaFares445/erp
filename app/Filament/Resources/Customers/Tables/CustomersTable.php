@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Customers\Tables;
 
 use App\Enums\CustomerApprovalStatus;
-use App\Enums\OperationStage;
 use App\Filament\Resources\Customers\Actions\CustomerApprovalActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\CustomerProfile;
-use App\Models\InventoryOperation;
-use App\Models\InvoiceDeliveryLink;
-use App\Services\Accounting\AccountsReceivableService;
+use App\Services\Accounting\CustomerReceivablesSnapshot;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -36,9 +33,6 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class CustomersTable
 {
-    /** @var array<int, array{customer_id: int, customer_name: string, customer_deleted: bool, billed_minor: int, credited_minor: int, paid_minor: int, written_off_minor: int, outstanding_minor: int, buckets: mixed}>|null */
-    private static ?array $agingIndex = null;
-
     public static function configure(Table $table): Table
     {
         return $table
@@ -65,7 +59,7 @@ final class CustomersTable
                     ->label(__('Deliveries awaiting invoice'))
                     ->badge()
                     ->color(fn (int $state): string => $state > 0 ? 'warning' : 'gray')
-                    ->state(fn (CustomerProfile $record): int => self::deliveriesAwaitingInvoiceCount($record)),
+                    ->state(fn (CustomerProfile $record): int => (int) $record->deliveries_awaiting_invoice_count),
                 TextColumn::make('outstanding_balance')
                     ->label(__('Outstanding'))
                     ->state(fn (CustomerProfile $record): string => number_format(self::outstandingMinorFor($record) / 100, 2)),
@@ -131,42 +125,8 @@ final class CustomersTable
             ]);
     }
 
-    /**
-     * Completed deliveries for this customer with no {@see InvoiceDeliveryLink}
-     * row yet (WP-2.13, GAP-MW-13) — the operator-facing half of the leak that consolidated
-     * invoicing closes.
-     */
-    private static function deliveriesAwaitingInvoiceCount(CustomerProfile $record): int
-    {
-        return InventoryOperation::query()
-            ->where('customer_id', $record->getKey())
-            ->where('stage', OperationStage::Done->value)
-            ->whereDoesntHave('invoiceDeliveryLink')
-            ->count();
-    }
-
-    /**
-     * Reads {@see AccountsReceivableService::aging()} once per table render and
-     * indexes it by customer (XC-04's no-disagreeing-rules principle: this
-     * column never recomputes the figure {@see AccountsReceivableService}
-     * already owns), rather than once per row.
-     */
     private static function outstandingMinorFor(CustomerProfile $record): int
     {
-        if (self::$agingIndex === null) {
-            $aging = app(AccountsReceivableService::class)->aging();
-            /** @var array<int, array{customer_id: int, customer_name: string, customer_deleted: bool, billed_minor: int, credited_minor: int, paid_minor: int, written_off_minor: int, outstanding_minor: int, buckets: mixed}> $index */
-            $index = [];
-
-            foreach ($aging['customers'] as $customerRow) {
-                $index[$customerRow['customer_id']] = $customerRow;
-            }
-
-            self::$agingIndex = $index;
-        }
-
-        $row = self::$agingIndex[$record->id] ?? null;
-
-        return $row === null ? 0 : $row['outstanding_minor'];
+        return app(CustomerReceivablesSnapshot::class)->outstandingMinor((int) $record->id);
     }
 }

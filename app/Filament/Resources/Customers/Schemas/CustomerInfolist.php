@@ -61,7 +61,7 @@ final class CustomerInfolist
                         TextEntry::make('map_link')
                             ->label(__('Map'))
                             ->state(static fn (CustomerProfile $record): ?string => $record->latitude !== null && $record->longitude !== null
-                                ? __('View on OpenStreetMap')
+                                ? (string) __('View on OpenStreetMap')
                                 : null)
                             ->placeholder(__('Not provided'))
                             ->url(static fn (CustomerProfile $record): ?string => $record->latitude !== null && $record->longitude !== null

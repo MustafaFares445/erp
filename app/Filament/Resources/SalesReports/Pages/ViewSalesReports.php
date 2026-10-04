@@ -8,7 +8,7 @@ use App\Enums\SalesPermission;
 use App\Enums\SalesReportType;
 use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Models\User;
-use App\Services\Accounting\AccountsReceivableService;
+use App\Reporting\SalesReportPresenter;
 use App\Services\Sales\SalesReportFormatter;
 use App\Services\Sales\SalesReportService;
 use Carbon\CarbonImmutable;
@@ -18,23 +18,6 @@ use Filament\Resources\Pages\Page;
 use Livewire\Attributes\Url;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * The report-type selector, its date filters, and the dispatch to
- * {@see SalesReportService} for whichever of the nine
- * {@see SalesReportType} cases is currently selected.
- *
- * This page renders exactly what {@see SalesReportService} returns — it
- * never recomputes, corrects, or hides a figure on the way to the screen.
- * `InvoicedNotCollected` in particular is displayed as-is: it is a direct
- * delegation to {@see AccountsReceivableService::aging()},
- * so nothing here may reconcile or plug a difference the AR module itself
- * has not already resolved.
- *
- * The permission is re-checked on the streaming export method itself, not
- * only on the button's `visible()`/`authorize()` closures — an export
- * guarded only by its button's visibility is not guarded, because the
- * request can be issued directly against the Livewire component.
- */
 final class ViewSalesReports extends Page
 {
     protected static string $resource = SalesReportResource::class;
@@ -58,85 +41,64 @@ final class ViewSalesReports extends Page
     #[\Override]
     public function getTitle(): string
     {
-        return __('Sales reports');
+        return __('admin.resources.sales_reports');
     }
 
-    /** @return list<array{value: string, label: string}> */
+    /** @return list<array{value:string,label:string}> */
     public function reportTypeOptions(): array
     {
         return array_map(
-            static fn (SalesReportType $type): array => ['value' => $type->value, 'label' => $type->label()],
+            static fn (SalesReportType $type): array => [
+                'value' => $type->value,
+                'label' => $type->label(),
+            ],
             SalesReportType::cases(),
         );
     }
 
-    /** @return array<string, mixed> */
+    public function reportDescription(): string
+    {
+        return __('reporting.reports.sales.'.$this->type()->value);
+    }
+
+    public function usesAsOfDate(): bool
+    {
+        return in_array($this->type(), [
+            SalesReportType::DeliveredNotInvoiced,
+            SalesReportType::InvoicedNotCollected,
+            SalesReportType::ReturnsWithoutCredit,
+            SalesReportType::CustomerRevenue,
+        ], true);
+    }
+
+    public function clearFilters(): void
+    {
+        $this->from = null;
+        $this->to = null;
+    }
+
+    /** @return array<string,mixed> */
+    #[\Override]
+    public function getViewData(): array
+    {
+        $report = $this->reportData();
+
+        return [
+            'selectedType' => $this->type(),
+            'presentation' => app(SalesReportPresenter::class)->present($this->type(), $report),
+        ];
+    }
+
+    /** @return array<string,mixed> */
     public function reportData(): array
     {
         $this->authorizeReportAccess();
 
-        return app(SalesReportService::class)->report($this->type(), $this->parseDate($this->from), $this->parseDate($this->to));
-    }
-
-    /**
-     * Every top-level scalar (or null) field in the report — the aggregate
-     * figures every report type carries alongside its detail rows, if any.
-     *
-     * @return array<string, bool|float|int|string|null>
-     */
-    public function summaryFields(): array
-    {
-        $summary = [];
-
-        foreach ($this->reportData() as $key => $value) {
-            if (is_scalar($value) || $value === null) {
-                $summary[$key] = $value;
-            }
-        }
-
-        return $summary;
-    }
-
-    /**
-     * Every top-level key whose value is a non-empty list of associative
-     * arrays, rendered as its own sub-table. This is how one page hosts nine
-     * differently-shaped reports without nine bespoke templates: whatever
-     * list of rows a report produces is shown, unmodified, under its own
-     * heading.
-     *
-     * @return array<string, list<array<string, mixed>>>
-     */
-    public function tableSections(): array
-    {
-        $sections = [];
-
-        foreach ($this->reportData() as $key => $value) {
-            if (! is_array($value)) {
-                continue;
-            }
-            if ($value === []) {
-                continue;
-            }
-            $first = $value[array_key_first($value)] ?? null;
-
-            if (is_array($first)) {
-                /** @var list<array<string, mixed>> $value */
-                $sections[$key] = $value;
-            }
-        }
-
-        return $sections;
-    }
-
-    /**
-     * Explicit empty state: whether the selected report has zero detail
-     * rows for the selected period. A zero-valued aggregate (e.g. "Total: 0")
-     * is a legitimate computed summary, not an empty report — this flag is
-     * about there being no rows to list, never about hiding a real figure.
-     */
-    public function hasNoDetailRows(): bool
-    {
-        return $this->tableSections() === [];
+        return app(SalesReportService::class)->report(
+            $this->type(),
+            $this->parseDate($this->from),
+            $this->parseDate($this->to),
+        );
     }
 
     #[\Override]
@@ -144,7 +106,7 @@ final class ViewSalesReports extends Page
     {
         return [
             Action::make('export_csv')
-                ->label(__('Export CSV'))
+                ->label(__('reporting.actions.export_current'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->visible(fn (): bool => $this->canExport())
                 ->authorize(fn (): bool => $this->canExport())
@@ -164,7 +126,7 @@ final class ViewSalesReports extends Page
                 echo $csv;
             },
             'sales-'.$type->value.'-'.now()->format('Ymd-His').'.csv',
-            ['Content-Type' => 'text/csv'],
+            ['Content-Type' => 'text/csv; charset=UTF-8'],
         );
     }
 

@@ -11,7 +11,7 @@ use App\Filament\Resources\Orders\Actions\OrderActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Order;
-use App\Services\Sales\OrderWorkflowService;
+use App\Services\Sales\OrderWorkflowProjectionStore;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
@@ -25,7 +25,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
-use WeakMap;
 
 final class OrdersTable
 {
@@ -120,19 +119,6 @@ final class OrdersTable
 
     private static function projection(Order $record): OrderWorkflowProjection
     {
-        /** @var WeakMap<Order, OrderWorkflowProjection>|null $cache */
-        static $cache = null;
-        $cache ??= new WeakMap;
-
-        $cached = $cache[$record] ?? null;
-
-        if ($cached instanceof OrderWorkflowProjection) {
-            return $cached;
-        }
-
-        $projection = app(OrderWorkflowService::class)->project($record);
-        $cache[$record] = $projection;
-
-        return $projection;
+        return app(OrderWorkflowProjectionStore::class)->project($record);
     }
 }

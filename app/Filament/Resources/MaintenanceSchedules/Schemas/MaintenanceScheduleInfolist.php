@@ -18,6 +18,7 @@ final class MaintenanceScheduleInfolist
                     TextEntry::make('schedule_number')->label(__('Schedule #')),
                     TextEntry::make('serializedInventoryUnit.serial_number')->label(__('Equipment')),
                     TextEntry::make('customer.company_name')->label(__('Customer')),
+                    TextEntry::make('maintenance_kind')->label(__('Schedule type'))->badge(),
                     TextEntry::make('name'),
                     TextEntry::make('interval_type')->label(__('Recurrence unit'))->badge(),
                     TextEntry::make('interval_value')->label(__('Recurrence value')),

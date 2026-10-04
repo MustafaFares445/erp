@@ -14,7 +14,7 @@ use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
-use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Services\Purchasing\PurchaseOrderWorkflowProjectionStore;
 use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -33,7 +33,6 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use WeakMap;
 
 final class PurchaseOrdersTable
 {
@@ -164,21 +163,7 @@ final class PurchaseOrdersTable
 
     private static function projection(PurchaseOrder $record): PurchaseOrderWorkflowData
     {
-        /** @var WeakMap<PurchaseOrder, PurchaseOrderWorkflowData>|null $cache */
-        static $cache = null;
-
-        $cache ??= new WeakMap;
-
-        $cached = $cache[$record] ?? null;
-
-        if ($cached instanceof PurchaseOrderWorkflowData) {
-            return $cached;
-        }
-
-        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
-        $cache[$record] = $projection;
-
-        return $projection;
+        return app(PurchaseOrderWorkflowProjectionStore::class)->project($record);
     }
 
     private static function stageColor(PurchaseOrderWorkflowData $projection): string

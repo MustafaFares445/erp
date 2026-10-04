@@ -23,7 +23,7 @@ use App\Models\Shipment;
 use App\Models\Unit;
 use App\Services\Sales\OrderFinancialProjectionService;
 use App\Services\Sales\OrderFulfillmentQuantityService;
-use App\Services\Sales\OrderWorkflowService;
+use App\Services\Sales\OrderWorkflowProjectionStore;
 use App\Support\MoneyFormatter;
 use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\ImageEntry;
@@ -122,7 +122,7 @@ final class OrderInfolist
     /** @return array{status: string, heading: string, description: string} */
     private static function milestoneMeta(Order $record): array
     {
-        $projection = app(OrderWorkflowService::class)->project($record);
+        $projection = app(OrderWorkflowProjectionStore::class)->project($record);
         $milestone = $projection->businessMilestone;
 
         [$status, $heading, $description] = match ($milestone) {
@@ -169,7 +169,7 @@ final class OrderInfolist
 
     private static function journeyState(Order $record): string
     {
-        $projection = app(OrderWorkflowService::class)->project($record);
+        $projection = app(OrderWorkflowProjectionStore::class)->project($record);
         $stepIndex = self::journeyStepIndex($record, $projection);
 
         $steps = ['Order', 'Logistics', 'Delivery', 'Invoice', 'Payment', 'Completion'];
@@ -212,7 +212,7 @@ final class OrderInfolist
         return Section::make(__('Fulfillment progress'))
             ->description(__("Quantities are shown in each product's base unit of measure."))
             ->schema(function (Order $record): array {
-                $projection = app(OrderWorkflowService::class)->project($record);
+                $projection = app(OrderWorkflowProjectionStore::class)->project($record);
                 $hasBlocker = $projection->procurementOutstandingBase > 0.000001;
 
                 return [
@@ -546,7 +546,7 @@ final class OrderInfolist
                     return self::completedEntries($record);
                 }
 
-                $projection = app(OrderWorkflowService::class)->project($record);
+                $projection = app(OrderWorkflowProjectionStore::class)->project($record);
 
                 if ($projection->blockerCode !== null) {
                     $category = self::completionBlockerCategory($projection->blockerCode, $projection->blockerMessage);

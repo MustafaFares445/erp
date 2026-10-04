@@ -91,6 +91,7 @@ final class ServiceRecordResource extends Resource
                 'maintenanceRecord.customer:id,company_name',
                 'maintenanceRecord.serializedInventoryUnit.productVariant:id,name',
                 'employee.user:id,name',
+                'serviceAppointments.employee.user:id,name',
             ])
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }

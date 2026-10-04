@@ -80,6 +80,24 @@ final class ViewFinancialReports extends Page
         return __('admin.resources.financial_reports');
     }
 
+    #[\Override]
+    public function getSubheading(): string
+    {
+        $type = FinancialReportType::tryFrom($this->reportType) ?? FinancialReportType::TrialBalance;
+
+        return __('reporting.reports.financial.'.$type->value);
+    }
+
+    public function resetFilters(): void
+    {
+        $today = CarbonImmutable::now();
+        $this->fiscalPeriodId = null;
+        $this->accountId = null;
+        $this->from = $today->startOfMonth()->toDateString();
+        $this->to = $today->toDateString();
+        $this->asOf = $today->toDateString();
+    }
+
     /** @return list<array{value: string, label: string}> */
     public function reportTypeOptions(): array
     {
@@ -120,7 +138,7 @@ final class ViewFinancialReports extends Page
         $asOf = CarbonImmutable::parse($this->asOf);
 
         return [
-            'reportType' => $type,
+            'selectedReportType' => $type,
             'report' => match ($type) {
                 FinancialReportType::TrialBalance => $service->trialBalance($from, $to),
                 FinancialReportType::ProfitAndLoss => $service->profitAndLoss($from, $to),
@@ -131,45 +149,31 @@ final class ViewFinancialReports extends Page
         ];
     }
 
-    /**
-     * Five export actions, one per report, each gated three ways
-     * (contracts/permissions.md §5.3): `visible()`, `authorize()`, and a
-     * permission re-check inside the streaming method itself — the third is
-     * the one that matters, because an export guarded only by its button's
-     * visibility can be requested directly.
-     *
-     * @return array<int, Action>
-     */
+    /** @return array<int, Action> */
     #[\Override]
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('exportTrialBalance')
-                ->label(__('admin.accounting.report_type.trial_balance'))
+            Action::make('export_current_report')
+                ->label(__('reporting.actions.export_current'))
+                ->icon('heroicon-o-arrow-down-tray')
                 ->visible(fn (): bool => $this->canViewReports())
                 ->authorize(fn (): bool => $this->canViewReports())
-                ->action(fn (): StreamedResponse => $this->streamTrialBalance()),
-            Action::make('exportGeneralLedger')
-                ->label(__('admin.accounting.report_type.general_ledger'))
-                ->visible(fn (): bool => $this->canViewReports())
-                ->authorize(fn (): bool => $this->canViewReports())
-                ->action(fn (): StreamedResponse => $this->streamGeneralLedger()),
-            Action::make('exportProfitAndLoss')
-                ->label(__('admin.accounting.report_type.profit_and_loss'))
-                ->visible(fn (): bool => $this->canViewReports())
-                ->authorize(fn (): bool => $this->canViewReports())
-                ->action(fn (): StreamedResponse => $this->streamProfitAndLoss()),
-            Action::make('exportBalanceSheet')
-                ->label(__('admin.accounting.report_type.balance_sheet'))
-                ->visible(fn (): bool => $this->canViewReports())
-                ->authorize(fn (): bool => $this->canViewReports())
-                ->action(fn (): StreamedResponse => $this->streamBalanceSheet()),
-            Action::make('exportPostingRegister')
-                ->label(__('admin.accounting.report_type.posting_register'))
-                ->visible(fn (): bool => $this->canViewReports())
-                ->authorize(fn (): bool => $this->canViewReports())
-                ->action(fn (): StreamedResponse => $this->streamPostingRegister()),
+                ->action(fn (): StreamedResponse => $this->exportCurrentReport()),
         ];
+    }
+
+    public function exportCurrentReport(): StreamedResponse
+    {
+        $this->authorizeReportAccess();
+
+        return match (FinancialReportType::from($this->reportType)) {
+            FinancialReportType::TrialBalance => $this->streamTrialBalance(),
+            FinancialReportType::GeneralLedger => $this->streamGeneralLedger(),
+            FinancialReportType::ProfitAndLoss => $this->streamProfitAndLoss(),
+            FinancialReportType::BalanceSheet => $this->streamBalanceSheet(),
+            FinancialReportType::PostingRegister => $this->streamPostingRegister(),
+        };
     }
 
     private function streamTrialBalance(): StreamedResponse

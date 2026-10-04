@@ -6,20 +6,31 @@ namespace App\Filament\Resources\EmployeeReports\Pages;
 
 use App\Enums\EmployeeReportType;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
-use App\Filament\Resources\EmployeeReports\Schemas\EmployeeReportExportRequestSchema;
 use App\Filament\Resources\EmployeeReports\Tables\EmployeeReportsTable;
 use App\Models\User;
 use App\Services\Employees\EmployeeReportExportService;
 use App\Services\Employees\EmployeeReportService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\Url;
 
 final class ManageEmployeeReports extends ManageRecords
 {
     protected static string $resource = EmployeeReportResource::class;
+
+    #[Url]
+    public ?string $report = null;
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('reporting.reports.employees.'.$this->reportType()->value);
+    }
 
     #[\Override]
     public function table(Table $table): Table
@@ -33,11 +44,21 @@ final class ManageEmployeeReports extends ManageRecords
     {
         $tabs = [];
 
-        foreach ($this->availableReports() as $type) {
-            $tabs[$type->value] = Tab::make($type->label());
+        foreach ($this->categoryMap() as $category => $metadata) {
+            if ($this->reportsForCategory($category) === []) {
+                continue;
+            }
+
+            $tabs[$category] = Tab::make(__($metadata['label']));
         }
 
         return $tabs;
+    }
+
+    #[\Override]
+    public function getDefaultActiveTab(): string
+    {
+        return $this->categoryForReport($this->reportType());
     }
 
     /** @return Builder<covariant \Illuminate\Database\Eloquent\Model> */
@@ -47,9 +68,33 @@ final class ManageEmployeeReports extends ManageRecords
         return app(EmployeeReportService::class)->query($this->reportType(), $this->reportFilters());
     }
 
+    public function updatedReport(): void
+    {
+        $requested = is_string($this->report) ? EmployeeReportType::tryFrom($this->report) : null;
+
+        if (! $requested instanceof EmployeeReportType || ! in_array($requested, $this->availableReports(), true)) {
+            $this->report = $this->availableReports()[0]->value ?? null;
+            $requested = $this->report !== null ? EmployeeReportType::tryFrom($this->report) : null;
+        }
+
+        if ($requested instanceof EmployeeReportType) {
+            $this->activeTab = $this->categoryForReport($requested);
+        }
+
+        $this->tableFilters = null;
+        $this->resetTable();
+    }
+
     #[\Override]
     public function updatedActiveTab(): void
     {
+        $category = is_string($this->activeTab) ? $this->activeTab : null;
+        $reports = $category !== null ? $this->reportsForCategory($category) : [];
+
+        if ($reports !== [] && ! in_array($this->reportType(), $reports, true)) {
+            $this->report = $reports[0]->value;
+        }
+
         $this->tableFilters = null;
         $this->resetTable();
     }
@@ -57,16 +102,48 @@ final class ManageEmployeeReports extends ManageRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
+        $reportActions = array_map(
+            function (EmployeeReportType $type): Action {
+                return Action::make('select_report_'.$type->value)
+                    ->label($type->label())
+                    ->icon($this->reportType() === $type ? 'heroicon-m-check' : null)
+                    ->action(function () use ($type): void {
+                        $this->selectReport($type);
+                    });
+            },
+            $this->reportsForCategory(
+                is_string($this->activeTab)
+                    ? $this->activeTab
+                    : $this->categoryForReport($this->reportType()),
+            ),
+        );
+
         return [
-            Action::make('export')
-                ->label(__('Export'))
-                ->form(EmployeeReportExportRequestSchema::make())
-                ->action(function (array $data): void {
+            ActionGroup::make($reportActions)
+                ->label(__('Report').': '.$this->reportType()->label())
+                ->icon('heroicon-o-document-chart-bar')
+                ->color('gray'),
+            Action::make('export_current_report')
+                ->label(__('reporting.actions.export_current'))
+                ->icon('heroicon-o-arrow-down-tray')
+                ->visible(fn (): bool => $this->canViewCurrentReport())
+                ->authorize(fn (): bool => $this->canViewCurrentReport())
+                ->action(function (): void {
                     $actor = auth()->user();
 
-                    if ($actor instanceof User) {
-                        app(EmployeeReportExportService::class)->request($this->reportType(), $this->exportFormData($data), $actor);
-                    }
+                    abort_unless($actor instanceof User, 403);
+
+                    app(EmployeeReportExportService::class)->request(
+                        $this->reportType(),
+                        $this->reportFilters(),
+                        $actor,
+                    );
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('Report export queued'))
+                        ->body(__('The export uses the report and filters currently shown on this page.'))
+                        ->send();
                 }),
         ];
     }
@@ -84,7 +161,7 @@ final class ManageEmployeeReports extends ManageRecords
     private function reportType(): EmployeeReportType
     {
         $available = $this->availableReports();
-        $requested = is_string($this->activeTab) ? EmployeeReportType::tryFrom($this->activeTab) : null;
+        $requested = is_string($this->report) ? EmployeeReportType::tryFrom($this->report) : null;
 
         if ($requested instanceof EmployeeReportType && in_array($requested, $available, true)) {
             return $requested;
@@ -94,20 +171,75 @@ final class ManageEmployeeReports extends ManageRecords
     }
 
     /**
-     * @param  array<array-key, mixed>  $data
-     * @return array<string, mixed>
+     * @return array<string,array{label:string,reports:list<EmployeeReportType>}>
      */
-    private function exportFormData(array $data): array
+    private function categoryMap(): array
     {
-        $normalized = [];
+        return [
+            'tasks_visits' => [
+                'label' => 'reporting.categories.tasks_visits',
+                'reports' => [
+                    EmployeeReportType::PlanCompletion,
+                    EmployeeReportType::OverdueTasks,
+                    EmployeeReportType::UnexecutedVisits,
+                ],
+            ],
+            'performance' => [
+                'label' => 'reporting.categories.performance',
+                'reports' => [
+                    EmployeeReportType::PerformanceByEmployee,
+                    EmployeeReportType::PerformanceByMonth,
+                ],
+            ],
+            'salary' => [
+                'label' => 'reporting.categories.salary',
+                'reports' => [
+                    EmployeeReportType::SalaryByEmployee,
+                    EmployeeReportType::SalaryByMonth,
+                ],
+            ],
+        ];
+    }
 
-        foreach ($data as $key => $value) {
-            if (is_string($key)) {
-                $normalized[$key] = $value;
+    /** @return list<EmployeeReportType> */
+    private function reportsForCategory(string $category): array
+    {
+        $configured = $this->categoryMap()[$category]['reports'] ?? [];
+        $available = $this->availableReports();
+
+        return array_values(array_filter(
+            $configured,
+            static fn (EmployeeReportType $type): bool => in_array($type, $available, true),
+        ));
+    }
+
+    private function categoryForReport(EmployeeReportType $type): string
+    {
+        foreach ($this->categoryMap() as $category => $metadata) {
+            if (in_array($type, $metadata['reports'], true)) {
+                return $category;
             }
         }
 
-        return $normalized;
+        return 'tasks_visits';
+    }
+
+    private function selectReport(EmployeeReportType $type): void
+    {
+        abort_unless(in_array($type, $this->availableReports(), true), 403);
+
+        $this->report = $type->value;
+        $this->activeTab = $this->categoryForReport($type);
+        $this->tableFilters = null;
+        $this->resetTable();
+    }
+
+    private function canViewCurrentReport(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && app(EmployeeReportService::class)->canView($actor, $this->reportType());
     }
 
     /** @return array<string, mixed> */

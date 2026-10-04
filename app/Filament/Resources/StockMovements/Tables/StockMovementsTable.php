@@ -190,8 +190,8 @@ final class StockMovementsTable
     private static function movementTypeColor(MovementType $movementType): string
     {
         return match ($movementType) {
-            MovementType::Sale, MovementType::Reservation, MovementType::Damage, MovementType::Disposal, MovementType::ServiceConsumption => 'danger',
-            MovementType::Return, MovementType::DamageRecovery => 'success',
+            MovementType::Sale, MovementType::Reservation, MovementType::Damage, MovementType::Disposal, MovementType::ServiceConsumption, MovementType::LoanIssue, MovementType::SupplierRepairOut => 'danger',
+            MovementType::Return, MovementType::DamageRecovery, MovementType::LoanReturn, MovementType::SupplierRepairIn => 'success',
             MovementType::Adjustment, MovementType::Correction, MovementType::Transfer => 'info',
             MovementType::Receipt => 'primary',
         };

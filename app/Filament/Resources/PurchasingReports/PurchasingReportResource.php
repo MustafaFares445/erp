@@ -18,10 +18,9 @@ use Filament\Tables\Table;
 /**
  * Mirrors {@see SupportReportResource} — a single report-viewing page, no CRUD.
  *
- * Registered under the shared `reports` navigation group rather than inside the
- * purchasing group (R-011): `AdminModuleRegistry` already establishes that every
- * module's reports live together, and the purchasing group holds four items, not
- * the fifteen that would justify sections of its own.
+ * The report remains owned by the Purchasing domain and is exposed from both
+ * Purchasing -> Reports and the global Reports & Analytics discovery hub. Both
+ * entry points resolve to this same canonical page; no report logic is duplicated.
  *
  * `PurchaseOrder` is the nominal model Filament requires; the page renders
  * aggregates, not a record list.

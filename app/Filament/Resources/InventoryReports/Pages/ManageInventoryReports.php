@@ -16,6 +16,7 @@ use App\Services\Inventory\InventoryReportFormatter;
 use App\Services\Inventory\InventoryReportService;
 use App\Services\Inventory\ReconciliationReportService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -27,11 +28,21 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Livewire\Attributes\Url;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class ManageInventoryReports extends ManageRecords
 {
     protected static string $resource = InventoryReportResource::class;
+
+    #[Url]
+    public ?string $report = null;
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('reporting.reports.inventory.'.$this->reportType()->value);
+    }
 
     #[\Override]
     public function table(Table $table): Table
@@ -49,11 +60,21 @@ final class ManageInventoryReports extends ManageRecords
     {
         $tabs = [];
 
-        foreach ($this->availableReports() as $type) {
-            $tabs[$type->value] = Tab::make($type->label());
+        foreach ($this->categoryMap() as $category => $metadata) {
+            if ($this->reportsForCategory($category) === []) {
+                continue;
+            }
+
+            $tabs[$category] = Tab::make(__($metadata['label']));
         }
 
         return $tabs;
+    }
+
+    #[\Override]
+    public function getDefaultActiveTab(): string
+    {
+        return $this->categoryForReport($this->reportType());
     }
 
     /** @return Builder<covariant \Illuminate\Database\Eloquent\Model> */
@@ -67,9 +88,33 @@ final class ManageInventoryReports extends ManageRecords
         return app(InventoryReportService::class)->query($this->reportType(), $this->reportFilters());
     }
 
+    public function updatedReport(): void
+    {
+        $requested = is_string($this->report) ? InventoryReportType::tryFrom($this->report) : null;
+
+        if (! $requested instanceof InventoryReportType || ! in_array($requested, $this->availableReports(), true)) {
+            $this->report = $this->availableReports()[0]->value ?? null;
+            $requested = $this->report !== null ? InventoryReportType::tryFrom($this->report) : null;
+        }
+
+        if ($requested instanceof InventoryReportType) {
+            $this->activeTab = $this->categoryForReport($requested);
+        }
+
+        $this->tableFilters = null;
+        $this->resetTable();
+    }
+
     #[\Override]
     public function updatedActiveTab(): void
     {
+        $category = is_string($this->activeTab) ? $this->activeTab : null;
+        $reports = $category !== null ? $this->reportsForCategory($category) : [];
+
+        if ($reports !== [] && ! in_array($this->reportType(), $reports, true)) {
+            $this->report = $reports[0]->value;
+        }
+
         $this->tableFilters = null;
         $this->resetTable();
     }
@@ -97,8 +142,8 @@ final class ManageInventoryReports extends ManageRecords
     private function reportType(): InventoryReportType
     {
         $available = $this->availableReports();
-        $requested = is_string($this->activeTab)
-            ? InventoryReportType::tryFrom($this->activeTab)
+        $requested = is_string($this->report)
+            ? InventoryReportType::tryFrom($this->report)
             : null;
 
         if ($requested instanceof InventoryReportType && in_array($requested, $available, true)) {
@@ -106,6 +151,89 @@ final class ManageInventoryReports extends ManageRecords
         }
 
         return $available[0] ?? InventoryReportType::Catalog;
+    }
+
+    /**
+     * @return array<string,array{label:string,reports:list<InventoryReportType>}>
+     */
+    private function categoryMap(): array
+    {
+        return [
+            'stock_availability' => [
+                'label' => 'reporting.categories.stock_availability',
+                'reports' => [
+                    InventoryReportType::StockLevels,
+                    InventoryReportType::Devices,
+                    InventoryReportType::ExpiryLots,
+                    InventoryReportType::QuarantineAgeing,
+                ],
+            ],
+            'movements_control' => [
+                'label' => 'reporting.categories.movements_control',
+                'reports' => [
+                    InventoryReportType::Movements,
+                    InventoryReportType::ConditionChanges,
+                    InventoryReportType::CountVariance,
+                    InventoryReportType::Reconciliation,
+                ],
+            ],
+            'catalog_suppliers' => [
+                'label' => 'reporting.categories.catalog_suppliers',
+                'reports' => [
+                    InventoryReportType::Catalog,
+                    InventoryReportType::SupplierComparison,
+                ],
+            ],
+            'pricing' => [
+                'label' => 'reporting.categories.pricing',
+                'reports' => [
+                    InventoryReportType::PriceHistory,
+                    InventoryReportType::PricingTiers,
+                    InventoryReportType::CustomerAssignments,
+                    InventoryReportType::FloorOverrides,
+                ],
+            ],
+            'imports' => [
+                'label' => 'reporting.categories.imports',
+                'reports' => [
+                    InventoryReportType::ImportRuns,
+                    InventoryReportType::ImportResults,
+                ],
+            ],
+        ];
+    }
+
+    /** @return list<InventoryReportType> */
+    private function reportsForCategory(string $category): array
+    {
+        $configured = $this->categoryMap()[$category]['reports'] ?? [];
+        $available = $this->availableReports();
+
+        return array_values(array_filter(
+            $configured,
+            static fn (InventoryReportType $type): bool => in_array($type, $available, true),
+        ));
+    }
+
+    private function categoryForReport(InventoryReportType $type): string
+    {
+        foreach ($this->categoryMap() as $category => $metadata) {
+            if (in_array($type, $metadata['reports'], true)) {
+                return $category;
+            }
+        }
+
+        return 'catalog_suppliers';
+    }
+
+    private function selectReport(InventoryReportType $type): void
+    {
+        abort_unless(in_array($type, $this->availableReports(), true), 403);
+
+        $this->report = $type->value;
+        $this->activeTab = $this->categoryForReport($type);
+        $this->tableFilters = null;
+        $this->resetTable();
     }
 
     /** @return array<string, mixed> */
@@ -152,9 +280,23 @@ final class ManageInventoryReports extends ManageRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
+        $reportActions = array_map(
+            fn (InventoryReportType $type): Action => Action::make('select_report_'.$type->value)
+                ->label($type->label())
+                ->icon($this->reportType() === $type ? 'heroicon-m-check' : null)
+                ->action(function () use ($type): void {
+                    $this->selectReport($type);
+                }),
+            $this->reportsForCategory(is_string($this->activeTab) ? $this->activeTab : $this->categoryForReport($this->reportType())),
+        );
+
         return [
+            ActionGroup::make($reportActions)
+                ->label(__('Report').': '.$this->reportType()->label())
+                ->icon('heroicon-o-document-chart-bar')
+                ->color('gray'),
             Action::make('export_current_report')
-                ->label(__('admin.inventory.reports.export_current_csv'))
+                ->label(__('reporting.actions.export_current'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->visible(fn (): bool => $this->canExportCurrentReport())
                 ->authorize(fn (): bool => $this->canExportCurrentReport())

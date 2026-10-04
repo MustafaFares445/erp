@@ -51,6 +51,8 @@ final class StockLevelResource extends Resource
                 'productVariant.product:id,product_type',
                 'productVariant.weightUnit:id,symbol',
                 'warehouse:id,code,name',
+                'conditionBalances',
+                'replenishmentPolicies',
             ]);
     }
 

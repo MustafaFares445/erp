@@ -127,6 +127,7 @@ final class CustomerResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with('user:id,name,username,email')
+            ->withCount('deliveriesAwaitingInvoice')
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }

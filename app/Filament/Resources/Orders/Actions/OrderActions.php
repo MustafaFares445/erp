@@ -22,7 +22,7 @@ use App\Models\Payment;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Sales\OrderFulfillmentQuantityService;
-use App\Services\Sales\OrderWorkflowService;
+use App\Services\Sales\OrderWorkflowProjectionStore;
 use App\Services\Sales\SalesOrderService;
 use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
@@ -84,7 +84,7 @@ final class OrderActions
             ->icon(fn (Order $record): Heroicon => self::nextStepTarget($record) instanceof OrderNextStep ? self::nextStepTarget($record)->icon : Heroicon::OutlinedArrowRight)
             ->button()
             ->color('primary')
-            ->visible(fn (Order $record): bool => self::nextStepTarget($record) !== null)
+            ->visible(fn (Order $record): bool => self::nextStepTarget($record) instanceof OrderNextStep)
             ->url(fn (Order $record): ?string => self::nextStepTarget($record)?->url);
     }
 
@@ -118,7 +118,7 @@ final class OrderActions
             return null;
         }
 
-        $label = app(OrderWorkflowService::class)->project($order)->nextActionLabel;
+        $label = app(OrderWorkflowProjectionStore::class)->project($order)->nextActionLabel;
         $canOpenOutbound = OutboundFulfillmentResource::canView($order);
 
         return match ($label) {

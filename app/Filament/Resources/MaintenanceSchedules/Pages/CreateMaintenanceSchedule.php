@@ -7,6 +7,7 @@ namespace App\Filament\Resources\MaintenanceSchedules\Pages;
 use App\Data\Support\MaintenanceScheduleData;
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Models\User;
 use App\Services\Support\MaintenanceScheduleService;
@@ -18,7 +19,7 @@ final class CreateMaintenanceSchedule extends CreateRecord
     protected static string $resource = MaintenanceScheduleResource::class;
 
     /**
-     * @param  array{serialized_inventory_unit_id: int, customer_id: int, name: string, interval_type: string, interval_value: int, lead_time_days: int, first_due_on: string, billing_type: string}  $data
+     * @param  array{serialized_inventory_unit_id: int, customer_id: int, name: string, interval_type: string, interval_value: int, lead_time_days: int, first_due_on: string, billing_type: string, maintenance_kind?: string}  $data
      */
     #[\Override]
     protected function handleRecordCreation(array $data): Model
@@ -35,6 +36,7 @@ final class CreateMaintenanceSchedule extends CreateRecord
             leadTimeDays: (int) $data['lead_time_days'],
             firstDueOn: $data['first_due_on'],
             billingType: MaintenanceBillingType::from($data['billing_type']),
+            maintenanceKind: MaintenanceKind::tryFrom($data['maintenance_kind'] ?? '') ?? MaintenanceKind::Preventive,
         ), $actor);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Filament\Resources\MaintenanceSchedules\Tables;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 use App\Filament\Resources\MaintenanceSchedules\Actions\MaintenanceScheduleActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
@@ -35,6 +36,7 @@ final class MaintenanceSchedulesTable
                 TextColumn::make('schedule_number')->label(__('Schedule #'))->searchable(),
                 TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('serializedInventoryUnit.serial_number')->label(__('Equipment serial'))->searchable(),
+                TextColumn::make('maintenance_kind')->label(__('Schedule type'))->badge(),
                 TextColumn::make('name')->label(__('Maintenance')),
                 TextColumn::make('recurrence')
                     ->label(__('Recurrence'))
@@ -60,6 +62,7 @@ final class MaintenanceSchedulesTable
             ])
             ->groups([
                 Group::make('customer.company_name')->label(__('Customer')),
+                Group::make('maintenance_kind')->label(__('Schedule type')),
                 Group::make('billing_type')->label(__('Billing path')),
                 Group::make('interval_type')->label(__('Recurrence')),
                 Group::make('next_due_on')->label(__('Next due'))->date(),
@@ -74,6 +77,10 @@ final class MaintenanceSchedulesTable
                     RelationshipConstraint::make('serializedInventoryUnit')
                         ->label(__('Equipment serial'))
                         ->selectable(IsRelatedToOperator::make()->titleAttribute('serial_number')->searchable()->multiple()),
+                    SelectConstraint::make('maintenance_kind')
+                        ->label(__('Schedule type'))
+                        ->options(MaintenanceKind::class)
+                        ->multiple(),
                     SelectConstraint::make('interval_type')
                         ->label(__('Recurrence'))
                         ->options(MaintenanceIntervalType::class)

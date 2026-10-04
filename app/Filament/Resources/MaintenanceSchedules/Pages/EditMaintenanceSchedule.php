@@ -52,6 +52,7 @@ final class EditMaintenanceSchedule extends EditRecord
             leadTimeDays: (int) $data['lead_time_days'],
             firstDueOn: $record->first_due_on->toDateString(),
             billingType: MaintenanceBillingType::from($data['billing_type']),
+            maintenanceKind: $record->maintenance_kind,
         ), $actor);
     }
 }

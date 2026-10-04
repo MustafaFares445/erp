@@ -150,7 +150,7 @@ final class ListAccountsReceivable extends Page
         $date = CarbonImmutable::parse($this->asOf ?? CarbonImmutable::today()->toDateString());
         $service = app(AccountsReceivableService::class);
         $this->summary = $service->aging($date);
-        $this->reconciliation = $service->reconciliation($date);
+        $this->reconciliation = $service->reconciliation($date, $this->summary);
         $this->detail = [];
         $this->selectedCustomerName = null;
 

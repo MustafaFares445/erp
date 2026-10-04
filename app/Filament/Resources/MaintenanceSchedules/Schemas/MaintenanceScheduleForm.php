@@ -6,6 +6,7 @@ namespace App\Filament\Resources\MaintenanceSchedules\Schemas;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 use App\Enums\SerializedCustodyType;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -57,6 +58,16 @@ final class MaintenanceScheduleForm
                                     ->all();
                             })
                             ->searchable()
+                            ->disabledOn('edit')
+                            ->required(),
+                        Select::make('maintenance_kind')
+                            ->label(__('Schedule type'))
+                            ->helperText(__('The type of maintenance request each due occurrence raises. Locked after creation.'))
+                            ->options(static fn (): array => collect(MaintenanceKind::scheduleKinds())
+                                ->reject(static fn (MaintenanceKind $kind): bool => $kind === MaintenanceKind::Calibration && ! (bool) config('support.calibration_enabled', true))
+                                ->mapWithKeys(static fn (MaintenanceKind $kind): array => [$kind->value => $kind->label()])
+                                ->all())
+                            ->default(MaintenanceKind::Preventive->value)
                             ->disabledOn('edit')
                             ->required(),
                         TextInput::make('name')
