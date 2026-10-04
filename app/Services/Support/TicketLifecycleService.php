@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Support;
 
 use App\Enums\MaintenanceStatus;
+use App\Enums\SupportAutomationEvent;
 use App\Enums\TicketStatus;
+use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
 use App\Models\EmployeeProfile;
 use App\Models\Ticket;
-use App\Models\TicketAssignment;
 use App\Models\User;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ final readonly class TicketLifecycleService
     public function __construct(
         private TicketPaymentService $paymentService,
         private SlaService $slaService,
+        private TicketAssignmentService $assignmentService,
     ) {}
 
     public function transition(Ticket $ticket, TicketStatus $to, User $actor, ?string $note = null): void
@@ -58,7 +60,11 @@ final readonly class TicketLifecycleService
                 throw InvalidStatusTransition::fromTo($from->value, $to->value);
             }
 
-            $attributes = ['status' => $to->value, 'updated_by' => $actor->getKey()];
+            $attributes = [
+                'status' => $to->value,
+                'updated_by' => $actor->getKey(),
+                'last_activity_at' => now(),
+            ];
             $isReopen = $from === TicketStatus::Resolved && $to === TicketStatus::InProgress;
 
             if ($to === TicketStatus::Resolved) {
@@ -67,6 +73,11 @@ final readonly class TicketLifecycleService
             } elseif ($isReopen) {
                 $attributes['resolved_at'] = null;
                 $attributes['resolution_summary'] = null;
+                $attributes['reopened_count'] = ((int) $locked->reopened_count) + 1;
+            }
+
+            if ($to === TicketStatus::Closed) {
+                $attributes['closed_at'] = now();
             }
 
             $locked->update($attributes);
@@ -83,8 +94,13 @@ final readonly class TicketLifecycleService
                 $this->slaService->onResumeFromWaiting($locked);
             }
 
+            if ($to === TicketStatus::Resolved) {
+                $this->slaService->completeResolution($locked->refresh());
+            }
+
             if ($isReopen) {
-                $this->slaService->refreshBreachFlags($locked);
+                $this->slaService->reopenResolution($locked->refresh());
+                $this->slaService->refreshBreachFlags($locked->refresh());
             }
 
             activity()
@@ -97,84 +113,34 @@ final readonly class TicketLifecycleService
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.ticket.status_changed');
 
-            DB::afterCommit(static fn () => TicketUpdated::dispatch(
-                $ticket->refresh()->load('customer.user'),
-            ));
+            DB::afterCommit(static function () use ($ticket, $from, $to): void {
+                $fresh = $ticket->refresh();
+                TicketUpdated::dispatch($fresh->load('customer.user'));
+
+                if ($to === TicketStatus::Closed) {
+                    TicketClosed::dispatch($fresh);
+                }
+
+                app(SupportAutomationEngine::class)->handle(
+                    SupportAutomationEvent::TicketStatusChanged,
+                    $fresh,
+                    [
+                        'from' => $from->value,
+                        'to' => $to->value,
+                    ],
+                );
+            });
         });
     }
 
     public function assign(Ticket $ticket, EmployeeProfile $employee, User $actor): void
     {
-        $ticket->refresh();
-        Gate::forUser($actor)->authorize('assign', $ticket);
-
-        DB::transaction(function () use ($ticket, $employee, $actor): void {
-            $locked = $this->lockedTicket($ticket);
-
-            if (! in_array($locked->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true)) {
-                throw InvalidStatusTransition::fromTo($locked->status->value, TicketStatus::Assigned->value);
-            }
-
-            TicketAssignment::query()->create([
-                'ticket_id' => $locked->getKey(),
-                'employee_id' => $employee->getKey(),
-                'assigned_by' => $actor->getKey(),
-                'assigned_at' => now(),
-            ]);
-
-            $attributes = [
-                'assigned_employee_id' => $employee->getKey(),
-                'updated_by' => $actor->getKey(),
-            ];
-
-            if ($locked->status === TicketStatus::Live) {
-                $attributes['status'] = TicketStatus::Assigned->value;
-            }
-
-            $locked->update($attributes);
-
-            activity()
-                ->performedOn($locked)
-                ->causedBy($actor)
-                ->withChanges(['attributes' => ['assigned_employee_id' => $employee->getKey()]])
-                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
-                ->log('support.ticket.assigned');
-
-            DB::afterCommit(static fn () => TicketUpdated::dispatch(
-                $ticket->refresh()->load('customer.user'),
-            ));
-        });
+        $this->assignmentService->assign($ticket, $employee, $actor);
     }
 
     public function unassign(Ticket $ticket, User $actor): void
     {
-        $ticket->refresh();
-        Gate::forUser($actor)->authorize('assign', $ticket);
-
-        DB::transaction(function () use ($ticket, $actor): void {
-            $locked = $this->lockedTicket($ticket);
-
-            if ($locked->status !== TicketStatus::Assigned) {
-                throw InvalidStatusTransition::fromTo($locked->status->value, TicketStatus::Live->value);
-            }
-
-            $locked->update([
-                'assigned_employee_id' => null,
-                'status' => TicketStatus::Live->value,
-                'updated_by' => $actor->getKey(),
-            ]);
-
-            activity()
-                ->performedOn($locked)
-                ->causedBy($actor)
-                ->withChanges(['attributes' => ['assigned_employee_id' => null, 'status' => TicketStatus::Live->value]])
-                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
-                ->log('support.ticket.unassigned');
-
-            DB::afterCommit(static fn () => TicketUpdated::dispatch(
-                $ticket->refresh()->load('customer.user'),
-            ));
-        });
+        $this->assignmentService->unassign($ticket, $actor);
     }
 
     /**

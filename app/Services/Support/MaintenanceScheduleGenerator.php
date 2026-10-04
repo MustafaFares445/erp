@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Support;
 
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
 use App\Enums\OccurrenceStatus;
@@ -63,6 +64,11 @@ final readonly class MaintenanceScheduleGenerator
             $schedule = $occurrence->schedule;
 
             if (! $schedule->is_active) {
+                continue;
+            }
+
+            // A disabled calibration programme keeps its schedules and occurrences but raises nothing.
+            if ($schedule->maintenance_kind === MaintenanceKind::Calibration && ! (bool) config('support.calibration_enabled', true)) {
                 continue;
             }
 
@@ -201,8 +207,9 @@ final readonly class MaintenanceScheduleGenerator
             // the intended billing path for whoever closes the job out.
             $record = $this->recordService->createStandalone([
                 'customer_id' => $schedule->customer_id,
-                'description' => sprintf('Preventive maintenance due: %s (%s)', $schedule->name, $schedule->schedule_number),
+                'description' => sprintf('%s due: %s (%s)', $this->kindDescription($schedule->maintenance_kind), $schedule->name, $schedule->schedule_number),
                 'serial_number' => $unit?->serial_number,
+                'maintenance_kind' => $schedule->maintenance_kind,
             ], $actor);
 
             $locked->forceFill([
@@ -220,7 +227,7 @@ final readonly class MaintenanceScheduleGenerator
 
         $this->dispatcher->dispatch(
             $actor,
-            NotificationEventKey::MaintenanceDue,
+            $schedule->maintenance_kind === MaintenanceKind::Calibration ? NotificationEventKey::CalibrationDue : NotificationEventKey::MaintenanceDue,
             [
                 'schedule_number' => (string) $schedule->schedule_number,
                 'schedule_name' => (string) $schedule->name,
@@ -231,6 +238,15 @@ final readonly class MaintenanceScheduleGenerator
         );
 
         return true;
+    }
+
+    private function kindDescription(MaintenanceKind $kind): string
+    {
+        return match ($kind) {
+            MaintenanceKind::Calibration => 'Calibration',
+            MaintenanceKind::Inspection => 'Inspection',
+            default => 'Preventive maintenance',
+        };
     }
 
     /**

@@ -37,16 +37,25 @@ use Illuminate\Support\LazyCollection;
  * @phpstan-type Reconciliation array{deferred: AccountReconciliation, payable: AccountReconciliation, input: AccountReconciliation}
  * @phpstan-type PeriodMinor array{deferred: int, payable: int, reversals: int, credit_note_tax: int, reversed: int, input: int}
  */
-final readonly class TaxRegisterService
+final class TaxRegisterService
 {
-    public function __construct(private SalesAccountResolver $accounts) {}
+    /** @var array<string, array{output_tax_charged_deferred: string, output_tax_recognised_payable: string, output_tax_reversed: string, input_tax_recognised: string, net_position: string}> */
+    private array $periodCache = [];
+
+    public function __construct(private readonly SalesAccountResolver $accounts) {}
 
     /** @return PeriodFigures */
     public function period(CarbonInterface $from, CarbonInterface $to): array
     {
+        $key = $from->toDateString().'|'.$to->toDateString();
+
+        if (isset($this->periodCache[$key])) {
+            return $this->periodCache[$key];
+        }
+
         $minor = $this->periodMinor($from, $to);
 
-        return [
+        return $this->periodCache[$key] = [
             'output_tax_charged_deferred' => self::money($minor['deferred']),
             'output_tax_recognised_payable' => self::money($minor['payable']),
             'output_tax_reversed' => self::money($minor['reversed']),

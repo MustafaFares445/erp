@@ -6,6 +6,7 @@ namespace App\Services\Support;
 
 use App\Models\Ticket;
 use App\Services\Inventory\ProductMediaSynchronizer;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -34,6 +35,43 @@ final class TicketAttachmentSynchronizer
         'image/webp',
         'application/pdf',
     ];
+
+    /**
+     * Customer/mobile uploads do not pass through Filament's temporary
+     * upload directory, so they use Media Library directly while preserving
+     * the exact same private collection, size and MIME constraints.
+     *
+     * @param  array<mixed>  $files  untrusted request input, validated per entry below
+     */
+    public function addUploadedFiles(Ticket $ticket, array $files): void
+    {
+        foreach ($files as $file) {
+            if (! $file instanceof UploadedFile || ! $file->isValid()) {
+                throw ValidationException::withMessages([
+                    'attachments' => 'One of the uploaded files is invalid.',
+                ]);
+            }
+
+            if (($file->getSize() ?: 0) > self::MaximumFileSizeInBytes) {
+                throw ValidationException::withMessages([
+                    'attachments' => 'The attachment may not be greater than 10 MB.',
+                ]);
+            }
+
+            $mimeType = $file->getMimeType();
+
+            if (! is_string($mimeType) || ! in_array($mimeType, self::AcceptedMimeTypes, true)) {
+                throw ValidationException::withMessages([
+                    'attachments' => 'The attachment must be a JPEG, PNG, WebP, or PDF file.',
+                ]);
+            }
+
+            $ticket
+                ->addMedia($file)
+                ->withCustomProperties(['visibility' => 'customer'])
+                ->toMediaCollection(self::Collection, self::Disk);
+        }
+    }
 
     /**
      * @param  array<array-key, mixed>  $paths

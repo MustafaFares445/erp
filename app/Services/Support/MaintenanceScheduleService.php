@@ -6,6 +6,7 @@ namespace App\Services\Support;
 
 use App\Data\Support\MaintenanceScheduleData;
 use App\Enums\MaintenanceIntervalType;
+use App\Enums\MaintenanceKind;
 use App\Enums\OccurrenceStatus;
 use App\Enums\SerializedCustodyType;
 use App\Models\MaintenanceSchedule;
@@ -39,6 +40,7 @@ final readonly class MaintenanceScheduleService
             ]);
         }
 
+        $this->assertScheduleKind($data->maintenanceKind);
         $this->assertEquipmentBelongsToCustomer($data->serializedInventoryUnitId, $data->customerId);
 
         return DB::transaction(function () use ($data, $actor): MaintenanceSchedule {
@@ -49,6 +51,7 @@ final readonly class MaintenanceScheduleService
                 'serialized_inventory_unit_id' => $data->serializedInventoryUnitId,
                 'customer_id' => $data->customerId,
                 'name' => $data->name,
+                'maintenance_kind' => $data->maintenanceKind,
                 'interval_type' => $data->intervalType,
                 'interval_value' => $data->intervalValue,
                 'lead_time_days' => $data->leadTimeDays,
@@ -181,6 +184,21 @@ final readonly class MaintenanceScheduleService
             'due_on' => $dueOn->toDateString(),
             'status' => OccurrenceStatus::Pending->value,
         ]);
+    }
+
+    private function assertScheduleKind(MaintenanceKind $kind): void
+    {
+        if (! in_array($kind, MaintenanceKind::scheduleKinds(), true)) {
+            throw ValidationException::withMessages([
+                'maintenance_kind' => 'Only preventive, inspection or calibration work can recur on a schedule.',
+            ]);
+        }
+
+        if ($kind === MaintenanceKind::Calibration && ! (bool) config('support.calibration_enabled', true)) {
+            throw ValidationException::withMessages([
+                'maintenance_kind' => 'Calibration is not enabled.',
+            ]);
+        }
     }
 
     private function assertEquipmentBelongsToCustomer(int $unitId, int $customerId): void

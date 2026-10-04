@@ -20,6 +20,7 @@ use App\Models\SalesSetting;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -122,6 +123,11 @@ final readonly class AccountsReceivableService
             $grouped[(int) $invoice['customer_id']][] = $invoice;
         }
 
+        $customerProfiles = CustomerProfile::withTrashed()
+            ->whereKey(array_keys($grouped))
+            ->get()
+            ->keyBy('id');
+
         /** @var list<CustomerSummary> $customers */
         $customers = [];
         $billedMinor = 0;
@@ -130,7 +136,7 @@ final readonly class AccountsReceivableService
         $writtenOffMinor = 0;
 
         foreach ($grouped as $customerId => $customerInvoices) {
-            $row = $this->customerSummary($customerId, $customerInvoices, $date);
+            $row = $this->customerSummary($customerId, $customerInvoices, $date, $customerProfiles);
             $billedMinor += $row['billed_minor'];
             $creditedMinor += $row['credited_minor'];
             $paidMinor += $row['paid_minor'];
@@ -240,10 +246,13 @@ final readonly class AccountsReceivableService
             - JournalEntryLine::toMinorUnits(data_get($totals, 'credits'));
     }
 
-    /** @return array{as_of: string, subledger_minor: int, control_account_minor: int, difference_minor: int, is_reconciled: bool, candidate_causes: list<array{code: string, count: int, message: string}>} */
-    public function reconciliation(?CarbonInterface $asOf = null): array
+    /**
+     * @param  array{as_of: string, tie_out_difference_minor: int, outstanding_minor: int, control_account_minor: int}|null  $agingSummary
+     * @return array{as_of: string, subledger_minor: int, control_account_minor: int, difference_minor: int, is_reconciled: bool, candidate_causes: list<array{code: string, count: int, message: string}>}
+     */
+    public function reconciliation(?CarbonInterface $asOf = null, ?array $agingSummary = null): array
     {
-        $summary = $this->aging($asOf);
+        $summary = $agingSummary ?? $this->aging($asOf);
         $difference = (int) $summary['tie_out_difference_minor'];
 
         return [
@@ -359,11 +368,16 @@ final readonly class AccountsReceivableService
 
     /**
      * @param  list<InvoiceRow>  $documents
+     * @param  Collection<int, CustomerProfile>|null  $customerProfiles
      * @return CustomerSummary
      */
-    private function customerSummary(int $customerId, array $documents, CarbonImmutable $asOf): array
-    {
-        $customer = CustomerProfile::withTrashed()->find($customerId);
+    private function customerSummary(
+        int $customerId,
+        array $documents,
+        CarbonImmutable $asOf,
+        ?Collection $customerProfiles = null,
+    ): array {
+        $customer = $customerProfiles?->get($customerId) ?? CustomerProfile::withTrashed()->find($customerId);
         $buckets = ['current' => 0, '1_30' => 0, '31_60' => 0, '61_90' => 0, 'over_90' => 0];
         $billedMinor = 0;
         $creditedMinor = 0;

@@ -11,6 +11,7 @@ use App\Data\Inventory\LogisticsInboundLineData;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\PurchaseInboundStatus;
+use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Product;
 use App\Models\PurchaseInbound;
@@ -38,6 +39,7 @@ final readonly class LogisticsInboundProjectionService
             'lines.purchaseOrderLine.productVariant.product',
             'lines.purchaseOrderLine.productVariant.unit',
             'lines.allocations.warehouse',
+            'lines.allocations.inventoryOperationLines.operation',
         ]);
 
         $order = $inbound->purchaseOrder;
@@ -78,6 +80,7 @@ final readonly class LogisticsInboundProjectionService
             'purchaseOrderLine.productVariant.product',
             'purchaseOrderLine.productVariant.unit',
             'allocations.warehouse',
+            'allocations.inventoryOperationLines.operation',
         ]);
 
         $poLine = $line->purchaseOrderLine;
@@ -93,8 +96,8 @@ final readonly class LogisticsInboundProjectionService
             ->values()
             ->all());
 
-        $received = $this->completedForLine($poLine);
-        $inProgress = $this->openForLine($poLine);
+        $received = $this->completedForLine($poLine, $order);
+        $inProgress = $this->openForLine($poLine, $order);
         $remaining = $this->nonNegativeSubtract($quantities['confirmed'], $received);
         $availableToReceive = $this->sum(array_map(static fn (LogisticsInboundAllocationData $allocation): string => $allocation->availableToReceive, $allocations));
         $variant = $poLine->productVariant;
@@ -262,27 +265,41 @@ final readonly class LogisticsInboundProjectionService
     }
 
     /** @return numeric-string */
-    private function completedForLine(PurchaseOrderLine $line): string
+    private function completedForLine(PurchaseOrderLine $line, ?PurchaseOrder $order): string
     {
-        return $this->operationQuantityForLine($line, [OperationStage::Done]);
+        return $this->operationQuantityForLine($line, [OperationStage::Done], $order);
     }
 
     /** @return numeric-string */
-    private function openForLine(PurchaseOrderLine $line): string
+    private function openForLine(PurchaseOrderLine $line, ?PurchaseOrder $order): string
     {
         return $this->operationQuantityForLine($line, [
             OperationStage::Draft,
             OperationStage::Waiting,
             OperationStage::Ready,
-        ]);
+        ], $order);
     }
 
     /**
      * @param  list<OperationStage>  $stages
      * @return numeric-string
      */
-    private function operationQuantityForLine(PurchaseOrderLine $line, array $stages): string
+    private function operationQuantityForLine(PurchaseOrderLine $line, array $stages, ?PurchaseOrder $order): string
     {
+        if (
+            $order instanceof PurchaseOrder
+            && $order->relationLoaded('receipts')
+            && $order->receipts->every(static fn (InventoryOperation $receipt): bool => $receipt->relationLoaded('lines'))
+        ) {
+            $quantity = $order->receipts
+                ->filter(static fn (InventoryOperation $receipt): bool => in_array($receipt->stage, $stages, true))
+                ->flatMap(static fn (InventoryOperation $receipt) => $receipt->lines)
+                ->where('purchase_order_line_id', $line->getKey())
+                ->sum('base_quantity');
+
+            return $this->decimal(is_numeric($quantity) ? (string) $quantity : '0');
+        }
+
         $quantity = InventoryOperationLine::query()
             ->where('purchase_order_line_id', $line->id)
             ->whereNotNull('base_quantity')

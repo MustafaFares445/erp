@@ -100,7 +100,7 @@ final readonly class StripeCheckoutService
             throw new DomainException('This ticket payment is no longer pending.');
         }
 
-        return $this->createSession(
+        $transaction = $this->createSession(
             $customer,
             $link,
             JournalEntryLine::toMinorUnits((float) $link->amount),
@@ -108,6 +108,17 @@ final readonly class StripeCheckoutService
             $successUrl,
             $cancelUrl,
         );
+
+        $checkoutUrl = $transaction->metadata['checkout_url'] ?? null;
+
+        if (is_string($checkoutUrl) && $checkoutUrl !== '') {
+            $link->forceFill([
+                'external_payment_reference' => $transaction->checkout_session_id,
+                'payment_url' => $checkoutUrl,
+            ])->save();
+        }
+
+        return $transaction;
     }
 
     private function createSession(
@@ -146,6 +157,10 @@ final readonly class StripeCheckoutService
             'currency' => $currency,
             'status' => PaymentTransactionStatus::Pending,
             'idempotency_key' => $idempotencyKey,
+            'metadata' => [
+                'checkout_url' => $session->url,
+                'checkout_status' => $session->status,
+            ],
         ]);
     }
 }

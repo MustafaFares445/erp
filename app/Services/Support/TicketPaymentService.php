@@ -133,6 +133,12 @@ final readonly class TicketPaymentService
                         'payment_id' => $postedPayment->getKey(),
                     ])
                     ->log('support.payment_link.settled');
+
+                DB::afterCommit(static function () use ($lockedTicket): void {
+                    if (config('support.smart_routing_enabled', false)) {
+                        app(TicketRoutingService::class)->route($lockedTicket->refresh());
+                    }
+                });
             });
         } catch (InvalidStatusTransition $invalidStatusTransition) {
             activity()

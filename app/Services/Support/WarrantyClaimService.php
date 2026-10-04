@@ -282,11 +282,38 @@ final readonly class WarrantyClaimService
     /** @return array{total_amount_minor:int,covered_amount_minor:int,customer_amount_minor:int} */
     public function coverageSummary(MaintenanceRecord $record): array
     {
+        $attributes = $record->getAttributes();
+
+        if (
+            array_key_exists('coverage_total_amount_minor', $attributes)
+            && array_key_exists('coverage_covered_amount_minor', $attributes)
+            && array_key_exists('coverage_customer_amount_minor', $attributes)
+        ) {
+            return [
+                'total_amount_minor' => self::intValue($attributes['coverage_total_amount_minor']),
+                'covered_amount_minor' => self::intValue($attributes['coverage_covered_amount_minor']),
+                'customer_amount_minor' => self::intValue($attributes['coverage_customer_amount_minor']),
+            ];
+        }
+
+        $totals = $record->coverageLines()
+            ->selectRaw(
+                'COALESCE(SUM(amount_minor), 0) as total_amount_minor, '.
+                'COALESCE(SUM(covered_amount_minor), 0) as covered_amount_minor, '.
+                'COALESCE(SUM(customer_amount_minor), 0) as customer_amount_minor'
+            )
+            ->first();
+
         return [
-            'total_amount_minor' => (int) $record->coverageLines()->sum('amount_minor'),
-            'covered_amount_minor' => (int) $record->coverageLines()->sum('covered_amount_minor'),
-            'customer_amount_minor' => (int) $record->coverageLines()->sum('customer_amount_minor'),
+            'total_amount_minor' => self::intValue($totals?->getAttribute('total_amount_minor')),
+            'covered_amount_minor' => self::intValue($totals?->getAttribute('covered_amount_minor')),
+            'customer_amount_minor' => self::intValue($totals?->getAttribute('customer_amount_minor')),
         ];
+    }
+
+    private static function intValue(mixed $value): int
+    {
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /** @param array<string, mixed> $line */

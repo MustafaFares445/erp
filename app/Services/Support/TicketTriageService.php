@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Support;
 
 use App\Enums\SerializedCustodyType;
+use App\Enums\SupportAutomationEvent;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
@@ -162,9 +163,23 @@ final readonly class TicketTriageService
                     ->log('support.ticket.legacy_charge_waived');
             }
 
-            DB::afterCommit(static fn () => TicketUpdated::dispatch(
-                $locked->refresh()->load('customer.user'),
-            ));
+            DB::afterCommit(static function () use ($locked): void {
+                $fresh = $locked->refresh();
+                TicketUpdated::dispatch($fresh->load('customer.user'));
+
+                app(SupportAutomationEngine::class)->handle(
+                    SupportAutomationEvent::TicketTriaged,
+                    $fresh,
+                    [
+                        'service_path' => $fresh->service_path?->value,
+                        'diagnostic_fee_required' => (bool) $fresh->diagnostic_fee_required,
+                    ],
+                );
+
+                if (config('support.smart_routing_enabled', false)) {
+                    app(TicketRoutingService::class)->route($fresh);
+                }
+            });
 
             return $locked->refresh();
         });

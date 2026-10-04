@@ -14,9 +14,13 @@ use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceSchedule;
 use App\Models\MaintenanceScheduleOccurrence;
 use App\Models\MaintenanceTask;
+use App\Models\ServiceAppointment;
 use App\Models\ServiceRecordPart;
 use App\Models\Ticket;
+use App\Models\TicketSatisfactionResponse;
+use App\Models\TicketSlaMilestone;
 use App\Models\User;
+use App\Models\WarrantyRecoveryClaim;
 use App\Services\Employees\EmployeeReportService;
 use Carbon\Carbon;
 use DomainException;
@@ -290,6 +294,324 @@ final readonly class SupportReportService
             'skipped' => $counts['skipped'],
             'by_customer' => array_values($byCustomer),
             'by_equipment' => array_values($byEquipment),
+        ];
+    }
+
+    /**
+     * Age distribution of every non-terminal ticket. This is intentionally a
+     * current-backlog metric rather than a period metric.
+     *
+     * @return array{total:int,under_24h:int,one_to_three_days:int,four_to_seven_days:int,over_seven_days:int}
+     */
+    public function backlogAging(User $actor): array
+    {
+        $this->authorizeView($actor);
+
+        $openTickets = Ticket::query()
+            ->whereNotIn('status', [
+                TicketStatus::Resolved->value,
+                TicketStatus::Closed->value,
+                TicketStatus::Cancelled->value,
+            ])
+            ->get(['created_at']);
+
+        $now = now();
+        $buckets = [
+            'under_24h' => 0,
+            'one_to_three_days' => 0,
+            'four_to_seven_days' => 0,
+            'over_seven_days' => 0,
+        ];
+
+        foreach ($openTickets as $ticket) {
+            $createdAt = $ticket->created_at;
+
+            if ($createdAt === null) {
+                continue;
+            }
+
+            $hours = $createdAt->diffInHours($now);
+
+            if ($hours < 24) {
+                $buckets['under_24h']++;
+            } elseif ($hours < 96) {
+                $buckets['one_to_three_days']++;
+            } elseif ($hours < 192) {
+                $buckets['four_to_seven_days']++;
+            } else {
+                $buckets['over_seven_days']++;
+            }
+        }
+
+        return ['total' => $openTickets->count(), ...$buckets];
+    }
+
+    /**
+     * Milestone-level SLA compliance. A completed milestone is compliant only
+     * when it has never recorded a breach.
+     *
+     * @return array{completed:int,compliant:int,breached:int,compliance_percent:float|null}
+     */
+    public function slaCompliance(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = TicketSlaMilestone::query()->whereNotNull('completed_at');
+        $this->applyPeriod($query, 'completed_at', $from, $until);
+
+        $completed = (clone $query)->count();
+        $breached = (clone $query)->whereNotNull('breached_at')->count();
+        $compliant = max(0, $completed - $breached);
+
+        return [
+            'completed' => $completed,
+            'compliant' => $compliant,
+            'breached' => $breached,
+            'compliance_percent' => $completed > 0 ? round(($compliant / $completed) * 100, 1) : null,
+        ];
+    }
+
+    /**
+     * @return array{count:int,average_minutes:float|null}
+     */
+    public function responseTime(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = Ticket::query()
+            ->whereNotNull('first_response_at')
+            ->whereNotNull('response_sla_started_at');
+        $this->applyPeriod($query, 'first_response_at', $from, $until);
+
+        $minutes = [];
+
+        foreach ($query->get(['response_sla_started_at', 'first_response_at']) as $ticket) {
+            $startedAt = $ticket->response_sla_started_at;
+            $respondedAt = $ticket->first_response_at;
+
+            if ($startedAt !== null && $respondedAt !== null) {
+                $minutes[] = (float) $startedAt->diffInMinutes($respondedAt);
+            }
+        }
+
+        return [
+            'count' => count($minutes),
+            'average_minutes' => $minutes === [] ? null : round(array_sum($minutes) / count($minutes), 1),
+        ];
+    }
+
+    /**
+     * @return array{count:int,average_minutes:float|null}
+     */
+    public function resolutionTime(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = Ticket::query()
+            ->whereNotNull('resolved_at')
+            ->whereNotNull('live_at');
+        $this->applyPeriod($query, 'resolved_at', $from, $until);
+
+        $minutes = [];
+
+        foreach ($query->get(['live_at', 'resolved_at']) as $ticket) {
+            $liveAt = $ticket->live_at;
+            $resolvedAt = $ticket->resolved_at;
+
+            if ($liveAt !== null && $resolvedAt !== null) {
+                $minutes[] = (float) $liveAt->diffInMinutes($resolvedAt);
+            }
+        }
+
+        return [
+            'count' => count($minutes),
+            'average_minutes' => $minutes === [] ? null : round(array_sum($minutes) / count($minutes), 1),
+        ];
+    }
+
+    /**
+     * @return array{eligible:int,reopened:int,reopen_rate_percent:float|null}
+     */
+    public function reopenRate(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = Ticket::query()->whereNotNull('resolved_at');
+        $this->applyPeriod($query, 'resolved_at', $from, $until);
+
+        $eligible = (clone $query)->count();
+        $reopened = (clone $query)->where('reopened_count', '>', 0)->count();
+
+        return [
+            'eligible' => $eligible,
+            'reopened' => $reopened,
+            'reopen_rate_percent' => $eligible > 0 ? round(($reopened / $eligible) * 100, 1) : null,
+        ];
+    }
+
+    /**
+     * @return array{responses:int,average_rating:float|null,distribution:array<int,int>}
+     */
+    public function customerSatisfaction(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = TicketSatisfactionResponse::query();
+        $this->applyPeriod($query, 'submitted_at', $from, $until);
+
+        $responses = $query->get(['rating']);
+        $distribution = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+
+        foreach ($responses as $response) {
+            $rating = (int) $response->rating;
+
+            if (isset($distribution[$rating])) {
+                $distribution[$rating]++;
+            }
+        }
+
+        return [
+            'responses' => $responses->count(),
+            'average_rating' => $responses->isEmpty() ? null : round((float) $responses->avg('rating'), 2),
+            'distribution' => $distribution,
+        ];
+    }
+
+    /**
+     * @return list<array{employee_id:int,name:string,count:int}>
+     */
+    public function assignmentLoad(User $actor): array
+    {
+        $this->authorizeView($actor);
+
+        $tickets = Ticket::query()
+            ->whereNotNull('assigned_employee_id')
+            ->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value, TicketStatus::Cancelled->value])
+            ->with('assignedEmployee.user:id,name')
+            ->get();
+
+        $load = [];
+
+        foreach ($tickets as $ticket) {
+            $employeeId = (int) $ticket->assigned_employee_id;
+
+            $load[$employeeId] ??= [
+                'employee_id' => $employeeId,
+                'name' => $ticket->assignedEmployee->user->name ?? 'Unknown',
+                'count' => 0,
+            ];
+            $load[$employeeId]['count']++;
+        }
+
+        $rows = array_values($load);
+        usort($rows, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+
+        return $rows;
+    }
+
+    /**
+     * Scheduled and actual on-site time by technician. No utilization
+     * percentage is produced until an authoritative working-capacity
+     * calendar exists.
+     *
+     * @return list<array{employee_id:int,name:string,appointment_count:int,scheduled_minutes:int,actual_on_site_minutes:int}>
+     */
+    public function technicianUtilization(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = ServiceAppointment::query()
+            ->whereNotNull('employee_id')
+            ->with('employee.user:id,name');
+        $this->applyPeriod($query, 'scheduled_start_at', $from, $until);
+
+        $utilization = [];
+
+        foreach ($query->get() as $appointment) {
+            $employeeId = $appointment->employee_id;
+
+            $utilization[$employeeId] ??= [
+                'employee_id' => $employeeId,
+                'name' => $appointment->employee->user->name ?? 'Unknown',
+                'appointment_count' => 0,
+                'scheduled_minutes' => 0,
+                'actual_on_site_minutes' => 0,
+            ];
+            $utilization[$employeeId]['appointment_count']++;
+            $utilization[$employeeId]['scheduled_minutes'] += max(0, (int) $appointment->scheduled_start_at->diffInMinutes($appointment->scheduled_end_at));
+
+            if ($appointment->checked_in_at !== null && $appointment->checked_out_at !== null) {
+                $utilization[$employeeId]['actual_on_site_minutes'] += max(0, (int) $appointment->checked_in_at->diffInMinutes($appointment->checked_out_at));
+            }
+        }
+
+        return array_values($utilization);
+    }
+
+    /**
+     * @return list<array{serialized_inventory_unit_id:int,failure_category:string,count:int}>
+     */
+    public function repeatFailures(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = MaintenanceRecord::query()
+            ->whereNotNull('serialized_inventory_unit_id')
+            ->whereNotNull('failure_category');
+        $this->applyPeriod($query, 'created_at', $from, $until);
+
+        $failures = [];
+
+        foreach ($query->get(['serialized_inventory_unit_id', 'failure_category']) as $record) {
+            // The query above only returns records with both columns set.
+            $unitId = (int) $record->serialized_inventory_unit_id;
+            $category = (string) $record->failure_category?->value;
+
+            $key = $unitId.'|'.$category;
+            $failures[$key] ??= [
+                'serialized_inventory_unit_id' => $unitId,
+                'failure_category' => $category,
+                'count' => 0,
+            ];
+            $failures[$key]['count']++;
+        }
+
+        return array_values(array_filter(
+            $failures,
+            static fn (array $failure): bool => $failure['count'] > 1,
+        ));
+    }
+
+    /**
+     * @return array{claims:int,claimed_minor:int,approved_minor:int,received_minor:int,outstanding_minor:int,recovery_percent:float|null}
+     */
+    public function warrantyRecoveryPerformance(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = WarrantyRecoveryClaim::query();
+        $this->applyPeriod($query, 'created_at', $from, $until);
+
+        $claims = $query->get();
+        $claimed = 0;
+        $approved = 0;
+        $received = 0;
+        $outstanding = 0;
+
+        foreach ($claims as $claim) {
+            $claimed += $claim->claimed_amount_minor;
+            $approved += $claim->approved_amount_minor ?? 0;
+            $received += $claim->received_amount_minor;
+            $outstanding += $claim->outstandingMinor();
+        }
+
+        return [
+            'claims' => $claims->count(),
+            'claimed_minor' => $claimed,
+            'approved_minor' => $approved,
+            'received_minor' => $received,
+            'outstanding_minor' => $outstanding,
+            'recovery_percent' => $claimed > 0 ? round(($received / $claimed) * 100, 1) : null,
         ];
     }
 

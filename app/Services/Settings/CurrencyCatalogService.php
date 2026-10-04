@@ -9,6 +9,8 @@ use Illuminate\Validation\ValidationException;
 
 final class CurrencyCatalogService
 {
+    private ?string $defaultCodeCache = null;
+
     /** @return array<string, string> */
     public function activeOptions(): array
     {
@@ -25,12 +27,16 @@ final class CurrencyCatalogService
 
     public function defaultCode(): string
     {
+        if ($this->defaultCodeCache !== null) {
+            return $this->defaultCodeCache;
+        }
+
         $code = Currency::query()
             ->where('is_active', true)
             ->where('is_default', true)
             ->value('code');
 
-        return is_string($code) && $code !== '' ? $code : 'AED';
+        return $this->defaultCodeCache = is_string($code) && $code !== '' ? $code : 'AED';
     }
 
     public function normalizeActive(string $code, string $field = 'currency'): string

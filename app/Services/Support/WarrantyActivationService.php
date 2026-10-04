@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace App\Services\Support;
 
+use App\Enums\CommissioningStatus;
 use App\Enums\WarrantyDurationUnit;
 use App\Enums\WarrantyEntitlementState;
 use App\Enums\WarrantyStartTrigger;
+use App\Models\EquipmentInstallation;
 use App\Models\InventoryOperation;
+use App\Models\MaintenanceRecord;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
 use App\Models\WarrantyEntitlement;
 use App\Models\WarrantyPolicy;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Creates an immutable warranty entitlement snapshot from a confirmed customer
@@ -160,6 +165,86 @@ final readonly class WarrantyActivationService
             }
 
             return $activated;
+        });
+    }
+
+    /**
+     * Starts a pending installation-trigger entitlement from the recorded
+     * installation date. Returns the number of entitlements activated.
+     */
+    public function activateForInstallation(EquipmentInstallation $installation): int
+    {
+        return $this->activatePending($installation, WarrantyStartTrigger::Installation, $installation->installed_at);
+    }
+
+    /**
+     * Starts a pending commissioning-trigger entitlement from the successful
+     * commissioning date. A failed or pending commissioning never activates.
+     */
+    public function activateForCommissioning(EquipmentInstallation $installation): int
+    {
+        if ($installation->commissioning_status !== CommissioningStatus::Passed) {
+            return 0;
+        }
+
+        return $this->activatePending($installation, WarrantyStartTrigger::Commissioning, $installation->commissioned_at);
+    }
+
+    private function activatePending(EquipmentInstallation $installation, WarrantyStartTrigger $trigger, ?CarbonInterface $startedAt): int
+    {
+        if (! $startedAt instanceof CarbonInterface) {
+            return 0;
+        }
+
+        $record = MaintenanceRecord::query()->findOrFail($installation->maintenance_record_id);
+
+        if ($record->serialized_inventory_unit_id !== $installation->serialized_inventory_unit_id) {
+            throw ValidationException::withMessages(['serialized_inventory_unit_id' => 'The installation equipment does not match its maintenance request.']);
+        }
+
+        return DB::transaction(function () use ($installation, $record, $trigger, $startedAt): int {
+            $unit = SerializedInventoryUnit::query()->lockForUpdate()->findOrFail($installation->serialized_inventory_unit_id);
+
+            $entitlements = WarrantyEntitlement::query()
+                ->where('serialized_inventory_unit_id', $unit->getKey())
+                ->where('customer_id', $record->customer_id)
+                ->where('state', WarrantyEntitlementState::PendingActivation->value)
+                ->where('start_trigger', $trigger->value)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($entitlements as $entitlement) {
+                $startsOn = Carbon::parse($startedAt)->startOfDay();
+                $expiresOn = $this->expiry($startsOn, $entitlement->duration_value, $entitlement->duration_unit);
+
+                $entitlement->update([
+                    'state' => WarrantyEntitlementState::Active,
+                    'starts_on' => $startsOn->toDateString(),
+                    'expires_on' => $expiresOn->toDateString(),
+                ]);
+
+                $unit->forceFill([
+                    'warranty_started_on' => $startsOn->toDateString(),
+                    'warranty_expires_on' => $expiresOn->toDateString(),
+                ])->save();
+
+                activity()
+                    ->performedOn($unit)
+                    ->withChanges(['attributes' => [
+                        'warranty_started_on' => $startsOn->toDateString(),
+                        'warranty_expires_on' => $expiresOn->toDateString(),
+                        'warranty_entitlement_state' => WarrantyEntitlementState::Active->value,
+                    ]])
+                    ->withProperties([
+                        'source_channel' => 'system',
+                        'equipment_installation_id' => $installation->getKey(),
+                        'start_trigger' => $trigger->value,
+                        'customer_id' => $record->customer_id,
+                    ])
+                    ->log('support.warranty.activated');
+            }
+
+            return $entitlements->count();
         });
     }
 

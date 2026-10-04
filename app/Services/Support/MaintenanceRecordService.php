@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Support;
 
 use App\Data\Support\WarrantyCoverage;
+use App\Enums\EquipmentLoanStatus;
+use App\Enums\ExternalRepairStatus;
+use App\Enums\MaintenanceKind;
 use App\Enums\MaintenanceStatus;
 use App\Enums\QuotationStatus;
 use App\Enums\SerializedCustodyType;
@@ -57,6 +60,8 @@ final readonly class MaintenanceRecordService
                 'warranty_expiry_date' => $ticket->warranty_expiry_date,
                 'description' => $data['description'] ?? $ticket->description,
                 'status' => MaintenanceStatus::Open,
+                'maintenance_kind' => MaintenanceKind::Corrective,
+                'failure_started_at' => $data['failure_started_at'] ?? $ticket->created_at ?? now(),
                 'created_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
             ]);
@@ -78,6 +83,8 @@ final readonly class MaintenanceRecordService
                 'ticket_id' => null,
                 'description' => $data['description'],
                 'status' => MaintenanceStatus::Open,
+                'maintenance_kind' => $data['maintenance_kind'] ?? MaintenanceKind::Other,
+                'failure_started_at' => $data['failure_started_at'] ?? null,
                 'created_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
                 ...$this->resolveStandaloneEquipment($data),
@@ -232,6 +239,12 @@ final readonly class MaintenanceRecordService
                 throw InvalidStatusTransition::fromTo($from->value, $to->value);
             }
 
+            if (in_array($to, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)
+                && ($locked->equipmentLoans()->whereIn('status', EquipmentLoanStatus::activeValues())->exists()
+                    || $locked->externalRepairs()->whereIn('status', ExternalRepairStatus::openValues())->exists())) {
+                throw new InvalidStatusTransition('A maintenance request with an active loaner or an open supplier repair cannot be closed or cancelled until it is returned, completed or cancelled.');
+            }
+
             if ($to === MaintenanceStatus::Cancelled
                 && ServiceRecordPart::query()
                     ->whereIn('maintenance_task_id', $locked->serviceRecords()->select('id'))
@@ -240,7 +253,15 @@ final readonly class MaintenanceRecordService
                 throw new InvalidStatusTransition('A maintenance request with consumed parts cannot be cancelled until the parts are reversed.');
             }
 
-            $locked->update(['status' => $to->value, 'updated_by' => $actor->getKey()]);
+            $attributes = ['status' => $to->value, 'updated_by' => $actor->getKey()];
+
+            if ($to === MaintenanceStatus::Closed
+                && $locked->maintenance_kind === MaintenanceKind::Corrective
+                && $locked->service_restored_at === null) {
+                $attributes['service_restored_at'] = now();
+            }
+
+            $locked->update($attributes);
 
             activity()
                 ->performedOn($locked)

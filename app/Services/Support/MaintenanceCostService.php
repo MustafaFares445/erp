@@ -45,8 +45,15 @@ final readonly class MaintenanceCostService
         $knownParts = $parts->filter(fn (ServiceRecordPart $part): bool => $part->cost_source !== null && $part->cost_source !== CostSource::Unknown);
         $coveragePercent = $parts->isEmpty() ? 100.0 : round($knownParts->count() / $parts->count() * 100, 2);
 
-        $labourCostMinor = (int) $record->labourEntries()->sum('total_cost_minor');
-        $thirdPartyCostMinor = (int) $record->thirdPartyCosts()->sum('amount_minor');
+        $labourCost = $record->relationLoaded('labourEntries')
+            ? $record->labourEntries->sum('total_cost_minor')
+            : $record->labourEntries()->sum('total_cost_minor');
+        $labourCostMinor = is_numeric($labourCost) ? (int) $labourCost : 0;
+
+        $thirdPartyCost = $record->relationLoaded('thirdPartyCosts')
+            ? $record->thirdPartyCosts->sum('amount_minor')
+            : $record->thirdPartyCosts()->sum('amount_minor');
+        $thirdPartyCostMinor = is_numeric($thirdPartyCost) ? (int) $thirdPartyCost : 0;
 
         return [
             'parts_cost_minor' => $partsCostMinor,
@@ -68,7 +75,9 @@ final readonly class MaintenanceCostService
     public function marginFor(MaintenanceRecord $record): array
     {
         $cost = $this->jobCost($record);
-        $revenueRaw = $record->invoice()->value('total_amount');
+        $revenueRaw = $record->relationLoaded('invoice')
+            ? $record->invoice?->total_amount
+            : $record->invoice()->value('total_amount');
         $revenueMinor = is_numeric($revenueRaw) ? (int) round(((float) $revenueRaw) * 100) : 0;
 
         return [
