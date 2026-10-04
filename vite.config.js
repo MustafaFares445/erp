@@ -12,6 +12,13 @@ export default defineConfig({
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
                 }),
+                // Arabic glyphs for the Filament dashboard (Inter has none). The face is limited to the Arabic
+                // unicode range, so Latin text keeps using Inter and the file is only fetched when needed.
+                bunny('Noto Sans Arabic', {
+                    weights: [400, 500, 600, 700],
+                    subsets: ['arabic'],
+                    preload: false,
+                }),
             ],
         }),
         tailwindcss(),
