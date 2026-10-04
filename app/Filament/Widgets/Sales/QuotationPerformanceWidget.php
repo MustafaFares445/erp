@@ -12,6 +12,8 @@ use Filament\Widgets\Widget;
 
 final class QuotationPerformanceWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected string $view = 'filament.widgets.sales.quotation-performance';

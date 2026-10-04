@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class EmployeesOverdueTasks extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use ScopesToSelectedEmployee;
 

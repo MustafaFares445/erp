@@ -32,6 +32,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  */
 final class AccountingStatistics extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsTrendStats;
     use InteractsWithDashboardFilters;
 

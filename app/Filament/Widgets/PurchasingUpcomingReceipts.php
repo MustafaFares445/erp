@@ -11,7 +11,7 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Widgets\Concerns\BuildsDashboardTables;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\PurchaseOrder;
-use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Services\Purchasing\PurchaseOrderWorkflowProjectionStore;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class PurchasingUpcomingReceipts extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use InteractsWithDashboardFilters;
 
@@ -38,7 +40,18 @@ final class PurchasingUpcomingReceipts extends TableWidget
         return $this->dashboardTable($table)
             ->heading(__('dashboards.purchasing.tables.upcoming'))
             ->query(fn (): Builder => PurchaseOrder::query()
-                ->with(['supplier', 'purchaseInbound.lines.allocations.warehouse', 'lines.purchaseInboundLine.allocations'])
+                ->with([
+                    'supplier',
+                    'lines.productVariant.unit',
+                    'lines.purchaseInboundLine.allocations',
+                    'purchaseInbound.lines.allocations.warehouse',
+                    'purchaseInbound.lines.allocations.inventoryOperationLines.operation',
+                    'purchaseInbound.lines.purchaseOrderLine.productVariant.product',
+                    'purchaseInbound.lines.purchaseOrderLine.productVariant.unit',
+                    'receipts.lines',
+                    'confirmations.items',
+                    'bills.paymentAllocations.supplierPayment',
+                ])
                 ->whereNotNull('sent_at')
                 ->whereNotNull('expected_at')
                 ->whereIn('status', [
@@ -59,7 +72,7 @@ final class PurchasingUpcomingReceipts extends TableWidget
                     ->color(fn (PurchaseOrder $record): string => $record->expected_at?->isPast() ? 'danger' : 'gray'),
                 TextColumn::make('receiving_state')
                     ->label(__('dashboards.purchasing.columns.receiving'))
-                    ->state(fn (PurchaseOrder $record): string => (string) __(app(PurchaseOrderWorkflowService::class)->project($record)->logisticsState))
+                    ->state(fn (PurchaseOrder $record): string => (string) __(app(PurchaseOrderWorkflowProjectionStore::class)->project($record)->logisticsState))
                     ->badge(),
                 TextColumn::make('total_amount')
                     ->label(__('dashboards.purchasing.columns.value'))

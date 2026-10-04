@@ -26,6 +26,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class CrmStatistics extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsTrendStats;
     use InteractsWithDashboardFilters;
 

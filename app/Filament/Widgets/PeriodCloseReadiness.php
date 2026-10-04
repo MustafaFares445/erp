@@ -26,6 +26,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
  */
 final class PeriodCloseReadiness extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use InteractsWithDashboardFilters;
 

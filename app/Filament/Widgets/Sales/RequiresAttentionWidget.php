@@ -18,6 +18,8 @@ use Filament\Widgets\Widget;
  */
 final class RequiresAttentionWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected string $view = 'filament.widgets.sales.requires-attention';

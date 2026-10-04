@@ -7,6 +7,7 @@ namespace App\Filament\Widgets;
 use App\Enums\BillStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\PurchaseOrder;
 use Filament\Widgets\ChartWidget;
@@ -18,6 +19,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class PurchasingOpenStageChart extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -75,7 +78,7 @@ final class PurchasingOpenStageChart extends ChartWidget
             'datasets' => [[
                 'label' => __('dashboards.purchasing.charts.purchase_orders'),
                 'data' => [$approval, $readyToSend, $awaitingSupplier, $receiving, $accounting],
-                'backgroundColor' => ['#f59e0b', '#3b82f6', '#8b5cf6', '#22c55e', '#64748b'],
+                'backgroundColor' => [IerpColors::CHART_WARNING, IerpColors::CHART_PRIMARY, IerpColors::CHART_ACCENT, IerpColors::CHART_SUCCESS, IerpColors::CHART_NEUTRAL],
             ]],
             'labels' => [
                 __('dashboards.purchasing.stages.approval'),

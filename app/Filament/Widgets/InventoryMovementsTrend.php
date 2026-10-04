@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\InventoryPermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\InventoryMovement;
 use App\Services\Support\ServiceRecordPartService;
@@ -20,6 +21,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class InventoryMovementsTrend extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -56,13 +59,13 @@ final class InventoryMovementsTrend extends ChartWidget
                 [
                     'label' => __('admin.inventory.dashboard.inbound'),
                     'data' => $period->sumSeries($inbound),
-                    'borderColor' => '#22c55e',
+                    'borderColor' => IerpColors::CHART_SUCCESS,
                     'backgroundColor' => 'transparent',
                 ],
                 [
                     'label' => __('admin.inventory.dashboard.outbound'),
                     'data' => $period->sumSeries($outbound),
-                    'borderColor' => '#ef4444',
+                    'borderColor' => IerpColors::CHART_DANGER,
                     'backgroundColor' => 'transparent',
                 ],
             ],

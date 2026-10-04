@@ -26,6 +26,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  */
 final class EmployeesStatistics extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsTrendStats;
     use ScopesToSelectedEmployee;
 

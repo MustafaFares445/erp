@@ -25,6 +25,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
  */
 final class EmployeesTopPerformers extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use ScopesToSelectedEmployee;
 

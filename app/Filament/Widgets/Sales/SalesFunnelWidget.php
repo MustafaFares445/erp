@@ -17,6 +17,8 @@ use Filament\Widgets\Widget;
  */
 final class SalesFunnelWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected string $view = 'filament.widgets.sales.sales-funnel';

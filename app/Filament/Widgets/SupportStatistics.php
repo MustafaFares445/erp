@@ -10,19 +10,22 @@ use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Widgets\Concerns\BuildsTrendStats;
 use App\Filament\Widgets\Concerns\ScopesSupportTickets;
 use App\Models\Ticket;
+use App\Models\TicketSatisfactionResponse;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Support's four headline cards: tickets opened and resolved in the
- * selected window against the previous one, the live open queue, and the
- * tickets whose SLA is breached or due within the hour. Maintenance work
- * queues live in the maintenance attention table.
+ * Support's compact operational headline: opened/resolved trend, live queue,
+ * SLA risk and average first-response time. CSAT appears only when its rollout
+ * is enabled; deeper quality metrics such as reopen rate belong in reports.
+ * Maintenance work queues live in the maintenance attention table.
  */
 final class SupportStatistics extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsTrendStats;
     use ScopesSupportTickets;
 
@@ -66,7 +69,21 @@ final class SupportStatistics extends StatsOverviewWidget
             })
             ->count();
 
-        return [
+        $responseMinutes = $this->tickets()
+            ->whereNotNull('first_response_at')
+            ->whereNotNull('response_sla_started_at')
+            ->whereBetween('first_response_at', [$period->from, $period->to])
+            ->get(['response_sla_started_at', 'first_response_at'])
+            ->map(static fn (Ticket $ticket): ?float => $ticket->response_sla_started_at !== null && $ticket->first_response_at !== null
+                ? $ticket->response_sla_started_at->diffInMinutes($ticket->first_response_at)
+                : null)
+            ->whereNotNull();
+
+        $averageResponse = $responseMinutes->isEmpty()
+            ? null
+            : round((float) $responseMinutes->avg(), 1);
+
+        $stats = [
             $this->trendStat(
                 __('dashboards.support.kpis.opened'),
                 (string) $opened->count(),
@@ -95,7 +112,28 @@ final class SupportStatistics extends StatsOverviewWidget
                 ->icon(Heroicon::OutlinedExclamationTriangle)
                 ->color($slaAtRisk > 0 ? 'danger' : 'success')
                 ->url(TicketResource::getUrl('index')),
+            Stat::make(__('dashboards.support.kpis.average_first_response'), $averageResponse === null ? '—' : __('dashboards.support.kpis.minutes', ['value' => $averageResponse]))
+                ->description(__('dashboards.support.kpis.average_first_response_detail'))
+                ->icon(Heroicon::OutlinedClock)
+                ->color($averageResponse === null ? 'gray' : 'info'),
         ];
+
+        if (config('support.csat_enabled', false)) {
+            $csatQuery = TicketSatisfactionResponse::query()
+                ->whereBetween('submitted_at', [$period->from, $period->to]);
+            $csatCount = (clone $csatQuery)->count();
+            $csatAverage = $csatCount > 0 ? round((float) $csatQuery->avg('rating'), 2) : null;
+
+            $stats[] = Stat::make(
+                __('dashboards.support.kpis.csat'),
+                $csatAverage === null ? '—' : __('dashboards.support.kpis.csat_value', ['value' => $csatAverage]),
+            )
+                ->description(__('dashboards.support.kpis.csat_responses', ['count' => $csatCount]))
+                ->icon(Heroicon::OutlinedFaceSmile)
+                ->color($csatAverage === null ? 'gray' : ($csatAverage >= 4 ? 'success' : ($csatAverage >= 3 ? 'warning' : 'danger')));
+        }
+
+        return $stats;
     }
 
     /** @return Builder<Ticket> */

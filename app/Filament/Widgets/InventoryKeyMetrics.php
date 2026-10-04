@@ -34,6 +34,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class InventoryKeyMetrics extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     #[\Override]
@@ -115,9 +117,16 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
         $service = app(ReplenishmentTransferSuggestionService::class);
         $suggestions = 0;
         $suggestedQuantity = 0.0;
+        $suggestionsByRequirement = $service->suggestMany($requirements);
 
         foreach ($requirements as $requirement) {
-            foreach ($service->suggest($requirement) as $suggestion) {
+            $requirementId = $requirement->getKey();
+
+            if (! is_numeric($requirementId)) {
+                continue;
+            }
+
+            foreach ($suggestionsByRequirement[(int) $requirementId] ?? [] as $suggestion) {
                 $suggestions++;
                 $suggestedQuantity += $suggestion->suggestedBaseQuantity;
             }

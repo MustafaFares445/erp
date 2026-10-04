@@ -17,12 +17,11 @@ use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
-use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Services\Purchasing\PurchaseOrderWorkflowProjectionStore;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
-use WeakMap;
 
 /**
  * Open purchase orders someone has to act on — approval, sending, supplier
@@ -32,11 +31,10 @@ use WeakMap;
  */
 final class PurchasingAttentionQueue extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use InteractsWithDashboardFilters;
-
-    /** @var WeakMap<PurchaseOrder, PurchaseOrderWorkflowData>|null */
-    private static ?WeakMap $projections = null;
 
     #[\Override]
     public static function canView(): bool
@@ -82,8 +80,12 @@ final class PurchasingAttentionQueue extends TableWidget
         return PurchaseOrder::query()
             ->with([
                 'supplier',
-                'purchaseInbound.lines.allocations.warehouse',
+                'lines.productVariant.unit',
                 'lines.purchaseInboundLine.allocations',
+                'purchaseInbound.lines.allocations.warehouse',
+                'purchaseInbound.lines.allocations.inventoryOperationLines.operation',
+                'purchaseInbound.lines.purchaseOrderLine.productVariant.product',
+                'purchaseInbound.lines.purchaseOrderLine.productVariant.unit',
                 'receipts.lines',
                 'confirmations.items',
                 'bills.paymentAllocations.supplierPayment',
@@ -124,9 +126,7 @@ final class PurchasingAttentionQueue extends TableWidget
      */
     private static function projection(PurchaseOrder $record): PurchaseOrderWorkflowData
     {
-        self::$projections ??= new WeakMap;
-
-        return self::$projections[$record] ??= app(PurchaseOrderWorkflowService::class)->project($record);
+        return app(PurchaseOrderWorkflowProjectionStore::class)->project($record);
     }
 
     private static function attentionReason(PurchaseOrder $record): string

@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\EmployeePermission;
 use App\Enums\PlanTaskStatus;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\ScopesToSelectedEmployee;
 use App\Models\PlanTask;
 use App\Support\Dashboard\DashboardPeriod;
@@ -16,15 +17,17 @@ use Filament\Widgets\ChartWidget;
  */
 final class EmployeesTaskStatusChart extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use ScopesToSelectedEmployee;
 
     protected ?string $maxHeight = '300px';
 
     private const array STATUS_COLORS = [
-        'Pending' => '#9ca3af',
-        'InProgress' => '#3b82f6',
-        'Completed' => '#22c55e',
-        'Cancelled' => '#ef4444',
+        'Pending' => IerpColors::CHART_NEUTRAL,
+        'InProgress' => IerpColors::CHART_PRIMARY,
+        'Completed' => IerpColors::CHART_SUCCESS,
+        'Cancelled' => IerpColors::CHART_DANGER,
     ];
 
     #[\Override]

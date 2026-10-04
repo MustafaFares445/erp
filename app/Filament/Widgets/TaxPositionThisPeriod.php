@@ -7,6 +7,7 @@ namespace App\Filament\Widgets;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Filament\Resources\Taxes\Pages\ViewTaxRegister;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\User;
 use App\Services\Accounting\TaxRegisterService;
@@ -19,6 +20,8 @@ use Filament\Widgets\ChartWidget;
  */
 final class TaxPositionThisPeriod extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -61,7 +64,7 @@ final class TaxPositionThisPeriod extends ChartWidget
                     (float) $figures['input_tax_recognised'],
                     (float) $figures['net_position'],
                 ],
-                'backgroundColor' => ['#94a3b8', '#f59e0b', '#ef4444', '#3b82f6', '#22c55e'],
+                'backgroundColor' => [IerpColors::CHART_NEUTRAL, IerpColors::CHART_WARNING, IerpColors::CHART_DANGER, IerpColors::CHART_PRIMARY, IerpColors::CHART_SUCCESS],
             ]],
             'labels' => [
                 __('dashboards.accounting.tax.deferred'),

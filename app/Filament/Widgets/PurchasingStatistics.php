@@ -33,6 +33,8 @@ use Illuminate\Support\Collection;
  */
 final class PurchasingStatistics extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsTrendStats;
     use InteractsWithDashboardFilters;
 
@@ -155,12 +157,18 @@ final class PurchasingStatistics extends StatsOverviewWidget
 
         /** @var Collection<int, ReplenishmentRequirement> $requirements */
         $requirements = ReplenishmentRequirement::query()->active()->get();
+        $suggestionsByRequirement = $transferSuggestions->suggestMany($requirements);
 
         foreach ($requirements as $requirement) {
             $remaining = $requirement->remainingUncoveredQuantity();
             $transferQuantity = 0.0;
+            $requirementId = $requirement->getKey();
 
-            foreach ($transferSuggestions->suggest($requirement) as $suggestion) {
+            if (! is_numeric($requirementId)) {
+                continue;
+            }
+
+            foreach ($suggestionsByRequirement[(int) $requirementId] ?? [] as $suggestion) {
                 $transferQuantity += $suggestion->suggestedBaseQuantity;
             }
 

@@ -24,6 +24,8 @@ use Illuminate\Support\Collection;
  */
 final class AccountingTopReceivables extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use InteractsWithDashboardFilters;
 

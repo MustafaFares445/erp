@@ -24,6 +24,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
  */
 final class SalespersonPerformanceWidget extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use InteractsWithDashboardFilters;
 

@@ -20,6 +20,7 @@ use App\Services\Sales\SalesDashboardMetricsService;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Sales's module landing page: confirmed-order-value KPIs, a sales trend
@@ -62,16 +63,30 @@ final class SalesDashboard extends ModuleDashboard
                 ->label(__('dashboards.sales.filters.salesperson'))
                 ->searchable()
                 ->native(false)
-                ->options(fn (): array => EmployeeProfile::query()
+                ->getSearchResultsUsing(fn (string $search): array => EmployeeProfile::query()
+                    ->whereHas('user', fn (Builder $query): Builder => $query->where('name', 'like', "%{$search}%"))
                     ->with('user:id,name')
+                    ->orderBy('id')
+                    ->limit(50)
                     ->get()
                     ->mapWithKeys(static fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
-                    ->all()),
+                    ->all())
+                ->getOptionLabelUsing(fn (int $value): ?string => EmployeeProfile::query()->with('user:id,name')->find($value)?->user?->name),
             Select::make('customerId')
                 ->label(__('dashboards.sales.filters.customer'))
                 ->searchable()
                 ->native(false)
-                ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
+                ->getSearchResultsUsing(fn (string $search): array => CustomerProfile::query()
+                    ->where('company_name', 'like', "%{$search}%")
+                    ->orderBy('company_name')
+                    ->limit(50)
+                    ->pluck('company_name', 'id')
+                    ->all())
+                ->getOptionLabelUsing(function (int $value): ?string {
+                    $name = CustomerProfile::query()->whereKey($value)->value('company_name');
+
+                    return is_string($name) ? $name : null;
+                }),
         ];
     }
 

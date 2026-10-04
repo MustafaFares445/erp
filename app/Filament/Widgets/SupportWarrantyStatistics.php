@@ -8,6 +8,7 @@ use App\Enums\MaintenanceBillingType;
 use App\Enums\SupportPermission;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\MaintenanceRecord;
 use App\Models\WarrantyRecoveryClaim;
@@ -23,6 +24,8 @@ use Filament\Widgets\ChartWidget;
  */
 final class SupportWarrantyStatistics extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -49,12 +52,24 @@ final class SupportWarrantyStatistics extends ChartWidget
         $warrantyCost = MaintenanceRecord::query()
             ->where('coverage_source', WarrantyCoverageSource::SellerWarranty->value)
             ->whereBetween('coverage_decided_at', $window)
+            ->with([
+                'serviceRecords.parts',
+                'labourEntries',
+                'thirdPartyCosts',
+                'invoice:id,total_amount',
+            ])
             ->get()
             ->sum(static fn (MaintenanceRecord $record): int => $costService->jobCost($record)['total_cost_minor']);
 
         $goodwillCost = MaintenanceRecord::query()
             ->where('coverage_decision', WarrantyClaimDecision::Goodwill->value)
             ->whereBetween('coverage_decided_at', $window)
+            ->with([
+                'serviceRecords.parts',
+                'labourEntries',
+                'thirdPartyCosts',
+                'invoice:id,total_amount',
+            ])
             ->get()
             ->sum(static fn (MaintenanceRecord $record): int => $costService->jobCost($record)['total_cost_minor']);
 
@@ -64,6 +79,12 @@ final class SupportWarrantyStatistics extends ChartWidget
                 MaintenanceBillingType::TicketSettled->value,
             ])
             ->whereBetween('billed_at', $window)
+            ->with([
+                'serviceRecords.parts',
+                'labourEntries',
+                'thirdPartyCosts',
+                'invoice:id,total_amount',
+            ])
             ->get()
             ->sum(static fn (MaintenanceRecord $record): int => $costService->marginFor($record)['revenue_minor']);
 
@@ -82,7 +103,7 @@ final class SupportWarrantyStatistics extends ChartWidget
                     static fn (int|float $minor): float => round($minor / 100, 2),
                     [$warrantyCost, $goodwillCost, $customerPaidRevenue, $recoveryReceived, $recoveryOutstanding],
                 ),
-                'backgroundColor' => ['#f59e0b', '#a855f7', '#22c55e', '#3b82f6', '#94a3b8'],
+                'backgroundColor' => [IerpColors::CHART_WARNING, IerpColors::CHART_ACCENT, IerpColors::CHART_SUCCESS, IerpColors::CHART_PRIMARY, IerpColors::CHART_NEUTRAL],
             ]],
             'labels' => [
                 __('dashboards.support.economics.warranty_cost'),

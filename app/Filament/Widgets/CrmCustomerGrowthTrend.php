@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\CrmPermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\CustomerProfile;
 use Filament\Widgets\ChartWidget;
 
 final class CrmCustomerGrowthTrend extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -40,7 +43,7 @@ final class CrmCustomerGrowthTrend extends ChartWidget
                     'data' => $period->countSeries(
                         CustomerProfile::query()->whereBetween('created_at', [$period->from, $period->to])->pluck('created_at'),
                     ),
-                    'borderColor' => '#22c55e',
+                    'borderColor' => IerpColors::CHART_PRIMARY,
                     'backgroundColor' => 'transparent',
                 ],
                 [
@@ -49,7 +52,7 @@ final class CrmCustomerGrowthTrend extends ChartWidget
                         CustomerProfile::query()->whereBetween('created_at', [$period->previousFrom, $period->previousTo])->pluck('created_at'),
                         previous: true,
                     ),
-                    'borderColor' => '#94a3b8',
+                    'borderColor' => IerpColors::CHART_NEUTRAL,
                     'backgroundColor' => 'transparent',
                     'borderDash' => [6, 4],
                 ],

@@ -23,6 +23,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  */
 final class SalesKpiCards extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsTrendStats;
     use InteractsWithDashboardFilters;
 

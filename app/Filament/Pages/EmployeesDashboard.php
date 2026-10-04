@@ -14,6 +14,7 @@ use App\Models\EmployeeProfile;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Employees' module landing page: field-work KPIs, task completion beside
@@ -50,12 +51,16 @@ final class EmployeesDashboard extends ModuleDashboard
                 ->label(__('dashboards.employees.filters.employee'))
                 ->searchable()
                 ->native(false)
-                ->options(fn (): array => EmployeeProfile::query()
+                ->getSearchResultsUsing(fn (string $search): array => EmployeeProfile::query()
                     ->where('is_active', true)
+                    ->whereHas('user', fn (Builder $query): Builder => $query->where('name', 'like', "%{$search}%"))
                     ->with('user:id,name')
+                    ->orderBy('id')
+                    ->limit(50)
                     ->get()
                     ->mapWithKeys(static fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
-                    ->all()),
+                    ->all())
+                ->getOptionLabelUsing(fn (int $value): ?string => EmployeeProfile::query()->where('is_active', true)->with('user:id,name')->find($value)?->user?->name),
         ];
     }
 

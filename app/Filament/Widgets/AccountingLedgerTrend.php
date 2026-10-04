@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\AccountingPermission;
 use App\Enums\JournalEntryStatus;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\ChartWidget;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 final class AccountingLedgerTrend extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -57,13 +60,13 @@ final class AccountingLedgerTrend extends ChartWidget
                 [
                     'label' => __('dashboards.charts.selected_period'),
                     'data' => $period->sumSeries(self::postedDebits($period->from, $period->to)),
-                    'borderColor' => '#22c55e',
+                    'borderColor' => IerpColors::CHART_PRIMARY,
                     'backgroundColor' => 'transparent',
                 ],
                 [
                     'label' => __('dashboards.charts.previous_period'),
                     'data' => $period->sumSeries(self::postedDebits($period->previousFrom, $period->previousTo), previous: true),
-                    'borderColor' => '#94a3b8',
+                    'borderColor' => IerpColors::CHART_NEUTRAL,
                     'backgroundColor' => 'transparent',
                     'borderDash' => [6, 4],
                 ],

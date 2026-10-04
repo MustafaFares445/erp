@@ -100,7 +100,17 @@ final class InventoryDashboard extends ModuleDashboard
                 ->label(__('admin.inventory.stock.warehouse_name'))
                 ->searchable()
                 ->native(false)
-                ->options(fn (): array => Warehouse::query()->orderBy('name')->pluck('name', 'id')->all()),
+                ->getSearchResultsUsing(fn (string $search): array => Warehouse::query()
+                    ->where('name', 'like', "%{$search}%")
+                    ->orderBy('name')
+                    ->limit(50)
+                    ->pluck('name', 'id')
+                    ->all())
+                ->getOptionLabelUsing(function (int $value): ?string {
+                    $name = Warehouse::query()->whereKey($value)->value('name');
+
+                    return is_string($name) ? $name : null;
+                }),
         ];
     }
 

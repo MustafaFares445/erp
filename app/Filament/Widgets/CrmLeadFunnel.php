@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\CrmPermission;
 use App\Enums\LeadStatus;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\Lead;
 use App\Support\Dashboard\DashboardPeriod;
@@ -18,16 +19,18 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class CrmLeadFunnel extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
 
     private const array STATUS_COLORS = [
-        'gray' => '#9ca3af',
-        'info' => '#3b82f6',
-        'warning' => '#f59e0b',
-        'success' => '#22c55e',
-        'danger' => '#ef4444',
+        'gray' => IerpColors::CHART_NEUTRAL,
+        'info' => IerpColors::CHART_PRIMARY,
+        'warning' => IerpColors::CHART_WARNING,
+        'success' => IerpColors::CHART_SUCCESS,
+        'danger' => IerpColors::CHART_DANGER,
     ];
 
     #[\Override]

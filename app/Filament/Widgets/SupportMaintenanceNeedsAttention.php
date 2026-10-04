@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\MaintenanceStatus;
-use App\Enums\QuotationStatus;
 use App\Enums\SupportPermission;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Widgets\Concerns\BuildsDashboardTables;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\MaintenanceRecord;
+use App\Services\Support\MaintenanceNextActionResolver;
 use App\Services\Support\WarrantyClaimService;
 use App\Support\MoneyFormatter;
 use Filament\Tables\Columns\TextColumn;
@@ -25,6 +25,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class SupportMaintenanceNeedsAttention extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use InteractsWithDashboardFilters;
 
@@ -39,7 +41,11 @@ final class SupportMaintenanceNeedsAttention extends TableWidget
     {
         return $this->dashboardTable($table)
             ->heading(__('dashboards.support.tables.maintenance'))
-            ->query(fn (): Builder => self::attentionQuery()->with('customer:id,company_name'))
+            ->query(fn (): Builder => self::attentionQuery()
+                ->with('customer:id,company_name')
+                ->withSum('coverageLines as coverage_total_amount_minor', 'amount_minor')
+                ->withSum('coverageLines as coverage_covered_amount_minor', 'covered_amount_minor')
+                ->withSum('coverageLines as coverage_customer_amount_minor', 'customer_amount_minor'))
             ->defaultSort('updated_at', 'desc')
             ->recordUrl(static fn (MaintenanceRecord $record): string => MaintenanceRequestResource::getUrl('view', ['record' => $record]))
             ->columns([
@@ -60,7 +66,7 @@ final class SupportMaintenanceNeedsAttention extends TableWidget
                     )),
                 TextColumn::make('next_action')
                     ->label(__('dashboards.support.columns.next_action'))
-                    ->state(static fn (MaintenanceRecord $record): string => self::nextAction($record))
+                    ->state(static fn (MaintenanceRecord $record): string => app(MaintenanceNextActionResolver::class)->resolve($record))
                     ->color('primary')
                     ->wrap(),
             ]);
@@ -77,36 +83,5 @@ final class SupportMaintenanceNeedsAttention extends TableWidget
                 MaintenanceStatus::ReadyForRepair->value,
                 MaintenanceStatus::QualityAssurance->value,
             ]);
-    }
-
-    private static function nextAction(MaintenanceRecord $record): string
-    {
-        return match ($record->status) {
-            MaintenanceStatus::Open => __('dashboards.support.next.record_diagnosis'),
-            MaintenanceStatus::Diagnosing => __('dashboards.support.next.determine_coverage'),
-            MaintenanceStatus::AwaitingApproval => self::approvalNextAction($record),
-            MaintenanceStatus::ReadyForRepair => __('dashboards.support.next.start_repair'),
-            MaintenanceStatus::QualityAssurance => __('dashboards.support.next.complete_qa'),
-            default => __('dashboards.support.next.review'),
-        };
-    }
-
-    private static function approvalNextAction(MaintenanceRecord $record): string
-    {
-        $customerAmount = app(WarrantyClaimService::class)->coverageSummary($record)['customer_amount_minor'];
-
-        if ($customerAmount <= 0) {
-            return __('dashboards.support.next.confirm_approval');
-        }
-
-        if ($record->quotation_id === null) {
-            return __('dashboards.support.next.create_quotation');
-        }
-
-        $record->loadMissing('quotation');
-
-        return $record->quotation?->status === QuotationStatus::Accepted
-            ? __('dashboards.support.next.mark_ready')
-            : __('dashboards.support.next.waiting_quote');
     }
 }

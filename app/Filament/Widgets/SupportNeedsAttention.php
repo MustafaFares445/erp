@@ -10,6 +10,7 @@ use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Widgets\Concerns\BuildsDashboardTables;
 use App\Filament\Widgets\Concerns\ScopesSupportTickets;
 use App\Models\Ticket;
+use App\Services\Support\TicketBlockerResolver;
 use App\Services\Support\TicketSlaStateResolver;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -24,6 +25,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class SupportNeedsAttention extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use ScopesSupportTickets;
 
@@ -54,9 +57,9 @@ final class SupportNeedsAttention extends TableWidget
                     ->wrap(),
                 TextColumn::make('blocked_by')
                     ->label(__('dashboards.support.columns.blocked_by'))
-                    ->getStateUsing(static fn (Ticket $record): string => self::blockedBy($record))
+                    ->getStateUsing(static fn (Ticket $record): string => app(TicketBlockerResolver::class)->resolve($record)->label())
                     ->badge()
-                    ->color(static fn (Ticket $record): string => $record->status->color()),
+                    ->color(static fn (Ticket $record): string => app(TicketBlockerResolver::class)->resolve($record)->color()),
                 TextColumn::make('sla_state')
                     ->label(__('dashboards.support.columns.sla'))
                     ->badge()
@@ -93,30 +96,5 @@ final class SupportNeedsAttention extends TableWidget
                             ->where('waiting_customer_since', '<=', now()->subDay());
                     });
             });
-    }
-
-    private static function blockedBy(Ticket $ticket): string
-    {
-        if ($ticket->status === TicketStatus::Pending) {
-            return __('dashboards.support.blocked.triage');
-        }
-
-        if ($ticket->status === TicketStatus::PendingPayment) {
-            return $ticket->diagnostic_fee_required ? __('dashboards.support.blocked.diagnostic_fee') : __('dashboards.support.blocked.payment');
-        }
-
-        if ($ticket->status === TicketStatus::Live && $ticket->assigned_employee_id === null) {
-            return __('dashboards.support.blocked.assignment');
-        }
-
-        if ($ticket->status === TicketStatus::WaitingCustomer) {
-            return __('dashboards.support.blocked.customer');
-        }
-
-        if ($ticket->isResponseBreached() || $ticket->isResolutionBreached()) {
-            return __('dashboards.support.blocked.sla_breach');
-        }
-
-        return $ticket->pending_reason ?: __('dashboards.support.blocked.action_required');
     }
 }

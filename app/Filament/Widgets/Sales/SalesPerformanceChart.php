@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
@@ -18,6 +19,8 @@ use Filament\Widgets\ChartWidget;
  */
 final class SalesPerformanceChart extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -51,13 +54,13 @@ final class SalesPerformanceChart extends ChartWidget
                 [
                     'label' => __('dashboards.charts.selected_period'),
                     'data' => $trend['current'],
-                    'borderColor' => '#22c55e',
+                    'borderColor' => IerpColors::CHART_PRIMARY,
                     'backgroundColor' => 'transparent',
                 ],
                 [
                     'label' => __('dashboards.charts.previous_period'),
                     'data' => $trend['previous'],
-                    'borderColor' => '#94a3b8',
+                    'borderColor' => IerpColors::CHART_NEUTRAL,
                     'backgroundColor' => 'transparent',
                     'borderDash' => [6, 4],
                 ],

@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\EmployeePermission;
 use App\Enums\PlanTaskStatus;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\ScopesToSelectedEmployee;
 use App\Models\PlanTask;
 use Carbon\CarbonImmutable;
@@ -14,6 +15,8 @@ use Illuminate\Support\Collection;
 
 final class EmployeesTaskTrend extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use ScopesToSelectedEmployee;
 
     protected ?string $maxHeight = '300px';
@@ -46,13 +49,13 @@ final class EmployeesTaskTrend extends ChartWidget
                 [
                     'label' => __('dashboards.charts.selected_period'),
                     'data' => $period->countSeries($this->completedBetween($period->from, $period->to)),
-                    'borderColor' => '#22c55e',
+                    'borderColor' => IerpColors::CHART_PRIMARY,
                     'backgroundColor' => 'transparent',
                 ],
                 [
                     'label' => __('dashboards.charts.previous_period'),
                     'data' => $period->countSeries($this->completedBetween($period->previousFrom, $period->previousTo), previous: true),
-                    'borderColor' => '#94a3b8',
+                    'borderColor' => IerpColors::CHART_NEUTRAL,
                     'backgroundColor' => 'transparent',
                     'borderDash' => [6, 4],
                 ],

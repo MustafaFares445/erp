@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class CrmCampaignPerformance extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     use BuildsDashboardTables;
     use InteractsWithDashboardFilters;
 

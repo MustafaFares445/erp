@@ -47,7 +47,17 @@ final class PurchasingDashboard extends ModuleDashboard
                 ->label(__('dashboards.purchasing.filters.supplier'))
                 ->searchable()
                 ->native(false)
-                ->options(fn (): array => Supplier::query()->orderBy('name')->pluck('name', 'id')->all()),
+                ->getSearchResultsUsing(fn (string $search): array => Supplier::query()
+                    ->where('name', 'like', "%{$search}%")
+                    ->orderBy('name')
+                    ->limit(50)
+                    ->pluck('name', 'id')
+                    ->all())
+                ->getOptionLabelUsing(function (int $value): ?string {
+                    $name = Supplier::query()->whereKey($value)->value('name');
+
+                    return is_string($name) ? $name : null;
+                }),
         ];
     }
 

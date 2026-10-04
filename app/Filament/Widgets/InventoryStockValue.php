@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\InventoryPermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\InventoryStock;
 use App\Services\Settings\CurrencyCatalogService;
@@ -18,6 +19,8 @@ use Illuminate\Support\Collection;
  */
 final class InventoryStockValue extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -54,7 +57,7 @@ final class InventoryStockValue extends ChartWidget
             'datasets' => [[
                 'label' => __('dashboards.inventory.charts.stock_value', ['currency' => app(CurrencyCatalogService::class)->defaultCode()]),
                 'data' => $rows->map(fn (object $row): float => (float) $row->total)->all(),
-                'backgroundColor' => '#3b82f6',
+                'backgroundColor' => IerpColors::CHART_PRIMARY,
             ]],
             'labels' => $rows->pluck('name')->all(),
         ];

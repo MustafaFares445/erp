@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\PurchasePermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Models\PurchaseOrder;
 use App\Services\Settings\CurrencyCatalogService;
@@ -19,6 +20,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class PurchasingSpendTrend extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -45,13 +48,13 @@ final class PurchasingSpendTrend extends ChartWidget
                 [
                     'label' => __('dashboards.charts.selected_period'),
                     'data' => $period->sumSeries($this->spend($period->from, $period->to)),
-                    'borderColor' => '#22c55e',
+                    'borderColor' => IerpColors::CHART_PRIMARY,
                     'backgroundColor' => 'transparent',
                 ],
                 [
                     'label' => __('dashboards.charts.previous_period'),
                     'data' => $period->sumSeries($this->spend($period->previousFrom, $period->previousTo), previous: true),
-                    'borderColor' => '#94a3b8',
+                    'borderColor' => IerpColors::CHART_NEUTRAL,
                     'backgroundColor' => 'transparent',
                     'borderDash' => [6, 4],
                 ],

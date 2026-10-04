@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\SupportPermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\ScopesSupportTickets;
 use App\Models\Ticket;
 use Filament\Widgets\ChartWidget;
@@ -15,6 +16,8 @@ use Filament\Widgets\ChartWidget;
  */
 final class SupportTicketTrend extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use ScopesSupportTickets;
 
     protected ?string $maxHeight = '300px';
@@ -43,7 +46,7 @@ final class SupportTicketTrend extends ChartWidget
                     'data' => $period->countSeries(
                         $this->scopeTickets(Ticket::query())->whereBetween('created_at', [$period->from, $period->to])->pluck('created_at'),
                     ),
-                    'borderColor' => '#f59e0b',
+                    'borderColor' => IerpColors::CHART_PRIMARY,
                     'backgroundColor' => 'transparent',
                 ],
                 [
@@ -51,7 +54,7 @@ final class SupportTicketTrend extends ChartWidget
                     'data' => $period->countSeries(
                         $this->scopeTickets(Ticket::query())->whereBetween('resolved_at', [$period->from, $period->to])->pluck('resolved_at'),
                     ),
-                    'borderColor' => '#22c55e',
+                    'borderColor' => IerpColors::CHART_SUCCESS,
                     'backgroundColor' => 'transparent',
                 ],
             ],

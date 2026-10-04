@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets\Sales;
 
 use App\Enums\SalesPermission;
+use App\Filament\Support\IerpColors;
 use App\Filament\Widgets\Concerns\InteractsWithDashboardFilters;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
@@ -12,6 +13,8 @@ use Filament\Widgets\ChartWidget;
 
 final class TopProductsChart extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithDashboardFilters;
 
     protected ?string $maxHeight = '300px';
@@ -44,7 +47,7 @@ final class TopProductsChart extends ChartWidget
             'datasets' => [[
                 'label' => __('dashboards.sales.charts.sales_value'),
                 'data' => array_column($products, 'value'),
-                'backgroundColor' => '#22c55e',
+                'backgroundColor' => IerpColors::CHART_PRIMARY,
             ]],
             'labels' => array_column($products, 'label'),
         ];
