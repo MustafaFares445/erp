@@ -49,6 +49,39 @@ enum SupportPermission: string
     case WarrantyPolicyManage = 'support.warranty-policy.manage';
     case WarrantyRecoveryView = 'support.warranty-recovery.view';
     case WarrantyRecoveryManage = 'support.warranty-recovery.manage';
+    case TeamView = 'support.team.view';
+    case TeamManage = 'support.team.manage';
+    case QueueView = 'support.queue.view';
+    case QueueManage = 'support.queue.manage';
+    case RoutingRuleView = 'support.routing-rule.view';
+    case RoutingRuleManage = 'support.routing-rule.manage';
+    case TicketRoute = 'support.ticket.route';
+    case AutomationView = 'support.automation.view';
+    case AutomationManage = 'support.automation.manage';
+    case ServiceAppointmentView = 'support.service-appointment.view';
+    case ServiceAppointmentManage = 'support.service-appointment.manage';
+    case ServiceAppointmentExecute = 'support.service-appointment.execute';
+    case Equipment360View = 'support.equipment-360.view';
+    case KnowledgeView = 'support.knowledge.view';
+    case KnowledgeManage = 'support.knowledge.manage';
+    case KnowledgePublish = 'support.knowledge.publish';
+    case CsatView = 'support.csat.view';
+    case SlaCalendarView = 'support.sla-calendar.view';
+    case SlaCalendarManage = 'support.sla-calendar.manage';
+    case ServiceLevelView = 'support.service-level.view';
+    case ServiceLevelManage = 'support.service-level.manage';
+    case EntitlementView = 'support.entitlement.view';
+    case EntitlementManage = 'support.entitlement.manage';
+    case InstallationView = 'support.installation.view';
+    case InstallationManage = 'support.installation.manage';
+    case InstallationComplete = 'support.installation.complete';
+    case CalibrationView = 'support.calibration.view';
+    case CalibrationManage = 'support.calibration.manage';
+    case CalibrationComplete = 'support.calibration.complete';
+    case LoanView = 'support.loaner.view';
+    case LoanManage = 'support.loaner.manage';
+    case RmaView = 'support.rma.view';
+    case RmaManage = 'support.rma.manage';
 
     /** @return list<string> */
     public static function values(): array

@@ -17,6 +17,6 @@ enum WarrantyFailureCategory: string
 
     public function label(): string
     {
-        return str($this->value)->replace('_', ' ')->title()->toString();
+        return __(str($this->value)->replace('_', ' ')->title()->toString());
     }
 }

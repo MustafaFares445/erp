@@ -18,6 +18,7 @@ enum NotificationEventKey: string implements HasLabel
     case TaskAssigned = 'task.assigned';
     case VisitDue = 'visit.due';
     case TicketUpdated = 'ticket.updated';
+    case TicketFeedbackRequested = 'ticket.feedback_requested';
     case SlaAtRisk = 'sla.at_risk';
     case StockLow = 'stock.low';
     case LotExpiring = 'lot.expiring';
@@ -35,4 +36,15 @@ enum NotificationEventKey: string implements HasLabel
     case SupplierCommitmentBackordered = 'supplier_commitment.backordered';
     case SupplierCommitmentRejected = 'supplier_commitment.rejected';
     case PurchaseOrderReceivedForAccounting = 'purchase_order.received_for_accounting';
+    case InstallationScheduled = 'installation.scheduled';
+    case InstallationCompleted = 'installation.completed';
+    case CommissioningPassed = 'commissioning.passed';
+    case CommissioningFailed = 'commissioning.failed';
+    case CustomerAcceptanceRecorded = 'installation.acceptance_recorded';
+    case CalibrationDue = 'calibration.due';
+    case CalibrationCompleted = 'calibration.completed';
+    case CalibrationFailed = 'calibration.failed';
+    case LoanerOverdue = 'loaner.overdue';
+    case RmaStatusChanged = 'rma.status_changed';
+    case EquipmentReturnedFromSupplier = 'rma.equipment_returned';
 }

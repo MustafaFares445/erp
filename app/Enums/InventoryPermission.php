@@ -75,6 +75,12 @@ enum InventoryPermission: string
     case CountConfirm = 'inventory.count.confirm';
     case BarcodeUse = 'inventory.barcode.use';
 
+    /** Moves a serialized unit to or from temporary customer custody for a loan. */
+    case LoanManage = 'inventory.loan.manage';
+
+    /** Moves a serialized unit to or from supplier custody for an external repair (RMA). */
+    case SupplierCustodyManage = 'inventory.supplier-custody.manage';
+
     /**
      * Permits releasing an expired lot into an outbound operation. Expired stock is otherwise
      * blocked outright; every use of this override writes an alert and an audit entry.

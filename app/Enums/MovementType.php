@@ -30,4 +30,8 @@ enum MovementType: string implements HasLabel
     case DamageRecovery = 'damage_recovery';
     case Disposal = 'disposal';
     case ServiceConsumption = 'service_consumption';
+    case LoanIssue = 'loan_issue';
+    case LoanReturn = 'loan_return';
+    case SupplierRepairOut = 'supplier_repair_out';
+    case SupplierRepairIn = 'supplier_repair_in';
 }
