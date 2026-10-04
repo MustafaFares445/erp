@@ -13,6 +13,7 @@ use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Pages\ReportsCenter;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\SupportDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
@@ -51,6 +52,8 @@ use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\KnowledgeArticleCategories\KnowledgeArticleCategoryResource;
+use App\Filament\Resources\KnowledgeArticles\KnowledgeArticleResource;
 use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
@@ -85,8 +88,10 @@ use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
 use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
+use App\Filament\Resources\ServiceAppointments\ServiceAppointmentResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\Shipments\ShipmentResource;
+use App\Filament\Resources\SlaCalendars\SlaCalendarResource;
 use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -95,7 +100,15 @@ use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Resources\SupportAutomationRules\SupportAutomationRuleResource;
+use App\Filament\Resources\SupportEntitlements\SupportEntitlementResource;
+use App\Filament\Resources\SupportEquipment\SupportEquipmentResource;
+use App\Filament\Resources\SupportQueues\SupportQueueResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
+use App\Filament\Resources\SupportRoutingRules\SupportRoutingRuleResource;
+use App\Filament\Resources\SupportServiceLevels\SupportServiceLevelResource;
+use App\Filament\Resources\SupportSkills\SupportSkillResource;
+use App\Filament\Resources\SupportTeams\SupportTeamResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
@@ -195,15 +208,23 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.sales',
                 'icon' => Heroicon::OutlinedShoppingCart,
                 'sort' => 1,
+                'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
+                    ['key' => 'selling', 'label' => 'admin.sections.selling'],
+                    ['key' => 'fulfillment', 'label' => 'admin.sections.fulfillment'],
+                    ['key' => 'billing', 'label' => 'admin.sections.billing'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.sales_dashboard', 'link' => SalesDashboard::class],
-                    ['label' => 'admin.resources.quotations', 'link' => QuotationResource::class],
-                    ['label' => 'admin.resources.orders', 'link' => OrderResource::class],
-                    ['label' => 'admin.resources.delivery_notes', 'link' => DeliveryNoteResource::class],
-                    ['label' => 'admin.resources.invoices', 'link' => InvoiceResource::class],
-                    ['label' => 'admin.resources.payments', 'link' => PaymentResource::class],
-                    ['label' => 'admin.resources.payment_transactions', 'link' => PaymentTransactionResource::class],
-                    ['label' => 'admin.resources.credit_notes', 'link' => CreditNoteResource::class],
+                    ['label' => 'admin.resources.sales_dashboard', 'link' => SalesDashboard::class, 'section' => 'overview'],
+                    ['label' => 'admin.resources.quotations', 'link' => QuotationResource::class, 'section' => 'selling'],
+                    ['label' => 'admin.resources.orders', 'link' => OrderResource::class, 'section' => 'selling'],
+                    ['label' => 'admin.resources.delivery_notes', 'link' => DeliveryNoteResource::class, 'section' => 'fulfillment'],
+                    ['label' => 'admin.resources.invoices', 'link' => InvoiceResource::class, 'section' => 'billing'],
+                    ['label' => 'admin.resources.payments', 'link' => PaymentResource::class, 'section' => 'billing'],
+                    ['label' => 'admin.resources.payment_transactions', 'link' => PaymentTransactionResource::class, 'section' => 'billing'],
+                    ['label' => 'admin.resources.credit_notes', 'link' => CreditNoteResource::class, 'section' => 'billing'],
+                    ['label' => 'admin.resources.sales_reports', 'link' => SalesReportResource::class, 'section' => 'reports'],
                 ],
             ],
             [
@@ -211,21 +232,32 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.accounting',
                 'icon' => Heroicon::OutlinedCalculator,
                 'sort' => 2,
+                'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
+                    ['key' => 'ledger', 'label' => 'admin.sections.ledger'],
+                    ['key' => 'receivables', 'label' => 'admin.sections.receivables'],
+                    ['key' => 'payables', 'label' => 'admin.sections.payables'],
+                    ['key' => 'expenses_taxes', 'label' => 'admin.sections.expenses_taxes'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
+                    ['key' => 'setup', 'label' => 'admin.sections.setup'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.accounting_dashboard', 'link' => AccountingDashboard::class],
-                    ['label' => 'admin.resources.chart_of_accounts', 'link' => ChartOfAccountResource::class],
-                    ['label' => 'admin.resources.journal_entries', 'link' => JournalEntryResource::class],
-                    ['label' => 'admin.resources.bank_statements', 'link' => BankStatementResource::class],
-                    ['label' => 'admin.resources.fiscal_periods', 'link' => FiscalPeriodResource::class],
-                    ['label' => 'admin.resources.accounts_receivable', 'link' => AccountsReceivableResource::class],
-                    ['label' => 'admin.resources.accounts_payable', 'link' => AccountsPayableResource::class],
-                    ['label' => 'admin.resources.bills', 'link' => BillResource::class],
-                    ['label' => 'admin.resources.supplier_payments', 'link' => SupplierPaymentResource::class, 'page' => 'index'],
-                    ['label' => 'admin.resources.expenses', 'link' => ExpenseResource::class],
-                    ['label' => 'admin.resources.refunds', 'link' => RefundResource::class],
-                    ['label' => 'admin.resources.taxes', 'link' => TaxResource::class],
+                    ['label' => 'admin.resources.accounting_dashboard', 'link' => AccountingDashboard::class, 'section' => 'overview'],
+                    ['label' => 'admin.resources.chart_of_accounts', 'link' => ChartOfAccountResource::class, 'section' => 'ledger'],
+                    ['label' => 'admin.resources.journal_entries', 'link' => JournalEntryResource::class, 'section' => 'ledger'],
+                    ['label' => 'admin.resources.bank_statements', 'link' => BankStatementResource::class, 'section' => 'ledger'],
+                    ['label' => 'admin.resources.fiscal_periods', 'link' => FiscalPeriodResource::class, 'section' => 'ledger'],
+                    ['label' => 'admin.resources.accounts_receivable', 'link' => AccountsReceivableResource::class, 'section' => 'receivables'],
+                    ['label' => 'admin.resources.accounts_payable', 'link' => AccountsPayableResource::class, 'section' => 'payables'],
+                    ['label' => 'admin.resources.bills', 'link' => BillResource::class, 'section' => 'payables'],
+                    ['label' => 'admin.resources.supplier_payments', 'link' => SupplierPaymentResource::class, 'page' => 'index', 'icon' => Heroicon::OutlinedBanknotes, 'section' => 'payables'],
+                    ['label' => 'admin.resources.expenses', 'link' => ExpenseResource::class, 'section' => 'expenses_taxes'],
+                    ['label' => 'admin.resources.refunds', 'link' => RefundResource::class, 'section' => 'receivables'],
+                    ['label' => 'admin.resources.taxes', 'link' => TaxResource::class, 'section' => 'expenses_taxes'],
+                    ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class, 'section' => 'reports'],
                     [
                         'label' => 'admin.sections.accounting_setup',
+                        'section' => 'setup',
                         'link' => CurrencyResource::class,
                         'icon' => Heroicon::OutlinedCog6Tooth,
                         'tabs' => [
@@ -245,10 +277,19 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.inventory',
                 'icon' => Heroicon::OutlinedCube,
                 'sort' => 3,
+                'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
+                    ['key' => 'stock', 'label' => 'admin.sections.stock'],
+                    ['key' => 'operations', 'label' => 'admin.sections.operations'],
+                    ['key' => 'planning', 'label' => 'admin.sections.planning'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
+                    ['key' => 'setup', 'label' => 'admin.sections.setup'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class],
+                    ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class, 'section' => 'overview'],
                     [
                         'label' => 'admin.sections.stock',
+                        'section' => 'stock',
                         'link' => StockLevelResource::class,
                         'icon' => Heroicon::OutlinedChartBarSquare,
                         'tabs' => [
@@ -265,6 +306,7 @@ final class AdminModuleRegistry
                     ],
                     [
                         'label' => 'admin.sections.inbound',
+                        'section' => 'operations',
                         'link' => PurchaseInboundResource::class,
                         'icon' => Heroicon::OutlinedInboxArrowDown,
                         'tabs' => [
@@ -277,6 +319,7 @@ final class AdminModuleRegistry
                     ],
                     [
                         'label' => 'admin.sections.outbound',
+                        'section' => 'operations',
                         'link' => OutboundFulfillmentResource::class,
                         'icon' => Heroicon::OutlinedArrowUpTray,
                         'tabs' => [
@@ -291,6 +334,7 @@ final class AdminModuleRegistry
                     ],
                     [
                         'label' => 'admin.sections.operations',
+                        'section' => 'operations',
                         'link' => InventoryOperationResource::class,
                         'icon' => Heroicon::OutlinedArrowsRightLeft,
                         'tabs' => [
@@ -308,6 +352,7 @@ final class AdminModuleRegistry
                     ],
                     [
                         'label' => 'admin.sections.planning_alerts',
+                        'section' => 'planning',
                         'link' => InventoryAlertResource::class,
                         'icon' => Heroicon::OutlinedBellAlert,
                         'tabs' => [
@@ -319,10 +364,12 @@ final class AdminModuleRegistry
                             ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'icon' => Heroicon::OutlinedDocumentChartBar],
                         ],
                     ],
-                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class],
-                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'icon' => Heroicon::OutlinedWrenchScrewdriver],
+                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'section' => 'reports'],
+                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'setup'],
+                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'icon' => Heroicon::OutlinedWrenchScrewdriver, 'section' => 'setup'],
                     [
                         'label' => 'admin.sections.inventory_setup',
+                        'section' => 'setup',
                         'link' => PackageTypeResource::class,
                         'icon' => Heroicon::OutlinedCog6Tooth,
                         'tabs' => [
@@ -347,6 +394,7 @@ final class AdminModuleRegistry
                     ['key' => 'planning', 'label' => 'admin.sections.planning'],
                     ['key' => 'suppliers', 'label' => 'admin.sections.suppliers'],
                     ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
                     ['key' => 'setup', 'label' => 'admin.sections.setup'],
                 ],
                 'items' => [
@@ -359,6 +407,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class, 'section' => 'suppliers'],
                     ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class, 'section' => 'catalog'],
                     ['label' => 'admin.resources.supplier_product_supports', 'link' => SupplierProductSupportResource::class, 'section' => 'catalog'],
+                    ['label' => 'admin.resources.purchasing_reports', 'link' => PurchasingReportResource::class, 'section' => 'reports'],
                     ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class, 'section' => 'setup'],
                 ],
             ],
@@ -367,19 +416,26 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.crm',
                 'icon' => Heroicon::OutlinedUserGroup,
                 'sort' => 5,
+                'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
+                    ['key' => 'customers', 'label' => 'admin.sections.customers'],
+                    ['key' => 'pipeline', 'label' => 'admin.sections.pipeline'],
+                    ['key' => 'pricing', 'label' => 'admin.sections.pricing'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.crm_dashboard', 'link' => CrmDashboard::class],
-                    ['label' => 'admin.resources.customers', 'link' => CustomerResource::class],
-                    ['label' => 'admin.resources.customer_quotation_requests', 'link' => CustomerQuotationRequestResource::class],
-                    ['label' => 'admin.resources.customer_return_requests', 'link' => CustomerReturnRequestResource::class],
-                    ['label' => 'admin.resources.leads', 'link' => LeadResource::class],
-                    ['label' => 'admin.resources.sales_opportunity', 'link' => SalesOpportunityResource::class],
-                    ['label' => 'admin.resources.interactions', 'link' => InteractionResource::class],
-                    ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class],
-                    ['label' => 'admin.resources.crm_reports', 'link' => CrmReportResource::class],
-                    ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
-                    ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
-                    ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
+                    ['label' => 'admin.resources.crm_dashboard', 'link' => CrmDashboard::class, 'section' => 'overview'],
+                    ['label' => 'admin.resources.customers', 'link' => CustomerResource::class, 'section' => 'customers'],
+                    ['label' => 'admin.resources.customer_quotation_requests', 'link' => CustomerQuotationRequestResource::class, 'section' => 'customers'],
+                    ['label' => 'admin.resources.customer_return_requests', 'link' => CustomerReturnRequestResource::class, 'section' => 'customers'],
+                    ['label' => 'admin.resources.leads', 'link' => LeadResource::class, 'section' => 'pipeline'],
+                    ['label' => 'admin.resources.sales_opportunity', 'link' => SalesOpportunityResource::class, 'section' => 'pipeline'],
+                    ['label' => 'admin.resources.interactions', 'link' => InteractionResource::class, 'section' => 'pipeline'],
+                    ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class, 'section' => 'pipeline'],
+                    ['label' => 'admin.resources.crm_reports', 'link' => CrmReportResource::class, 'section' => 'reports'],
+                    ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class, 'section' => 'pricing'],
+                    ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class, 'section' => 'pricing'],
+                    ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class, 'section' => 'pricing'],
                 ],
             ],
             [
@@ -393,6 +449,7 @@ final class AdminModuleRegistry
                     ['key' => 'planning', 'label' => 'admin.sections.planning'],
                     ['key' => 'field', 'label' => 'admin.sections.field'],
                     ['key' => 'compensation', 'label' => 'admin.sections.compensation'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
                 ],
                 'items' => [
                     ['label' => 'admin.resources.employees_dashboard', 'link' => EmployeesDashboard::class, 'section' => 'overview'],
@@ -402,6 +459,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.visits', 'link' => VisitResource::class, 'section' => 'field'],
                     ['label' => 'admin.resources.performance', 'link' => PerformanceResource::class, 'section' => 'compensation'],
                     ['label' => 'admin.resources.salary_calculations', 'link' => SalaryCalculationResource::class, 'section' => 'compensation'],
+                    ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class, 'section' => 'reports'],
                 ],
             ],
             [
@@ -409,14 +467,50 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.support',
                 'icon' => Heroicon::OutlinedWrenchScrewdriver,
                 'sort' => 7,
+                'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
+                    ['key' => 'service_desk', 'label' => 'admin.sections.service_desk'],
+                    ['key' => 'field_service', 'label' => 'admin.sections.field_service'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
+                    ['key' => 'configuration', 'label' => 'admin.sections.configuration'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.support_dashboard', 'link' => SupportDashboard::class],
-                    ['label' => 'admin.resources.tickets', 'link' => TicketResource::class],
-                    ['label' => 'admin.resources.maintenance_requests', 'link' => MaintenanceRequestResource::class],
-                    ['label' => 'admin.resources.maintenance_schedules', 'link' => MaintenanceScheduleResource::class],
-                    ['label' => 'admin.resources.service_records', 'link' => ServiceRecordResource::class],
-                    ['label' => 'admin.resources.sla_policies', 'link' => SlaPolicyResource::class],
-                    ['label' => 'admin.resources.warranty_policies', 'link' => WarrantyPolicyResource::class],
+                    ['label' => 'admin.resources.support_dashboard', 'link' => SupportDashboard::class, 'section' => 'overview'],
+                    ['label' => 'admin.resources.tickets', 'link' => TicketResource::class, 'section' => 'service_desk'],
+                    ['label' => 'admin.resources.maintenance_requests', 'link' => MaintenanceRequestResource::class, 'section' => 'service_desk'],
+                    ['label' => 'admin.resources.service_records', 'link' => ServiceRecordResource::class, 'section' => 'service_desk'],
+                    ['label' => 'admin.resources.maintenance_schedules', 'link' => MaintenanceScheduleResource::class, 'section' => 'field_service'],
+                    ['label' => 'admin.resources.field_service', 'link' => ServiceAppointmentResource::class, 'section' => 'field_service'],
+                    ['label' => 'admin.resources.equipment_360', 'link' => SupportEquipmentResource::class, 'section' => 'field_service'],
+                    ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class, 'section' => 'reports'],
+                    [
+                        'label' => 'admin.sections.service_policies',
+                        'section' => 'configuration',
+                        'link' => SlaPolicyResource::class,
+                        'icon' => Heroicon::OutlinedShieldCheck,
+                        'tabs' => [
+                            ['label' => 'admin.resources.sla_policies', 'link' => SlaPolicyResource::class],
+                            ['label' => 'admin.resources.sla_calendars', 'link' => SlaCalendarResource::class],
+                            ['label' => 'admin.resources.support_service_levels', 'link' => SupportServiceLevelResource::class],
+                            ['label' => 'admin.resources.support_entitlements', 'link' => SupportEntitlementResource::class],
+                            ['label' => 'admin.resources.warranty_policies', 'link' => WarrantyPolicyResource::class],
+                        ],
+                    ],
+                    [
+                        'label' => 'admin.sections.advanced_support',
+                        'section' => 'configuration',
+                        'link' => SupportTeamResource::class,
+                        'icon' => Heroicon::OutlinedAdjustmentsHorizontal,
+                        'tabs' => [
+                            ['label' => 'admin.resources.support_teams', 'link' => SupportTeamResource::class],
+                            ['label' => 'admin.resources.support_skills', 'link' => SupportSkillResource::class],
+                            ['label' => 'admin.resources.support_queues', 'link' => SupportQueueResource::class],
+                            ['label' => 'admin.resources.support_routing_rules', 'link' => SupportRoutingRuleResource::class],
+                            ['label' => 'admin.resources.support_automation_rules', 'link' => SupportAutomationRuleResource::class],
+                            ['label' => 'admin.resources.knowledge_articles', 'link' => KnowledgeArticleResource::class],
+                            ['label' => 'admin.resources.knowledge_categories', 'link' => KnowledgeArticleCategoryResource::class],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -424,14 +518,13 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.reports',
                 'icon' => Heroicon::OutlinedDocumentChartBar,
                 'sort' => 8,
+                'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
+                    ['key' => 'audit', 'label' => 'admin.sections.audit'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.sales_reports', 'link' => SalesReportResource::class],
-                    ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
-                    ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
-                    ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class],
-                    ['label' => 'admin.resources.purchasing_reports', 'link' => PurchasingReportResource::class],
-                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
-                    ['label' => 'admin.resources.audit_logs', 'link' => AuditLogResource::class],
+                    ['label' => 'reporting.center.navigation', 'link' => ReportsCenter::class, 'section' => 'overview'],
+                    ['label' => 'admin.resources.audit_logs', 'link' => AuditLogResource::class, 'section' => 'audit'],
                 ],
             ],
             [
@@ -439,11 +532,16 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.system',
                 'icon' => Heroicon::OutlinedCog6Tooth,
                 'sort' => 9,
+                'sections' => [
+                    ['key' => 'access', 'label' => 'admin.sections.access'],
+                    ['key' => 'templates', 'label' => 'admin.sections.templates'],
+                    ['key' => 'configurations', 'label' => 'admin.sections.configurations'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
-                    ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
-                    ['label' => 'admin.resources.notification_templates', 'link' => NotificationTemplateResource::class],
-                    ['label' => 'admin.resources.custom_fields', 'link' => CustomFieldDefinitionResource::class],
+                    ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class, 'section' => 'access'],
+                    ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class, 'section' => 'templates'],
+                    ['label' => 'admin.resources.notification_templates', 'link' => NotificationTemplateResource::class, 'section' => 'templates'],
+                    ['label' => 'admin.resources.custom_fields', 'link' => CustomFieldDefinitionResource::class, 'section' => 'configurations'],
                 ],
             ],
         ];
@@ -575,7 +673,23 @@ final class AdminModuleRegistry
     /** @param list<ModuleGroup>|null $groups */
     public static function activeGroupKey(?array $groups = null): ?string
     {
-        $route = request()->route();
+        if ($groups !== null) {
+            return self::computeActiveGroupKey($groups);
+        }
+
+        return self::remember(
+            'active-group',
+            static fn (): ?string => self::computeActiveGroupKey(self::groups()),
+        );
+    }
+
+    /**
+     * @param  list<ModuleGroup>  $groups
+     */
+    private static function computeActiveGroupKey(array $groups): ?string
+    {
+        $request = request();
+        $route = $request->route();
         if ($route === null) {
             return null;
         }
@@ -583,11 +697,33 @@ final class AdminModuleRegistry
         if ($routeName === null) {
             return null;
         }
+        $activeGroupKey = self::groupKeyForRoute($routeName, $groups, $request);
+        if ($activeGroupKey !== null) {
+            return $activeGroupKey;
+        }
+        if (! self::isLivewireRequest($request, $routeName)) {
+            return null;
+        }
+
+        return self::groupKeyFromLivewireReferer($groups, $request);
+    }
+
+    /**
+     * Livewire component updates are posted to a generic Livewire route rather than the Filament
+     * resource/page route that is visible in the browser. Resolve the module against an explicit
+     * request so normal page requests and Livewire referer requests share exactly the same rules.
+     *
+     * @param  list<ModuleGroup>  $groups
+     */
+    private static function groupKeyForRoute(string $routeName, array $groups, Request $request): ?string
+    {
         if ($routeName === ModulePlaceholder::getRouteName()) {
-            return request()->query('group');
+            $groupKey = $request->query('group');
+
+            return is_string($groupKey) ? $groupKey : null;
         }
         $panelId = Filament::getCurrentOrDefaultPanel()?->getId();
-        foreach ($groups ?? self::groups() as $group) {
+        foreach ($groups as $group) {
             foreach (self::memberClassesOf($group) as $class) {
                 if (is_subclass_of($class, Resource::class)) {
                     if (Str::startsWith($routeName, sprintf('filament.%s.resources.%s.', $panelId, $class::getSlug()))) {
@@ -605,6 +741,49 @@ final class AdminModuleRegistry
         return null;
     }
 
+    private static function isLivewireRequest(Request $request, string $routeName): bool
+    {
+        if (Str::startsWith($routeName, 'livewire.')) {
+            return true;
+        }
+        if ($request->headers->has('X-Livewire')) {
+            return true;
+        }
+
+        return $request->is('livewire/*');
+    }
+
+    /**
+     * Keep the module sidebar scoped during Livewire updates. Without this fallback the active
+     * group becomes null on /livewire/update and Filament rebuilds the sidebar with every module.
+     *
+     * @param  list<ModuleGroup>  $groups
+     */
+    private static function groupKeyFromLivewireReferer(array $groups, Request $request): ?string
+    {
+        $referer = $request->headers->get('referer');
+        if (! is_string($referer) || $referer === '') {
+            return null;
+        }
+        $refererHost = parse_url($referer, PHP_URL_HOST);
+        if (is_string($refererHost) && $refererHost !== '' && ! hash_equals($request->getHost(), $refererHost)) {
+            return null;
+        }
+        try {
+            $refererRequest = Request::create($referer, 'GET');
+            $refererRoute = app('router')->getRoutes()->match($refererRequest);
+            $refererRouteName = $refererRoute->getName();
+            if ($refererRouteName === null) {
+                return null;
+            }
+            $refererRequest->setRouteResolver(static fn () => $refererRoute);
+
+            return self::groupKeyForRoute($refererRouteName, $groups, $refererRequest);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     /**
      * The module groups the current user can actually open.
      *
@@ -620,9 +799,24 @@ final class AdminModuleRegistry
     {
         return self::remember('accessible-groups', static fn (): array => array_values(array_filter(
             self::groups(),
-            static fn (array $group): bool => self::registeredNavigationItemsFor($group) !== []
-                || self::navigationItems(onlyGroupKey: $group['key']) !== [],
+            self::hasAccessibleLandingItem(...),
         )));
+    }
+
+    /**
+     * Determine module visibility without constructing every Filament NavigationItem.
+     *
+     * @param  ModuleGroup  $group
+     */
+    private static function hasAccessibleLandingItem(array $group): bool
+    {
+        foreach ($group['items'] as $item) {
+            if (self::resolveItemUrl($item) !== null || ! self::isItemAccessDenied($item)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -690,6 +884,7 @@ final class AdminModuleRegistry
                 $page = $item['page'];
                 $items[] = NavigationItem::make($item['label'])
                     ->label(fn (): string => __($item['label']))
+                    ->icon($item['icon'] ?? $resource::getNavigationIcon())
                     ->url(fn (): string => $resource::getUrl($page))
                     ->isActiveWhen(fn (): bool => request()->routeIs($resource::getRouteBaseName().'.'.$page));
 

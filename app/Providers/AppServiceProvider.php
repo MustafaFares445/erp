@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Events\CampaignCompleted;
+use App\Events\EquipmentCalibrationMilestone;
+use App\Events\EquipmentInstallationMilestone;
 use App\Events\InventoryOperationCompleted;
 use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
+use App\Events\MaintenanceRecordBilled;
 use App\Events\PaymentReceived;
 use App\Events\PurchaseOrderAccepted;
 use App\Events\PurchaseOrderReceived;
@@ -19,7 +22,9 @@ use App\Events\ShipmentArrived;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\SupplierCommitmentRecorded;
+use App\Events\SupportContinuityMilestone;
 use App\Events\TaskAssigned;
+use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
 use App\Listeners\MarkShipmentInTransitOnDeliveryCompleted;
 use App\Listeners\RefreshOrderCompletionWindowOnShipmentArrival;
@@ -46,12 +51,17 @@ use App\Policies\PurchaseInboundPolicy;
 use App\Policies\ShipmentPolicy;
 use App\Policies\SupplierPaymentPolicy;
 use App\Policies\SupplierPolicy;
+use App\Services\Accounting\CustomerReceivablesSnapshot;
+use App\Services\Accounting\TaxRegisterService;
 use App\Services\Employees\FakeVoiceNoteTranscriber;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Employees\VoiceNoteTranscriber;
 use App\Services\Payments\Providers\FakeStripeClient;
 use App\Services\Payments\Providers\StripeApiClient;
 use App\Services\Payments\Providers\StripeClientInterface;
+use App\Services\Purchasing\PurchaseOrderWorkflowProjectionStore;
+use App\Services\Sales\OrderWorkflowProjectionStore;
+use App\Services\Sales\SalesDashboardMetricsService;
 use App\Services\Settings\BusinessConstraints;
 use App\Services\Settings\CurrencyCatalogService;
 use Filament\Actions\Action;
@@ -69,8 +79,11 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\Widget;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Stripe\StripeClient;
 use Throwable;
@@ -80,6 +93,13 @@ final class AppServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
+        $this->app->scoped(OrderWorkflowProjectionStore::class);
+        $this->app->scoped(PurchaseOrderWorkflowProjectionStore::class);
+        $this->app->scoped(CustomerReceivablesSnapshot::class);
+        $this->app->scoped(SalesDashboardMetricsService::class);
+        $this->app->scoped(TaxRegisterService::class);
+        $this->app->scoped(CurrencyCatalogService::class);
+
         // Shared for the lifetime of the request so a pricing service, the
         // form that displays the same limit, and a report reading it all see
         // one answer and one round trip.
@@ -109,6 +129,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->configureDefaultCurrency();
         $this->configureFilamentLabelTranslations();
         $this->configureTableDefaults();
+        $this->configureCustomerApiRateLimits();
 
         Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(ProductAttribute::class, CatalogPolicy::class);
@@ -129,8 +150,12 @@ final class AppServiceProvider extends ServiceProvider
 
         foreach ([
             CampaignCompleted::class,
+            EquipmentCalibrationMilestone::class,
+            EquipmentInstallationMilestone::class,
+            SupportContinuityMilestone::class,
             InvoiceIssued::class,
             LeadConverted::class,
+            MaintenanceRecordBilled::class,
             PaymentReceived::class,
             PurchaseOrderAccepted::class,
             PurchaseOrderReceived::class,
@@ -140,6 +165,7 @@ final class AppServiceProvider extends ServiceProvider
             SlaAtRisk::class,
             StockLow::class,
             TaskAssigned::class,
+            TicketClosed::class,
             TicketUpdated::class,
             InventoryReservationExpired::class,
         ] as $event) {
@@ -237,5 +263,20 @@ final class AppServiceProvider extends ServiceProvider
                 ->paginationPageOptions([10, 25, 50, 100])
                 ->defaultPaginationPageOption(10);
         });
+    }
+
+    /**
+     * Customer Support API limits: login is throttled per IP and per login+IP so one account cannot be
+     * brute-forced from a single address, and every authenticated request has a generous per-user ceiling.
+     */
+    private function configureCustomerApiRateLimits(): void
+    {
+        RateLimiter::for('customer-login', static fn (Request $request): array => [
+            Limit::perMinute(20)->by('ip|'.$request->ip()),
+            Limit::perMinute(5)->by('login|'.$request->string('login')->lower()->toString().'|'.$request->ip()),
+        ]);
+
+        RateLimiter::for('customer-api', static fn (Request $request): Limit => Limit::perMinute(120)
+            ->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
     }
 }

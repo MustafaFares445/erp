@@ -14,6 +14,7 @@ use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Pages\ReportsCenter;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
@@ -53,6 +54,8 @@ use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\KnowledgeArticleCategories\KnowledgeArticleCategoryResource;
+use App\Filament\Resources\KnowledgeArticles\KnowledgeArticleResource;
 use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
@@ -87,8 +90,10 @@ use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
 use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
+use App\Filament\Resources\ServiceAppointments\ServiceAppointmentResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\Shipments\ShipmentResource;
+use App\Filament\Resources\SlaCalendars\SlaCalendarResource;
 use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -97,7 +102,15 @@ use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Resources\SupportAutomationRules\SupportAutomationRuleResource;
+use App\Filament\Resources\SupportEntitlements\SupportEntitlementResource;
+use App\Filament\Resources\SupportEquipment\SupportEquipmentResource;
+use App\Filament\Resources\SupportQueues\SupportQueueResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
+use App\Filament\Resources\SupportRoutingRules\SupportRoutingRuleResource;
+use App\Filament\Resources\SupportServiceLevels\SupportServiceLevelResource;
+use App\Filament\Resources\SupportSkills\SupportSkillResource;
+use App\Filament\Resources\SupportTeams\SupportTeamResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
@@ -106,6 +119,7 @@ use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishment
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
 use App\Filament\Search\IerpGlobalSearchProvider;
+use App\Filament\Support\IerpColors;
 use App\Filament\Support\WorkspaceNavigation;
 use App\Http\Middleware\SetAdminLocale;
 use Filament\Http\Middleware\Authenticate;
@@ -118,7 +132,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Css;
-use Filament\Support\Colors\Color;
+use Filament\Support\Assets\Js;
 use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -126,6 +140,8 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Illuminate\View\View;
 
@@ -164,8 +180,9 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->unsavedChangesAlerts()
             ->globalSearch(provider: IerpGlobalSearchProvider::class)
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
-            ->colors(['primary' => Color::Amber])
+            ->colors(IerpColors::all())
             ->maxContentWidth(Width::Full)
+            ->sidebarWidth('17rem')
             ->resources([
                 AccountsPayableResource::class,
                 AccountsReceivableResource::class,
@@ -202,6 +219,8 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventorySettingResource::class,
                 InvoiceResource::class,
                 JournalEntryResource::class,
+                KnowledgeArticleCategoryResource::class,
+                KnowledgeArticleResource::class,
                 LeadResource::class,
                 MaintenanceRequestResource::class,
                 MaintenanceScheduleResource::class,
@@ -235,10 +254,12 @@ final class AdminPanelServiceProvider extends PanelProvider
                 SalesOpportunityResource::class,
                 SalesReportResource::class,
                 SalesSettingResource::class,
+                ServiceAppointmentResource::class,
                 SupplierPaymentResource::class,
                 SerializedInventoryUnitResource::class,
                 ServiceRecordResource::class,
                 ShipmentResource::class,
+                SlaCalendarResource::class,
                 SlaPolicyResource::class,
                 StockLevelResource::class,
                 StockMovementResource::class,
@@ -247,7 +268,15 @@ final class AdminPanelServiceProvider extends PanelProvider
                 SupplierProductReferenceResource::class,
                 SupplierProductSupportResource::class,
                 SupplierResource::class,
+                SupportAutomationRuleResource::class,
+                SupportEntitlementResource::class,
+                SupportEquipmentResource::class,
+                SupportQueueResource::class,
                 SupportReportResource::class,
+                SupportRoutingRuleResource::class,
+                SupportServiceLevelResource::class,
+                SupportSkillResource::class,
+                SupportTeamResource::class,
                 TaskResource::class,
                 TaxResource::class,
                 TicketResource::class,
@@ -266,6 +295,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ModulePlaceholder::class,
                 PurchaseNeeds::class,
                 PurchasingDashboard::class,
+                ReportsCenter::class,
                 SalesDashboard::class,
                 Settings::class,
                 SupportDashboard::class,
@@ -278,11 +308,17 @@ final class AdminPanelServiceProvider extends PanelProvider
                 AlpineComponent::make('customer-location-picker', resource_path('js/filament/customer-location-picker.js')),
                 AlpineComponent::make('visit-gps-trail-map', resource_path('js/filament/visit-gps-trail-map.js')),
                 AlpineComponent::make('notification-message-editor', resource_path('js/filament/notification-message-editor.js')),
+                // Swaps the IerpColors::CHART_* series colours for their dark-palette equivalents on every Chart.js widget.
+                Js::make('ierp-chart-theme', resource_path('js/filament/chart-theme.js')),
                 Css::make('customer-delivery-map', resource_path('css/filament/customer-delivery-map.css')),
                 Css::make('notification-message-editor', resource_path('css/filament/notification-message-editor.css')),
                 Css::make('customer-location-picker', resource_path('css/filament/customer-location-picker.css')),
             ])
             ->navigation($this->navigation(...))
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): HtmlString => Vite::fonts('noto-sans-arabic'),
+            )
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): View => view('filament.partials.language-switcher'),
