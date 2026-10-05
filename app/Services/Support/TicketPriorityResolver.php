@@ -27,13 +27,13 @@ final readonly class TicketPriorityResolver
         if ($impact === TicketCustomerImpact::Degraded) {
             return match ($type) {
                 TicketType::HardwareIssue, TicketType::SoftwareIssue => TicketPriority::High,
-                TicketType::GeneralSupport, TicketType::MaintenanceRequest => TicketPriority::Normal,
+                TicketType::GeneralSupport, TicketType::MaintenanceRequest, TicketType::ProductQualityIssue => TicketPriority::Normal,
             };
         }
 
         return match ($type) {
             TicketType::GeneralSupport => TicketPriority::Low,
-            TicketType::HardwareIssue, TicketType::SoftwareIssue, TicketType::MaintenanceRequest => TicketPriority::Normal,
+            TicketType::HardwareIssue, TicketType::SoftwareIssue, TicketType::MaintenanceRequest, TicketType::ProductQualityIssue => TicketPriority::Normal,
         };
     }
 }

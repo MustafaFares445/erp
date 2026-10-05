@@ -15,6 +15,7 @@ use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
+use App\Filament\Resources\Tickets\RelationManagers\ProductContextsRelationManager;
 use App\Filament\Resources\Tickets\Schemas\TicketForm;
 use App\Filament\Resources\Tickets\Schemas\TicketInfolist;
 use App\Filament\Resources\Tickets\Tables\TicketsTable;
@@ -93,6 +94,7 @@ final class TicketResource extends Resource
         return [
             AssignmentsRelationManager::class,
             MaintenanceRecordsRelationManager::class,
+            ProductContextsRelationManager::class,
             CollaborationEntriesRelationManager::class,
             CustomFieldsRelationManager::class,
         ];

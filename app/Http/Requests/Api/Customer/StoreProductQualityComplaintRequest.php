@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\Customer;
 
 use App\Enums\TicketCustomerImpact;
-use App\Enums\TicketType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-final class StoreSupportTicketRequest extends FormRequest
+final class StoreProductQualityComplaintRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -20,17 +19,12 @@ final class StoreSupportTicketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', Rule::enum(TicketType::class)],
             'customer_impact' => ['nullable', Rule::enum(TicketCustomerImpact::class)],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:10000'],
-            'serialized_inventory_unit_id' => ['nullable', 'integer'],
-            'external_equipment_name' => ['nullable', 'string', 'max:255'],
-            'external_equipment_model' => ['nullable', 'string', 'max:255'],
-            'external_serial_number' => ['nullable', 'string', 'max:255'],
-            'product_contexts' => ['nullable', 'array', 'max:20'],
-            'product_contexts.*.original_inventory_operation_line_id' => ['required_with:product_contexts', 'integer'],
-            'product_contexts.*.quantity' => ['required_with:product_contexts', 'numeric', 'gt:0'],
+            'product_contexts' => ['required', 'array', 'min:1', 'max:20'],
+            'product_contexts.*.original_inventory_operation_line_id' => ['required', 'integer'],
+            'product_contexts.*.quantity' => ['required', 'numeric', 'gt:0'],
             'product_contexts.*.notes' => ['nullable', 'string', 'max:1000'],
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'max:10240'],

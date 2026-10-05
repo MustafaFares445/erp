@@ -270,6 +270,8 @@ return [
         'loaner_overdue' => 'تأخر جهاز مستعار',
         'rma_status_changed' => 'تغيّر حالة إصلاح المورد',
         'rma_equipment_returned' => 'عودة الجهاز من المورد',
+        'quality_complaint_created' => 'شكوى جودة منتج',
+        'quality_lot_threshold_reached' => 'احتمال مشكلة جودة في دفعة',
         'invoice_overdue_7' => 'فاتورة متأخرة (7 أيام)',
         'invoice_overdue_30' => 'فاتورة متأخرة (30 يومًا)',
         'invoice_overdue_60' => 'فاتورة متأخرة (60 يومًا)',
@@ -444,6 +446,7 @@ return [
         'hardware_issue' => 'مشكلة في الأجهزة',
         'general_support' => 'دعم عام',
         'maintenance_request' => 'طلب صيانة',
+        'product_quality_issue' => 'مشكلة جودة منتج',
     ],
     'transcription_confidence_source' => [
         'ProviderReported' => 'مُبلَّغ من المزود',
@@ -510,6 +513,15 @@ return [
         'replacement_unit' => 'جهاز بديل',
         'parts_replacement' => 'استبدال قطع',
         'rejected' => 'مرفوض',
+    ],
+    'quality_resolution_type' => [
+        'no_defect_found' => 'لم يُعثر على عيب',
+        'replacement' => 'استبدال',
+        'customer_return' => 'إرجاع من العميل',
+        'refund' => 'استرداد مبلغ',
+        'credit_note' => 'إشعار دائن',
+        'supplier_claim' => 'مطالبة المورد',
+        'lot_investigation' => 'تحقيق في الدفعة',
     ],
     'calibration_result' => [
         'passed' => 'ناجحة',

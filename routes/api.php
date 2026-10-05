@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Customer\CustomerMaintenanceController;
 use App\Http\Controllers\Api\Customer\CustomerSupportPaymentController;
 use App\Http\Controllers\Api\Customer\CustomerSupportSatisfactionController;
 use App\Http\Controllers\Api\Customer\CustomerTicketMediaController;
+use App\Http\Controllers\Api\Customer\ProductQualityComplaintController;
 use App\Http\Controllers\Api\Customer\SupportTicketController;
 use App\Http\Controllers\Api\Customer\SupportTicketMessageController;
 use App\Http\Middleware\EnsureCustomerApiUser;
@@ -33,6 +34,9 @@ Route::prefix('customer')->group(function (): void {
                 ->name('api.customer.support.tickets.store');
             Route::get('/support/tickets/{ticket}', [SupportTicketController::class, 'show'])
                 ->name('api.customer.support.tickets.show');
+            Route::post('/support/product-quality-complaints', [ProductQualityComplaintController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('api.customer.support.product-quality-complaints.store');
 
             Route::get('/support/tickets/{ticket}/messages', [SupportTicketMessageController::class, 'index'])
                 ->name('api.customer.support.messages.index');

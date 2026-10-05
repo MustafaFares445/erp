@@ -23,6 +23,7 @@ use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\SupplierCommitmentRecorded;
 use App\Events\SupportContinuityMilestone;
+use App\Events\SupportQualityMilestone;
 use App\Events\TaskAssigned;
 use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
@@ -117,7 +118,10 @@ final class AppServiceProvider extends ServiceProvider
         if (config('services.stripe.enabled') === true && is_string($secretKey) && $secretKey !== '') {
             $this->app->singleton(
                 StripeClientInterface::class,
-                static fn (): StripeApiClient => new StripeApiClient(new StripeClient($secretKey)),
+                static fn (): StripeApiClient => new StripeApiClient(new StripeClient([
+                    'api_key' => $secretKey,
+                    'stripe_version' => config('services.stripe.api_version'),
+                ])),
             );
         } else {
             $this->app->singleton(StripeClientInterface::class, FakeStripeClient::class);
@@ -153,6 +157,7 @@ final class AppServiceProvider extends ServiceProvider
             EquipmentCalibrationMilestone::class,
             EquipmentInstallationMilestone::class,
             SupportContinuityMilestone::class,
+            SupportQualityMilestone::class,
             InvoiceIssued::class,
             LeadConverted::class,
             MaintenanceRecordBilled::class,

@@ -14,6 +14,8 @@ return [
     'calibration_enabled' => (bool) env('SUPPORT_CALIBRATION_ENABLED', true),
     'loaner_equipment_enabled' => (bool) env('SUPPORT_LOANER_EQUIPMENT_ENABLED', false),
     'external_repair_enabled' => (bool) env('SUPPORT_EXTERNAL_REPAIR_ENABLED', false),
+    'product_quality_enabled' => (bool) env('SUPPORT_PRODUCT_QUALITY_ENABLED', false),
+    'lot_complaint_threshold' => (int) env('SUPPORT_LOT_COMPLAINT_THRESHOLD', 3),
     'csat_enabled' => (bool) env('SUPPORT_CSAT_ENABLED', false),
 
     // Hosts the customer app may use as diagnostic-payment success/cancel redirect targets (comma separated,

@@ -56,6 +56,8 @@ final readonly class NotificationTemplateCatalog
         'loaner.overdue' => ['maintenance_reference', 'serial_number', 'customer_name', 'loaner_serial', 'expected_return_at'],
         'rma.status_changed' => ['maintenance_reference', 'serial_number', 'supplier_name', 'rma_status'],
         'rma.equipment_returned' => ['maintenance_reference', 'serial_number', 'supplier_name', 'rma_status'],
+        'quality.complaint_created' => ['ticket_number', 'customer_name', 'product_name', 'lot_number'],
+        'quality.lot_threshold_reached' => ['lot_number', 'product_name', 'open_complaints', 'threshold'],
         'purchase_order.ready_for_allocation' => ['purchase_order_number'],
         'purchase_order.draft_bill_ready' => ['bill_number', 'purchase_order_number'],
         'supplier_commitment.backordered' => ['purchase_order_number', 'backordered_quantity'],

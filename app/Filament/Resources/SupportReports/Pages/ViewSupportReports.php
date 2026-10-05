@@ -9,6 +9,7 @@ use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResou
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Models\User;
 use App\Services\Settings\CurrencyCatalogService;
+use App\Services\Support\SupportLifecycleReportService;
 use App\Services\Support\SupportReportService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -49,6 +50,8 @@ final class ViewSupportReports extends Page
             'workload',
             'field_service',
             'reliability_warranty',
+            'equipment_lifecycle',
+            'product_quality',
             'financial',
             'preventive',
         ] as $key) {
@@ -82,6 +85,7 @@ final class ViewSupportReports extends Page
     public function getViewData(): array
     {
         $service = app(SupportReportService::class);
+        $lifecycle = app(SupportLifecycleReportService::class);
         $actor = $this->actor();
         $from = $this->parseDate($this->from);
         $until = $this->parseDate($this->until);
@@ -116,6 +120,15 @@ final class ViewSupportReports extends Page
                 'reliability_warranty' => [
                     'repeatFailures' => $service->repeatFailures($actor, $from, $until),
                     'warrantyRecoveryPerformance' => $service->warrantyRecoveryPerformance($actor, $from, $until),
+                ],
+                'equipment_lifecycle' => [
+                    'installationReport' => $lifecycle->installations($actor, $from, $until),
+                    'calibrationReport' => $lifecycle->calibrations($actor, $from, $until),
+                    'loanerReport' => $lifecycle->loaners($actor, $from, $until),
+                    'rmaReport' => $lifecycle->rma($actor, $from, $until),
+                ],
+                'product_quality' => [
+                    'qualityReport' => $lifecycle->quality($actor, $from, $until),
                 ],
                 'financial' => [
                     'serviceMargin' => $service->serviceMargin($actor, $from, $until),
@@ -196,6 +209,8 @@ final class ViewSupportReports extends Page
             'workload' => $this->workloadExportRows($service, $actor),
             'field_service' => $this->fieldServiceExportRows($service, $actor, $from, $until),
             'reliability_warranty' => $this->reliabilityExportRows($service, $actor, $from, $until, $currency),
+            'equipment_lifecycle' => $this->equipmentLifecycleExportRows(app(SupportLifecycleReportService::class), $actor, $from, $until, $currency),
+            'product_quality' => $this->productQualityExportRows(app(SupportLifecycleReportService::class), $actor, $from, $until),
             'financial' => $this->financialExportRows($service, $actor, $from, $until, $currency),
             'preventive' => $this->preventiveExportRows($service, $actor, $from, $until),
             default => $this->overviewExportRows($service, $actor, $from, $until),
@@ -396,6 +411,72 @@ final class ViewSupportReports extends Page
 
         foreach ($compliance['by_equipment'] as $row) {
             $rows[] = [$row['equipment'], $row['due'], $row['completed'], $row['missed']];
+        }
+
+        return $rows;
+    }
+
+    /** @return list<list<mixed>> */
+    private function equipmentLifecycleExportRows(
+        SupportLifecycleReportService $service,
+        User $actor,
+        ?Carbon $from,
+        ?Carbon $until,
+        string $currency,
+    ): array {
+        $installation = $service->installations($actor, $from, $until);
+        $calibration = $service->calibrations($actor, $from, $until);
+        $loaners = $service->loaners($actor, $from, $until);
+        $rma = $service->rma($actor, $from, $until);
+
+        return [
+            [__('Area'), __('Metric'), __('Value')],
+            [__('Installation'), __('Completed installations'), $installation['completed']],
+            [__('Installation'), __('Pending commissioning'), $installation['pending_commissioning']],
+            [__('Installation'), __('Commissioning failures'), $installation['commissioning_failed']],
+            [__('Installation'), __('Commissioning failure rate'), $installation['commissioning_failure_rate_percent']],
+            [__('Installation'), __('Average delivery-to-installation hours'), $installation['average_delivery_to_installation_hours']],
+            [__('Calibration'), __('Calibrations due soon'), $calibration['due_soon']],
+            [__('Calibration'), __('Overdue calibrations'), $calibration['overdue']],
+            [__('Calibration'), __('Calibration pass rate'), $calibration['pass_rate_percent']],
+            [__('Calibration'), __('Calibration failure rate'), $calibration['failure_rate_percent']],
+            [__('Loaners'), __('Active loaners'), $loaners['active']],
+            [__('Loaners'), __('Overdue loaners'), $loaners['overdue']],
+            [__('Loaners'), __('Loaner issues in period'), $loaners['utilization_count']],
+            [__('Loaners'), __('Average loan duration days'), $loaners['average_loan_duration_days']],
+            [__('RMA'), __('Open RMA cases'), $rma['open']],
+            [__('RMA'), __('Awaiting supplier'), $rma['awaiting_supplier']],
+            [__('RMA'), __('Average supplier turnaround days'), $rma['average_supplier_turnaround_days']],
+            [__('RMA'), __('Warranty recovery outstanding'), $currency.' '.number_format($rma['warranty_recovery_outstanding_minor'] / 100, 2, '.', '')],
+        ];
+    }
+
+    /** @return list<list<mixed>> */
+    private function productQualityExportRows(
+        SupportLifecycleReportService $service,
+        User $actor,
+        ?Carbon $from,
+        ?Carbon $until,
+    ): array {
+        $quality = $service->quality($actor, $from, $until);
+        $rows = [
+            [__('Metric'), __('Value')],
+            [__('Quality complaints'), $quality['complaints']],
+            [__('Affected quantity'), $quality['affected_quantity']],
+            [__('Returned quantity'), $quality['returned_quantity']],
+            [],
+            [__('Product'), __('Complaints'), __('Affected quantity')],
+        ];
+
+        foreach ($quality['by_product'] as $row) {
+            $rows[] = [$row['product'], $row['complaints'], $row['affected_quantity']];
+        }
+
+        $rows[] = [];
+        $rows[] = [__('Lot'), __('Complaints'), __('Affected customers'), __('Affected quantity')];
+
+        foreach ($quality['by_lot'] as $row) {
+            $rows[] = [$row['lot_number'], $row['complaints'], $row['affected_customers'], $row['affected_quantity']];
         }
 
         return $rows;

@@ -8,8 +8,11 @@ use App\Enums\KnowledgeArticleStatus;
 use App\Enums\KnowledgeArticleVisibility;
 use App\Enums\TicketKnowledgeLinkType;
 use App\Enums\TicketStatus;
+use App\Enums\TicketType;
 use App\Models\Ticket;
 use App\Models\TicketKnowledgeArticle;
+use App\Models\TicketProductContext;
+use App\Models\TicketQualityResolution;
 use App\Models\User;
 use App\Services\Support\CustomerSupportStateResolver;
 use App\Services\Support\TicketReadStateService;
@@ -53,10 +56,11 @@ final class SupportTicketResource extends JsonResource
             'equipment' => [
                 'source' => $this->equipment_source?->value,
                 'serialized_inventory_unit_id' => $this->serialized_inventory_unit_id,
-                'name' => $this->serializedInventoryUnit?->productVariant->name ?? $this->external_equipment_name,
+                'name' => $this->serializedInventoryUnit?->productVariant?->name ?? $this->external_equipment_name,
                 'model' => $this->external_equipment_model,
-                'serial_number' => $this->serializedInventoryUnit->serial_number ?? $this->external_serial_number,
+                'serial_number' => $this->serializedInventoryUnit?->serial_number ?? $this->external_serial_number,
             ],
+            'product_quality' => $this->productQualityPayload(),
             'warranty' => [
                 'eligibility' => $this->warranty_status?->value,
                 'expires_on' => $this->warranty_expiry_date?->toDateString(),
@@ -109,6 +113,42 @@ final class SupportTicketResource extends JsonResource
                 : 0,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function productQualityPayload(): ?array
+    {
+        if ($this->type !== TicketType::ProductQualityIssue) {
+            return null;
+        }
+
+        $items = $this->relationLoaded('productContexts')
+            ? $this->productContexts
+                ->map(static fn (TicketProductContext $context): array => [
+                    'product' => $context->productVariant?->product?->name,
+                    'variant' => $context->productVariant?->name,
+                    'lot_number' => $context->inventoryLot?->lot_number,
+                    'quantity' => $context->quantity === null ? null : (float) $context->quantity,
+                    'unit' => $context->unit?->name,
+                    'notes' => $context->notes,
+                ])
+                ->values()
+                ->all()
+            : [];
+
+        $resolution = $this->relationLoaded('qualityResolution')
+            ? $this->qualityResolution
+            : null;
+
+        return [
+            'items' => $items,
+            'resolution' => $resolution instanceof TicketQualityResolution ? [
+                'type' => $resolution->resolution_type->value,
+                'label' => $resolution->resolution_type->getLabel(),
+                'return_request_number' => $resolution->customerReturnRequest?->request_number,
+                'resolved_at' => $resolution->resolved_at?->toIso8601String(),
+            ] : null,
         ];
     }
 }

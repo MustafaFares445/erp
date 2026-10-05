@@ -22,7 +22,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 /**
  * @property int $id
- * @property int|null $product_variant_id
+ * @property int $product_variant_id
+ * @property int|null $serialized_inventory_unit_id
  * @property numeric-string $quantity
  * @property int|null $order_line_id
  * @property numeric-string|null $base_quantity

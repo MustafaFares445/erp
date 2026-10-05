@@ -47,4 +47,6 @@ enum NotificationEventKey: string implements HasLabel
     case LoanerOverdue = 'loaner.overdue';
     case RmaStatusChanged = 'rma.status_changed';
     case EquipmentReturnedFromSupplier = 'rma.equipment_returned';
+    case QualityComplaintCreated = 'quality.complaint_created';
+    case LotComplaintThresholdReached = 'quality.lot_threshold_reached';
 }

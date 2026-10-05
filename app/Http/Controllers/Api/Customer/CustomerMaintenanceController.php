@@ -42,6 +42,10 @@ final class CustomerMaintenanceController
             'quotation',
             'invoice',
             'serviceRecords.serviceAppointments',
+            'installation',
+            'calibration',
+            'equipmentLoans.loanerUnit.productVariant',
+            'externalRepairs.supplier',
         ];
     }
 

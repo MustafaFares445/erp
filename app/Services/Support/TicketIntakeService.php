@@ -27,6 +27,7 @@ final readonly class TicketIntakeService
     public function __construct(
         private TicketAttachmentSynchronizer $attachmentSynchronizer,
         private SlaService $slaService,
+        private TicketProductContextService $productContexts,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -52,6 +53,8 @@ final readonly class TicketIntakeService
             ]);
 
             $this->slaService->onTicketCreated($ticket);
+
+            $this->attachProductContexts($ticket, $data, $actor);
 
             if (isset($data['attachments']) && is_array($data['attachments'])) {
                 $this->attachmentSynchronizer->sync($ticket, $data['attachments']);
@@ -141,6 +144,8 @@ final readonly class TicketIntakeService
 
             $this->slaService->onTicketCreated($ticket);
 
+            $this->attachProductContexts($ticket, $data, null);
+
             if (isset($data['attachments']) && is_array($data['attachments'])) {
                 $this->attachmentSynchronizer->addUploadedFiles($ticket, $data['attachments']);
             }
@@ -210,6 +215,23 @@ final readonly class TicketIntakeService
 
             return $ticket;
         });
+    }
+
+    /**
+     * Product quality complaints must name the delivered lines they are about;
+     * those lines are verified against the customer's delivery history.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function attachProductContexts(Ticket $ticket, array $data, ?User $actor): void
+    {
+        if ($ticket->type !== TicketType::ProductQualityIssue) {
+            return;
+        }
+
+        $lines = is_array($data['product_contexts'] ?? null) ? array_values(array_filter($data['product_contexts'], is_array(...))) : [];
+
+        $this->productContexts->attach($ticket, $lines, $actor);
     }
 
     private function nextTicketNumber(): string

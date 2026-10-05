@@ -17,12 +17,7 @@ final class CustomerEquipmentController
     {
         $equipment = $this->customer($request)
             ->ownedEquipment()
-            ->with([
-                'productVariant.product',
-                'currentWarrantyEntitlement',
-                'supportEntitlements.serviceLevel',
-                'maintenanceSchedules',
-            ])
+            ->with($this->resourceRelations())
             ->orderBy('serial_number')
             ->paginate(30);
 
@@ -36,14 +31,26 @@ final class CustomerEquipmentController
             404,
         );
 
-        $equipment->load([
+        $equipment->load($this->resourceRelations());
+
+        return new CustomerEquipmentResource($equipment);
+    }
+
+    /** @return list<string> */
+    private function resourceRelations(): array
+    {
+        return [
             'productVariant.product',
             'currentWarrantyEntitlement',
             'supportEntitlements.serviceLevel',
             'maintenanceSchedules',
-        ]);
-
-        return new CustomerEquipmentResource($equipment);
+            'calibrations',
+            'maintenanceRecords.installation',
+            'maintenanceRecords.calibration',
+            'maintenanceRecords.equipmentLoans.loanerUnit.productVariant',
+            'maintenanceRecords.externalRepairs.supplier',
+            'maintenanceRecords.serviceRecords.serviceAppointments',
+        ];
     }
 
     private function customer(Request $request): CustomerProfile

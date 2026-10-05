@@ -270,6 +270,8 @@ return [
         'loaner_overdue' => 'Loaner Overdue',
         'rma_status_changed' => 'Supplier Repair Status Changed',
         'rma_equipment_returned' => 'Equipment Returned from Supplier',
+        'quality_complaint_created' => 'Product Quality Complaint',
+        'quality_lot_threshold_reached' => 'Potential Lot Quality Issue',
         'invoice_overdue_7' => 'Invoice Overdue (7 Days)',
         'invoice_overdue_30' => 'Invoice Overdue (30 Days)',
         'invoice_overdue_60' => 'Invoice Overdue (60 Days)',
@@ -444,6 +446,7 @@ return [
         'hardware_issue' => 'Hardware Issue',
         'general_support' => 'General Support',
         'maintenance_request' => 'Maintenance Request',
+        'product_quality_issue' => 'Product Quality Issue',
     ],
     'transcription_confidence_source' => [
         'ProviderReported' => 'Provider Reported',
@@ -510,6 +513,15 @@ return [
         'replacement_unit' => 'Replacement unit',
         'parts_replacement' => 'Parts replacement',
         'rejected' => 'Rejected',
+    ],
+    'quality_resolution_type' => [
+        'no_defect_found' => 'No defect found',
+        'replacement' => 'Replacement',
+        'customer_return' => 'Customer return',
+        'refund' => 'Refund',
+        'credit_note' => 'Credit note',
+        'supplier_claim' => 'Supplier claim',
+        'lot_investigation' => 'Lot investigation',
     ],
     'calibration_result' => [
         'passed' => 'Passed',

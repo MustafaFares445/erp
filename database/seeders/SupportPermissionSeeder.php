@@ -5,22 +5,17 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Enums\SupportPermission;
+use Database\Seeders\Concerns\SeedsPermissionCatalog;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 final class SupportPermissionSeeder extends Seeder
 {
+    use SeedsPermissionCatalog;
+
     public function run(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        foreach (SupportPermission::values() as $permission) {
-            Permission::findOrCreate($permission, 'web');
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->seedPermissionCatalog(SupportPermission::values());
 
         foreach ($this->rolePermissions() as $roleName => $permissions) {
             Role::findOrCreate($roleName, 'web')->givePermissionTo($permissions);
@@ -91,6 +86,8 @@ final class SupportPermissionSeeder extends Seeder
                 SupportPermission::LoanManage->value,
                 SupportPermission::RmaView->value,
                 SupportPermission::RmaManage->value,
+                SupportPermission::QualityComplaintView->value,
+                SupportPermission::QualityComplaintManage->value,
             ],
             'Support Agent' => [
                 SupportPermission::TicketView->value,
@@ -116,6 +113,7 @@ final class SupportPermissionSeeder extends Seeder
                 SupportPermission::CalibrationComplete->value,
                 SupportPermission::LoanView->value,
                 SupportPermission::RmaView->value,
+                SupportPermission::QualityComplaintView->value,
             ],
             'Reviewer' => [
                 SupportPermission::TicketView->value,
@@ -143,6 +141,7 @@ final class SupportPermissionSeeder extends Seeder
                 SupportPermission::CalibrationView->value,
                 SupportPermission::LoanView->value,
                 SupportPermission::RmaView->value,
+                SupportPermission::QualityComplaintView->value,
             ],
         ];
     }

@@ -278,6 +278,18 @@ final class NotificationTemplateSeeder extends Seeder
                 'en' => ['Equipment back from supplier: {{ maintenance_reference }}', 'The supplier repair of {{ serial_number }} with {{ supplier_name }} is complete: {{ rma_status }}.'],
                 'ar' => ['عودة الجهاز من المورد: {{ maintenance_reference }}', 'اكتمل إصلاح الجهاز {{ serial_number }} لدى المورد {{ supplier_name }}: {{ rma_status }}.'],
             ],
+            NotificationEventKey::QualityComplaintCreated->value => [
+                'variables' => ['ticket_number', 'customer_name', 'product_name', 'lot_number'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Product quality complaint: {{ ticket_number }}', '{{ customer_name }} reported a quality problem with {{ product_name }} (lot {{ lot_number }}).'],
+                'ar' => ['شكوى جودة منتج: {{ ticket_number }}', 'أبلغ العميل {{ customer_name }} عن مشكلة جودة في {{ product_name }} (الدفعة {{ lot_number }}).'],
+            ],
+            NotificationEventKey::LotComplaintThresholdReached->value => [
+                'variables' => ['lot_number', 'product_name', 'open_complaints', 'threshold'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Potential lot quality issue: {{ lot_number }}', 'Lot {{ lot_number }} of {{ product_name }} has {{ open_complaints }} open customer complaints (threshold {{ threshold }}). Inventory decides on quarantine.'],
+                'ar' => ['احتمال مشكلة جودة في دفعة: {{ lot_number }}', 'لدى الدفعة {{ lot_number }} من {{ product_name }} {{ open_complaints }} شكاوى مفتوحة من العملاء (الحد {{ threshold }}). قرار الحجر يعود إلى المخزون.'],
+            ],
         ] as $key => $definition) {
             foreach ($definition['channels'] as $channel) {
                 foreach (['en', 'ar'] as $locale) {

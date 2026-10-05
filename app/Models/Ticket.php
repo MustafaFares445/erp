@@ -209,6 +209,18 @@ final class Ticket extends Model implements Favoritable, HasMedia
         return $this->hasOne(TicketPaymentLink::class);
     }
 
+    /** @return HasMany<TicketProductContext, $this> */
+    public function productContexts(): HasMany
+    {
+        return $this->hasMany(TicketProductContext::class);
+    }
+
+    /** @return HasOne<TicketQualityResolution, $this> */
+    public function qualityResolution(): HasOne
+    {
+        return $this->hasOne(TicketQualityResolution::class);
+    }
+
     /** @return HasMany<MaintenanceRecord, $this> */
     public function maintenanceRecords(): HasMany
     {

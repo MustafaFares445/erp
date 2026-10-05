@@ -243,6 +243,94 @@
                     </x-filament::section>
                     @break
 
+                @case('equipment_lifecycle')
+                    <div class="grid gap-6 xl:grid-cols-2">
+                        <x-filament::section>
+                            <x-slot name="heading">{{ __('Installation & commissioning') }}</x-slot>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Completed installations') }}</div><div class="ierp-metric-value">{{ $installationReport['completed'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Pending commissioning') }}</div><div class="ierp-metric-value">{{ $installationReport['pending_commissioning'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Commissioning failure rate') }}</div><div class="ierp-metric-value">{{ $installationReport['commissioning_failure_rate_percent'] !== null ? $installationReport['commissioning_failure_rate_percent'].'%' : '—' }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Average delivery-to-installation') }}</div><div class="ierp-metric-value">{{ $installationReport['average_delivery_to_installation_hours'] !== null ? __(':hours h', ['hours' => $installationReport['average_delivery_to_installation_hours']]) : '—' }}</div></div>
+                            </div>
+                        </x-filament::section>
+
+                        <x-filament::section>
+                            <x-slot name="heading">{{ __('Calibration') }}</x-slot>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Due within 30 days') }}</div><div class="ierp-metric-value">{{ $calibrationReport['due_soon'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Overdue calibrations') }}</div><div class="ierp-metric-value">{{ $calibrationReport['overdue'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Calibration pass rate') }}</div><div class="ierp-metric-value">{{ $calibrationReport['pass_rate_percent'] !== null ? $calibrationReport['pass_rate_percent'].'%' : '—' }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Calibration failure rate') }}</div><div class="ierp-metric-value">{{ $calibrationReport['failure_rate_percent'] !== null ? $calibrationReport['failure_rate_percent'].'%' : '—' }}</div></div>
+                            </div>
+                        </x-filament::section>
+
+                        <x-filament::section>
+                            <x-slot name="heading">{{ __('Loaner equipment') }}</x-slot>
+                            <x-slot name="description">{{ __('Utilization is shown as issue count, not a percentage, until authoritative capacity data exists.') }}</x-slot>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Active loaners') }}</div><div class="ierp-metric-value">{{ $loanerReport['active'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Overdue loaners') }}</div><div class="ierp-metric-value">{{ $loanerReport['overdue'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Issues in period') }}</div><div class="ierp-metric-value">{{ $loanerReport['utilization_count'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Average loan duration') }}</div><div class="ierp-metric-value">{{ $loanerReport['average_loan_duration_days'] !== null ? __(':days days', ['days' => $loanerReport['average_loan_duration_days']]) : '—' }}</div></div>
+                            </div>
+                        </x-filament::section>
+
+                        <x-filament::section>
+                            <x-slot name="heading">{{ __('Supplier repair / RMA') }}</x-slot>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Open RMA cases') }}</div><div class="ierp-metric-value">{{ $rmaReport['open'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Awaiting supplier') }}</div><div class="ierp-metric-value">{{ $rmaReport['awaiting_supplier'] }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Average supplier turnaround') }}</div><div class="ierp-metric-value">{{ $rmaReport['average_supplier_turnaround_days'] !== null ? __(':days days', ['days' => $rmaReport['average_supplier_turnaround_days']]) : '—' }}</div></div>
+                                <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Warranty recovery outstanding') }}</div><div class="ierp-metric-value">{{ $currency }} {{ number_format($rmaReport['warranty_recovery_outstanding_minor'] / 100, 2) }}</div></div>
+                            </div>
+                        </x-filament::section>
+                    </div>
+                    @break
+
+                @case('product_quality')
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Quality complaints') }}</div><div class="ierp-metric-value">{{ $qualityReport['complaints'] }}</div></div>
+                        <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Affected quantity') }}</div><div class="ierp-metric-value">{{ number_format($qualityReport['affected_quantity'], 3) }}</div></div>
+                        <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Returned quantity') }}</div><div class="ierp-metric-value">{{ number_format($qualityReport['returned_quantity'], 3) }}</div></div>
+                    </div>
+
+                    <div class="grid gap-6 xl:grid-cols-2">
+                        <x-filament::section>
+                            <x-slot name="heading">{{ __('Complaints by product') }}</x-slot>
+                            <div class="ierp-section-bleed overflow-x-auto">
+                                <table class="ierp-table ierp-table-band">
+                                    <thead><tr><th>{{ __('Product') }}</th><th>{{ __('Complaints') }}</th><th>{{ __('Affected quantity') }}</th></tr></thead>
+                                    <tbody>
+                                        @forelse ($qualityReport['by_product'] as $row)
+                                            <tr><td>{{ $row['product'] }}</td><td>{{ $row['complaints'] }}</td><td>{{ number_format($row['affected_quantity'], 3) }}</td></tr>
+                                        @empty
+                                            <tr><td colspan="3" class="py-10 text-center text-gray-500 dark:text-gray-400">{{ __('reporting.states.no_results') }}</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </x-filament::section>
+
+                        <x-filament::section>
+                            <x-slot name="heading">{{ __('Top problematic lots') }}</x-slot>
+                            <x-slot name="description">{{ __('Quality signals are informational. Inventory remains responsible for quarantine decisions.') }}</x-slot>
+                            <div class="ierp-section-bleed overflow-x-auto">
+                                <table class="ierp-table ierp-table-band">
+                                    <thead><tr><th>{{ __('Lot') }}</th><th>{{ __('Complaints') }}</th><th>{{ __('Customers') }}</th><th>{{ __('Affected quantity') }}</th></tr></thead>
+                                    <tbody>
+                                        @forelse ($qualityReport['top_problematic_lots'] as $row)
+                                            <tr><td>{{ $row['lot_number'] }}</td><td>{{ $row['complaints'] }}</td><td>{{ $row['affected_customers'] }}</td><td>{{ number_format($row['affected_quantity'], 3) }}</td></tr>
+                                        @empty
+                                            <tr><td colspan="4" class="py-10 text-center text-gray-500 dark:text-gray-400">{{ __('reporting.states.no_results') }}</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </x-filament::section>
+                    </div>
+                    @break
+
                 @case('financial')
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="ierp-card ierp-metric"><div class="ierp-metric-label">{{ __('Total cost') }}</div><div class="ierp-metric-value">{{ $currency }} {{ number_format($serviceMargin['total_cost_minor'] / 100, 2) }}</div></div>

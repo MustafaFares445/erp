@@ -30,21 +30,26 @@ use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\SupplierCommitmentRecorded;
 use App\Events\SupportContinuityMilestone;
+use App\Events\SupportQualityMilestone;
 use App\Events\TaskAssigned;
 use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
 use App\Models\CustomerProfile;
 use App\Models\EquipmentInstallation;
 use App\Models\EquipmentLoan;
+use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\Lead;
+use App\Models\LotQualityAlert;
 use App\Models\MaintenanceExternalRepair;
 use App\Models\MaintenanceRecord;
 use App\Models\Payment;
 use App\Models\PlanTask;
+use App\Models\ProductVariant;
 use App\Models\Quotation;
 use App\Models\Ticket;
+use App\Models\TicketProductContext;
 use App\Models\User;
 use App\Services\Notifications\NotificationDispatcher;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,6 +68,7 @@ final readonly class SendBusinessNotification
             $event instanceof EquipmentCalibrationMilestone => $this->calibrationMilestone($event),
             $event instanceof EquipmentInstallationMilestone => $this->installationMilestone($event),
             $event instanceof SupportContinuityMilestone => $this->continuityMilestone($event),
+            $event instanceof SupportQualityMilestone => $this->qualityMilestone($event),
             $event instanceof InvoiceIssued => $this->invoiceIssued($event->invoice),
             $event instanceof LeadConverted => $this->leadConverted($event->lead, $event->customer),
             $event instanceof MaintenanceRecordBilled => $this->maintenanceRecordBilled($event->record),
@@ -525,6 +531,61 @@ final readonly class SendBusinessNotification
             }
 
             $this->dispatcher->dispatch($recipient, $key, $variables, $record, NotificationChannel::Mail, $locale);
+        }
+    }
+
+    /**
+     * Quality complaints and lot signals reach quality managers; a lot that
+     * crosses the complaint threshold also reaches the inventory staff who
+     * decide on quarantine (the alert never changes stock itself).
+     */
+    private function qualityMilestone(SupportQualityMilestone $event): void
+    {
+        if (! (bool) config('support.product_quality_enabled', false)) {
+            return;
+        }
+
+        $subject = $event->subject;
+        $managers = $this->usersWithPermission(SupportPermission::QualityComplaintManage->value);
+
+        if ($subject instanceof Ticket) {
+            $subject->loadMissing(['customer', 'productContexts.productVariant', 'productContexts.inventoryLot']);
+            $context = $subject->productContexts->first();
+            $productVariant = $context instanceof TicketProductContext ? $context->productVariant : null;
+            $inventoryLot = $context instanceof TicketProductContext ? $context->inventoryLot : null;
+            $productName = $productVariant instanceof ProductVariant ? (string) $productVariant->name : '—';
+            $lotNumber = $inventoryLot instanceof InventoryLot ? (string) $inventoryLot->lot_number : '—';
+            $variables = [
+                'ticket_number' => (string) $subject->ticket_number,
+                'customer_name' => (string) ($subject->customer->company_name ?? '—'),
+                'product_name' => $productName,
+                'lot_number' => $lotNumber,
+            ];
+            $recipients = $managers->all();
+        } else {
+            $product = ProductVariant::query()->whereKey($subject->product_variant_id)->first();
+            $openComplaints = LotQualityAlert::query()->where('inventory_lot_id', $subject->id)->value('open_complaints');
+            $configuredThreshold = config('support.lot_complaint_threshold', 3);
+            $variables = [
+                'lot_number' => (string) ($subject->lot_number ?? '—'),
+                'product_name' => $product instanceof ProductVariant ? (string) $product->name : '—',
+                'open_complaints' => is_numeric($openComplaints) ? (string) $openComplaints : '0',
+                'threshold' => is_numeric($configuredThreshold) ? (string) $configuredThreshold : '3',
+            ];
+            $recipients = [...$managers->all(), ...$this->usersWithPermission(InventoryPermission::ConditionChangeCreate->value)->all()];
+        }
+
+        $seen = [];
+
+        foreach ($recipients as $recipient) {
+            if (isset($seen[$recipient->id])) {
+                continue;
+            }
+
+            $seen[$recipient->id] = true;
+
+            $this->dispatcher->dispatch($recipient, $event->key, $variables, $subject, NotificationChannel::Database, $recipient->locale);
+            $this->dispatcher->dispatch($recipient, $event->key, $variables, $subject, NotificationChannel::Mail, $recipient->locale);
         }
     }
 

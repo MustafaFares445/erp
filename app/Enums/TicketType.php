@@ -19,4 +19,5 @@ enum TicketType: string implements HasLabel
     case HardwareIssue = 'hardware_issue';
     case GeneralSupport = 'general_support';
     case MaintenanceRequest = 'maintenance_request';
+    case ProductQualityIssue = 'product_quality_issue';
 }

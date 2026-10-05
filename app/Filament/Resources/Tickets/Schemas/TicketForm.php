@@ -7,9 +7,12 @@ namespace App\Filament\Resources\Tickets\Schemas;
 use App\Enums\TicketCustomerImpact;
 use App\Enums\TicketPriority;
 use App\Enums\TicketType;
+use App\Models\CustomerProfile;
 use App\Models\Ticket;
 use App\Services\Support\TicketPriorityResolver;
+use App\Services\Support\TicketProductContextService;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -37,6 +40,7 @@ final class TicketForm
                         Select::make('type')
                             ->label(__('Type'))
                             ->options(collect(TicketType::cases())
+                                ->reject(static fn (TicketType $type): bool => $type === TicketType::ProductQualityIssue && ! TicketProductContextService::enabled())
                                 ->mapWithKeys(static fn (TicketType $type): array => [$type->value => $type->label()]))
                             ->live()
                             ->afterStateUpdated(static fn (Set $set, Get $get): mixed => $set('priority', self::proposedPriority($get)->value))
@@ -71,10 +75,37 @@ final class TicketForm
                             ->helperText(__('Link this ticket to the closed or cancelled ticket it continues.'))
                             ->disabledOn('edit')
                             ->columnSpanFull(),
+                        self::productContexts(),
                         self::attachmentsUpload(),
                     ])
                     ->columns(2),
             ]);
+    }
+
+    /** The delivered lines a product quality complaint is about, chosen from the customer's own delivery history. */
+    private static function productContexts(): Repeater
+    {
+        return Repeater::make('product_contexts')
+            ->label(__('Affected products'))
+            ->helperText(__('Only products and lots actually delivered to the customer can be chosen.'))
+            ->visibleOn('create')
+            ->visible(static fn (Get $get): bool => TicketProductContextService::enabled() && $get('type') === TicketType::ProductQualityIssue->value)
+            ->schema([
+                Select::make('original_inventory_operation_line_id')
+                    ->label(__('Delivered line'))
+                    ->options(static function (Get $get): array {
+                        $customerId = $get('../../customer_id');
+                        $customer = is_numeric($customerId) ? CustomerProfile::query()->find((int) $customerId) : null;
+
+                        return $customer instanceof CustomerProfile ? app(TicketProductContextService::class)->lineOptions($customer) : [];
+                    })
+                    ->searchable()
+                    ->required(),
+                TextInput::make('quantity')->label(__('Affected quantity'))->numeric()->minValue(0.000001)->required(),
+                TextInput::make('notes')->label(__('Notes')),
+            ])
+            ->columns(3)
+            ->columnSpanFull();
     }
 
     private static function proposedPriority(Get $get): TicketPriority

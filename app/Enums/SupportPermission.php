@@ -82,6 +82,8 @@ enum SupportPermission: string
     case LoanManage = 'support.loaner.manage';
     case RmaView = 'support.rma.view';
     case RmaManage = 'support.rma.manage';
+    case QualityComplaintView = 'support.quality-complaint.view';
+    case QualityComplaintManage = 'support.quality-complaint.manage';
 
     /** @return list<string> */
     public static function values(): array

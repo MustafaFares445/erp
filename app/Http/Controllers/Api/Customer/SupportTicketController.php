@@ -59,6 +59,10 @@ final class SupportTicketController
             'maintenanceRecords',
             'satisfactionResponse',
             'knowledgeLinks.knowledgeArticle.category',
+            'productContexts.productVariant.product',
+            'productContexts.inventoryLot',
+            'productContexts.unit',
+            'qualityResolution.customerReturnRequest',
             'media',
         ];
     }
