@@ -355,12 +355,15 @@ final class DemoVerificationSeeder extends Seeder
             ->count();
         $this->line('Returned loaners not back in a warehouse', $returnedNotInWarehouse, $returnedNotInWarehouse === 0);
 
-        $doubleBooked = DB::table('equipment_loans')
-            ->select('loaner_serialized_inventory_unit_id')
-            ->whereIn('status', ['reserved', 'issued'])
-            ->groupBy('loaner_serialized_inventory_unit_id')
-            ->havingRaw('COUNT(*) > 1')
-            ->get()
+        $doubleBooked = DB::query()
+            ->fromSub(
+                DB::table('equipment_loans')
+                    ->select('loaner_serialized_inventory_unit_id')
+                    ->whereIn('status', ['reserved', 'issued'])
+                    ->groupBy('loaner_serialized_inventory_unit_id')
+                    ->havingRaw('COUNT(*) > 1'),
+                'double_booked_loaners',
+            )
             ->count();
         $this->line('Loaners with more than one active loan', $doubleBooked, $doubleBooked === 0);
 

@@ -7,17 +7,17 @@ namespace Database\Seeders;
 use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Models\User;
+use Database\Seeders\Concerns\SeedsPermissionCatalog;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 final class CrmPermissionSeeder extends Seeder
 {
+    use SeedsPermissionCatalog;
+
     public function run(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
         Permission::query()->whereIn('name', [
             'crm.subscription.view',
             'crm.subscription.manage',
@@ -26,11 +26,7 @@ final class CrmPermissionSeeder extends Seeder
             'crm.subscription.restore',
         ])->delete();
 
-        foreach ($this->permissions() as $permission) {
-            Permission::findOrCreate($permission, 'web');
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->seedPermissionCatalog($this->permissions());
 
         foreach ($this->rolePermissions() as $roleName => $permissions) {
             Role::findOrCreate($roleName, 'web')->givePermissionTo($permissions);

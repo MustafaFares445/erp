@@ -7,22 +7,20 @@ namespace Database\Seeders;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Enums\SalesPermission;
+use Database\Seeders\Concerns\SeedsPermissionCatalog;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 final class SalesPermissionSeeder extends Seeder
 {
+    use SeedsPermissionCatalog;
+
     public function run(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        foreach (SalesPermission::values() as $permission) {
-            Permission::findOrCreate($permission, 'web');
-        }
-        Permission::findOrCreate(AccountingPermission::JournalEntryPostFromSource->value, 'web');
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->seedPermissionCatalog([
+            ...SalesPermission::values(),
+            AccountingPermission::JournalEntryPostFromSource->value,
+        ]);
 
         foreach ($this->rolePermissions() as $roleName => $permissions) {
             Role::findOrCreate($roleName, 'web')->givePermissionTo($permissions);

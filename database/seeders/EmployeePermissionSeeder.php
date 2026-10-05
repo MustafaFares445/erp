@@ -5,22 +5,17 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Enums\EmployeePermission;
+use Database\Seeders\Concerns\SeedsPermissionCatalog;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 final class EmployeePermissionSeeder extends Seeder
 {
+    use SeedsPermissionCatalog;
+
     public function run(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        foreach (EmployeePermission::values() as $permission) {
-            Permission::findOrCreate($permission, 'web');
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->seedPermissionCatalog(EmployeePermission::values());
 
         foreach ($this->rolePermissions() as $roleName => $permissions) {
             Role::findOrCreate($roleName, 'web')->givePermissionTo($permissions);

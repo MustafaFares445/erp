@@ -124,7 +124,7 @@ final class DemoCalibrationSeeder extends DemoSeeder
 
         $context->at('2026-10-02 14:30:00');
         app(MaintenanceScheduleService::class)->create(new MaintenanceScheduleData(
-            serializedInventoryUnitId: $unit->getKey(),
+            serializedInventoryUnitId: $unit->id,
             customerId: (int) $unit->custody_reference_id,
             name: 'Six-monthly furnace temperature calibration',
             intervalType: MaintenanceIntervalType::Months,

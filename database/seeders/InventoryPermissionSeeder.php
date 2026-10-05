@@ -6,29 +6,21 @@ namespace Database\Seeders;
 
 use App\Enums\InventoryPermission;
 use App\Models\User;
+use Database\Seeders\Concerns\SeedsPermissionCatalog;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 final class InventoryPermissionSeeder extends Seeder
 {
+    use SeedsPermissionCatalog;
+
     /**
      * Seed the `inventory.*` permission catalogue. Idempotent: running this
      * seeder repeatedly creates each permission at most once.
      */
     public function run(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        foreach (InventoryPermission::values() as $name) {
-            Permission::firstOrCreate([
-                'name' => $name,
-                'guard_name' => 'web',
-            ]);
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->seedPermissionCatalog(InventoryPermission::values());
 
         Role::findOrCreate('System Admin', 'web')
             ->givePermissionTo(InventoryPermission::values());

@@ -7,6 +7,11 @@ namespace Database\Seeders\Demo;
 use App\Enums\EquipmentLoanStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\UserType;
+use App\Enums\WarrantyClaimDecision;
+use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyFailureCategory;
+use App\Enums\WarrantyLineCategory;
+use App\Enums\WarrantyRecoveryStatus;
 use App\Models\EquipmentCalibration;
 use App\Models\EquipmentLoan;
 use App\Models\MaintenanceExternalRepair;
@@ -15,8 +20,11 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\Settings\CurrencyCatalogService;
 use App\Services\Support\EquipmentLoanService;
 use App\Services\Support\ExternalRepairService;
+use App\Services\Support\WarrantyClaimService;
+use App\Services\Support\WarrantyRecoveryService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 
@@ -52,14 +60,25 @@ final class DemoContinuitySeeder extends DemoSeeder
         $original = SerializedInventoryUnit::query()->with('productVariant')->findOrFail($failed->serialized_inventory_unit_id);
         $repair = MaintenanceRecord::query()->findOrFail($failed->follow_up_maintenance_record_id);
 
+        $previousLoaner = config('support.loaner_equipment_enabled');
+        $previousExternalRepair = config('support.external_repair_enabled');
+
         config(['support.loaner_equipment_enabled' => true, 'support.external_repair_enabled' => true]);
 
-        $operator = $this->operator();
+        try {
+            $operator = $this->operator();
 
-        $this->seedLoan($context, $operator, $original, $repair);
-        $this->seedExternalRepair($context, $operator, $repair);
+            $this->seedWarrantyRecovery($context, $operator, $repair);
+            $this->seedLoan($context, $operator, $original, $repair);
+            $this->seedExternalRepair($context, $operator, $repair);
 
-        $this->note('Seeded the loaner and supplier repair scenario (issued loaner handpiece; approved supplier repair).');
+            $this->note('Seeded the loaner, supplier repair, and outstanding supplier-warranty recovery scenario.');
+        } finally {
+            config([
+                'support.loaner_equipment_enabled' => $previousLoaner,
+                'support.external_repair_enabled' => $previousExternalRepair,
+            ]);
+        }
     }
 
     private function operator(): User
@@ -76,6 +95,62 @@ final class DemoContinuitySeeder extends DemoSeeder
         }
 
         return $user;
+    }
+
+    private function seedWarrantyRecovery(DemoContext $context, User $operator, MaintenanceRecord $repair): void
+    {
+        $supplier = Supplier::query()->where('code', 'DEMO-SUP-005')->first()
+            ?? Supplier::query()->where('is_active', true)->orderBy('id')->firstOrFail();
+
+        $claims = app(WarrantyClaimService::class);
+        $recovery = app(WarrantyRecoveryService::class);
+
+        if ($repair->diagnosed_at === null) {
+            $context->at('2026-10-03 12:10:00');
+            $repair = $claims->recordDiagnosis($repair->refresh(), [
+                'diagnosis_summary' => 'Failed calibration confirmed excessive bearing wear and speed loss under load.',
+                'root_cause' => 'Premature bearing wear consistent with a supplier-covered component defect.',
+                'failure_category' => WarrantyFailureCategory::ManufacturingDefect->value,
+            ], $operator);
+        }
+
+        if ($repair->coverage_decision !== WarrantyClaimDecision::ThirdPartyWarranty) {
+            $context->at('2026-10-03 12:20:00');
+            $repair = $claims->decideCoverage($repair->refresh(), [
+                'coverage_decision' => WarrantyClaimDecision::ThirdPartyWarranty->value,
+                'coverage_source' => WarrantyCoverageSource::SupplierWarranty->value,
+                'coverage_reason' => 'The failed handpiece component is covered by the supplier warranty.',
+                'customer_coverage_explanation' => null,
+                'coverage_lines' => [[
+                    'category' => WarrantyLineCategory::ThirdParty->value,
+                    'description' => 'Supplier repair of the failed handpiece bearing assembly',
+                    'amount_minor' => 85000,
+                ]],
+            ], $operator);
+        }
+
+        $claim = $repair->warrantyRecoveryClaim()->first();
+
+        if ($claim === null) {
+            $context->at('2026-10-03 12:30:00');
+            $claim = $recovery->create($repair->refresh(), [
+                'supplier_id' => $supplier->getKey(),
+                'currency' => app(CurrencyCatalogService::class)->defaultCode(),
+                'claimed_amount_minor' => 85000,
+                'external_reference' => 'WR-DEMO-0001',
+                'notes' => 'Supplier warranty recovery for the failed calibration follow-up repair; customer responsibility remains zero.',
+            ], $operator);
+        }
+
+        if ($claim->status === WarrantyRecoveryStatus::Draft) {
+            $context->at('2026-10-03 12:40:00');
+            $claim = $recovery->submit($claim, $operator, 'WR-DEMO-0001');
+        }
+
+        if ($claim->status === WarrantyRecoveryStatus::Submitted) {
+            $context->at('2026-10-03 12:50:00');
+            $recovery->approve($claim, 85000, $operator);
+        }
     }
 
     private function seedLoan(DemoContext $context, User $operator, SerializedInventoryUnit $original, MaintenanceRecord $repair): void

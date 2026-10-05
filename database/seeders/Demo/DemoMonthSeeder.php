@@ -70,6 +70,7 @@ final class DemoMonthSeeder extends DemoSeeder
         DemoInstallationSeeder::class,
         DemoCalibrationSeeder::class,
         DemoContinuitySeeder::class,
+        DemoProductQualitySeeder::class,
         DemoSystemActivitySeeder::class,
         DemoAccountingMonthSeeder::class,
     ];
