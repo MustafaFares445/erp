@@ -2,130 +2,146 @@
 
 declare(strict_types=1);
 
-use App\Enums\BillStatus;
-use App\Filament\Resources\Bills\BillResource;
-use App\Filament\Resources\Bills\Pages\ManageBills;
-use App\Filament\Resources\Bills\Schemas\BillInfolist;
-use App\Filament\Resources\Expenses\ExpenseResource;
-use App\Filament\Resources\Refunds\RefundResource;
-use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
-use App\Models\Bill;
-use App\Models\BillLine;
-use App\Models\Expense;
-use App\Models\PurchaseOrderLine;
-use App\Models\Refund;
-use App\Models\SupplierPayment;
-use Filament\Actions\Action;
-use Illuminate\Database\Eloquent\Collection;
+use App\Data\Inventory\BarcodeResolution;
+use App\Models\CustomerProfile;
+use App\Models\CustomerVisit;
+use App\Models\InventoryCount;
+use App\Models\InventoryCountLine;
+use App\Models\MaintenanceRecord;
+use App\Models\MaintenanceSchedule;
+use App\Models\MaintenanceScheduleOccurrence;
+use App\Models\PlanTask;
+use App\Models\SerializedInventoryUnit;
+use App\Models\User;
+use App\Services\Calendar\MaintenanceCalendarEventService;
+use App\Services\Calendar\VisitCalendarEventService;
+use App\Services\Inventory\BarcodeWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 
 uses(RefreshDatabase::class);
 
-function coverage57Action(string $class, string $method): Action
+function coverage57Resolution(InventoryCountLine $line, ?int $serialId = null): BarcodeResolution
 {
-    $reflection = new ReflectionMethod($class, $method);
-    $action = $reflection->invoke(null);
-
-    expect($action)->toBeInstanceOf(Action::class);
-
-    return $action;
+    return new BarcodeResolution(
+        code: 'coverage',
+        kind: $serialId === null ? 'variant' : 'serial',
+        productVariantId: (int) $line->product_variant_id,
+        sku: 'SKU-COVERAGE',
+        barcode: null,
+        variantName: 'Coverage variant',
+        serializedInventoryUnitId: $serialId,
+        serialNumber: $serialId === null ? null : 'SERIAL-COVERAGE',
+    );
 }
 
-it('covers bill action authentication guards', function (): void {
-    auth()->logout();
-
-    $bill = Bill::factory()->create(['status' => BillStatus::Draft->value]);
-
-    foreach ([BillResource::approveAction(), BillResource::cancelAction()] as $action) {
-        expect(fn (): mixed => ($action->getActionFunction())($bill))
-            ->toThrow(LogicException::class, 'authenticated accounting user');
-    }
-});
-
-it('covers expense action authentication guards', function (): void {
-    auth()->logout();
-
-    $expense = Expense::factory()->create();
-
-    foreach (['approveAction', 'cancelAction'] as $method) {
-        $action = coverage57Action(ExpenseResource::class, $method);
-
-        expect(fn (): mixed => ($action->getActionFunction())($expense))
-            ->toThrow(LogicException::class, 'authenticated accounting user');
-    }
-
-    $pay = coverage57Action(ExpenseResource::class, 'payAction');
-
-    expect(fn (): mixed => ($pay->getActionFunction())($expense, ['payment_date' => today()->toDateString()]))
-        ->toThrow(LogicException::class, 'authenticated accounting user');
-});
-
-it('covers refund action authentication guards', function (): void {
-    auth()->logout();
-
-    $refund = Refund::factory()->create();
-
-    foreach (['payAction', 'cancelAction', 'approveAction'] as $method) {
-        $action = coverage57Action(RefundResource::class, $method);
-
-        expect(fn (): mixed => ($action->getActionFunction())($refund))
-            ->toThrow(LogicException::class, 'authenticated accounting user');
-    }
-});
-
-it('returns bill-create defaults when a requested purchase order does not exist', function (): void {
-    $method = new ReflectionMethod(ManageBills::class, 'createDefaults');
-
-    $defaults = $method->invoke(null, ['purchase_order_id' => 999999999]);
-
-    expect($defaults)->toBe([
-        'bill_date' => today()->toDateString(),
+it('projects maintenance calendar occurrences for records schedules and orphaned defensive rows', function (): void {
+    $customer = CustomerProfile::factory()->create(['company_name' => 'Coverage Dental Lab']);
+    $schedule = MaintenanceSchedule::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'name' => 'Coverage schedule',
     ]);
-});
+    $record = MaintenanceRecord::factory()->create(['customer_id' => $customer->getKey()]);
 
-it('covers bill infolist provisional-reference and variance blockers', function (): void {
-    $method = new ReflectionMethod(BillInfolist::class, 'blocker');
-
-    $provisional = new Bill;
-    $provisional->forceFill([
-        'status' => BillStatus::Draft,
-        'supplier_reference' => 'PO-AUTO:PO-COV-057',
+    MaintenanceScheduleOccurrence::factory()->create([
+        'maintenance_schedule_id' => $schedule->getKey(),
+        'maintenance_record_id' => $record->getKey(),
+        'due_on' => today(),
     ]);
 
-    expect($method->invoke(null, $provisional))
-        ->toBe('Replace the provisional reference with the supplier invoice reference');
-
-    $purchaseLine = new PurchaseOrderLine;
-    $purchaseLine->forceFill(['unit_cost' => '10.00']);
-
-    $billLine = new BillLine;
-    $billLine->forceFill([
-        'purchase_order_line_id' => null,
-        'unit_price' => '12.00',
+    $serialSchedule = MaintenanceSchedule::factory()->create([
+        'customer_id' => null,
+        'name' => 'Serial-only schedule',
     ]);
-    $billLine->setRelation('purchaseOrderLine', $purchaseLine);
+    $serial = $serialSchedule->serializedInventoryUnit;
+    expect($serial)->toBeInstanceOf(SerializedInventoryUnit::class);
 
-    $variance = new Bill;
-    $variance->forceFill([
-        'status' => BillStatus::Draft,
-        'supplier_reference' => 'SUP-INV-057',
+    MaintenanceScheduleOccurrence::factory()->create([
+        'maintenance_schedule_id' => $serialSchedule->getKey(),
+        'maintenance_record_id' => null,
+        'due_on' => today()->addDay(),
     ]);
-    $variance->setRelation('lines', new Collection([$billLine]));
 
-    expect($method->invoke(null, $variance))
-        ->toBe('Three-way match variance requires review');
+    $events = app(MaintenanceCalendarEventService::class)->between(today(), today()->addDays(2));
+
+    expect($events->get(today()->toDateString()))->toHaveCount(1)
+        ->and($events->get(today()->toDateString())->first()['subtitle'])->toBe('Coverage Dental Lab')
+        ->and($events->get(today()->toDateString())->first()['url'])->toContain((string) $record->getKey())
+        ->and($events->get(today()->addDay()->toDateString())->first()['subtitle'])->toBe((string) $serial->serial_number)
+        ->and($events->get(today()->addDay()->toDateString())->first()['url'])->toContain((string) $serialSchedule->getKey());
 });
 
-it('returns no default supplier-payment allocation for an unavailable bill', function (): void {
-    request()->query->set('bill_id', '999999999');
-
-    $payment = new SupplierPayment;
-    $payment->forceFill([
-        'supplier_id' => 123,
-        'amount' => '50.00',
+it('projects visit and plan-task calendar events', function (): void {
+    $customer = CustomerProfile::factory()->create(['company_name' => 'Visit Coverage Customer']);
+    $visit = CustomerVisit::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'planned_at' => Carbon::parse('2026-10-05 10:30:00'),
+    ]);
+    $task = PlanTask::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'title' => 'Coverage follow-up',
+        'due_at' => '2026-10-05',
     ]);
 
-    $method = new ReflectionMethod(SupplierPaymentResource::class, 'billAllocationDefaults');
+    $events = app(VisitCalendarEventService::class)->between(
+        Carbon::parse('2026-10-05'),
+        Carbon::parse('2026-10-06'),
+    );
 
-    expect($method->invoke(null, $payment))->toBe([]);
+    $dayEvents = $events->get('2026-10-05');
+    $visitEvent = $dayEvents->firstWhere('type', 'visit');
+    $taskEvent = $dayEvents->firstWhere('type', 'task');
+
+    expect($visitEvent['type'])->toBe('visit')
+        ->and($visitEvent['time'])->toBe('10:30')
+        ->and($visitEvent['title'])->toBe('Visit Coverage Customer')
+        ->and($visitEvent['url'])->toContain((string) $visit->getKey())
+        ->and($taskEvent['type'])->toBe('task')
+        ->and($taskEvent['title'])->toBe('Coverage follow-up')
+        ->and($taskEvent['url'])->toContain((string) $task->sales_plan_id);
+});
+
+it('covers barcode count matching and every record-count mismatch guard', function (): void {
+    $service = app(BarcodeWorkflowService::class);
+    $count = InventoryCount::factory()->create();
+    $line = InventoryCountLine::factory()->create(['inventory_count_id' => $count->getKey()]);
+    $otherLine = InventoryCountLine::factory()->create();
+
+    $matches = $service->countMatches($count, coverage57Resolution($line));
+    expect($matches->modelKeys())->toContain($line->getKey());
+
+    $actor = User::factory()->create();
+
+    expect(fn () => $service->recordCount($actor, $count, $otherLine, coverage57Resolution($otherLine), '1'))
+        ->toThrow(DomainException::class, 'does not belong');
+
+    $wrongVariant = new BarcodeResolution(
+        code: 'wrong',
+        kind: 'variant',
+        productVariantId: (int) $line->product_variant_id + 999999,
+        sku: 'WRONG',
+        barcode: null,
+        variantName: 'Wrong',
+    );
+
+    expect(fn () => $service->recordCount($actor, $count, $line, $wrongVariant, '1'))
+        ->toThrow(DomainException::class, 'does not match');
+
+    $serial = SerializedInventoryUnit::factory()->create();
+    $otherSerial = SerializedInventoryUnit::factory()->create();
+    $serialLine = InventoryCountLine::factory()->create([
+        'inventory_count_id' => $count->getKey(),
+        'serialized_inventory_unit_id' => $serial->getKey(),
+    ]);
+
+    $serialMatches = $service->countMatches($count, coverage57Resolution($serialLine, (int) $serial->getKey()));
+    expect($serialMatches->modelKeys())->toContain($serialLine->getKey());
+
+    expect(fn () => $service->recordCount(
+        $actor,
+        $count,
+        $serialLine,
+        coverage57Resolution($serialLine, (int) $otherSerial->getKey()),
+        '1',
+    ))->toThrow(DomainException::class, 'serial does not match');
 });

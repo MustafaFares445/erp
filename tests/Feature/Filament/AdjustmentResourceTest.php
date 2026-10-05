@@ -15,6 +15,7 @@ use App\Filament\Resources\Adjustments\Pages\ViewAdjustment;
 use App\Filament\Resources\Adjustments\RelationManagers\AdjustmentItemsRelationManager;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -154,6 +155,49 @@ it('rejects a negative counted quantity on an item line', function (): void {
         ])
         ->assertHasFormErrors(['new_quantity']);
 
+    expect($adjustment->items()->count())->toBe(0);
+});
+
+it('clears tracking selections and recalculates the live count when an adjustment condition changes', function (): void {
+    $actor = createAdjustmentPreparer();
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '9.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '9.000000',
+    ]);
+    $lot = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create();
+    (new InventoryLotBalance)->forceFill([
+        'inventory_lot_id' => $lot->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable->value,
+        'on_hand_base_quantity' => '4.000000',
+        'reserved_base_quantity' => '0.000000',
+    ])->save();
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+
+    Livewire::actingAs($actor)
+        ->test(AdjustmentItemsRelationManager::class, [
+            'ownerRecord' => $adjustment,
+            'pageClass' => EditAdjustment::class,
+        ])
+        ->mountAction(TestAction::make('create')->table())
+        ->setActionData([
+            'product_variant_id' => $variant->getKey(),
+            'stock_condition' => StockCondition::Quarantine->value,
+            'inventory_lot_id' => $lot->getKey(),
+            'new_quantity' => 12,
+        ])
+        ->set('mountedActions.0.data.stock_condition', StockCondition::Saleable->value)
+        ->assertActionDataSet([
+            'inventory_lot_id' => null,
+            'serialized_inventory_unit_id' => null,
+            'old_quantity' => 9.0,
+            'difference' => 3.0,
+        ]);
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('9.000000');
     expect($adjustment->items()->count())->toBe(0);
 });
 

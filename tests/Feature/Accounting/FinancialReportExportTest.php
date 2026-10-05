@@ -67,28 +67,33 @@ it('exports each report with a scope line, a stable-identifier header, and the o
         ->tap(function ($test): void {
             $page = $test->instance();
 
-            $trialBalance = explode("\n", captureExportCsv($page, 'streamTrialBalance'));
+            $page->reportType = FinancialReportType::TrialBalance->value;
+            $trialBalance = explode("\n", captureExportCsv($page, 'exportCurrentReport'));
             expect($trialBalance[0])->toContain('Trial Balance', $this->from, $this->to)
                 ->and($trialBalance[1])->toContain('account_code', 'period_debit', 'period_credit', 'closing_balance')
                 ->and(implode("\n", $trialBalance))->toContain('1100', 'Cash', '1000.00')
                 ->and(implode("\n", $trialBalance))->toContain('BALANCED');
 
-            $generalLedger = explode("\n", captureExportCsv($page, 'streamGeneralLedger'));
+            $page->reportType = FinancialReportType::GeneralLedger->value;
+            $generalLedger = explode("\n", captureExportCsv($page, 'exportCurrentReport'));
             expect($generalLedger[0])->toContain('General Ledger', $this->from, $this->to)
                 ->and($generalLedger[1])->toContain('entry_number', 'debit', 'credit', 'running_balance');
 
-            $profitAndLoss = explode("\n", captureExportCsv($page, 'streamProfitAndLoss'));
+            $page->reportType = FinancialReportType::ProfitAndLoss->value;
+            $profitAndLoss = explode("\n", captureExportCsv($page, 'exportCurrentReport'));
             expect($profitAndLoss[0])->toContain('Profit and Loss')
                 ->and($profitAndLoss[1])->toContain('section', 'amount')
                 ->and(implode("\n", $profitAndLoss))->toContain('NET PROFIT');
 
-            $balanceSheet = explode("\n", captureExportCsv($page, 'streamBalanceSheet'));
+            $page->reportType = FinancialReportType::BalanceSheet->value;
+            $balanceSheet = explode("\n", captureExportCsv($page, 'exportCurrentReport'));
             expect($balanceSheet[0])->toContain('Balance Sheet', 'as of')
                 ->and($balanceSheet[1])->toContain('section', 'account_code', 'account_name', 'amount')
                 ->and(implode("\n", $balanceSheet))->toContain('Accumulated Earnings (computed, not posted)')
                 ->and(implode("\n", $balanceSheet))->toContain('BALANCED');
 
-            $postingRegister = explode("\n", captureExportCsv($page, 'streamPostingRegister'));
+            $page->reportType = FinancialReportType::PostingRegister->value;
+            $postingRegister = explode("\n", captureExportCsv($page, 'exportCurrentReport'));
             expect($postingRegister[0])->toContain('Posting Register')
                 ->and($postingRegister[1])->toContain('entry_number', 'fiscal_period', 'posted_by', 'source');
         });

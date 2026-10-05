@@ -2,14 +2,21 @@
 
 declare(strict_types=1);
 
+use App\Enums\CreditNoteStockConsequence;
 use App\Enums\DashboardRole;
+use App\Enums\InventoryReturnStatus;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Resources\CreditNotes\Pages\CreateCreditNote;
 use App\Filament\Resources\CreditNotes\Pages\ViewCreditNote;
+use App\Filament\Resources\Returns\ReturnResource;
 use App\Jobs\GenerateCreditNoteDocument;
 use App\Models\ChartAccount;
 use App\Models\CreditNote;
+use App\Models\CreditNoteLine;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
+use App\Models\InventoryReturn;
+use App\Models\InventoryReturnLine;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\SalesSetting;
@@ -18,8 +25,10 @@ use App\Services\Sales\CreditNoteService;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SalesPermissionSeeder;
+use Filament\Forms\Components\Select;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -48,6 +57,28 @@ function filamentCreditNoteActor(): User
     return $actor;
 }
 
+it('offers only the selected customer posted returns when creating a credit note', function (): void {
+    $actor = filamentCreditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $otherCustomer = CustomerProfile::factory()->create();
+    $posted = InventoryReturn::factory()->posted()->for($customer, 'customer')->create();
+    InventoryReturn::factory()->for($customer, 'customer')->create();
+    InventoryReturn::factory()->posted()->for($otherCustomer, 'customer')->create();
+
+    $component = Livewire::actingAs($actor)
+        ->test(CreateCreditNote::class)
+        ->fillForm([
+            'customer_id' => (string) $customer->getKey(),
+            'stock_consequence' => CreditNoteStockConsequence::GoodsReturned->value,
+        ]);
+    $returnField = collect($component->instance()->getSchema('form')->getFlatComponents(withHidden: true))
+        ->first(static fn (mixed $field): bool => $field instanceof Select && $field->getName() === 'inventory_return_id');
+
+    expect($returnField)->toBeInstanceOf(Select::class);
+    expect($returnField->getOptions())->toBe([$posted->getKey() => $posted->return_number]);
+
+});
+
 /** @return array{0: Invoice, 1: InvoiceLine} */
 function filamentIssuedInvoiceWithLine(CustomerProfile $customer): array
 {
@@ -71,6 +102,49 @@ function filamentIssuedInvoiceWithLine(CustomerProfile $customer): array
 
     return [$invoice->refresh(), $line];
 }
+
+it('shows return provenance and preview and download links for an available credit note PDF', function (): void {
+    config()->set('filesystems.disks.credit-note-resource-tests', [
+        'driver' => 'local',
+        'root' => storage_path('framework/testing/disks/credit-note-resource-tests'),
+    ]);
+    Storage::fake('credit-note-resource-tests');
+    $actor = filamentCreditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $return = InventoryReturn::factory()->for($customer, 'customer')->create();
+    $returnLine = InventoryReturnLine::factory()->for($return, 'inventoryReturn')->create([
+        'posted_base_quantity' => '1.000000',
+    ]);
+    $return->forceFill([
+        'status' => InventoryReturnStatus::Posted,
+        'ready_at' => now()->subMinute(),
+        'posted_at' => now(),
+    ])->save();
+    $creditNote = CreditNote::factory()->for($customer, 'customer')->create([
+        'inventory_return_id' => $return->getKey(),
+        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+        'subtotal' => '20.00',
+        'grand_total' => '20.00',
+    ]);
+    CreditNoteLine::factory()->for($creditNote, 'creditNote')->create([
+        'inventory_return_line_id' => $returnLine->getKey(),
+        'description' => 'Returned item',
+        'quantity' => '1.000',
+        'unit_price' => '20.00',
+        'line_total' => '20.00',
+    ]);
+    $media = $creditNote->addMediaFromString('%PDF-1.7 credit note fixture')
+        ->usingFileName('credit-note.pdf')
+        ->toMediaCollection('credit-note-pdf', 'credit-note-resource-tests');
+
+    Livewire::actingAs($actor)
+        ->test(ViewCreditNote::class, ['record' => $creditNote->getKey()])
+        ->assertSee($return->return_number)
+        ->assertSeeHtml(ReturnResource::getUrl('view', ['record' => $return]))
+        ->assertSee(__('admin.sales.credit_note_ui.pdf_available'))
+        ->assertSeeHtml(route('admin.credit-notes.media.preview', ['creditNote' => $creditNote, 'media' => $media]))
+        ->assertSeeHtml(route('admin.credit-notes.media.download', ['creditNote' => $creditNote, 'media' => $media]));
+});
 
 it('shows lifecycle actions only for the matching credit note status', function (): void {
     $actor = filamentCreditNoteActor();

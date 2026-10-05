@@ -14,7 +14,6 @@ use App\Models\TableViewPreference;
 use App\Models\User;
 use Database\Seeders\PurchasePermissionSeeder;
 use Filament\Tables\Enums\FiltersLayout;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -166,8 +165,10 @@ it('rejects unknown presets and saved views the user cannot see', function (): v
         ->call('selectTableView', 'preset', 'not-a-tab')
         ->assertStatus(404);
 
-    expect(fn () => Livewire::test(ListPurchaseOrders::class)->call('selectTableView', 'saved', (string) $private->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test(ListPurchaseOrders::class)
+        ->call('selectTableView', 'saved', (string) $private->id)
+        ->assertStatus(404)
+        ->assertSet('activeSavedTableView', null);
 });
 
 it('filters the RFQ list with presets and query-builder rules', function (): void {

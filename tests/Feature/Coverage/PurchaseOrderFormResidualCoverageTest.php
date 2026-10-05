@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\PurchaseAgreementStatus;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
+use App\Models\PurchaseAgreement;
+use App\Models\PurchaseAgreementLine;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
@@ -21,6 +24,40 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+it('prefers an active agreement price over the supplier reference cost for the same unit and currency', function (): void {
+    $actor = User::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
+        'purchase_cost' => '7.50',
+    ]);
+    $agreement = new PurchaseAgreement([
+        'supplier_id' => $supplier->getKey(),
+        'currency_code' => 'AED',
+        'starts_on' => today()->subDay(),
+        'ends_on' => today()->addDay(),
+    ]);
+    $agreement->forceFill([
+        'agreement_number' => 'AGR-FORM-PRICE',
+        'status' => PurchaseAgreementStatus::Active,
+        'created_by' => $actor->getKey(),
+    ])->save();
+    PurchaseAgreementLine::query()->create([
+        'purchase_agreement_id' => $agreement->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'unit_price' => '12.50',
+    ]);
+
+    $defaultCost = new ReflectionMethod(PurchaseOrderForm::class, 'defaultUnitCost');
+
+    expect($defaultCost->invoke(null, $supplier->getKey(), $variant->getKey(), $variant->unit_id, 'AED'))
+        ->toBe(12.5);
+});
 
 it('covers invalid purchase-order variant and unit reactive states', function (): void {
     (new PurchasePermissionSeeder)->run();

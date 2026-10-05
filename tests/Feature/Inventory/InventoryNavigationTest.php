@@ -72,7 +72,7 @@ function renderedInventorySidebarLabels(): array
         ->all();
 }
 
-it('renders the inventory sidebar as nine workspace destinations grouped into sections', function (): void {
+it('renders the inventory sidebar as ten workspace destinations grouped into sections', function (): void {
     $user = actingAsInventoryUser();
 
     $this->actingAs($user)->get(WarehouseResource::getUrl())->assertOk();
@@ -86,6 +86,7 @@ it('renders the inventory sidebar as nine workspace destinations grouped into se
         __('admin.sections.stock'),
         __('admin.sections.operations'),
         __('admin.sections.planning'),
+        __('admin.sections.reports'),
         __('admin.sections.setup'),
     ])
         ->and(renderedInventorySidebarLabels())->toBe([
@@ -95,6 +96,7 @@ it('renders the inventory sidebar as nine workspace destinations grouped into se
             __('admin.sections.outbound'),
             __('admin.sections.operations'),
             __('admin.sections.planning_alerts'),
+            __('admin.resources.inventory_reports'),
             __('admin.resources.warehouses'),
             __('admin.resources.catalog_setup'),
             __('admin.sections.inventory_setup'),
@@ -116,7 +118,6 @@ it('no longer lists the fragmented inventory resources as sidebar entries', func
         ->not->toContain(__('admin.resources.returns'))
         ->not->toContain(__('admin.resources.barcode_workbench'))
         ->not->toContain(__('admin.resources.catalog_imports'))
-        ->not->toContain(__('admin.resources.inventory_reports'))
         ->not->toContain(__('admin.resources.package_types'));
 });
 
@@ -125,7 +126,7 @@ it('declares no duplicate sidebar destination for any inventory class', function
 
     $links = collect($inventory['items'])->pluck('link');
 
-    expect($inventory['items'])->toHaveCount(9)
+    expect($inventory['items'])->toHaveCount(10)
         ->and($links->all())->toBe($links->unique()->all());
 });
 
@@ -187,18 +188,18 @@ it('keeps the operation list routes and the barcode workbench directly reachable
         ->and(BarcodeWorkbench::getUrl())->toEndWith('/admin/inventory/barcode');
 });
 
-it('moves inventory reports to the shared reports module without breaking the url', function (): void {
+it('keeps inventory reports inside the inventory module without breaking the url', function (): void {
     $user = actingAsInventoryUser();
 
     $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
     $reports = collect(AdminModuleRegistry::groups())->firstWhere('key', 'reports');
 
-    expect(collect($inventory['items'])->pluck('link'))->not->toContain(InventoryReportResource::class)
-        ->and(collect($reports['items'])->pluck('link'))->toContain(InventoryReportResource::class);
+    expect(collect($inventory['items'])->pluck('link'))->toContain(InventoryReportResource::class)
+        ->and(collect($reports['items'])->pluck('link'))->not->toContain(InventoryReportResource::class);
 
     $this->actingAs($user)->get(InventoryReportResource::getUrl())->assertOk();
 
-    expect(AdminModuleRegistry::activeGroupKey())->toBe('reports');
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('inventory');
 });
 
 it('keeps inventory configuration inside the inventory module', function (): void {

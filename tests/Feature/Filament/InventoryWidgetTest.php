@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryPermission;
+use App\Enums\InventoryReportType;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\ReconciliationScope;
@@ -38,6 +39,25 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
+});
+
+it('keeps every inventory report in its category and selects the first report when changing category', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(array_map(static fn (InventoryPermission $permission): string => $permission->value, InventoryPermission::cases()));
+    $component = Livewire::actingAs($viewer)->test(ManageInventoryReports::class);
+    $component->set('activeTab', 'stock_availability')->assertSet('report', InventoryReportType::StockLevels->value);
+    $page = $component->instance();
+    foreach (InventoryReportType::cases() as $type) {
+        $expected = match ($type) {
+            InventoryReportType::StockLevels, InventoryReportType::Devices, InventoryReportType::ExpiryLots, InventoryReportType::QuarantineAgeing => 'stock_availability',
+            InventoryReportType::Movements, InventoryReportType::ConditionChanges, InventoryReportType::CountVariance, InventoryReportType::Reconciliation => 'movements_control',
+            InventoryReportType::Catalog, InventoryReportType::SupplierComparison => 'catalog_suppliers',
+            InventoryReportType::PriceHistory, InventoryReportType::PricingTiers, InventoryReportType::CustomerAssignments, InventoryReportType::FloorOverrides => 'pricing',
+            InventoryReportType::ImportRuns, InventoryReportType::ImportResults => 'imports',
+        };
+        $page->report = $type->value;
+        expect($page->getDefaultActiveTab())->toBe($expected);
+    }
 });
 
 it('renders low-stock and recent-movement widget tables for authorized viewers', function (): void {
@@ -446,7 +466,7 @@ it('shows quarantined stock aged over thirty days with total quantity', function
     expect($old->fresh()?->on_hand_base_quantity)->toBe('4.500000');
 });
 
-it('shows each inventory report summary card only on its own report tab', function (string $tab, array $shown, array $hidden): void {
+it('shows each inventory report summary card only on its own report tab', function (string $report, array $shown, array $hidden): void {
     $viewer = User::factory()->admin()->create();
     $viewer->givePermissionTo([
         InventoryPermission::ReportView->value,
@@ -454,7 +474,7 @@ it('shows each inventory report summary card only on its own report tab', functi
     ]);
 
     $page = Livewire::actingAs($viewer)
-        ->withQueryParams(['tab' => $tab])
+        ->withQueryParams(['report' => $report])
         ->test(ManageInventoryReports::class)
         ->assertSuccessful();
 

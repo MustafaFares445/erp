@@ -2,209 +2,192 @@
 
 declare(strict_types=1);
 
-use App\Enums\PaymentStatus;
-use App\Enums\ReplenishmentCoverageSourceType;
-use App\Enums\ReplenishmentCoverageStatus;
-use App\Enums\ReplenishmentRequirementStatus;
-use App\Models\CustomerProfile;
-use App\Models\Invoice;
-use App\Models\JournalEntry;
-use App\Models\Payment;
-use App\Models\PaymentAllocation;
-use App\Models\PaymentMethod;
+use App\Enums\InventoryPermission;
+use App\Filament\Pages\BarcodeWorkbench;
+use App\Models\InventoryCount;
+use App\Models\InventoryCountLine;
+use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
-use App\Models\PurchaseInbound;
-use App\Models\PurchaseInboundAllocation;
-use App\Models\PurchaseInboundLine;
-use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderLine;
-use App\Models\ReplenishmentCoverage;
-use App\Models\ReplenishmentRequirement;
 use App\Models\User;
-use App\Models\Warehouse;
-use App\Models\WarehouseReplenishmentPolicy;
-use App\Services\Payments\CustomerDepositApplicationService;
-use App\Services\Supply\PurchaseReplenishmentCoverageService;
+use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
-it('skips reversing a customer-deposit application that already has a reversal', function (): void {
-    $customer = CustomerProfile::factory()->create();
-    $payment = Payment::factory()->create([
-        'payment_number' => 'PAY-COV-059',
-        'customer_id' => $customer->getKey(),
-        'payment_method_id' => PaymentMethod::factory(),
-        'amount' => '50.00',
-        'currency' => 'AED',
-        'payment_date' => today(),
-        'status' => PaymentStatus::Posted->value,
-        'posted_at' => now(),
-    ]);
-    $invoice = Invoice::factory()->create([
-        'customer_id' => $customer->getKey(),
-        'status' => 'issued',
-        'issued_at' => now(),
-        'total_amount' => '50.00',
-        'amount_paid' => '10.00',
-    ]);
-    $allocation = $payment->allocations()->create([
-        'invoice_id' => $invoice->getKey(),
-        'amount' => '10.00',
-    ]);
+function coverage59InventoryUser(): User
+{
+    (new InventoryPermissionSeeder)->run();
 
-    $original = JournalEntry::factory()->posted()->create([
-        'source_type' => PaymentAllocation::class,
-        'source_id' => $allocation->getKey(),
-        'description' => 'Existing deposit application',
+    $role = Role::firstOrCreate([
+        'name' => 'coverage59-inventory',
+        'guard_name' => 'web',
     ]);
-    JournalEntry::factory()->posted()->create([
-        'source_type' => JournalEntry::class,
-        'source_id' => $original->getKey(),
-        'description' => 'Existing reversal',
-    ]);
+    $role->syncPermissions(InventoryPermission::values());
 
-    $before = JournalEntry::query()->count();
+    $user = User::factory()->create();
+    $user->assignRole($role);
 
-    app(CustomerDepositApplicationService::class)->reverseForPayment(
-        User::factory()->admin()->create(),
-        $payment,
-    );
+    return $user;
+}
 
-    expect(JournalEntry::query()->count())->toBe($before);
+it('covers barcode workbench operation and count option branches plus selection guards', function (): void {
+    $user = coverage59InventoryUser();
+    $this->actingAs($user);
+
+    $receipt = InventoryOperation::factory()->receipt()->draft()->create();
+    $delivery = InventoryOperation::factory()->delivery()->draft()->create();
+    $transfer = InventoryOperation::factory()->internalTransfer()->draft()->create();
+    $done = InventoryOperation::factory()->receipt()->done()->create();
+    $count = InventoryCount::factory()->counting()->create();
+    $closedCount = InventoryCount::factory()->pendingReview()->create();
+
+    $page = app(BarcodeWorkbench::class);
+
+    $page->mode = 'unknown';
+    expect($page->operationOptions())->toBe([]);
+
+    $page->mode = 'receipt';
+    expect($page->operationOptions())->toHaveKey($receipt->id);
+
+    $page->mode = 'delivery';
+    expect($page->operationOptions())->toHaveKey($delivery->id);
+
+    $page->mode = 'transfer';
+    expect($page->operationOptions())->toHaveKey($transfer->id);
+
+    expect($page->countOptions())->toHaveKey($count->id);
+
+    $selectedOperation = new ReflectionMethod(BarcodeWorkbench::class, 'selectedOperation');
+    $selectedCount = new ReflectionMethod(BarcodeWorkbench::class, 'selectedCount');
+
+    $page->mode = 'receipt';
+    $page->operationId = $receipt->id;
+    expect($selectedOperation->invoke($page)->is($receipt))->toBeTrue();
+
+    $page->operationId = $delivery->id;
+    expect(fn () => $selectedOperation->invoke($page))
+        ->toThrow(DomainException::class, 'not open for this barcode mode');
+
+    $page->operationId = $done->id;
+    expect(fn () => $selectedOperation->invoke($page))
+        ->toThrow(DomainException::class, 'not open for this barcode mode');
+
+    $page->countId = $count->id;
+    expect($selectedCount->invoke($page)->is($count))->toBeTrue();
+
+    $page->countId = $closedCount->id;
+    expect(fn () => $selectedCount->invoke($page))
+        ->toThrow(DomainException::class, 'no longer open for counting');
+
+    $page->mode = 'count';
+    $page->countId = $count->id;
+    expect($page->targetUrl())->toContain((string) $count->id);
+
+    $page->mode = 'receipt';
+    $page->operationId = $receipt->id;
+    expect($page->targetUrl())->toContain((string) $receipt->id);
+
+    $page->scanCode = 'x';
+    $page->resolution = ['code' => 'x'];
+    $page->matches = [['id' => 1]];
+    $page->countLineId = 1;
+    $page->updatedMode();
+
+    expect($page->operationId)->toBeNull()
+        ->and($page->countId)->toBeNull()
+        ->and($page->scanCode)->toBe('')
+        ->and($page->resolution)->toBeNull()
+        ->and($page->matches)->toBe([])
+        ->and($page->countLineId)->toBeNull();
 });
 
-it('does not attach purchase coverage when replenishment capacity is already full', function (): void {
-    $variant = ProductVariant::factory()->create();
-    $warehouse = Warehouse::factory()->create();
-    $policy = WarehouseReplenishmentPolicy::factory()->create([
-        'warehouse_id' => $warehouse->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'min_quantity' => '5.000000',
-        'max_quantity' => '10.000000',
-        'is_active' => true,
+it('covers successful and rejected barcode scans for operations and counts', function (): void {
+    $user = coverage59InventoryUser();
+
+    $variant = ProductVariant::factory()->create([
+        'sku' => 'SKU-COVERAGE-59',
+        'barcode' => 'BAR-COVERAGE-59',
+    ]);
+    $otherVariant = ProductVariant::factory()->create([
+        'sku' => 'SKU-COVERAGE-59-OTHER',
     ]);
 
-    $requirement = ReplenishmentRequirement::query()->create([
-        'warehouse_replenishment_policy_id' => $policy->getKey(),
-        'warehouse_id' => $warehouse->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'required_base_quantity' => '10.000000',
-        'covered_base_quantity' => '10.000000',
-        'fulfilled_base_quantity' => '0.000000',
-        'status' => ReplenishmentRequirementStatus::Covered,
-        'triggered_at' => now(),
+    $operation = InventoryOperation::factory()->receipt()->draft()->create();
+    $operationLine = InventoryOperationLine::factory()->create([
+        'inventory_operation_id' => $operation->id,
+        'product_variant_id' => $variant->id,
     ]);
 
-    ReplenishmentCoverage::query()->create([
-        'replenishment_requirement_id' => $requirement->getKey(),
-        'source_type' => ReplenishmentCoverageSourceType::InternalTransfer,
-        'source_id' => 999001,
-        'covered_base_quantity' => '10.000000',
-        'status' => ReplenishmentCoverageStatus::Active,
+    Livewire::actingAs($user)
+        ->test(BarcodeWorkbench::class)
+        ->set('mode', 'receipt')
+        ->set('operationId', $operation->id)
+        ->set('scanCode', $variant->sku)
+        ->call('scan')
+        ->assertSet('matches.0.id', $operationLine->id)
+        ->assertSet('scanCode', '');
+
+    Livewire::actingAs($user)
+        ->test(BarcodeWorkbench::class)
+        ->set('mode', 'receipt')
+        ->set('operationId', $operation->id)
+        ->set('scanCode', $otherVariant->sku)
+        ->call('scan')
+        ->assertSet('matches', [])
+        ->assertSet('scanCode', '');
+
+    $count = InventoryCount::factory()->counting()->create();
+    $countLine = InventoryCountLine::factory()->create([
+        'inventory_count_id' => $count->id,
+        'product_variant_id' => $variant->id,
     ]);
 
-    $order = PurchaseOrder::factory()->accepted()->create();
-    $purchaseLine = PurchaseOrderLine::factory()
-        ->for($order)
-        ->for($variant, 'productVariant')
-        ->create([
-            'unit_id' => $variant->unit_id,
-            'quantity_ordered' => '2.000000',
-        ]);
-    $purchaseLine->forceFill([
-        'base_quantity' => '2.000000',
-        'received_base_quantity' => '0.000000',
-    ])->saveQuietly();
-
-    $inbound = PurchaseInbound::factory()->create([
-        'purchase_order_id' => $order->getKey(),
-    ]);
-    $inboundLine = PurchaseInboundLine::factory()->create([
-        'purchase_inbound_id' => $inbound->getKey(),
-        'purchase_order_line_id' => $purchaseLine->getKey(),
-    ]);
-    PurchaseInboundAllocation::withoutEvents(static fn (): PurchaseInboundAllocation => PurchaseInboundAllocation::factory()->create([
-        'purchase_inbound_line_id' => $inboundLine->getKey(),
-        'warehouse_id' => $warehouse->getKey(),
-        'allocated_base_quantity' => '2.000000',
-    ]));
-
-    ReplenishmentCoverage::query()
-        ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
-        ->where('source_id', $purchaseLine->getKey())
-        ->delete();
-
-    ReplenishmentRequirement::query()
-        ->where('warehouse_id', $warehouse->getKey())
-        ->where('product_variant_id', $variant->getKey())
-        ->whereKeyNot($requirement->getKey())
-        ->delete();
-
-    $requirement->forceFill([
-        'covered_base_quantity' => '10.000000',
-        'status' => ReplenishmentRequirementStatus::Covered,
-    ])->saveQuietly();
-
-    app(PurchaseReplenishmentCoverageService::class)->syncForInboundLine($inboundLine->refresh());
-
-    expect(ReplenishmentCoverage::query()
-        ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
-        ->where('source_id', $purchaseLine->getKey())
-        ->exists())->toBeFalse();
+    Livewire::actingAs($user)
+        ->test(BarcodeWorkbench::class)
+        ->set('mode', 'count')
+        ->set('countId', $count->id)
+        ->set('scanCode', $variant->barcode)
+        ->call('scan')
+        ->assertSet('matches.0.id', $countLine->id)
+        ->assertSet('countLineId', $countLine->id);
 });
 
-it('releases stale purchase coverage when an inbound line loses all allocations', function (): void {
-    $variant = ProductVariant::factory()->create();
-    $warehouse = Warehouse::factory()->create();
-    $policy = WarehouseReplenishmentPolicy::factory()->create([
-        'warehouse_id' => $warehouse->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'min_quantity' => '5.000000',
-        'max_quantity' => '10.000000',
-        'is_active' => true,
+it('records a scanned inventory count and covers invalid cached resolution handling', function (): void {
+    $user = coverage59InventoryUser();
+    $this->actingAs($user);
+
+    $variant = ProductVariant::factory()->create([
+        'sku' => 'SKU-COVERAGE-59-COUNT',
+        'barcode' => 'BAR-COVERAGE-59-COUNT',
     ]);
-    $requirement = ReplenishmentRequirement::query()->create([
-        'warehouse_replenishment_policy_id' => $policy->getKey(),
-        'warehouse_id' => $warehouse->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'required_base_quantity' => '5.000000',
-        'covered_base_quantity' => '2.000000',
-        'fulfilled_base_quantity' => '0.000000',
-        'status' => ReplenishmentRequirementStatus::PartiallyCovered,
-        'triggered_at' => now(),
+    $count = InventoryCount::factory()->counting()->create();
+    $line = InventoryCountLine::factory()->create([
+        'inventory_count_id' => $count->id,
+        'product_variant_id' => $variant->id,
+        'system_base_quantity' => '2.000000',
     ]);
 
-    $order = PurchaseOrder::factory()->accepted()->create();
-    $purchaseLine = PurchaseOrderLine::factory()
-        ->for($order)
-        ->for($variant, 'productVariant')
-        ->create([
-            'unit_id' => $variant->unit_id,
-            'quantity_ordered' => '2.000000',
-        ]);
-    $purchaseLine->forceFill([
-        'base_quantity' => '2.000000',
-        'received_base_quantity' => '0.000000',
-    ])->saveQuietly();
+    $component = Livewire::actingAs($user)
+        ->test(BarcodeWorkbench::class)
+        ->set('mode', 'count')
+        ->set('countId', $count->id)
+        ->set('scanCode', $variant->sku)
+        ->call('scan')
+        ->set('countQuantity', '3')
+        ->call('recordCount');
 
-    $coverage = ReplenishmentCoverage::query()->create([
-        'replenishment_requirement_id' => $requirement->getKey(),
-        'source_type' => ReplenishmentCoverageSourceType::PurchaseOrderLine,
-        'source_id' => $purchaseLine->getKey(),
-        'covered_base_quantity' => '2.000000',
-        'status' => ReplenishmentCoverageStatus::Active,
-    ]);
+    $component->assertSet('matches.0.id', $line->id);
+    expect((string) $line->refresh()->counted_base_quantity)->toBe('3.000000');
 
-    $inbound = PurchaseInbound::factory()->create([
-        'purchase_order_id' => $order->getKey(),
-    ]);
-    $inboundLine = PurchaseInboundLine::factory()->create([
-        'purchase_inbound_id' => $inbound->getKey(),
-        'purchase_order_line_id' => $purchaseLine->getKey(),
-    ]);
+    $page = app(BarcodeWorkbench::class);
+    $page->mode = 'count';
+    $page->countId = $count->id;
+    $page->countLineId = $line->id;
+    $page->resolution = ['code' => 123];
 
-    app(PurchaseReplenishmentCoverageService::class)->syncForInboundLine($inboundLine);
-
-    expect($coverage->refresh()->status)->toBe(ReplenishmentCoverageStatus::Released);
+    expect(fn () => $page->recordCount())
+        ->toThrow(DomainException::class, 'latest scan could not be resolved');
 });

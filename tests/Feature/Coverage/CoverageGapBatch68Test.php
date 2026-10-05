@@ -2,138 +2,121 @@
 
 declare(strict_types=1);
 
-use App\Enums\StockCondition;
-use App\Enums\TransferDiscrepancyDisposition;
-use App\Filament\Resources\Adjustments\Pages\EditAdjustment;
-use App\Filament\Resources\Adjustments\RelationManagers\AdjustmentItemsRelationManager;
-use App\Filament\Resources\InventoryOperations\Pages\ViewInventoryOperation;
-use App\Models\InventoryAdjustment;
-use App\Models\InventoryOperation;
-use App\Models\InventoryOperationLine;
-use App\Models\InventoryStock;
-use App\Models\ProductVariant;
+use App\Enums\MaintenanceBillingType;
+use App\Enums\MaintenanceStatus;
+use App\Enums\QuotationStatus;
+use App\Enums\WarrantyClaimDecision;
+use App\Models\MaintenanceLabourEntry;
+use App\Models\MaintenanceRecord;
+use App\Models\Quotation;
+use App\Models\SalesSetting;
 use App\Models\User;
-use App\Models\Warehouse;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
+use App\Services\Support\Exceptions\InvalidBillingTransition;
+use App\Services\Support\MaintenanceBillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
-use Livewire\Livewire;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Gate::before(static fn (): bool => true);
+    SalesSetting::factory()->create(['default_tax_percent' => '0.00']);
 });
-function batch68Method(string $class, string $method): ReflectionMethod
-{
-    return new ReflectionMethod($class, $method);
-}
 
-function batch68Hook(Select $component): Closure
+function coverage68QuotedRecord(QuotationStatus $status, bool $attachQuotation = true): array
 {
-    $property = new ReflectionProperty($component, 'afterStateUpdated');
-    $hooks = $property->getValue($component);
+    $record = MaintenanceRecord::factory()->create([
+        'status' => MaintenanceStatus::Closed,
+        'coverage_decision' => WarrantyClaimDecision::Rejected,
+        'billing_type' => MaintenanceBillingType::Quoted,
+        'quotation_id' => null,
+    ]);
 
-    if (! isset($hooks[0]) || ! $hooks[0] instanceof Closure) {
-        throw new LogicException('Expected afterStateUpdated callback.');
+    MaintenanceLabourEntry::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'total_cost_minor' => 5000,
+    ]);
+
+    $quotation = null;
+    if ($attachQuotation) {
+        $quotation = Quotation::factory()->create([
+            'customer_id' => $record->customer_id,
+            'status' => $status,
+            'subtotal' => '100.00',
+            'tax_total' => '0.00',
+            'grand_total' => '100.00',
+            'sent_at' => $status === QuotationStatus::Draft ? null : now()->subDay(),
+            'decided_at' => in_array($status, [
+                QuotationStatus::Accepted,
+                QuotationStatus::Rejected,
+                QuotationStatus::Cancelled,
+            ], true) ? now() : null,
+        ]);
+
+        $record->forceFill(['quotation_id' => $quotation->id])->save();
     }
 
-    return $hooks[0];
+    return compact('record', 'quotation');
 }
 
-it('covers adjustment stock-condition reactive reset and recalculation', function (): void {
-    $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($warehouse)->create([
-        'on_hand_quantity' => '5.000000',
-        'reserved_quantity' => '0.000000',
-        'damaged_quantity' => '0.000000',
-        'available_quantity' => '5.000000',
-    ]);
-    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
-    $actor = User::factory()->admin()->create();
-    $manager = Livewire::actingAs($actor)
-        ->test(AdjustmentItemsRelationManager::class, [
-            'ownerRecord' => $adjustment,
-            'pageClass' => EditAdjustment::class,
-        ])
-        ->instance();
+it('refuses a requote when the accepted quotation already covers current customer responsibility', function (): void {
+    ['record' => $record] = coverage68QuotedRecord(QuotationStatus::Accepted);
 
-    $schema = $manager->getSchema('form');
-    $components = collect($schema?->getFlatComponents(withHidden: true) ?? [])
-        ->filter(fn (mixed $component): bool => $component instanceof Select)
-        ->keyBy(fn (Select $component): string => $component->getName());
-
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->andReturnUsing(static fn (string $path): mixed => match ($path) {
-        'product_variant_id' => $variant->getKey(),
-        'stock_condition' => StockCondition::Saleable->value,
-        'inventory_lot_id', 'serialized_inventory_unit_id' => null,
-        'new_quantity' => 7,
-        default => null,
-    });
-
-    $set = Mockery::mock(Set::class);
-    $set->shouldReceive('__invoke')->with('inventory_lot_id', null)->once();
-    $set->shouldReceive('__invoke')->with('serialized_inventory_unit_id', null)->once();
-    $set->shouldReceive('__invoke')->with('old_quantity', 5.0)->once();
-    $set->shouldReceive('__invoke')->with('difference', 2.0)->once();
-
-    batch68Hook($components['stock_condition'])($get, $set);
-
-    expect(true)->toBeTrue();
+    expect(fn () => app(MaintenanceBillingService::class)->createQuotation(
+        $record,
+        User::factory()->create(),
+    ))->toThrow(
+        ValidationException::class,
+        'accepted quotation already covers the current customer responsibility',
+    );
 });
 
-it('covers transfer receipt parsing guards valid disposition decimal precision and zero conversion factor', function (): void {
-    $page = new ReflectionClass(ViewInventoryOperation::class)->newInstanceWithoutConstructor();
-    $parse = batch68Method(ViewInventoryOperation::class, 'transferReceiptLines');
+it('rejects final invoicing when a quoted request has lost its quotation link', function (): void {
+    ['record' => $record] = coverage68QuotedRecord(QuotationStatus::Draft, false);
 
-    expect(fn (): mixed => $parse->invoke($page, ['lines' => ['bad-line']]))
-        ->toThrow(DomainException::class, 'line is invalid');
+    expect(fn () => app(MaintenanceBillingService::class)->createInvoice(
+        $record,
+        User::factory()->create(),
+    ))->toThrow(ValidationException::class, 'customer-responsibility quotation is missing');
+});
 
-    expect(fn (): mixed => $parse->invoke($page, ['lines' => [[
-        'operation_line_id' => new stdClass,
-        'received_transaction_quantity' => '1',
-    ]]]))->toThrow(DomainException::class, 'invalid field values');
+it('rejects final invoicing while the latest quotation is still undecided', function (): void {
+    ['record' => $record] = coverage68QuotedRecord(QuotationStatus::Draft);
 
-    $valid = $parse->invoke($page, ['lines' => [[
-        'operation_line_id' => '42',
-        'received_transaction_quantity' => '1',
-        'discrepancy_disposition' => TransferDiscrepancyDisposition::Damaged->value,
-        'discrepancy_reason' => 'Damaged in transit',
-    ]]]);
-    expect($valid)->toHaveCount(1)
-        ->and($valid[0]->discrepancyDisposition)->toBe(TransferDiscrepancyDisposition::Damaged);
+    expect(fn () => app(MaintenanceBillingService::class)->createInvoice(
+        $record,
+        User::factory()->create(),
+    ))->toThrow(ValidationException::class, 'latest customer quotation must be decided');
+});
 
-    expect(fn (): mixed => $parse->invoke($page, ['lines' => [[
-        'operation_line_id' => 42,
-        'received_transaction_quantity' => '1',
-        'discrepancy_disposition' => 'not-valid',
-    ]]]))->toThrow(DomainException::class, 'invalid discrepancy disposition');
+it('rejects final invoicing when the decided quotation chain contains no accepted quotation', function (): void {
+    ['record' => $record] = coverage68QuotedRecord(QuotationStatus::Rejected);
 
-    $quantity = batch68Method(ViewInventoryOperation::class, 'receiptTransactionQuantity');
-    expect(fn (): mixed => $quantity->invoke($page, 1.1234567))
-        ->toThrow(DomainException::class, 'at most six decimal places');
+    expect(fn () => app(MaintenanceBillingService::class)->createInvoice(
+        $record,
+        User::factory()->create(),
+    ))->toThrow(ValidationException::class, 'must be accepted before creating the final invoice');
+});
 
-    $line = new InventoryOperationLine;
-    $line->forceFill([
-        'dispatched_base_quantity' => '5.000000',
-        'received_base_quantity' => '1.000000',
-        'conversion_factor_snapshot' => '0.000000',
+it('covers quotable guards for settled billing and zero-customer coverage decisions', function (): void {
+    $service = app(MaintenanceBillingService::class);
+    $assertQuotable = new ReflectionMethod(MaintenanceBillingService::class, 'assertQuotable');
+
+    $settled = MaintenanceRecord::factory()->create([
+        'status' => MaintenanceStatus::Closed,
+        'billing_type' => MaintenanceBillingType::Invoiced,
     ]);
 
-    expect(batch68Method(ViewInventoryOperation::class, 'remainingTransactionQuantity')->invoke($page, $line))
-        ->toBe('0.000000');
-});
-it('covers unauthenticated transfer receipt action actor guard', function (): void {
-    auth()->logout();
+    expect(fn () => $assertQuotable->invoke($service, $settled))
+        ->toThrow(InvalidBillingTransition::class);
 
-    $page = new ReflectionClass(ViewInventoryOperation::class)->newInstanceWithoutConstructor();
-    $action = batch68Method(ViewInventoryOperation::class, 'transferReceiptAction')->invoke($page);
-    $record = InventoryOperation::factory()->internalTransfer()->inTransit()->create();
+    $covered = MaintenanceRecord::factory()->create([
+        'status' => MaintenanceStatus::Closed,
+        'billing_type' => MaintenanceBillingType::Unbilled,
+        'coverage_decision' => WarrantyClaimDecision::Goodwill,
+    ]);
 
-    expect(fn () => ($action->getActionFunction())($record, ['lines' => []]))
-        ->toThrow(LogicException::class, 'authenticated inventory operation actor');
+    expect(fn () => $assertQuotable->invoke($service, $covered))
+        ->toThrow(ValidationException::class, 'leaves no customer responsibility to quote');
 });

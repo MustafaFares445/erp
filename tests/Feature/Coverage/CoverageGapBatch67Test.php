@@ -2,165 +2,216 @@
 
 declare(strict_types=1);
 
-use App\Enums\PaymentStatus;
-use App\Enums\StockCondition;
-use App\Enums\WarrantyEntitlementState;
-use App\Filament\Resources\Adjustments\Pages\EditAdjustment;
-use App\Filament\Resources\Adjustments\RelationManagers\AdjustmentItemsRelationManager;
-use App\Filament\Resources\Customers\RelationManagers\CustomerOwnedEquipmentRelationManager;
-use App\Filament\Resources\Payments\Schemas\PaymentInfolist;
-use App\Models\InventoryAdjustment;
-use App\Models\InventoryStock;
-use App\Models\Payment;
+use App\Enums\WarrantyClaimDecision;
+use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyLineCategory;
+use App\Models\MaintenanceCoverageLine;
+use App\Models\MaintenanceLabourEntry;
+use App\Models\MaintenanceRecord;
+use App\Models\MaintenanceTask;
+use App\Models\MaintenanceThirdPartyCost;
 use App\Models\ProductVariant;
-use App\Models\SerializedInventoryUnit;
-use App\Models\TaxRecognitionEntry;
-use App\Models\User;
-use App\Models\Warehouse;
-use App\Models\WarrantyEntitlement;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use App\Models\SalesSetting;
+use App\Models\ServiceRecordPart;
+use App\Services\Support\MaintenanceBillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Gate;
-use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-beforeEach(function (): void {
-    Gate::before(static fn (): bool => true);
+it('rebuilds actual customer responsibility across parts labour third-party and generic frozen coverage rows', function (): void {
+    SalesSetting::factory()->create(['default_tax_percent' => '0.00']);
+
+    $record = MaintenanceRecord::factory()->create([
+        'coverage_decision' => WarrantyClaimDecision::PartiallyCovered,
+    ]);
+    $task = MaintenanceTask::factory()->for($record, 'maintenanceRecord')->create();
+
+    $partiallyCoveredVariant = ProductVariant::factory()->create([
+        'name' => 'Partially covered part',
+        'base_price' => '20.00',
+    ]);
+    $fullyCoveredVariant = ProductVariant::factory()->create([
+        'name' => 'Fully covered part',
+        'base_price' => '20.00',
+    ]);
+    $unassessedVariant = ProductVariant::factory()->create([
+        'name' => 'Unassessed part',
+        'base_price' => '30.00',
+    ]);
+
+    $partialPart = ServiceRecordPart::factory()->for($task, 'maintenanceTask')->create([
+        'product_variant_id' => $partiallyCoveredVariant->id,
+        'quantity' => '2.000',
+    ]);
+    $fullPart = ServiceRecordPart::factory()->for($task, 'maintenanceTask')->create([
+        'product_variant_id' => $fullyCoveredVariant->id,
+        'quantity' => '1.000',
+    ]);
+    ServiceRecordPart::factory()->for($task, 'maintenanceTask')->create([
+        'product_variant_id' => $unassessedVariant->id,
+        'quantity' => '1.000',
+    ]);
+    ServiceRecordPart::factory()->reversed()->for($task, 'maintenanceTask')->create([
+        'product_variant_id' => $partiallyCoveredVariant->id,
+        'quantity' => '1.000',
+    ]);
+
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'category' => WarrantyLineCategory::Part,
+        'description' => 'Partial part coverage',
+        'source_type' => ServiceRecordPart::class,
+        'source_id' => $partialPart->id,
+        'amount_minor' => 4000,
+        'coverage_percent' => 50,
+        'covered_amount_minor' => 2000,
+        'customer_amount_minor' => 2000,
+        'coverage_source' => WarrantyCoverageSource::SellerWarranty,
+    ]);
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'category' => WarrantyLineCategory::Part,
+        'description' => 'Full part coverage',
+        'source_type' => ServiceRecordPart::class,
+        'source_id' => $fullPart->id,
+        'amount_minor' => 2000,
+        'coverage_percent' => 100,
+        'covered_amount_minor' => 2000,
+        'customer_amount_minor' => 0,
+        'coverage_source' => WarrantyCoverageSource::SellerWarranty,
+    ]);
+
+    MaintenanceLabourEntry::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'total_cost_minor' => 10000,
+    ]);
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'category' => WarrantyLineCategory::Labour,
+        'description' => 'Labour coverage',
+        'source_type' => 'maintenance_labour',
+        'source_id' => null,
+        'amount_minor' => 10000,
+        'coverage_percent' => 25,
+        'covered_amount_minor' => 2500,
+        'customer_amount_minor' => 7500,
+        'coverage_source' => WarrantyCoverageSource::SellerWarranty,
+    ]);
+
+    $cost = MaintenanceThirdPartyCost::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'description' => 'External vendor',
+        'amount_minor' => 4000,
+    ]);
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'category' => WarrantyLineCategory::ThirdParty,
+        'description' => 'Third party coverage',
+        'source_type' => MaintenanceThirdPartyCost::class,
+        'source_id' => $cost->id,
+        'amount_minor' => 4000,
+        'coverage_percent' => 50,
+        'covered_amount_minor' => 2000,
+        'customer_amount_minor' => 2000,
+        'coverage_source' => WarrantyCoverageSource::SellerWarranty,
+    ]);
+
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'category' => WarrantyLineCategory::Other,
+        'description' => 'Generic customer share',
+        'source_type' => null,
+        'source_id' => null,
+        'amount_minor' => 1500,
+        'coverage_percent' => 0,
+        'covered_amount_minor' => 0,
+        'customer_amount_minor' => 1500,
+        'coverage_source' => WarrantyCoverageSource::CustomerPaid,
+    ]);
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'category' => WarrantyLineCategory::Other,
+        'description' => 'Ignored sourced row',
+        'source_type' => 'other-source',
+        'source_id' => 999,
+        'amount_minor' => 1000,
+        'coverage_percent' => 0,
+        'covered_amount_minor' => 0,
+        'customer_amount_minor' => 1000,
+        'coverage_source' => WarrantyCoverageSource::CustomerPaid,
+    ]);
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'category' => WarrantyLineCategory::Other,
+        'description' => 'Ignored zero customer row',
+        'source_type' => null,
+        'source_id' => null,
+        'amount_minor' => 1000,
+        'coverage_percent' => 100,
+        'covered_amount_minor' => 1000,
+        'customer_amount_minor' => 0,
+        'coverage_source' => WarrantyCoverageSource::SellerWarranty,
+    ]);
+
+    $method = new ReflectionMethod(MaintenanceBillingService::class, 'actualCustomerResponsibilityLines');
+    $lines = $method->invoke(app(MaintenanceBillingService::class), $record->refresh());
+
+    expect($lines)->toHaveCount(5)
+        ->and(collect($lines)->contains(fn (array $line): bool => ($line['product_variant_id'] ?? null) === $partiallyCoveredVariant->id
+            && ($line['unit_price'] ?? null) === 10.0
+            && ($line['quantity'] ?? null) === 2.0
+        ))->toBeTrue()
+        ->and(collect($lines)->contains(fn (array $line): bool => ($line['product_variant_id'] ?? null) === $unassessedVariant->id
+            && ($line['unit_price'] ?? null) === 30.0
+        ))->toBeTrue()
+        ->and(collect($lines)->contains(fn (array $line): bool => ($line['description'] ?? null) === 'Labour'
+            && ($line['unit_price'] ?? null) === 75.0
+        ))->toBeTrue()
+        ->and(collect($lines)->contains(fn (array $line): bool => ($line['description'] ?? null) === 'External vendor'
+            && ($line['unit_price'] ?? null) === 20.0
+        ))->toBeTrue()
+        ->and(collect($lines)->contains(fn (array $line): bool => ($line['description'] ?? null) === 'Generic customer share'
+            && ($line['unit_price'] ?? null) === 15.0
+        ))->toBeTrue();
 });
-function batch67Method(string $class, string $method): ReflectionMethod
-{
-    return new ReflectionMethod($class, $method);
-}
 
-function batch67Hook(Select $component): Closure
-{
-    $property = new ReflectionProperty($component, 'afterStateUpdated');
-    $hooks = $property->getValue($component);
+it('returns no actual or initial customer responsibility for fully covered decisions without coverage rows', function (): void {
+    SalesSetting::factory()->create(['default_tax_percent' => '0.00']);
 
-    if (! isset($hooks[0]) || ! $hooks[0] instanceof Closure) {
-        throw new LogicException('Expected a Filament afterStateUpdated hook.');
-    }
-
-    return $hooks[0];
-}
-
-it('covers adjustment variant and lot reactive state callbacks', function (): void {
-    $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($warehouse)->create([
-        'on_hand_quantity' => '5.000000',
-        'reserved_quantity' => '0.000000',
-        'damaged_quantity' => '0.000000',
-        'available_quantity' => '5.000000',
+    $record = MaintenanceRecord::factory()->create([
+        'coverage_decision' => WarrantyClaimDecision::FullyCovered,
     ]);
-    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
-    $actor = User::factory()->admin()->create();
-    $manager = Livewire::actingAs($actor)
-        ->test(AdjustmentItemsRelationManager::class, [
-            'ownerRecord' => $adjustment,
-            'pageClass' => EditAdjustment::class,
-        ])
-        ->instance();
-    $schema = $manager->getSchema('form');
+    $service = app(MaintenanceBillingService::class);
 
-    if (! $schema instanceof Schema) {
-        throw new LogicException('Adjustment item form schema was not available.');
-    }
-    $components = collect($schema->getFlatComponents(withHidden: true))
-        ->filter(fn (mixed $component): bool => $component instanceof Select)
-        ->keyBy(fn (Select $component): string => $component->getName());
+    $actual = new ReflectionMethod(MaintenanceBillingService::class, 'actualCustomerResponsibilityLines');
+    $initial = new ReflectionMethod(MaintenanceBillingService::class, 'customerResponsibilityLines');
 
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->andReturnUsing(static fn (string $path): mixed => match ($path) {
-        'product_variant_id' => $variant->getKey(),
-        'stock_condition' => StockCondition::Saleable->value,
-        'inventory_lot_id', 'serialized_inventory_unit_id' => null,
-        'new_quantity' => 7,
-        default => null,
-    });
-
-    $set = Mockery::mock(Set::class);
-    $set->shouldReceive('__invoke')->with('inventory_lot_id', null)->once();
-    $set->shouldReceive('__invoke')->with('serialized_inventory_unit_id', null)->twice();
-    $set->shouldReceive('__invoke')->with('old_quantity', 5.0)->twice();
-    $set->shouldReceive('__invoke')->with('difference', 2.0)->twice();
-
-    batch67Hook($components['product_variant_id'])($get, $set, $variant->getKey());
-    batch67Hook($components['inventory_lot_id'])($get, $set);
-
-    expect(true)->toBeTrue();
-});
-it('covers fully-applied posted payment banner allocation description and numeric tax total', function (): void {
-    $payment = new Payment;
-    $payment->forceFill([
-        'amount' => '100.00',
-        'currency' => 'AED',
-        'status' => PaymentStatus::Posted,
-        'posted_at' => now(),
-        'allocations_sum_amount' => '100.00',
-    ]);
-
-    $banner = batch67Method(PaymentInfolist::class, 'bannerMeta')->invoke(null, $payment);
-    expect($banner['status'])->toBe('success')
-        ->and($banner['description'])->toContain('100');
-
-    $payment->setRelation('allocations', new EloquentCollection);
-    $allocationsSection = batch67Method(PaymentInfolist::class, 'allocations')->invoke(null);
-    expect($allocationsSection)->toBeInstanceOf(Section::class);
-
-    $descriptionProperty = new ReflectionProperty($allocationsSection, 'description');
-    $description = $descriptionProperty->getValue($allocationsSection);
-    expect($description)->toBeInstanceOf(Closure::class)
-        ->and($description($payment))->not->toBe('');
-
-    $first = new TaxRecognitionEntry;
-    $first->forceFill(['recognised_tax_amount' => '3.25']);
-
-    $second = new TaxRecognitionEntry;
-    $second->forceFill(['recognised_tax_amount' => '1.75']);
-
-    $payment->setRelation('taxRecognitionEntries', new EloquentCollection([$first, $second]));
-
-    expect(batch67Method(PaymentInfolist::class, 'recognizedTaxTotal')->invoke(null, $payment))
-        ->toBe(5.0);
+    expect($actual->invoke($service, $record))->toBe([])
+        ->and($initial->invoke($service, $record))->toBe([]);
 });
 
-it('covers customer equipment active pending legacy active and expired warranty labels', function (): void {
-    $activeUnit = SerializedInventoryUnit::factory()->create();
-    WarrantyEntitlement::factory()->create([
-        'serialized_inventory_unit_id' => $activeUnit->getKey(),
-        'state' => WarrantyEntitlementState::Active,
-        'starts_on' => today()->subDay(),
-        'expires_on' => today()->addDay(),
+it('builds standalone third-party billing lines and skips zero-value costs', function (): void {
+    SalesSetting::factory()->create(['default_tax_percent' => '0.00']);
+
+    $record = MaintenanceRecord::factory()->create();
+    MaintenanceThirdPartyCost::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'description' => 'Positive vendor cost',
+        'amount_minor' => 2500,
+    ]);
+    MaintenanceThirdPartyCost::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'description' => 'Zero vendor cost',
+        'amount_minor' => 0,
     ]);
 
-    $pendingUnit = SerializedInventoryUnit::factory()->create();
-    WarrantyEntitlement::factory()->create([
-        'serialized_inventory_unit_id' => $pendingUnit->getKey(),
-        'state' => WarrantyEntitlementState::PendingActivation,
-        'starts_on' => null,
-        'expires_on' => null,
-    ]);
+    $method = new ReflectionMethod(MaintenanceBillingService::class, 'thirdPartyLines');
+    $lines = $method->invoke(app(MaintenanceBillingService::class), $record);
 
-    $legacyActive = SerializedInventoryUnit::factory()->create([
-        'warranty_expires_on' => today()->addDay(),
-    ]);
-    $legacyExpired = SerializedInventoryUnit::factory()->create([
-        'warranty_expires_on' => today()->subDay(),
-    ]);
-    $state = batch67Method(CustomerOwnedEquipmentRelationManager::class, 'warrantyState');
-    $color = batch67Method(CustomerOwnedEquipmentRelationManager::class, 'warrantyColor');
-
-    expect($state->invoke(null, $activeUnit->refresh()))->toBe('Active')
-        ->and($color->invoke(null, $activeUnit->refresh()))->toBe('success')
-        ->and($state->invoke(null, $pendingUnit->refresh()))->toBe('Pending Activation')
-        ->and($color->invoke(null, $pendingUnit->refresh()))->toBe('warning')
-        ->and($state->invoke(null, $legacyActive->refresh()))->toBe('Active')
-        ->and($state->invoke(null, $legacyExpired->refresh()))->toBe('Expired');
+    expect($lines)->toBe([[
+        'description' => 'Positive vendor cost',
+        'quantity' => 1,
+        'unit_price' => 25.0,
+        'tax_amount' => 0.0,
+    ]]);
 });

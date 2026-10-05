@@ -2,189 +2,196 @@
 
 declare(strict_types=1);
 
-use App\Data\Crm\CampaignData;
-use App\Enums\CampaignChannel;
-use App\Enums\CampaignStatus;
-use App\Enums\InventoryReportType;
-use App\Enums\NotificationChannel;
-use App\Enums\TicketEquipmentSource;
-use App\Enums\TicketServicePath;
-use App\Enums\TicketStatus;
-use App\Models\Campaign;
-use App\Models\Currency;
+use App\Enums\MaintenanceStatus;
+use App\Enums\SerializedCustodyType;
+use App\Enums\WarrantyClaimDecision;
+use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyEntitlementState;
+use App\Enums\WarrantyFailureCategory;
+use App\Enums\WarrantyLineCategory;
+use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
-use App\Models\NotificationTemplate;
-use App\Models\PurchaseOrder;
-use App\Models\Ticket;
+use App\Models\MaintenanceLabourEntry;
+use App\Models\MaintenanceRecord;
+use App\Models\MaintenanceTask;
+use App\Models\MaintenanceThirdPartyCost;
+use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
+use App\Models\ServiceRecordPart;
 use App\Models\User;
-use App\Services\Crm\CampaignService;
-use App\Services\Inventory\InventoryReportService;
-use App\Services\Purchasing\SupplierConfirmationService;
-use App\Services\Sales\QuotationService;
-use App\Services\Support\TicketTriageService;
+use App\Models\WarrantyEntitlement;
+use App\Services\Support\WarrantyClaimService;
+use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
-beforeEach(function (): void {
-    Gate::before(static fn (): bool => true);
-
-    Currency::query()->firstOrCreate(
-        ['code' => 'AED'],
-        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
-    );
-});
-
-function batch66Method(string $class, string $method): ReflectionMethod
+function coverage66Manager(): User
 {
-    return new ReflectionMethod($class, $method);
+    (new SupportPermissionSeeder)->run();
+
+    $manager = User::factory()->admin()->create();
+    $manager->assignRole('Support Manager');
+
+    return $manager;
 }
 
-it('covers service quotation validation for invalid quantity description and negative price', function (): void {
+function coverage66Diagnosed(User $manager, array $attributes = []): MaintenanceRecord
+{
+    $record = MaintenanceRecord::factory()->covered()->create([
+        'status' => MaintenanceStatus::Open,
+        ...$attributes,
+    ]);
+
+    return app(WarrantyClaimService::class)->recordDiagnosis($record, [
+        'diagnosis_summary' => 'Coverage diagnosis.',
+        'root_cause' => 'Coverage root cause.',
+        'failure_category' => WarrantyFailureCategory::NormalComponentFailure->value,
+    ], $manager);
+}
+
+it('suggests warranty lines from consumed parts labour and third-party costs using entitlement coverage flags', function (): void {
+    $manager = coverage66Manager();
     $customer = CustomerProfile::factory()->create();
-    $service = app(QuotationService::class);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->id,
+    ]);
+    $record = MaintenanceRecord::factory()->covered()->create([
+        'customer_id' => $customer->id,
+        'serialized_inventory_unit_id' => $unit->id,
+    ]);
 
-    expect(fn () => $service->create(
-        ['customer_id' => $customer->getKey(), 'issue_date' => today()->toDateString()],
-        [[
-            'product_variant_id' => null,
-            'quantity' => 0,
-            'description' => '',
-            'unit_price' => 10,
+    WarrantyEntitlement::factory()->create([
+        'serialized_inventory_unit_id' => $unit->id,
+        'customer_id' => $customer->id,
+        'state' => WarrantyEntitlementState::Active,
+        'covers_parts' => true,
+        'covers_labour' => false,
+        'covers_third_party' => true,
+    ]);
+
+    $task = MaintenanceTask::factory()->for($record, 'maintenanceRecord')->create();
+    $variant = ProductVariant::factory()->create([
+        'name' => 'Coverage replacement part',
+        'sku' => 'C66-PART',
+        'base_price' => '25.00',
+    ]);
+
+    ServiceRecordPart::factory()->for($task, 'maintenanceTask')->create([
+        'product_variant_id' => $variant->id,
+        'quantity' => '2.000',
+    ]);
+    ServiceRecordPart::factory()->reversed()->for($task, 'maintenanceTask')->create([
+        'product_variant_id' => $variant->id,
+        'quantity' => '1.000',
+    ]);
+
+    MaintenanceLabourEntry::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'total_cost_minor' => 12000,
+    ]);
+    MaintenanceThirdPartyCost::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'description' => 'External calibration',
+        'amount_minor' => 8000,
+    ]);
+
+    $lines = app(WarrantyClaimService::class)->suggestedCoverageLines($record->refresh());
+
+    expect($lines)->toHaveCount(3);
+
+    $parts = collect($lines)->firstWhere('category', WarrantyLineCategory::Part->value);
+    $labour = collect($lines)->firstWhere('category', WarrantyLineCategory::Labour->value);
+    $thirdParty = collect($lines)->firstWhere('category', WarrantyLineCategory::ThirdParty->value);
+
+    expect($parts['description'])->toBe('Coverage replacement part')
+        ->and($parts['amount_minor'])->toBe(5000)
+        ->and($parts['coverage_percent'])->toBe(100.0)
+        ->and($parts['coverage_source'])->toBe(WarrantyCoverageSource::SellerWarranty->value)
+        ->and($labour['amount_minor'])->toBe(12000)
+        ->and($labour['coverage_percent'])->toBe(0.0)
+        ->and($labour['coverage_source'])->toBe(WarrantyCoverageSource::CustomerPaid->value)
+        ->and($thirdParty['amount_minor'])->toBe(8000)
+        ->and($thirdParty['coverage_percent'])->toBe(100.0)
+        ->and($thirdParty['coverage_source'])->toBe(WarrantyCoverageSource::SellerWarranty->value);
+
+    expect($manager)->toBeInstanceOf(User::class);
+});
+
+it('covers warranty-decision validation for pending decisions missing explanations and malformed lines', function (): void {
+    $manager = coverage66Manager();
+    $service = app(WarrantyClaimService::class);
+    $record = coverage66Diagnosed($manager);
+
+    expect(fn () => $service->decideCoverage($record, [
+        'coverage_decision' => WarrantyClaimDecision::PendingDiagnosis->value,
+        'coverage_reason' => 'Still pending.',
+    ], $manager))->toThrow(ValidationException::class, 'Choose a final coverage decision');
+
+    expect(fn () => $service->decideCoverage($record->refresh(), [
+        'coverage_decision' => WarrantyClaimDecision::Rejected->value,
+        'coverage_reason' => 'Not covered.',
+        'customer_coverage_explanation' => '   ',
+    ], $manager))->toThrow(ValidationException::class, 'Explain the customer responsibility');
+
+    expect(fn () => $service->decideCoverage($record->refresh(), [
+        'coverage_decision' => WarrantyClaimDecision::PartiallyCovered->value,
+        'coverage_reason' => 'Partial coverage.',
+        'customer_coverage_explanation' => 'Customer pays a portion.',
+        'coverage_lines' => [[
+            'category' => WarrantyLineCategory::Part->value,
+            'description' => 'Invalid amount line',
+            'amount_minor' => -1,
+            'coverage_percent' => 50,
         ]],
-    ))->toThrow(ValidationException::class, 'Service quotation lines require a description and positive quantity.');
-
-    expect(fn () => $service->create(
-        ['customer_id' => $customer->getKey(), 'issue_date' => today()->toDateString()],
-        [[
-            'product_variant_id' => null,
-            'quantity' => 1,
-            'description' => 'Diagnostic service',
-            'unit_price' => -1,
-        ]],
-    ))->toThrow(ValidationException::class, 'Service quotation lines require a non-negative unit price.');
+    ], $manager))->toThrow(ValidationException::class, 'non-negative amount');
 });
 
-it('covers every campaign delivery-channel match arm for persisted and incoming templates', function (): void {
-    $service = app(CampaignService::class);
+it('skips non-array submitted coverage lines while finalizing an otherwise valid decision', function (): void {
+    $manager = coverage66Manager();
+    $record = coverage66Diagnosed($manager);
 
-    $mail = NotificationTemplate::query()->create([
-        'key' => 'batch66.mail',
-        'locale' => 'en',
-        'channel' => NotificationChannel::Mail,
-        'subject' => 'Mail',
-        'body' => 'Mail',
-        'variables' => [],
-        'is_active' => true,
-    ]);
-    $sms = NotificationTemplate::query()->create([
-        'key' => 'batch66.sms',
-        'locale' => 'en',
-        'channel' => NotificationChannel::Sms,
-        'subject' => null,
-        'body' => 'SMS',
-        'variables' => [],
-        'is_active' => true,
-    ]);
-    $whatsapp = NotificationTemplate::query()->create([
-        'key' => 'batch66.whatsapp',
-        'locale' => 'en',
-        'channel' => NotificationChannel::Whatsapp,
-        'subject' => null,
-        'body' => 'WA',
-        'variables' => [],
-        'is_active' => true,
-    ]);
+    $updated = app(WarrantyClaimService::class)->decideCoverage($record, [
+        'coverage_decision' => WarrantyClaimDecision::FullyCovered->value,
+        'coverage_reason' => 'Fully covered.',
+        'customer_coverage_explanation' => 'No customer charge.',
+        'coverage_lines' => ['skip-this-scalar'],
+    ], $manager);
 
-    $persisted = batch66Method(CampaignService::class, 'assertCampaignTemplateDeliverable');
-    $incoming = batch66Method(CampaignService::class, 'assertTemplateMatchesChannel');
-
-    $actor = User::factory()->create();
-
-    foreach ([
-        [CampaignChannel::Sms, $sms],
-        [CampaignChannel::Whatsapp, $whatsapp],
-    ] as $index => [$channel, $template]) {
-        $campaign = Campaign::query()->forceCreate([
-            'campaign_number' => 'CMP-B66-'.($index + 1),
-            'name' => 'Batch 66 persisted '.$channel->value,
-            'channel' => $channel,
-            'status' => CampaignStatus::Draft,
-            'content_template_id' => $template->getKey(),
-            'created_by' => $actor->getKey(),
-        ]);
-        $persisted->invoke($service, $campaign->fresh('contentTemplate'));
-
-        $incoming->invoke($service, new CampaignData(
-            name: 'Batch 66 '.$channel->value,
-            channel: $channel,
-            contentTemplateId: (int) $template->getKey(),
-        ));
-    }
-
-    $eventCampaign = Campaign::query()->forceCreate([
-        'campaign_number' => 'CMP-B66-EVENT',
-        'name' => 'Batch 66 event mismatch',
-        'channel' => CampaignChannel::Event,
-        'status' => CampaignStatus::Draft,
-        'content_template_id' => $mail->getKey(),
-        'created_by' => $actor->getKey(),
-    ]);
-    expect(fn (): mixed => $persisted->invoke($service, $eventCampaign->fresh('contentTemplate')))
-        ->toThrow(DomainException::class, 'no longer matches');
-
-    expect(fn (): mixed => $incoming->invoke($service, new CampaignData(
-        name: 'Event mismatch',
-        channel: CampaignChannel::Other,
-        contentTemplateId: (int) $mail->getKey(),
-    )))->toThrow(DomainException::class, 'does not match');
+    expect($updated->coverage_decision)->toBe(WarrantyClaimDecision::FullyCovered)
+        ->and($updated->coverageLines()->count())->toBe(0);
 });
 
-it('covers supplier confirmation unsent-order guard and successful quantity normalization', function (): void {
-    $actor = User::factory()->admin()->create();
-    $order = PurchaseOrder::factory()->accepted()->create([
-        'supplier_confirmation_required' => true,
-        'sent_at' => null,
+it('covers low-level claim source and pending-line persistence branches', function (): void {
+    $manager = coverage66Manager();
+    $record = MaintenanceRecord::factory()->create([
+        'warranty_status' => WarrantyStatus::Unknown,
     ]);
+    $service = app(WarrantyClaimService::class);
 
-    expect(fn () => app(SupplierConfirmationService::class)->recordPurchaseOrder($actor, $order))
-        ->toThrow(ValidationException::class, 'Send the Purchase Order');
+    $thirdPartySource = new ReflectionMethod(WarrantyClaimService::class, 'thirdPartySource');
+    expect($thirdPartySource->invoke($service, WarrantyCoverageSource::ManufacturerWarranty->value))
+        ->toBe(WarrantyCoverageSource::ManufacturerWarranty);
 
-    $normalize = batch66Method(SupplierConfirmationService::class, 'normalizeQuantity');
-    expect($normalize->invoke(app(SupplierConfirmationService::class), '1.25', 'quantity'))
-        ->toBe('1.250000');
-});
+    $persist = new ReflectionMethod(WarrantyClaimService::class, 'persistCoverageLine');
+    $persist->invoke(
+        $service,
+        $record,
+        [
+            'category' => WarrantyLineCategory::Labour->value,
+            'description' => 'Pending diagnostic coverage line',
+            'amount_minor' => 1000,
+        ],
+        WarrantyClaimDecision::PendingDiagnosis,
+        null,
+        $manager,
+    );
 
-it('covers ticket triage missing-customer guard and enum-instance helpers', function (): void {
-    $actor = User::factory()->admin()->create();
-    $customer = CustomerProfile::factory()->create();
-    $ticket = Ticket::factory()->for($customer, 'customer')->create([
-        'status' => TicketStatus::Pending,
-    ]);
-    $customer->delete();
-
-    expect(fn () => app(TicketTriageService::class)->triage($ticket, [
-        'equipment_source' => TicketEquipmentSource::External->value,
-        'external_equipment_name' => 'Detached customer equipment',
-        'service_path' => TicketServicePath::RemoteSupport->value,
-        'billing_decision' => 'no_charge',
-    ], $actor))->toThrow(DomainException::class, 'requires a customer profile');
-
-    $equipmentSource = batch66Method(TicketTriageService::class, 'equipmentSource');
-    $servicePath = batch66Method(TicketTriageService::class, 'servicePath');
-
-    expect($equipmentSource->invoke(app(TicketTriageService::class), TicketEquipmentSource::External))
-        ->toBe(TicketEquipmentSource::External)
-        ->and($servicePath->invoke(app(TicketTriageService::class), TicketServicePath::RemoteSupport))
-        ->toBe(TicketServicePath::RemoteSupport);
-});
-
-it('covers expiry report warehouse filtering', function (): void {
-    $query = app(InventoryReportService::class)->query(InventoryReportType::ExpiryLots, [
-        'warehouse_id' => 123,
-    ]);
-
-    expect($query->toSql())->toContain('exists');
+    $line = $record->coverageLines()->sole();
+    expect((float) $line->coverage_percent)->toBe(0.0)
+        ->and($line->covered_amount_minor)->toBe(0)
+        ->and($line->customer_amount_minor)->toBe(1000)
+        ->and($line->coverage_source)->toBe(WarrantyCoverageSource::CustomerPaid);
 });

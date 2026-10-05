@@ -49,14 +49,14 @@ it('covers purchasing report access, view data and CSV streaming', function (): 
 
     $data = $page->getViewData();
     expect($data)->toHaveKeys([
-        'openCommitments',
-        'receivingPerformance',
-        'costVariance',
-        'duplicateReferenceAttempts',
-    ]);
+        'reportKey',
+        'reportLabel',
+        'reportDescription',
+        'rows',
+        'summary',
+    ])->and($data['reportKey'])->toBe('open_commitments');
 
-    $stream = new ReflectionMethod(ListPurchasingReports::class, 'streamOpenCommitments');
-    $response = $stream->invoke($page);
+    $response = $page->exportCurrentReport();
     ob_start();
     $response->sendContent();
     $csv = (string) ob_get_clean();
@@ -112,8 +112,7 @@ it('streams populated purchasing open commitments rows', function (): void {
     ]);
 
     $page = app(ListPurchasingReports::class);
-    $stream = new ReflectionMethod(ListPurchasingReports::class, 'streamOpenCommitments');
-    $response = $stream->invoke($page);
+    $response = $page->exportCurrentReport();
 
     ob_start();
     $response->sendContent();

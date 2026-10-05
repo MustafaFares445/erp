@@ -18,11 +18,30 @@ use Database\Seeders\EmployeePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Writer\AbstractWriter;
+use OpenSpout\Writer\XLSX\Writer;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     (new EmployeePermissionSeeder)->run();
+});
+
+it('tolerates a secondary writer failure while cleaning up an interrupted export', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'employee-writer-');
+    $writer = new Writer;
+    $writer->openToFile($path);
+    $pointer = new ReflectionProperty(AbstractWriter::class, 'filePointer')->getValue($writer);
+    fclose($pointer);
+
+    try {
+        expect(new ReflectionMethod(EmployeeReportExportService::class, 'closeAfterFailure')
+            ->invoke(app(EmployeeReportExportService::class), $writer))->toBeNull();
+    } finally {
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
 });
 
 it('requests an export, recording it as queued and dispatching the generation job', function (): void {

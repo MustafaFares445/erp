@@ -7,7 +7,7 @@ use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Schemas\OrderInfolist;
 use App\Models\Order;
 use App\Models\OrderLine;
-use App\Services\Sales\OrderWorkflowService;
+use App\Services\Sales\OrderWorkflowProjectionStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -46,7 +46,7 @@ function coverageInfolistProjection(string $milestone, string $owner = 'Customer
 
 function bindCoverageOrderWorkflow(OrderWorkflowProjection $projection): void
 {
-    app()->instance(OrderWorkflowService::class, new readonly class($projection)
+    app()->instance(OrderWorkflowProjectionStore::class, new readonly class($projection)
     {
         public function __construct(private OrderWorkflowProjection $projection) {}
 

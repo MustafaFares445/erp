@@ -7,6 +7,7 @@ use App\Filament\Resources\Orders\Actions\OrderActions;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\User;
+use App\Services\Sales\OrderFulfillmentQuantityService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -107,7 +108,17 @@ it('covers short-close line filtering when fulfillment progress is absent or ful
     ]);
     $emptyOrder->setRelation('lines', new Collection([$syntheticLine]));
 
+    app()->instance(OrderFulfillmentQuantityService::class, new class
+    {
+        public function forOrder(Order $order): Collection
+        {
+            return new Collection;
+        }
+    });
+
     expect($method->invoke(null, $emptyOrder))->toBe([]);
+
+    app()->instance(OrderFulfillmentQuantityService::class, new OrderFulfillmentQuantityService);
 
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);

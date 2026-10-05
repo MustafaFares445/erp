@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\InventoryPermission;
 use App\Enums\OrderStatus;
 use App\Enums\SalesPermission;
 use App\Enums\ShipmentStatus;
@@ -155,6 +156,28 @@ it('links released orders to the right outbound step with an explicit label', fu
         ->assertTableActionHasUrl('next_step', OutboundFulfillmentResource::getUrl('view', ['record' => $toDispatch]), $toDispatch)
         ->assertTableActionHasLabel('next_step', 'Resolve supply requirement', $blocked)
         ->assertTableActionHasUrl('next_step', PurchaseNeeds::getUrl(), $blocked);
+});
+
+it('shows the supply blocker and links an order viewer to outbound review when purchasing is unavailable', function (): void {
+    $order = Order::factory()->create(['status' => OrderStatus::Released]);
+    $line = OrderLine::factory()->for($order)->create(['quantity' => 3]);
+    SalesProcurementRequirement::query()->create([
+        'order_id' => $order->id,
+        'order_line_id' => $line->id,
+        'product_variant_id' => $line->product_variant_id,
+        'required_base_quantity' => 2,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+    $viewer = workQueueUser([SalesPermission::OrderView->value, InventoryPermission::DeliveryView->value]);
+
+    Livewire::actingAs($viewer)->test(ListOrders::class)
+        ->assertTableActionHasLabel('next_step', 'Review supply requirement', $order)
+        ->assertTableActionHasUrl('next_step', OutboundFulfillmentResource::getUrl('view', ['record' => $order]), $order);
+    Livewire::actingAs($viewer)->test(ViewOrder::class, ['record' => $order->id])
+        ->assertSee('Supply blocked')
+        ->assertSee('Requires procurement: 2');
+    expect(PurchaseNeeds::canAccess())->toBeFalse();
 });
 
 it('links an order with a completed uninvoiced delivery to that delivery note to create the invoice', function (): void {

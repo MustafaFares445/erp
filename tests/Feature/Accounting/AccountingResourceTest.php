@@ -170,6 +170,17 @@ describe('chart of accounts', function (): void {
         expect($spare->refresh()->trashed())->toBeTrue();
     });
 
+    it('deletes an unused account from its edit page', function (): void {
+        $spare = ChartAccount::factory()->create(['code' => '1901']);
+
+        Livewire::actingAs($this->chief)
+            ->test(EditChartOfAccount::class, ['record' => $spare->getRouteKey()])
+            ->callAction('delete')
+            ->assertHasNoActionErrors();
+
+        expect($spare->refresh()->trashed())->toBeTrue();
+    });
+
     it('shows a balance column that counts posted lines only and rolls up to the parent', function (): void {
         $header = ChartAccount::factory()->ofElement(AccountElement::Asset)->header()->create(['code' => '1000']);
         $this->cash->update(['parent_id' => $header->getKey()]);

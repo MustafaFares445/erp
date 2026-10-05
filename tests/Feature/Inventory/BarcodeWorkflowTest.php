@@ -17,6 +17,22 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+it('rejects a valid scan that does not belong to the selected physical count', function (): void {
+    \Illuminate\Support\Facades\Gate::before(static fn (): bool => true);
+    $actor = User::factory()->create();
+    $variant = ProductVariant::factory()->create(['sku' => 'NOT-IN-THIS-COUNT']);
+    $count = InventoryCount::factory()->counting()->create();
+    \Livewire\Livewire::actingAs($actor)->test(\App\Filament\Pages\BarcodeWorkbench::class)
+        ->set('mode', 'count')
+        ->set('countId', $count->id)
+        ->set('scanCode', $variant->sku)
+        ->call('scan')
+        ->assertNotified(\Filament\Notifications\Notification::make()->danger()->title('Scan rejected')->body('The scanned item is not part of the selected inventory count.'))
+        ->assertSet('matches', [])
+        ->assertSet('countLineId', null);
+    expect($count->lines()->count())->toBe(0);
+});
+
 it('resolves serial barcode and sku identifiers deterministically', function (): void {
     $variant = ProductVariant::factory()->create([
         'sku' => 'SKU-SCAN-001',

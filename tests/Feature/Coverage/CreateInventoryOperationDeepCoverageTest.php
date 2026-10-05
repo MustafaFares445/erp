@@ -51,6 +51,45 @@ function cioCall(CreateInventoryOperation $page, string $method, mixed ...$argum
     return $reflection->invokeArgs($page, $arguments);
 }
 
+it('rejects a delivery group whose refreshed order can no longer identify its child delivery', function (): void {
+    $actor = User::factory()->create();
+    $this->actingAs($actor);
+    $customer = CustomerProfile::factory()->create(['is_active' => true, 'latitude' => 25.2, 'longitude' => 55.3]);
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000',
+        'reserved_quantity' => '0.000',
+        'available_quantity' => '5.000',
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '5.000',
+        'reserved_quantity' => '0.000',
+        'expires_at' => null,
+    ]);
+    $page = cioPage();
+    $original = \Illuminate\Database\Eloquent\Model::getEventDispatcher();
+    $dispatcher = clone $original;
+    \Illuminate\Database\Eloquent\Model::setEventDispatcher($dispatcher);
+    $dispatcher->listen('eloquent.retrieved: '.\App\Models\Order::class, static function (\App\Models\Order $order): void {
+        if ($order->deliveries()->whereHas('lines')->exists()) {
+            $order->setAttribute('id', null);
+        }
+    });
+    try {
+        expect(fn () => cioCall($page, 'createDeliveryGroup', [
+            'customer_id' => $customer->id,
+            'shipments' => [[
+                'warehouse_id' => $warehouse->id,
+                'delivery_type' => DeliveryType::Inner->value,
+                'assignments' => [['product_variant_id' => $variant->id, 'quantity' => 1, 'inventory_lot_id' => $lot->id]],
+            ]],
+        ]))->toThrow(LogicException::class, 'The delivery group did not create a child delivery.');
+    } finally {
+        \Illuminate\Database\Eloquent\Model::setEventDispatcher($original);
+    }
+});
+
 function cioGet(array $values): Get
 {
     return new class($values) extends Get

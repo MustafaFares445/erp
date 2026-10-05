@@ -36,6 +36,23 @@ use Illuminate\Support\Facades\Auth;
 
 uses(RefreshDatabase::class);
 
+it('requires select options and permits unrelated definition edits without saved values', function (): void {
+    $definition = new CustomFieldDefinition([
+        'entity_type' => CustomFieldEntityType::Customer,
+        'code' => 'zone',
+        'name' => 'Zone',
+        'data_type' => CustomFieldDataType::Select,
+        'options' => [],
+    ]);
+    expect(fn () => $definition->save())->toThrow(DomainException::class, 'Select custom fields require at least one option.');
+
+    $definition->options = ['North'];
+    $definition->save();
+    $definition->update(['name' => 'Installation zone']);
+    expect($definition->refresh()->name)->toBe('Installation zone')
+        ->and($definition->options)->toBe(['North']);
+});
+
 beforeEach(function (): void {
     (new CrmPermissionSeeder)->run();
     (new SystemPermissionSeeder)->run();

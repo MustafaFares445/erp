@@ -292,7 +292,14 @@ it('reverses an applied deposit transfer and restores AR reconciliation with the
     expect((float) $issued->refresh()->amount_paid)->toBe(100.0)
         ->and($transfer->reversal()->exists())->toBeFalse();
 
+    $applications = app(CustomerDepositApplicationService::class);
+    new ReflectionMethod($applications, 'applyOneDeposit')->invoke($applications, $this->admin, $payment, $issued);
+    expect($payment->allocations()->count())->toBe(1);
+
     app(PaymentService::class)->reverse($this->admin, $payment->refresh());
+
+    $applications->reverseForPayment($this->admin, $payment);
+    expect($transfer->reversal()->count())->toBe(1);
 
     $reconciliation = app(AccountsReceivableService::class)->reconciliation(today());
 

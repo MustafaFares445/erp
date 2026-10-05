@@ -2,229 +2,90 @@
 
 declare(strict_types=1);
 
-use App\Enums\CreditNoteStatus;
-use App\Enums\NotificationChannel;
-use App\Enums\NotificationEventKey;
-use App\Enums\OrderStatus;
-use App\Enums\PaymentStatus;
-use App\Enums\RefundStatus;
-use App\Models\CreditNote;
-use App\Models\CustomerProfile;
-use App\Models\Invoice;
-use App\Models\NotificationTemplate;
-use App\Models\Order;
-use App\Models\OrderLine;
-use App\Models\Payment;
-use App\Models\PaymentMethod;
-use App\Models\ProductVariant;
-use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderLine;
-use App\Models\Refund;
-use App\Models\User;
-use App\Notifications\BusinessNotification;
-use App\Services\Accounting\RefundService;
-use App\Services\Notifications\NotificationDispatcher;
-use App\Services\Payments\CustomerDepositApplicationService;
-use App\Services\Sales\SalesDashboardFilters;
-use App\Services\Sales\SalesDashboardMetricsService;
-use App\Services\Sales\SalesProcurementRequirementService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Notification;
+use App\Enums\CustomFieldDataType;
+use App\Models\CustomFieldDefinition;
+use App\Models\CustomFieldValue;
+use App\Policies\Concerns\ReadsPreloadedRelationState;
+use App\Reporting\ReportDefinition;
+use Filament\Resources\Resource;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Model;
 
-uses(RefreshDatabase::class);
+final class CoverageThrowingReportResource extends Resource
+{
+    public static function canAccess(): bool
+    {
+        throw new RuntimeException('coverage');
+    }
+}
 
-beforeEach(function (): void {
-    Gate::before(static fn (): bool => true);
+it('covers every custom-field display value branch', function (): void {
+    $value = new CustomFieldValue;
+    $value->setRelation('definition', null);
+    expect($value->displayValue())->toBe('—');
+
+    $cases = [
+        [CustomFieldDataType::Number, ['value_number' => '12.500000'], '12.500000'],
+        [CustomFieldDataType::Number, ['value_number' => null], '—'],
+        [CustomFieldDataType::Date, ['value_date' => '2026-10-05'], '2026-10-05'],
+        [CustomFieldDataType::Date, ['value_date' => null], '—'],
+        [CustomFieldDataType::Boolean, ['value_boolean' => true], __('Yes')],
+        [CustomFieldDataType::Boolean, ['value_boolean' => false], __('No')],
+        [CustomFieldDataType::Boolean, ['value_boolean' => null], '—'],
+        [CustomFieldDataType::Text, ['value_text' => 'Dental lab'], 'Dental lab'],
+        [CustomFieldDataType::Text, ['value_text' => null], '—'],
+    ];
+
+    foreach ($cases as [$type, $attributes, $expected]) {
+        $definition = (new CustomFieldDefinition)->forceFill(['data_type' => $type]);
+        $value = (new CustomFieldValue)->forceFill($attributes);
+        $value->setRelation('definition', $definition);
+
+        expect($value->displayValue())->toBe($expected);
+    }
 });
 
-it('sends database notifications synchronously for application users', function (): void {
-    Notification::fake();
+it('covers eager-loaded relation state and invalid relation handling', function (): void {
+    $subject = new class extends Model
+    {
+        use ReadsPreloadedRelationState;
 
-    NotificationTemplate::query()->create([
-        'key' => NotificationEventKey::InvoiceIssued->value,
-        'locale' => 'en',
-        'channel' => NotificationChannel::Database,
-        'subject' => null,
-        'body' => 'Invoice {{ name }}',
-        'variables' => ['name'],
-        'is_active' => true,
-    ]);
+        public function check(string $relation): bool
+        {
+            return $this->hasRelated($this, $relation);
+        }
 
-    $user = User::factory()->create();
+        public function bogus(): string
+        {
+            return 'not-a-relation';
+        }
+    };
 
-    $delivery = app(NotificationDispatcher::class)->dispatch(
-        $user,
-        NotificationEventKey::InvoiceIssued,
-        ['name' => 'INV-SYNC'],
-        channel: NotificationChannel::Database,
-        sendNow: true,
+    $subject->setRelation('items', new EloquentCollection);
+    expect($subject->check('items'))->toBeFalse();
+
+    $subject->setRelation('items', new EloquentCollection([new CustomFieldValue]));
+    expect($subject->check('items'))->toBeTrue();
+
+    $subject->setRelation('owner', new CustomFieldValue);
+    expect($subject->check('owner'))->toBeTrue();
+
+    $subject->setRelation('owner', null);
+    expect($subject->check('owner'))->toBeFalse();
+
+    expect(fn () => $subject->check('bogus'))
+        ->toThrow(LogicException::class, '[bogus] is not a relation');
+});
+
+it('returns null when report resource URL resolution throws', function (): void {
+    $definition = new ReportDefinition(
+        key: 'coverage',
+        domain: 'coverage',
+        category: 'coverage',
+        label: 'Coverage',
+        description: 'Coverage',
+        resource: CoverageThrowingReportResource::class,
     );
 
-    expect($delivery->status->value)->toBe('queued');
-
-    Notification::assertSentTo($user, BusinessNotification::class);
-});
-
-it('caps refund approval to the selected confirmed credit note', function (): void {
-    $customer = CustomerProfile::factory()->create();
-    $credit = CreditNote::factory()->create([
-        'customer_id' => $customer->getKey(),
-        'invoice_id' => null,
-        'grand_total' => '25.00',
-        'status' => CreditNoteStatus::Confirmed->value,
-        'reversed_at' => null,
-    ]);
-    $refund = Refund::factory()->create([
-        'customer_id' => $customer->getKey(),
-        'credit_note_id' => $credit->getKey(),
-        'invoice_id' => null,
-        'amount' => '10.00',
-        'status' => RefundStatus::Draft->value,
-    ]);
-
-    $approved = app(RefundService::class)->approve(User::factory()->admin()->create(), $refund);
-
-    expect($approved->status)->toBe(RefundStatus::Approved);
-});
-
-it('rejects paying a refund through an inactive payment method', function (): void {
-    $customer = CustomerProfile::factory()->create();
-    $method = PaymentMethod::factory()->create(['is_active' => false]);
-    $refund = Refund::factory()->create([
-        'customer_id' => $customer->getKey(),
-        'payment_method_id' => $method->getKey(),
-        'amount' => '10.00',
-        'status' => RefundStatus::Approved->value,
-        'approved_at' => now(),
-    ]);
-
-    expect(fn (): Refund => app(RefundService::class)->pay(
-        User::factory()->admin()->create(),
-        $refund,
-    ))->toThrow(DomainException::class, 'active payment method with a posting account');
-});
-
-it('returns early when a deposit payment is already allocated to the invoice', function (): void {
-    $customer = CustomerProfile::factory()->create();
-    $payment = Payment::factory()->create([
-        'payment_number' => 'PAY-COV-056',
-        'customer_id' => $customer->getKey(),
-        'payment_method_id' => PaymentMethod::factory(),
-        'amount' => '50.00',
-        'currency' => 'AED',
-        'payment_date' => today(),
-        'status' => PaymentStatus::Posted->value,
-        'posted_at' => now(),
-    ]);
-    $invoice = Invoice::factory()->create([
-        'customer_id' => $customer->getKey(),
-        'status' => 'issued',
-        'issued_at' => now(),
-        'total_amount' => '50.00',
-        'amount_paid' => '0.00',
-    ]);
-
-    $payment->allocations()->create([
-        'invoice_id' => $invoice->getKey(),
-        'amount' => '10.00',
-    ]);
-
-    $method = new ReflectionMethod(CustomerDepositApplicationService::class, 'applyOneDeposit');
-
-    expect($method->invoke(
-        app(CustomerDepositApplicationService::class),
-        User::factory()->admin()->create(),
-        $payment,
-        $invoice,
-        40.0,
-    ))->toBeNull();
-});
-
-it('adds awaiting-fulfillment orders to sales dashboard attention items', function (): void {
-    Order::factory()->create([
-        'status' => OrderStatus::Confirmed->value,
-        'confirmed_at' => now(),
-        'grand_total' => '250.00',
-    ]);
-
-    $filters = SalesDashboardFilters::fromPageFilters([
-        'period' => SalesDashboardFilters::PERIOD_THIS_MONTH,
-    ]);
-
-    $items = collect(app(SalesDashboardMetricsService::class)->attentionItems($filters))->keyBy('key');
-
-    expect($items)->toHaveKey('awaiting_fulfillment')
-        ->and($items['awaiting_fulfillment']['count'])->toBe(1);
-});
-
-it('marks fully received procurement demand fulfilled without requeueing it', function (): void {
-    $order = Order::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    $orderLine = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
-        'quantity' => 5,
-        'unit_id' => $variant->unit_id,
-    ]);
-
-    $purchaseOrder = PurchaseOrder::factory()->create();
-    $purchaseLine = PurchaseOrderLine::factory()
-        ->for($purchaseOrder)
-        ->for($variant, 'productVariant')
-        ->create([
-            'unit_id' => $variant->unit_id,
-            'quantity_ordered' => 5,
-        ]);
-    $purchaseLine->forceFill([
-        'base_quantity' => '5.000000',
-        'received_base_quantity' => '5.000000',
-    ])->save();
-
-    $requirement = $order->procurementRequirements()->create([
-        'order_line_id' => $orderLine->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'purchase_order_id' => $purchaseOrder->getKey(),
-        'purchase_order_line_id' => $purchaseLine->getKey(),
-        'required_base_quantity' => '5.000000',
-        'fulfilled_base_quantity' => '0.000000',
-        'status' => 'purchasing',
-    ]);
-
-    $requeued = app(SalesProcurementRequirementService::class)->requeueFromPurchaseOrder(
-        $purchaseOrder,
-        'Supplier completed the line',
-    );
-
-    expect($requeued)->toBeEmpty()
-        ->and($requirement->refresh()->status)->toBe('fulfilled')
-        ->and((float) $requirement->fulfilled_base_quantity)->toBe(5.0);
-});
-
-it('requeues the remaining procurement quantity when the linked purchase order line is gone', function (): void {
-    $order = Order::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    $orderLine = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
-        'quantity' => 5,
-        'unit_id' => $variant->unit_id,
-    ]);
-    $purchaseOrder = PurchaseOrder::factory()->create();
-
-    $requirement = $order->procurementRequirements()->create([
-        'order_line_id' => $orderLine->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'purchase_order_id' => $purchaseOrder->getKey(),
-        'purchase_order_line_id' => null,
-        'required_base_quantity' => '5.000000',
-        'fulfilled_base_quantity' => '2.000000',
-        'status' => 'purchasing',
-    ]);
-
-    $requeued = app(SalesProcurementRequirementService::class)->requeueFromPurchaseOrder(
-        $purchaseOrder,
-        'Supplier line removed',
-    );
-
-    expect($requirement->refresh()->status)->toBe('superseded')
-        ->and((float) $requirement->fulfilled_base_quantity)->toBe(2.0)
-        ->and($requeued)->toHaveCount(1)
-        ->and((float) $requeued->first()->required_base_quantity)->toBe(3.0);
+    expect($definition->url())->toBeNull();
 });

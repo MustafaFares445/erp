@@ -8,7 +8,7 @@ use App\Models\Bill;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
-use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Services\Purchasing\PurchaseOrderWorkflowProjectionStore;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -46,7 +46,7 @@ function coveragePurchaseOrderWorkflowData(
 
 function bindPurchaseOrderWorkflowProjection(PurchaseOrderWorkflowData $projection): void
 {
-    app()->instance(PurchaseOrderWorkflowService::class, new readonly class($projection)
+    app()->instance(PurchaseOrderWorkflowProjectionStore::class, new readonly class($projection)
     {
         public function __construct(private PurchaseOrderWorkflowData $projection) {}
 

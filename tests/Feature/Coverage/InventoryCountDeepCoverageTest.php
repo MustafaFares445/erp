@@ -21,8 +21,30 @@ use App\Models\Warehouse;
 use App\Services\Inventory\InventoryCountService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
+
+it('refuses to snapshot a malformed raw lot-balance quantity', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $lot = InventoryLot::factory()->canonical()->create(['product_variant_id' => $variant->id]);
+    DB::table('inventory_lot_balances')->insert([
+        'inventory_lot_id' => $lot->id,
+        'warehouse_id' => $warehouse->id,
+        'stock_condition' => StockCondition::Saleable->value,
+        'on_hand_base_quantity' => 'malformed',
+        'reserved_base_quantity' => '0.000000',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    expect(fn () => app(InventoryCountService::class)->open(
+        countCoverageScope($warehouse, CountScope::VariantSet, variantIds: [$variant->id]),
+        User::factory()->create(),
+    ))->toThrow(LogicException::class, 'Inventory lot balance quantity must be numeric.')
+        ->and(InventoryCount::query()->count())->toBe(0);
+});
 
 function countCoverageScope(
     Warehouse $warehouse,

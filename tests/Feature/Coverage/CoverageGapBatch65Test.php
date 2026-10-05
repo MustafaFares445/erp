@@ -2,217 +2,149 @@
 
 declare(strict_types=1);
 
-use App\Enums\PaymentLinkStatus;
 use App\Enums\SerializedCustodyType;
-use App\Enums\TicketServicePath;
-use App\Enums\TicketStatus;
 use App\Enums\WarrantyDurationUnit;
 use App\Enums\WarrantyEntitlementState;
 use App\Enums\WarrantyStartTrigger;
-use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
-use App\Filament\Resources\Tickets\Pages\ListTickets;
-use App\Filament\Resources\Tickets\Pages\ViewTicket;
-use App\Filament\Resources\Tickets\Tables\TicketsTable;
+use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
-use App\Models\EmployeeProfile;
-use App\Models\PaymentTransaction;
-use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
-use App\Models\Ticket;
-use App\Models\TicketPaymentLink;
 use App\Models\User;
 use App\Models\WarrantyEntitlement;
-use App\Services\Support\TicketProviderSettlementService;
-use App\Services\Support\TicketWorkspaceStateResolver;
-use Database\Seeders\SlaPolicySeeder;
-use Filament\Schemas\Components\Utilities\Get;
+use App\Services\Support\WarrantyEntitlementService;
+use App\Services\Support\WarrantyResolver;
+use Carbon\Carbon;
+use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Gate;
-use Livewire\Livewire;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
-beforeEach(function (): void {
-    Gate::before(static fn (): bool => true);
-    (new SlaPolicySeeder)->run();
-    $this->paymentMethod = configurePaymentAccounting();
-    $this->actor = User::factory()->admin()->create();
-    $this->actingAs($this->actor);
+it('rejects replacement equipment that has not been persisted', function (): void {
+    $manager = coverage65Manager();
+    $customer = CustomerProfile::factory()->create();
+    $original = new WarrantyEntitlement;
+    $original->forceFill([
+        'state' => WarrantyEntitlementState::Active,
+        'expires_on' => today()->addMonth(),
+        'customer_id' => $customer->id,
+        'serialized_inventory_unit_id' => 22,
+    ]);
+    $replacement = SerializedInventoryUnit::factory()->make([
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->id,
+    ]);
+
+    expect(fn () => app(WarrantyEntitlementService::class)->applyReplacement($original, $replacement, $manager, 'Replace faulty unit'))
+        ->toThrow(ValidationException::class, 'The replacement serial has an invalid identifier.');
 });
 
-function batch65Invoke(string $class, string $method, mixed $instance, mixed ...$arguments): mixed
+function coverage65Manager(): User
 {
-    return new ReflectionMethod($class, $method)->invoke($instance, ...$arguments);
+    (new SupportPermissionSeeder)->run();
+
+    $manager = User::factory()->admin()->create();
+    $manager->assignRole('Support Manager');
+
+    return $manager;
 }
 
-it('covers warranty entitlement active-window evaluation', function (): void {
-    $entitlement = WarrantyEntitlement::factory()->create([
-        'state' => WarrantyEntitlementState::Active,
-        'starts_on' => today()->subDay(),
-        'expires_on' => today()->addDay(),
-    ]);
-
-    expect($entitlement->isActiveAt())->toBeTrue()
-        ->and($entitlement->isActiveAt(today()->subDays(3)))->toBeFalse();
-
-    $entitlement->forceFill(['state' => WarrantyEntitlementState::Ended])->save();
-    expect($entitlement->refresh()->isActiveAt())->toBeFalse();
-
-    $entitlement->forceFill([
-        'state' => WarrantyEntitlementState::Active,
+function coverage65PendingEntitlement(
+    CustomerProfile $customer,
+    SerializedInventoryUnit $unit,
+    WarrantyDurationUnit $unitType = WarrantyDurationUnit::Months,
+    int $duration = 12,
+): WarrantyEntitlement {
+    return WarrantyEntitlement::factory()->create([
+        'serialized_inventory_unit_id' => $unit->id,
+        'customer_id' => $customer->id,
+        'state' => WarrantyEntitlementState::PendingActivation,
+        'duration_value' => $duration,
+        'duration_unit' => $unitType,
+        'start_trigger' => WarrantyStartTrigger::Installation,
         'starts_on' => null,
         'expires_on' => null,
-    ])->save();
-    expect($entitlement->refresh()->isActiveAt())->toBeFalse();
-});
-
-it('rejects a provider settlement whose amount does not match the ticket charge', function (): void {
-    $ticket = Ticket::factory()->chargeable()->create();
-    $link = TicketPaymentLink::factory()->for($ticket)->create([
-        'amount' => '75.00',
-        'currency' => 'AED',
     ]);
+}
 
-    $transaction = PaymentTransaction::factory()->succeeded()->create([
-        'customer_id' => $ticket->customer_id,
-        'purpose_type' => TicketPaymentLink::class,
-        'purpose_id' => $link->getKey(),
-        'amount_minor' => 7400,
-        'currency' => 'AED',
-    ]);
-
-    expect(fn () => app(TicketProviderSettlementService::class)->settle($transaction))
-        ->toThrow(DomainException::class, 'does not match');
-});
-
-it('covers view-ticket assignment settlement and transition defensive branches', function (): void {
-    $employee = EmployeeProfile::factory()->create();
-
-    $pending = Ticket::factory()->create(['status' => TicketStatus::Pending]);
-    $pendingPage = Livewire::actingAs($this->actor)
-        ->test(ViewTicket::class, ['record' => $pending->getKey()])
-        ->instance();
-
-    $assign = batch65Invoke(ViewTicket::class, 'makeAssignAction', $pendingPage);
-    ($assign->getActionFunction())(['employee_id' => $employee->getKey()]);
-    expect($pending->refresh()->status)->toBe(TicketStatus::Pending);
-
-    $chargeable = Ticket::factory()->chargeable()->create();
-    $link = TicketPaymentLink::factory()->for($chargeable)->settled()->create([
-        'payment_id' => null,
-    ]);
-    $paymentPage = Livewire::actingAs($this->actor)
-        ->test(ViewTicket::class, ['record' => $chargeable->getKey()])
-        ->instance();
-
-    $settle = batch65Invoke(ViewTicket::class, 'makeSettlePaymentAction', $paymentPage);
-    ($settle->getActionFunction())([]);
-    ($settle->getActionFunction())([
-        'payment_method_id' => $this->paymentMethod->getKey(),
-        'payment_method_reference' => 'STALE-LINK',
-    ]);
-    expect($link->refresh()->status)->toBe(PaymentLinkStatus::Settled);
-
-    $transition = batch65Invoke(
-        ViewTicket::class,
-        'transitionAction',
-        $pendingPage,
-        'coverageInvalidTransition',
-        'Coverage Invalid Transition',
-        TicketStatus::InProgress,
-    );
-    ($transition->getActionFunction())([]);
-
-    expect($pending->refresh()->status)->toBe(TicketStatus::Pending);
-});
-
-it('covers ticket-table maintenance next action settlement catch actor guard and equipment label', function (): void {
-    $maintenanceTicket = Ticket::factory()->create([
-        'status' => TicketStatus::InProgress,
-        'service_path' => TicketServicePath::Maintenance,
-    ]);
-
-    expect(app(TicketWorkspaceStateResolver::class)->resolve($maintenanceTicket)->nextAction)
-        ->toBe('Raise the maintenance job');
-
-    $ticket = Ticket::factory()->chargeable()->create();
-    $link = TicketPaymentLink::factory()->for($ticket)->settled()->create(['payment_id' => null]);
-
-    batch65Invoke(
-        TicketsTable::class,
-        'applySettlement',
-        null,
-        $ticket->refresh(),
-        'ALREADY-SETTLED',
-        (int) $this->paymentMethod->getKey(),
-    );
-    expect($link->refresh()->status)->toBe(PaymentLinkStatus::Settled);
-
+it('manually activates a pending warranty entitlement and synchronizes the serialized-unit snapshot', function (): void {
+    $manager = coverage65Manager();
     $customer = CustomerProfile::factory()->create();
-    $variant = ProductVariant::factory()->create(['name' => 'Covered Equipment']);
-    $unit = SerializedInventoryUnit::factory()->for($variant, 'productVariant')->create([
+    $unit = SerializedInventoryUnit::factory()->create([
         'custody_type' => SerializedCustodyType::Customer,
-        'custody_reference_id' => $customer->getKey(),
-        'serial_number' => 'COVER-SERIAL-65',
+        'custody_reference_id' => $customer->id,
+        'warranty_started_on' => null,
+        'warranty_expires_on' => null,
     ]);
-    $equipmentTicket = Ticket::factory()->for($customer, 'customer')->create([
-        'serialized_inventory_unit_id' => $unit->getKey(),
-        'status' => TicketStatus::Live,
-    ]);
+    $entitlement = coverage65PendingEntitlement($customer, $unit);
 
-    Livewire::actingAs($this->actor)
-        ->test(ListTickets::class)
-        ->assertCanSeeTableRecords([$equipmentTicket])
-        ->assertTableColumnStateSet('equipment', 'Covered Equipment · SN COVER-SERIAL-65', $equipmentTicket);
+    $activated = app(WarrantyEntitlementService::class)->activate(
+        $entitlement,
+        Carbon::parse('2026-10-05'),
+        $manager,
+        'Installation completed.',
+    );
 
-    auth()->logout();
-    expect(fn (): mixed => batch65Invoke(TicketsTable::class, 'currentActor', null))
-        ->toThrow(LogicException::class, 'authenticated User');
+    expect($activated->state)->toBe(WarrantyEntitlementState::Active)
+        ->and($activated->starts_on?->toDateString())->toBe('2026-10-05')
+        ->and($activated->expires_on?->toDateString())->toBe('2027-10-05')
+        ->and($unit->refresh()->warranty_started_on?->toDateString())->toBe('2026-10-05')
+        ->and($unit->warranty_expires_on?->toDateString())->toBe('2027-10-05');
 });
 
-it('covers triage equipment missing-customer covered warranty and entitlement policy preview', function (): void {
-    $equipmentOptions = new ReflectionMethod(TriageTicketAction::class, 'equipmentOptions');
-
-    $noCustomer = new Ticket;
-    $noCustomer->setRelation('customer', null);
-
-    expect($equipmentOptions->invoke(null, $noCustomer))->toBe([]);
-
+it('rejects manual warranty activation with a processed entitlement or blank reason', function (): void {
+    $manager = coverage65Manager();
     $customer = CustomerProfile::factory()->create();
-    $variant = ProductVariant::factory()->create(['name' => 'Warranty Device']);
-    $unit = SerializedInventoryUnit::factory()->for($variant, 'productVariant')->create([
+    $unit = SerializedInventoryUnit::factory()->create([
         'custody_type' => SerializedCustodyType::Customer,
-        'custody_reference_id' => $customer->getKey(),
-        'serial_number' => 'WAR-65',
+        'custody_reference_id' => $customer->id,
     ]);
-    $ticket = Ticket::factory()->for($customer, 'customer')->create();
+    $service = app(WarrantyEntitlementService::class);
 
-    WarrantyEntitlement::factory()->create([
-        'serialized_inventory_unit_id' => $unit->getKey(),
-        'customer_id' => $customer->getKey(),
+    $active = WarrantyEntitlement::factory()->create([
+        'serialized_inventory_unit_id' => $unit->id,
+        'customer_id' => $customer->id,
         'state' => WarrantyEntitlementState::Active,
-        'policy_name' => 'Premium Warranty',
-        'duration_value' => 12,
-        'duration_unit' => WarrantyDurationUnit::Months,
-        'start_trigger' => WarrantyStartTrigger::ConfirmedDelivery,
-        'starts_on' => today()->subMonth(),
-        'expires_on' => today()->addMonths(11),
     ]);
 
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->andReturnUsing(
-        static fn (string $path): mixed => match ($path) {
-            'equipment_source' => 'sold_by_us',
-            'serialized_inventory_unit_id' => $unit->getKey(),
-            default => null,
-        },
-    );
+    expect(fn () => $service->activate($active, today(), $manager, 'Already active'))
+        ->toThrow(DomainException::class, 'Only a pending warranty entitlement');
 
-    $warrantyPreview = new ReflectionMethod(TriageTicketAction::class, 'warrantyPreview');
-    expect($warrantyPreview->invoke(null, $ticket, $get))
-        ->toContain('Warranty active', 'until');
+    $pending = coverage65PendingEntitlement($customer, $unit);
 
-    $policyPreview = new ReflectionMethod(TriageTicketAction::class, 'policyPreview');
-    expect($policyPreview->invoke(null, $ticket, $get))
-        ->toContain('Premium Warranty');
+    expect(fn () => $service->activate($pending, today(), $manager, '   '))
+        ->toThrow(DomainException::class, 'activation reason is required');
+});
+
+it('covers warranty duration expiry calculations for days months and years', function (): void {
+    $service = app(WarrantyEntitlementService::class);
+    $expiry = new ReflectionMethod(WarrantyEntitlementService::class, 'expiry');
+    $start = Carbon::parse('2024-02-29');
+
+    expect($expiry->invoke($service, $start, 10, WarrantyDurationUnit::Days)->toDateString())
+        ->toBe('2024-03-10')
+        ->and($expiry->invoke($service, $start, 1, WarrantyDurationUnit::Months)->toDateString())
+        ->toBe('2024-03-29')
+        ->and($expiry->invoke($service, $start, 1, WarrantyDurationUnit::Years)->toDateString())
+        ->toBe('2025-02-28');
+});
+
+it('resolves active entitlement coverage from the immutable entitlement snapshot', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->id,
+    ]);
+    WarrantyEntitlement::factory()->create([
+        'serialized_inventory_unit_id' => $unit->id,
+        'customer_id' => $customer->id,
+        'state' => WarrantyEntitlementState::Active,
+        'starts_on' => today()->subMonth(),
+        'expires_on' => today()->addMonth(),
+    ]);
+
+    $coverage = app(WarrantyResolver::class)->resolveForSerializedUnit($unit, $customer);
+
+    expect($coverage->status)->toBe(WarrantyStatus::Covered)
+        ->and($coverage->reason)->toContain('active customer warranty entitlement');
 });

@@ -28,23 +28,31 @@ jobs:
           ini-values: memory_limit=-1
           coverage: none
 
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
       - run: cp .env.example .env
       - run: php artisan key:generate
       - run: composer run test:docs
       - run: composer run test:lint
+      - run: composer run test:architecture
       - run: composer run test:types
       - run: composer run test:type-coverage
 
   tests:
-    name: Tests (Shard ${{ matrix.shard }}/4)
+    name: Tests (Shard ${{ matrix.shard }}/8)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - uses: actions/checkout@v4
@@ -57,18 +65,27 @@ jobs:
           ini-values: memory_limit=-1
           coverage: none
 
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
       - run: cp .env.example .env
       - run: php artisan key:generate
 
       - name: Run behavioral test shard
-        # The matrix already parallelizes the suite across four runners. Pest's
+        # The matrix already parallelizes the suite across eight runners. Pest's
         # nested --parallel workers can return a non-zero master-process status
         # even when every test in a shard passes, so keep each shard sequential.
         run: >-
           php -d memory_limit=2G vendor/bin/pest
           --compact
-          --shard=${{ matrix.shard }}/4
+          --shard=${{ matrix.shard }}/8
+          --exclude-group=coverage-only
+          --exclude-group=architecture
 
   coverage:
     name: Coverage (100%)
@@ -86,61 +103,17 @@ jobs:
           ini-values: memory_limit=-1, pcov.directory=app
           coverage: pcov
 
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
       - run: cp .env.example .env
       - run: php artisan key:generate
       - run: composer run test:coverage
-
-  crm-acceptance:
-    name: CRM WP-2.1 acceptance
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          tools: composer:v2
-          extensions: pdo_sqlite
-
-      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
-
-      - run: cp .env.example .env
-
-      - run: php artisan key:generate
-
-      - name: Run focused CRM static analysis
-        run: >-
-          vendor/bin/phpstan analyse
-          app/Data/Crm
-          app/Models/Campaign.php
-          app/Models/CampaignRecipient.php
-          app/Models/CampaignResponse.php
-          app/Models/Interaction.php
-          app/Models/Lead.php
-          app/Models/LeadStageTransition.php
-          app/Services/Crm
-          app/Console/Commands/DispatchDueCampaignsCommand.php
-          app/Filament/Resources/Campaigns
-          app/Filament/Resources/CrmReports
-          app/Filament/Resources/Interactions
-          app/Filament/Resources/Leads
-          app/Filament/Widgets/CrmCampaignPerformance.php
-          app/Filament/Widgets/CrmDormantLeads.php
-          app/Filament/Widgets/CrmLeadFunnel.php
-          app/Filament/Widgets/CrmStatistics.php
-          --memory-limit=1G
-
-      - name: Run focused CRM regression suite
-        run: >-
-          php artisan test
-          tests/Feature/Crm
-          tests/Feature/Filament/CrmAccessTest.php
-          tests/Feature/Filament/CrmAuthorizationTest.php
-          tests/Feature/ScheduledCommandsTest.php
-          --compact
 
   seed-integrity:
     name: Seed integrity (MySQL)
@@ -179,6 +152,13 @@ jobs:
           extensions: pdo_mysql,pdo_sqlite
           ini-values: memory_limit=-1
           coverage: none
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
 
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
       - run: cp .env.example .env
@@ -230,6 +210,13 @@ jobs:
           php-version: '8.4'
           tools: composer:v2
           extensions: pdo_mysql,pdo_sqlite
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
 
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
 

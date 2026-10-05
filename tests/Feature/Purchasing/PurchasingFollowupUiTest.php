@@ -33,14 +33,14 @@ function supplierConfirmationResourceInvoke(string $method, array $arguments): m
         ->invokeArgs(null, $arguments);
 }
 
-it('organizes Vendors navigation around overview planning suppliers and catalog sections', function (): void {
+it('organizes Vendors navigation around overview planning suppliers catalog reports and setup sections', function (): void {
     /** @var array{sections:list<array{key:string,label:string}>,items:list<array{label:string,link:string,section:string}>} $group */
     $group = collect(AdminModuleRegistry::groups())->firstWhere('key', 'vendors');
 
     expect(collect($group['sections'])->pluck('key')->all())
-        ->toBe(['overview', 'planning', 'suppliers', 'catalog', 'setup'])
+        ->toBe(['overview', 'planning', 'suppliers', 'catalog', 'reports', 'setup'])
         ->and(collect($group['items'])->pluck('section')->unique()->values()->all())
-        ->toBe(['overview', 'planning', 'suppliers', 'catalog', 'setup']);
+        ->toBe(['overview', 'planning', 'suppliers', 'catalog', 'reports', 'setup']);
 });
 
 it('renders the Supplier Capability Matrix as separate Purchasing master data', function (): void {

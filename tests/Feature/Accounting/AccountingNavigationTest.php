@@ -12,6 +12,7 @@ use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\Currencies\CurrencyResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\Refunds\RefundResource;
@@ -36,6 +37,7 @@ const ACCOUNTING_IMPLEMENTED_ITEMS = [
     'admin.resources.expenses' => ExpenseResource::class,
     'admin.resources.refunds' => RefundResource::class,
     'admin.resources.taxes' => TaxResource::class,
+    'admin.resources.financial_reports' => FinancialReportResource::class,
     'admin.sections.accounting_setup' => CurrencyResource::class,
 ];
 

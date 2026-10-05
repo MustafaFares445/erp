@@ -6,6 +6,7 @@ use App\Enums\AccountElement;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Enums\PaymentStatus;
+use App\Filament\Resources\BankStatements\Actions\BankStatementActions;
 use App\Filament\Resources\BankStatements\Pages\ListBankStatements;
 use App\Models\BankStatement;
 use App\Models\ChartAccount;
@@ -18,12 +19,49 @@ use App\Models\User;
 use App\Services\Accounting\BankReconciliation\BankReconciliationService;
 use App\Services\Accounting\BankReconciliation\BankReconciliationSuggestionService;
 use App\Services\Accounting\BankReconciliation\BankStatementImportService;
+use App\Services\Accounting\BankReconciliation\BankStatementNumberGenerator;
+use App\Services\Accounting\JournalPostingService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\CurrencySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+it('advances the statement number from an existing numbered statement', function (): void {
+    importReconStatement($this->actor, $this->method, $this->imports, [
+        ['transaction_date' => today()->toDateString(), 'amount' => '10.00', 'reference' => 'NUMBERED-STATEMENT'],
+    ], '0.00', '10.00');
+    expect(app(BankStatementNumberGenerator::class)->next())->toBe('BST-0000002');
+});
+
+it('does not suggest a ledger payment whose bank movement has the opposite sign', function (): void {
+    $statement = importReconStatement($this->actor, $this->method, $this->imports, [
+        ['transaction_date' => today()->toDateString(), 'amount' => '10.00', 'reference' => 'INCOMING'],
+    ], '0.00', '10.00');
+    app(JournalPostingService::class)->postNew($this->actor, CarbonImmutable::now(), [
+        ['chart_account_id' => $this->bank->id, 'debit' => '0.00', 'credit' => '10.00'],
+        ['chart_account_id' => $this->difference->id, 'debit' => '10.00', 'credit' => '0.00'],
+    ]);
+
+    expect(app(BankReconciliationSuggestionService::class)->suggest($statement->lines()->sole()))->toBeEmpty();
+});
+
+it('rejects an unsaved reconciliation target and an unusable bank-account mapping', function (): void {
+    $statement = importReconStatement($this->actor, $this->method, $this->imports, [
+        ['transaction_date' => today()->toDateString(), 'amount' => '10.00', 'reference' => 'DEFENSIVE-TARGET'],
+    ], '0.00', '10.00');
+    $line = $statement->lines()->sole();
+
+    expect(fn () => $this->reconciliation->match($this->actor, $line, new Payment, '10.00'))
+        ->toThrow(DomainException::class, 'Reconciliation target has an invalid identifier.');
+
+    $this->bank->update(['is_active' => false]);
+    expect(fn () => $this->reconciliation->postDifference($this->actor, $line, $this->difference->id, 'Bank fee'))
+        ->toThrow(DomainException::class, 'The statement payment method is not mapped to an active postable bank account.')
+        ->and($line->matches()->count())->toBe(0);
+});
 
 beforeEach(function (): void {
     (new CurrencySeeder)->run();
@@ -148,11 +186,14 @@ it('supports split matching and closes only after every statement line is fully 
     ]], '0.00', '100.00');
     $line = $statement->lines()->firstOrFail();
 
+    expect(BankStatementActions::isClosable($statement))->toBeFalse();
     $this->reconciliation->match($this->actor, $line, $firstPayment, '60.00');
     expect($line->refresh()->status)->toBe('partial')
-        ->and($line->remainingMinor())->toBe(4000);
+        ->and($line->remainingMinor())->toBe(4000)
+        ->and(BankStatementActions::isClosable($statement))->toBeFalse();
 
     $this->reconciliation->match($this->actor, $line, $secondPayment, '40.00');
+    expect(BankStatementActions::isClosable($statement))->toBeTrue();
     $closed = $this->reconciliation->close($this->actor, $statement);
 
     expect($line->refresh()->status)->toBe('matched')

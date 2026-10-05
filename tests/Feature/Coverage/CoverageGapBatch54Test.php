@@ -12,7 +12,7 @@ use App\Models\OrderLine;
 use App\Models\PurchaseOrder;
 use App\Models\SalesProcurementRequirement;
 use App\Services\Sales\OrderFinancialProjectionService;
-use App\Services\Sales\OrderWorkflowService;
+use App\Services\Sales\OrderWorkflowProjectionStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -135,7 +135,7 @@ it('covers financial deposit and completion schema branches', function (): void 
 
     expect($completionSchema($closed))->toHaveCount(4);
 
-    app()->instance(OrderWorkflowService::class, new readonly class
+    app()->instance(OrderWorkflowProjectionStore::class, new readonly class
     {
         public function project(Order $order): OrderWorkflowProjection
         {

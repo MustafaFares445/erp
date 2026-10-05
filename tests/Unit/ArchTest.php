@@ -131,7 +131,32 @@ use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Settings\ConstraintGuard;
 use App\Services\Shipments\ShipmentService;
 use App\Services\Support\ServiceRecordPartService;
-use Illuminate\Support\Facades\File;
+use Symfony\Component\Finder\Finder;
+use Symfony\Component\Finder\SplFileInfo;
+
+function testBasePath(string $path = ''): string
+{
+    $root = dirname(__DIR__, 2);
+
+    return $path === '' ? $root : $root.DIRECTORY_SEPARATOR.str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+}
+
+function testAppPath(string $path = ''): string
+{
+    return testBasePath('app'.($path === '' ? '' : '/'.$path));
+}
+
+/** @return Generator<int, SplFileInfo> */
+function testAllFiles(string $path): Generator
+{
+    $finder = (new Finder)
+        ->files()
+        ->in($path);
+
+    foreach ($finder as $file) {
+        yield $file;
+    }
+}
 
 arch()->preset()->php();
 // PriceFloorOverride/PriceHistory (historical Spec Kit 014) established the precedent this
@@ -139,11 +164,11 @@ arch()->preset()->php();
 // Eloquent's own required override signature for a model-level saving/
 // deleting guard (EmployeeProfile's base-salary rule; TaskStatusLog's and
 // VisitGpsLog's append-only guards; VoiceNoteTranscription's confidence
-// invariant, D6) — not a design choice that could be made public instead.
+// invariant, D6) â€” not a design choice that could be made public instead.
 //
 // Order is unrelated to historical Spec Kit 014/015: its protected casts() overrides
 // Eloquent's own casts() (Illuminate\Database\Eloquent\Concerns\HasAttributes),
-// which the framework itself declares protected — same reasoning, a
+// which the framework itself declares protected â€” same reasoning, a
 // different required-override hook.
 //
 // Product::ofType()/ProductVariant::ofProductType() are Laravel's #[Scope]
@@ -158,7 +183,7 @@ arch()->preset()->php();
 //
 // AuditLog (ADR 0005): sourceChannel()/ipAddress() are Laravel's own
 // Attribute::make() accessor methods (Illuminate\Database\Eloquent\Casts\
-// Attribute), which the framework's own convention declares protected —
+// Attribute), which the framework's own convention declares protected â€”
 // the same required-override reasoning as Order's/Shipment's casts().
 //
 // TicketAssignment/TicketMessage (historical Spec Kit 016): protected static booted()
@@ -166,8 +191,8 @@ arch()->preset()->php();
 // Eloquent-override reasoning as TaskStatusLog/VisitGpsLog above.
 //
 // SlaPolicy (historical Spec Kit 016, US5): protected static booted() stamps `updated_by`
-// from the acting user on every edit (data-model.md §5 — no `created_by`,
-// so TracksBlameable isn't reused) — the same required-override reasoning.
+// from the acting user on every edit (data-model.md Â§5 â€” no `created_by`,
+// so TracksBlameable isn't reused) â€” the same required-override reasoning.
 //
 // ServiceRecordPart (historical Spec Kit 016, US8): protected static booted() guards its
 // immutable-except-reversal-fields invariant (FR-086), the same required
@@ -187,7 +212,7 @@ arch()->preset()->php();
 // only, the same Eloquent-mandated signature as Order above.
 //
 // JournalEntry/JournalEntryLine (historical Spec Kit 018, FR-025): both override protected
-// static booted() to refuse every write against a *posted* entry — the entry
+// static booted() to refuse every write against a *posted* entry â€” the entry
 // itself on update/delete, and its lines on create/update/delete. Same required
 // Eloquent-override signature as TicketMessage above, and the reason is stronger
 // here than anywhere else in the codebase: a service-only guard would leave the
@@ -201,7 +226,7 @@ arch()->preset()->php();
 //
 // PurchaseOrder/PurchaseSetting/SupplierProductReference/TicketPaymentLink each
 // override protected static booted() to normalize their currency column against
-// the active catalogue on save (ValidatesCurrencyCatalog) — the same required
+// the active catalogue on save (ValidatesCurrencyCatalog) â€” the same required
 // Eloquent-override signature as Currency above.
 //
 // BusinessConstraint/ConstraintOverride (business-constraint registry): both
@@ -306,7 +331,7 @@ arch()->preset()->strict()->ignoring([
 // REST resource methods; the remaining Customer API controllers still fit the preset.
 //
 // These stream a private Spatie MediaLibrary collection behind Gate::authorize
-// (preview/download, or play for the signed-URL voice-note case) — a shape the Laravel
+// (preview/download, or play for the signed-URL voice-note case) â€” a shape the Laravel
 // preset's controller-method check doesn't recognize. Deliberate, not a REST resource;
 // every other controller still must fit the preset's allowed method list.
 //
@@ -314,7 +339,7 @@ arch()->preset()->strict()->ignoring([
 // (Laravel's single conventional home for them). This feature's domain exceptions
 // (contracts/plan-lifecycle.md, contracts/voice-note-ai.md) are deliberately scoped
 // to App\Services\Employees\Exceptions instead, next to the services that throw
-// them, rather than collected in one flat, feature-agnostic folder — so that
+// them, rather than collected in one flat, feature-agnostic folder â€” so that
 // namespace is exempted from this one preset rule, not from the rest of it.
 // historical Spec Kit 016 (contracts/ticket-lifecycle.md, contracts/maintenance-lifecycle.md)
 // follows the identical precedent under App\Services\Support\Exceptions, and
@@ -364,19 +389,19 @@ arch()->preset()->security();
 // list below and must stay that way: both write stock exclusively through
 // InventoryOperationService, never directly (contracts/inventory-operations.md
 // P-2). Because this assertion targets the whole App\Filament namespace, it
-// already covers those two namespaces the moment their classes exist — no
+// already covers those two namespaces the moment their classes exist â€” no
 // second assertion is needed, only the discipline not to except them here.
 //
 // App\Filament\Resources\{Tickets,MaintenanceRequests,ServiceRecords} (spec
 // 016) are held to the same discipline: spare-parts consumption writes stock
 // exclusively through ServiceRecordPartService, which now delegates every
 // stock/lot/serial mutation to InventoryPostingService
-// (contracts/maintenance-lifecycle.md §4).
+// (contracts/maintenance-lifecycle.md Â§4).
 it('never writes stock balances or movement records directly from a Filament class', function (): void {
     expect('App\Filament')->not->toUse(InventoryBalanceService::class);
 
-    foreach (File::allFiles(app_path('Filament')) as $file) {
-        $source = File::get($file->getPathname());
+    foreach (testAllFiles(testAppPath('Filament')) as $file) {
+        $source = (string) file_get_contents($file->getPathname());
 
         expect($source)
             ->not->toContain('InventoryStock::query()->create')
@@ -481,7 +506,7 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
 it('keeps InventoryDamageService called from exactly one place in app/', function (): void {
     $callers = [];
 
-    foreach (File::allFiles(app_path()) as $file) {
+    foreach (testAllFiles(testAppPath()) as $file) {
         $path = str_replace('\\', '/', $file->getRelativePathname());
 
         if ($path === 'Services/Inventory/InventoryDamageService.php') {
@@ -509,7 +534,7 @@ it('routes canonical receipt corrections through InventoryPostingService and nev
         'App\\Services\\Payments',
     ]);
 
-    $source = (string) file_get_contents(app_path('Services/Inventory/InventoryCorrectionService.php'));
+    $source = (string) file_get_contents(testAppPath('Services/Inventory/InventoryCorrectionService.php'));
 
     expect($source)
         ->toContain('MovementType::Correction')
@@ -520,9 +545,9 @@ it('routes canonical receipt corrections through InventoryPostingService and nev
 
 it('keeps the Corrections Filament resource service-backed', function (): void {
     $paths = [
-        app_path('Filament/Resources/InventoryCorrections/Pages/ManageInventoryCorrections.php'),
-        app_path('Filament/Resources/InventoryCorrections/Pages/ViewInventoryCorrection.php'),
-        app_path('Filament/Resources/InventoryCorrections/RelationManagers/CorrectionLinesRelationManager.php'),
+        testAppPath('Filament/Resources/InventoryCorrections/Pages/ManageInventoryCorrections.php'),
+        testAppPath('Filament/Resources/InventoryCorrections/Pages/ViewInventoryCorrection.php'),
+        testAppPath('Filament/Resources/InventoryCorrections/RelationManagers/CorrectionLinesRelationManager.php'),
     ];
 
     foreach ($paths as $path) {
@@ -548,7 +573,7 @@ it('routes canonical returns through InventoryPostingService without financial o
         'App\\Services\\Payments',
     ]);
 
-    $source = (string) file_get_contents(app_path('Services/Inventory/InventoryReturnService.php'));
+    $source = (string) file_get_contents(testAppPath('Services/Inventory/InventoryReturnService.php'));
 
     foreach ([
         'CreditNote',
@@ -566,7 +591,7 @@ it('routes canonical returns through InventoryPostingService without financial o
 it('keeps MovementType Return owned by the canonical return service', function (): void {
     $owners = [];
 
-    foreach (File::allFiles(app_path('Services')) as $file) {
+    foreach (testAllFiles(testAppPath('Services')) as $file) {
         $source = (string) file_get_contents($file->getPathname());
 
         if (str_contains($source, 'MovementType::Return')) {
@@ -583,9 +608,9 @@ it('keeps MovementType Return owned by the canonical return service', function (
 });
 
 it('keeps the Returns Filament resource service-backed and removes the movement-ledger placeholder', function (): void {
-    $manage = (string) file_get_contents(app_path('Filament/Resources/Returns/Pages/ManageReturns.php'));
-    $view = (string) file_get_contents(app_path('Filament/Resources/Returns/Pages/ViewReturn.php'));
-    $lines = (string) file_get_contents(app_path('Filament/Resources/Returns/RelationManagers/ReturnLinesRelationManager.php'));
+    $manage = (string) file_get_contents(testAppPath('Filament/Resources/Returns/Pages/ManageReturns.php'));
+    $view = (string) file_get_contents(testAppPath('Filament/Resources/Returns/Pages/ViewReturn.php'));
+    $lines = (string) file_get_contents(testAppPath('Filament/Resources/Returns/RelationManagers/ReturnLinesRelationManager.php'));
 
     expect($manage)
         ->toContain('InventoryReturnService::class')
@@ -605,23 +630,23 @@ it('keeps the Returns Filament resource service-backed and removes the movement-
 
 it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quantity columns', function (): void {
     $paths = [
-        app_path('Services/Inventory/InventoryPostingService.php'),
-        app_path('Services/Inventory/InventoryLotService.php'),
-        app_path('Services/Inventory/InventoryOperationService.php'),
-        app_path('Services/Inventory/InventoryReservationService.php'),
-        app_path('Services/Inventory/InventoryAdjustmentService.php'),
-        app_path('Services/Inventory/InventoryDamageService.php'),
-        app_path('Services/Support/ServiceRecordPartService.php'),
-        app_path('Services/Inventory/InventoryReportService.php'),
-        app_path('Services/Inventory/InventoryReportFormatter.php'),
-        app_path('Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php'),
-        app_path('Filament/Resources/Adjustments/Schemas/AdjustmentForm.php'),
-        app_path('Filament/Resources/Adjustments/RelationManagers/AdjustmentItemsRelationManager.php'),
-        app_path('Filament/Resources/ServiceRecords/RelationManagers/ConsumedPartsRelationManager.php'),
-        app_path('Filament/Resources/StockLevels/Actions/StockDamageActions.php'),
-        app_path('Filament/Resources/InventoryLots/InventoryLotResource.php'),
-        app_path('Filament/Resources/InventoryLots/Tables/InventoryLotsTable.php'),
-        app_path('Filament/Resources/InventoryLots/Schemas/InventoryLotInfolist.php'),
+        testAppPath('Services/Inventory/InventoryPostingService.php'),
+        testAppPath('Services/Inventory/InventoryLotService.php'),
+        testAppPath('Services/Inventory/InventoryOperationService.php'),
+        testAppPath('Services/Inventory/InventoryReservationService.php'),
+        testAppPath('Services/Inventory/InventoryAdjustmentService.php'),
+        testAppPath('Services/Inventory/InventoryDamageService.php'),
+        testAppPath('Services/Support/ServiceRecordPartService.php'),
+        testAppPath('Services/Inventory/InventoryReportService.php'),
+        testAppPath('Services/Inventory/InventoryReportFormatter.php'),
+        testAppPath('Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php'),
+        testAppPath('Filament/Resources/Adjustments/Schemas/AdjustmentForm.php'),
+        testAppPath('Filament/Resources/Adjustments/RelationManagers/AdjustmentItemsRelationManager.php'),
+        testAppPath('Filament/Resources/ServiceRecords/RelationManagers/ConsumedPartsRelationManager.php'),
+        testAppPath('Filament/Resources/StockLevels/Actions/StockDamageActions.php'),
+        testAppPath('Filament/Resources/InventoryLots/InventoryLotResource.php'),
+        testAppPath('Filament/Resources/InventoryLots/Tables/InventoryLotsTable.php'),
+        testAppPath('Filament/Resources/InventoryLots/Schemas/InventoryLotInfolist.php'),
     ];
 
     foreach ($paths as $path) {
@@ -636,17 +661,17 @@ it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quan
 });
 
 // Intent: Phase 0 remediation removed `unit_cost` from inventory_operation_lines
-// entirely — Inventory/Logistics must own zero monetary data, and procurement
+// entirely â€” Inventory/Logistics must own zero monetary data, and procurement
 // valuation stays on Purchasing's own PurchaseOrderLine.unit_cost. Both the
 // model's own metadata and the table's origin migration must stay free of the
 // column, so a future edit cannot quietly reintroduce it on either side.
 it('keeps InventoryOperationLine and its table free of the retired unit_cost column', function (): void {
-    $modelSource = (string) file_get_contents(app_path('Models/InventoryOperationLine.php'));
+    $modelSource = (string) file_get_contents(testAppPath('Models/InventoryOperationLine.php'));
 
     expect($modelSource)->not->toContain('unit_cost');
 
     $migrationSource = (string) file_get_contents(
-        base_path('database/migrations/2026_07_27_130001_create_inventory_operation_lines_table.php'),
+        testBasePath('database/migrations/2026_07_27_130001_create_inventory_operation_lines_table.php'),
     );
 
     expect($migrationSource)->not->toContain('unit_cost');
@@ -672,7 +697,7 @@ it('never references the OpenAI client outside the transcription driver namespac
 // (D2-D5, contracts/performance-scoring.md), never directly from a Filament
 // resource, mirroring the existing stock-write ban above. Performance and
 // SalaryCalculations are deliberately read-only preview surfaces (T165/T166)
-// — like StockLevels/StockMovements above, they may read these models
+// â€” like StockLevels/StockMovements above, they may read these models
 // through their own resource namespace; every other Filament namespace
 // remains banned, so any other write surface must go through the services.
 it('never writes performance or salary rows directly from a Filament class', function (): void {
@@ -688,8 +713,8 @@ it('never writes performance or salary rows directly from a Filament class', fun
 });
 
 // Intent: every App\Services\Support service takes an explicit User $actor
-// parameter and self-checks authorization against it (research.md §4,
-// contracts/permissions.md) — a deliberate strengthening over the Employees
+// parameter and self-checks authorization against it (research.md Â§4,
+// contracts/permissions.md) â€” a deliberate strengthening over the Employees
 // module's inconsistent precedent, so a direct service call is never an
 // authorization bypass. Calling auth()->user() internally would silently
 // reintroduce that gap by letting a service trust the current web session
@@ -711,9 +736,9 @@ it('never resolves the authenticated user internally in an Accounting service', 
 
 // Intent: a journal line is written only as part of an entry, and only by
 // JournalPostingService (contracts/journal-posting.md). The two accounting
-// resource namespaces may touch the model — JournalEntries binds the lines
+// resource namespaces may touch the model â€” JournalEntries binds the lines
 // repeater and reads their amounts for the live total, ChartOfAccounts reads them
-// for the ledger and the balance column — but every other Filament namespace is
+// for the ledger and the balance column â€” but every other Filament namespace is
 // banned, so no future document screen can grow its own line-writing shortcut.
 // This mirrors the stock-write and performance-write bans above.
 it('never uses journal entry lines from a Filament class outside the two accounting resources', function (): void {
@@ -724,14 +749,14 @@ it('never uses journal entry lines from a Filament class outside the two account
             'App\Filament\Resources\ChartOfAccounts',
             // Converts a decimal amount to minor units via the model's static
             // helper for a write-off preview; it never queries or writes
-            // journal_entry_lines itself — the posting stays in WriteOffPostingService.
+            // journal_entry_lines itself â€” the posting stays in WriteOffPostingService.
             'App\Filament\Resources\ReceivableWriteOffs',
             AccountingLedgerTrend::class,
         ]);
 });
 
 // Intent: SC-002 made mechanical. Purchasing initiates receipts and reacts to
-// their completion, but it never writes stock itself — that is the whole of
+// their completion, but it never writes stock itself â€” that is the whole of
 // R-001, and a review-only guarantee would last exactly until the first
 // "convenient" balance update. Both the service namespace and the purchase-order
 // Filament namespace are held to it, since a resource action is the other place
@@ -784,7 +809,7 @@ it('never resolves the authenticated user internally in a Payments service', fun
 });
 
 // Intent: SC-013/FR-053. A reporting surface is the most natural place for a
-// posting path to be added quietly — a "post the year-end close from the
+// posting path to be added quietly â€” a "post the year-end close from the
 // Balance Sheet" convenience is one line of plausible code and would be a
 // governance breach (ADR 0009). Nothing in this feature may call
 // JournalPostingService or any other write path.
@@ -803,7 +828,7 @@ it('keeps the pricing-tier discount bound derived from the constraint registry',
     // builder is what keeps them honest, and a literal cap reintroduced in
     // either place would silently re-open the gap.
     $source = (string) file_get_contents(
-        app_path('Filament/Resources/PricingTiers/PricingTierResource.php'),
+        testAppPath('Filament/Resources/PricingTiers/PricingTierResource.php'),
     );
 
     expect($source)

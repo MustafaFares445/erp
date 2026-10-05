@@ -38,6 +38,7 @@ const PURCHASING_ITEMS = [
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
     'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
     'admin.resources.supplier_product_supports' => SupplierProductSupportResource::class,
+    'admin.resources.purchasing_reports' => PurchasingReportResource::class,
     'admin.resources.purchase_settings' => PurchaseSettingResource::class,
 ];
 
@@ -71,12 +72,12 @@ it('leaves no placeholder in the vendors group', function (): void {
     expect($this->items)->toHaveCount(count(PURCHASING_ITEMS));
 });
 
-it('registers the purchasing report under the shared reports group, not inside vendors (R-011)', function (): void {
+it('registers the purchasing report inside the vendors module reports section', function (): void {
     /** @var array{items: list<array{label: string, link: string}>} $reports */
     $reports = collect(AdminModuleRegistry::groups())->firstWhere('key', 'reports');
 
-    expect(collect($reports['items'])->pluck('link')->all())->toContain(PurchasingReportResource::class)
-        ->and($this->items->pluck('link')->all())->not->toContain(PurchasingReportResource::class);
+    expect($this->items->pluck('link')->all())->toContain(PurchasingReportResource::class)
+        ->and(collect($reports['items'])->pluck('link')->all())->not->toContain(PurchasingReportResource::class);
 });
 
 it('gives every purchasing resource an English label', function (): void {

@@ -29,6 +29,23 @@ beforeEach(function (): void {
     (new EmployeePermissionSeeder)->run();
 });
 
+it('keeps every employee report in its category and selects the first report when changing category', function (): void {
+    $admin = User::factory()->admin()->create();
+    $admin->assignRole('System Admin');
+    $component = Livewire::actingAs($admin)->test(ManageEmployeeReports::class);
+    $component->set('activeTab', 'performance')->assertSet('report', EmployeeReportType::PerformanceByEmployee->value);
+    $page = $component->instance();
+    foreach (EmployeeReportType::cases() as $type) {
+        $expected = match ($type) {
+            EmployeeReportType::PlanCompletion, EmployeeReportType::OverdueTasks, EmployeeReportType::UnexecutedVisits => 'tasks_visits',
+            EmployeeReportType::PerformanceByEmployee, EmployeeReportType::PerformanceByMonth => 'performance',
+            EmployeeReportType::SalaryByEmployee, EmployeeReportType::SalaryByMonth => 'salary',
+        };
+        $page->report = $type->value;
+        expect($page->getDefaultActiveTab())->toBe($expected);
+    }
+});
+
 it('denies the index page without report permissions and allows a System Admin', function (): void {
     $unauthorized = User::factory()->admin()->create();
 

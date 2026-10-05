@@ -70,6 +70,17 @@ it('does not create supplier confirmation evidence when the accepted PO policy d
         ->toThrow(ValidationException::class, 'does not require supplier confirmation');
 });
 
+it('requires evidence that the accepted purchase order was sent before requesting confirmation', function (): void {
+    $order = PurchaseOrder::factory()->accepted()->create([
+        'supplier_confirmation_required' => true,
+        'sent_at' => null,
+    ]);
+
+    expect(fn () => $this->service->recordPurchaseOrder($this->officer, $order))
+        ->toThrow(ValidationException::class, 'Send the Purchase Order to the supplier')
+        ->and(SupplierConfirmation::query()->where('purchase_order_id', $order->id)->exists())->toBeFalse();
+});
+
 it('records a confirmation against every outstanding line of a purchase order', function (): void {
     $order = confirmableOrder();
 

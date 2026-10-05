@@ -30,7 +30,7 @@ it('covers reconciliation diagnostic formatting for empty and mixed detail array
 
     $component = Livewire::actingAs($viewer)
         ->test(ManageInventoryReports::class)
-        ->set('activeTab', InventoryReportType::Reconciliation->value);
+        ->set('report', InventoryReportType::Reconciliation->value);
 
     $column = $component->instance()->getTable()->getColumn('detail');
 

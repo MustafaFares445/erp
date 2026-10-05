@@ -9,6 +9,7 @@ use App\Models\SupplierProductReference;
 use App\Models\SupplierProductSupport;
 use App\Services\Purchasing\SupplierSupportResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -71,8 +72,13 @@ it('automatically creates variant sourcing support for an active supplier catalo
 
 it('backfills active supplier product references as variant support', function (): void {
     $reference = SupplierProductReference::factory()->create(['is_active' => true]);
+    DB::table('supplier_product_supports')
+        ->where('supplier_id', $reference->supplier_id)
+        ->where('product_variant_id', $reference->product_variant_id)
+        ->delete();
 
     $this->artisan('purchasing:backfill-supplier-product-supports')
+        ->expectsOutput('Created 1 supplier product supports.')
         ->assertSuccessful();
 
     expect(SupplierProductSupport::query()

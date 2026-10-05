@@ -568,7 +568,7 @@ it('dispatches a customer delivery through the synchronized logistics workflow',
             ->value('on_hand_quantity'))->toBe(9.0);
 });
 
-it('creates a receipt correction directly from a completed receipt', function (): void {
+it('creates a receipt correction directly from a completed receipt', function (?string $notes): void {
     $approver = inventoryOperationApprover();
     $approver->givePermissionTo([
         InventoryPermission::CorrectionView->value,
@@ -582,7 +582,7 @@ it('creates a receipt correction directly from a completed receipt', function ()
         ->assertActionVisible('createReceiptCorrection')
         ->callAction('createReceiptCorrection', [
             'reason' => 'Correct the received quantity using a compensating document.',
-            'notes' => 'Created from the receipt workflow.',
+            'notes' => $notes,
         ]);
 
     $correction = InventoryCorrection::query()
@@ -594,8 +594,8 @@ it('creates a receipt correction directly from a completed receipt', function ()
     );
 
     expect($correction->reason)->toBe('Correct the received quantity using a compensating document.')
-        ->and($correction->notes)->toBe('Created from the receipt workflow.');
-});
+        ->and($correction->notes)->toBe($notes);
+})->with(['documented' => 'Created from the receipt workflow.', 'without notes' => null]);
 
 it('creates a customer return directly from a dispatched delivery', function (): void {
     $approver = inventoryOperationApprover();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\AccountingPermission;
 use App\Enums\InvoiceStatus;
 use App\Enums\JournalEntryStatus;
+use App\Enums\PeriodCloseCheck;
 use App\Enums\WriteOffStatus;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Widgets\AccountingLedgerTrend;
@@ -15,6 +16,7 @@ use App\Filament\Widgets\TaxPositionThisPeriod;
 use App\Models\Bill;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
+use App\Models\FiscalPeriodCloseCheck;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\ReceivableWriteOff;
@@ -30,6 +32,28 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     (new AccountingPermissionSeeder)->run();
+});
+
+it('renders persisted passed and failed close checks without running a fresh checklist', function (): void {
+    $this->actingAs(User::factory()->admin()->create());
+    $period = FiscalPeriod::factory()->create(['is_closed' => false]);
+    foreach ([PeriodCloseCheck::TrialBalanceBalances->value => true, PeriodCloseCheck::StockLedgerReconciles->value => false] as $check => $passed) {
+        FiscalPeriodCloseCheck::query()->create([
+            'fiscal_period_id' => $period->id,
+            'check_key' => $check,
+            'passed' => $passed,
+            'measured_at' => now(),
+        ]);
+    }
+
+    $widget = Livewire::test(PeriodCloseReadiness::class)
+        ->assertSee(__('dashboards.accounting.close_status.passed'))
+        ->assertSee(__('dashboards.accounting.close_status.failed'));
+
+    $status = $widget->instance()->getTable()->getColumn('status');
+    expect($status->getColor('passed'))->toBe('success')
+        ->and($status->getColor('failed'))->toBe('danger')
+        ->and(FiscalPeriodCloseCheck::query()->count())->toBe(2);
 });
 
 /** @return list<Stat> */

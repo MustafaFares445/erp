@@ -9,6 +9,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+it('rejects unsupported entry types and blank collaboration bodies', function (string $type, string $body, string $message): void {
+    $actor = User::factory()->create();
+    $customer = CustomerProfile::factory()->create();
+
+    expect(fn () => app(CollaborationService::class)->create($actor, $customer, ['type' => $type, 'body' => $body]))
+        ->toThrow(InvalidArgumentException::class, $message)
+        ->and($customer->collaborationEntries()->count())->toBe(0);
+})->with([
+    ['unsupported', 'A body', 'Unsupported collaboration entry type.'],
+    ['comment', '   ', 'Collaboration body is required.'],
+]);
+
 it('creates collaboration entries separately from audit history and follows the record', function (): void {
     $actor = User::factory()->create();
     $customer = CustomerProfile::factory()->create();

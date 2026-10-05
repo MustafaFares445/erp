@@ -2,152 +2,98 @@
 
 declare(strict_types=1);
 
-use App\Filament\Resources\Quotations\Schemas\QuotationLinesRepeater;
-use App\Models\ProductVariant;
-use App\Services\Inventory\ProductMediaSynchronizer;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
+use App\Enums\BillStatus;
+use App\Enums\ExpenseStatus;
+use App\Enums\SupplierPaymentStatus;
+use App\Filament\Resources\AccountsPayable\Pages\ListAccountsPayable;
+use App\Models\Bill;
+use App\Models\Expense;
+use App\Models\Supplier;
+use App\Models\SupplierPayment;
+use App\Models\SupplierPaymentAllocation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(RefreshDatabase::class);
 
-beforeEach(function (): void {
-    Storage::fake('public');
-});
-
-function batch69Method(string $method): ReflectionMethod
+function coverage69Page(): ListAccountsPayable
 {
-    return new ReflectionMethod(QuotationLinesRepeater::class, $method);
+    return new ReflectionClass(ListAccountsPayable::class)->newInstanceWithoutConstructor();
 }
 
-/** @return array<string, object> */
-function batch69Components(): array
-{
-    $repeater = QuotationLinesRepeater::make();
-    $components = [];
+it('builds payable document drill-down URLs for bills and expenses', function (): void {
+    $this->actingAs(User::factory()->admin()->create());
+    $page = coverage69Page();
+    $bill = Bill::factory()->create();
+    $expense = Expense::factory()->create();
 
-    $collect = static function (iterable $children) use (&$collect, &$components): void {
-        foreach ($children as $component) {
-            if (method_exists($component, 'getName')) {
-                $name = $component->getName();
-                if (is_string($name) && $name !== '') {
-                    $components[$name] = $component;
-                }
-            }
-
-            try {
-                $property = new ReflectionProperty($component, 'childComponents');
-                $sets = $property->getValue($component);
-                foreach (is_array($sets) ? $sets : [] as $childrenSet) {
-                    if (is_iterable($childrenSet)) {
-                        $collect($childrenSet);
-                    }
-                }
-            } catch (ReflectionException) {
-                // Leaf component.
-            }
-        }
-    };
-
-    $property = new ReflectionProperty($repeater, 'childComponents');
-    $sets = $property->getValue($repeater);
-    foreach (is_array($sets) ? $sets : [] as $childrenSet) {
-        if (is_iterable($childrenSet)) {
-            $collect($childrenSet);
-        }
-    }
-
-    return $components;
-}
-
-it('re-resolves tier price when a quotation variant changes', function (): void {
-    $variant = ProductVariant::factory()->create(['base_price' => 125.50]);
-    $components = batch69Components();
-
-    /** @var Select $variantSelect */
-    $variantSelect = $components['product_variant_id'];
-    $callbacks = new ReflectionProperty($variantSelect, 'afterStateUpdated')->getValue($variantSelect);
-
-    $set = Mockery::mock(Set::class);
-    $set->shouldReceive('__invoke')->once()->with('unit_id', $variant->unit_id);
-    $set->shouldReceive('__invoke')->once()->with('unit_price', Mockery::type('float'));
-
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->with('use_tier_price')->andReturn(true);
-    $get->shouldReceive('__invoke')->with('../../customer_id')->andReturn(null);
-
-    $callbacks[0]($set, $get, $variant->getKey());
+    expect($page->documentUrl('bill', $bill->id))->toContain('/bills/'.$bill->id)
+        ->and($page->documentUrl('expense', $expense->id))->toContain('/expenses/'.$expense->id)
+        ->and($page->documentUrl('unknown', 1))->toBeNull();
 });
 
-it('renders a real quotation variant image when media exists', function (): void {
-    $variant = ProductVariant::factory()->create();
-    $path = UploadedFile::fake()->image('quotation-line.png')->store('product-images', 'public');
-    app(ProductMediaSynchronizer::class)->sync($variant, [$path]);
+it('guards supplier statement download when the selected supplier no longer exists', function (): void {
+    $this->actingAs(User::factory()->admin()->create());
+    $page = coverage69Page();
+    $page->asOf = '2026-08-31';
+    $page->supplierId = 999999;
 
-    $preview = batch69Method('productImagePreview')->invoke(null, $variant->refresh()->getKey());
-
-    expect((string) $preview)->toContain('<img', 'conversions/');
+    expect(fn (): StreamedResponse => $page->downloadStatement())
+        ->toThrow(LogicException::class, 'selected supplier no longer exists');
 });
 
-it('returns no floor warning when the entered base-equivalent price meets the floor', function (): void {
-    $variant = ProductVariant::factory()->create([
-        'min_price' => 50,
-        'base_price' => 75,
+it('streams a populated supplier statement including charges and allocated payments', function (): void {
+    $this->actingAs(User::factory()->admin()->create());
+    $supplier = Supplier::factory()->create(['name' => 'Coverage AP Supplier']);
+
+    $bill = Bill::factory()->create([
+        'supplier_id' => $supplier->id,
+        'status' => BillStatus::Approved,
+        'bill_date' => '2026-08-01',
+        'due_date' => '2026-08-20',
+        'supplier_reference' => 'C69-BILL',
+        'subtotal' => '100.00',
+        'tax_total' => '0.00',
+        'total_amount' => '100.00',
+    ]);
+    $expense = Expense::factory()->create([
+        'supplier_id' => $supplier->id,
+        'status' => ExpenseStatus::Approved,
+        'expense_date' => '2026-08-02',
+        'due_date' => '2026-08-21',
+        'subtotal' => '25.00',
+        'tax_total' => '0.00',
+        'total_amount' => '25.00',
+    ]);
+    $payment = SupplierPayment::factory()->create([
+        'supplier_id' => $supplier->id,
+        'status' => SupplierPaymentStatus::Paid,
+        'amount' => '40.00',
+        'payment_date' => '2026-08-15',
+        'reference' => 'C69-PAYMENT',
+    ]);
+    SupplierPaymentAllocation::factory()->create([
+        'supplier_payment_id' => $payment->id,
+        'bill_id' => $bill->id,
+        'amount' => '40.00',
     ]);
 
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->andReturnUsing(
-        static fn (string $path): mixed => match ($path) {
-            'product_variant_id' => $variant->getKey(),
-            'unit_price' => 75,
-            'unit_id' => null,
-            'price_floor_override_id' => null,
-            default => null,
-        },
-    );
+    $page = coverage69Page();
+    $page->asOf = '2026-08-31';
+    $page->supplierId = $supplier->id;
 
-    expect(batch69Method('belowFloorHelperText')->invoke(null, $get))->toBeNull();
-});
+    $response = $page->downloadStatement();
+    ob_start();
+    $response->sendContent();
+    $csv = ob_get_clean();
 
-it('returns false for a floor override reason when a numeric variant no longer exists', function (): void {
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->andReturnUsing(
-        static fn (string $path): mixed => match ($path) {
-            'price_floor_override_id' => null,
-            'product_variant_id' => 999999999,
-            default => null,
-        },
-    );
-
-    expect(batch69Method('needsFloorOverrideReason')->invoke(null, $get))->toBeFalse();
-});
-
-it('uses a factor of one when no quotation unit conversion is selected', function (): void {
-    $variant = ProductVariant::factory()->create();
-
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->andReturnUsing(
-        static fn (string $path): mixed => match ($path) {
-            'unit_price' => 20,
-            'unit_id' => null,
-            default => null,
-        },
-    );
-
-    expect(batch69Method('baseEquivalentPrice')->invoke(null, $get, $variant))->toBe(20.0);
-});
-
-it('resolves a variant price without a customer and converts digit strings to integers', function (): void {
-    $variant = ProductVariant::factory()->create(['base_price' => 80]);
-
-    $get = Mockery::mock(Get::class);
-    $get->shouldReceive('__invoke')->with('../../customer_id')->andReturn(null);
-
-    $resolved = batch69Method('resolvePrice')->invoke(null, $variant->getKey(), $get);
-
-    expect($resolved)->not->toBeNull()
-        ->and(batch69Method('toInteger')->invoke(null, '42'))->toBe(42);
+    expect($response)->toBeInstanceOf(StreamedResponse::class)
+        ->and($response->headers->get('content-type'))->toContain('text/csv')
+        ->and($csv)->toBeString()
+        ->toContain('Coverage AP Supplier')
+        ->toContain((string) $bill->bill_number)
+        ->toContain((string) $expense->expense_number)
+        ->toContain((string) $payment->supplier_payment_number)
+        ->toContain('Carried forward');
 });

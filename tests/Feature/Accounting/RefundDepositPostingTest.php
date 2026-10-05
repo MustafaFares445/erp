@@ -49,6 +49,43 @@ beforeEach(function (): void {
     ]);
 });
 
+it('limits a linked refund to the unreserved credit of its source credit note', function (): void {
+    $source = CreditNote::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => null,
+        'status' => 'confirmed',
+        'confirmed_at' => now(),
+        'grand_total' => '75.00',
+    ]);
+    CreditNote::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => null,
+        'status' => 'confirmed',
+        'confirmed_at' => now(),
+        'grand_total' => '40.00',
+    ]);
+    Refund::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $this->method->getKey(),
+        'credit_note_id' => $source->getKey(),
+        'invoice_id' => null,
+        'amount' => '35.00',
+        'status' => RefundStatus::Approved,
+    ]);
+    $draft = Refund::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $this->method->getKey(),
+        'credit_note_id' => $source->getKey(),
+        'invoice_id' => null,
+        'amount' => '45.00',
+        'status' => RefundStatus::Draft,
+    ]);
+
+    expect(fn () => app(RefundService::class)->approve($this->actor, $draft))
+        ->toThrow(DomainException::class, 'Refund 45.00 exceeds available customer credit 40.00.');
+    expect($draft->refresh()->status)->toBe(RefundStatus::Draft);
+});
+
 it('snapshots and debits customer deposits for an unapplied-deposit refund', function (): void {
     $payments = app(PaymentService::class);
     $draftPayment = $payments->createDraft($this->actor, [

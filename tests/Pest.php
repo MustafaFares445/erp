@@ -16,64 +16,60 @@ use Tests\TestCase;
 
 /*
 |--------------------------------------------------------------------------
-| Test Case
+| Test Classification
 |--------------------------------------------------------------------------
 |
-| The closure you provide to your test functions is always bound to a specific PHPUnit test
-| case class. By default, that class is "PHPUnit\Framework\TestCase". Of course, you may
-| need to change it using the "pest()" function to bind different classes or traits.
+| Only Feature tests boot the Laravel application. Unit tests remain plain
+| Pest/PHPUnit tests unless a specific file explicitly opts into Laravel.
+|
+| Coverage-only suites remain part of the authoritative coverage gate but are
+| excluded from the normal fast behavioral feedback loop.
 |
 */
 
-pest()->extend(TestCase::class)->in('Feature', 'Unit');
+pest()
+    ->extend(TestCase::class)
+    ->in('Feature')
+    ->beforeEach(function (): void {
+        $token = ParallelTesting::token();
 
-beforeEach(function (): void {
-    $token = ParallelTesting::token();
+        if (is_string($token)) {
+            $publicRoot = storage_path('framework/testing/disks/public-'.$token);
 
-    if (is_string($token)) {
-        $publicRoot = storage_path('framework/testing/disks/public-'.$token);
+            File::ensureDirectoryExists($publicRoot);
+            config()->set('filesystems.disks.public.root', $publicRoot);
 
-        File::ensureDirectoryExists($publicRoot);
-        config()->set('filesystems.disks.public.root', $publicRoot);
+            $localRoot = storage_path('framework/testing/disks/local-'.$token);
 
-        $localRoot = storage_path('framework/testing/disks/local-'.$token);
+            File::ensureDirectoryExists($localRoot);
+            config()->set('filesystems.disks.local.root', $localRoot);
+        }
 
-        File::ensureDirectoryExists($localRoot);
-        config()->set('filesystems.disks.local.root', $localRoot);
-    }
+        Http::preventStrayRequests();
 
-    Http::preventStrayRequests();
+        if (method_exists(Process::class, 'preventStrayProcesses')) {
+            Process::preventStrayProcesses();
+        }
 
-    if (method_exists(Process::class, 'preventStrayProcesses')) {
-        Process::preventStrayProcesses();
-    }
+        Sleep::fake();
+        $this->freezeTime();
+    });
 
-    Sleep::fake();
-    $this->freezeTime();
-});
+pest()->group('coverage-only')->in('Feature/Coverage', 'Feature/UnitIntegration/Coverage', 'Unit/Coverage');
+pest()->group('architecture')->in('Unit/ArchTest.php');
 
 /*
 |--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
-|
-| When you're writing tests, you often need to check that values meet certain conditions. The
-| "expect()" function gives you access to a set of "expectations" methods that you can use
-| to assert different things. Of course, you may extend the Expectation API at any time.
-|
 */
 
 expect()->extend('toBeOne', fn () => $this->toBe(1));
 
 /*
 |--------------------------------------------------------------------------
-| Functions
+| Project Test Helpers
 |--------------------------------------------------------------------------
-|
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
-| project that you don't want to repeat in every file. Here you can also expose helpers as
-| global functions to help you to reduce the number of lines of code in your test files.
-|
 */
 
 function configurePaymentAccounting(string $methodType = 'bank_transfer', float $taxPercent = 0.0): PaymentMethod

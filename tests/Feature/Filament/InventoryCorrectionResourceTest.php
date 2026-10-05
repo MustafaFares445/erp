@@ -21,6 +21,20 @@ beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
 
+it('creates a receipt correction from the queue without optional notes', function (): void {
+    $user = correctionLifecycleUser();
+    $receipt = \App\Models\InventoryOperation::factory()->receipt()->done()->create();
+    Livewire::actingAs($user)->test(ManageInventoryCorrections::class)
+        ->callAction(CreateAction::class, [
+            'original_inventory_operation_id' => $receipt->id,
+            'reason' => 'Correct the receipt quantity.',
+        ])
+        ->assertHasNoActionErrors();
+    $correction = InventoryCorrection::query()->where('original_inventory_operation_id', $receipt->id)->sole();
+    expect($correction->notes)->toBeNull()
+        ->and($correction->reason)->toBe('Correct the receipt quantity.');
+});
+
 it('exposes canonical corrections as an inventory operations resource', function (): void {
     $user = correctionLifecycleUser();
     $draft = InventoryCorrection::factory()->create();

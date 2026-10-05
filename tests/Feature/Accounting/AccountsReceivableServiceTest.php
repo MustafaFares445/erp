@@ -19,6 +19,7 @@ use App\Models\PaymentMethod;
 use App\Models\ReceivableWriteOff;
 use App\Models\SalesSetting;
 use App\Services\Accounting\AccountsReceivableService;
+use App\Services\Accounting\CustomerReceivablesSnapshot;
 use Carbon\CarbonImmutable;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -64,6 +65,17 @@ function arInvoice(CustomerProfile $customer, CarbonImmutable $asOf, int $dueOff
         'status' => $status,
     ]);
 }
+
+it('reuses a customer receivables snapshot while returning the measured outstanding minor units', function (): void {
+    arInvoice($this->customer, CarbonImmutable::now(), -10, '125.00');
+    $snapshot = new CustomerReceivablesSnapshot;
+    expect($snapshot->outstandingMinor($this->customer->id))->toBe(12500)
+        ->and($snapshot->outstandingMinor(999999999))->toBe(0);
+
+    arInvoice($this->customer, CarbonImmutable::now(), -5, '50.00');
+    expect($snapshot->outstandingMinor($this->customer->id))->toBe(12500)
+        ->and(new CustomerReceivablesSnapshot()->outstandingMinor($this->customer->id))->toBe(17500);
+});
 
 function arPostControlEntry(Invoice $invoice, FiscalPeriod $period, string $amount, bool $normalSource = true): JournalEntry
 {

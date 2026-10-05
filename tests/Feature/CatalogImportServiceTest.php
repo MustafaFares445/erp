@@ -43,7 +43,8 @@ use OpenSpout\Writer\XLSX\Writer;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    Storage::fake('local');
+    $catalogImportDisk = Storage::fake('catalog-import');
+    Storage::set('local', $catalogImportDisk);
 
     ProductAttribute::query()->forceCreate([
         'name' => 'Color',

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Data\Inventory\InventoryBalanceSnapshot;
+use App\Data\Inventory\InventoryPostingResult;
 use App\Enums\InventoryReturnDisposition;
 use App\Enums\InventoryReturnStatus;
 use App\Enums\MovementType;
@@ -16,6 +18,7 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
+use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
@@ -26,6 +29,24 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
+
+it('rejects return postings with missing provenance or duplicate line results', function (): void {
+    $movement = new InventoryMovement()->forceFill(['source_line_type' => 'inventory_operation_line', 'source_line_id' => 1]);
+    $posting = new InventoryPostingResult(
+        new InventoryStock,
+        $movement,
+        new InventoryBalanceSnapshot('0', '0', '0', '0'),
+        null,
+        false,
+    );
+
+    expect(fn () => returnCoverageInvoke('indexReturnPostings', [$posting]))
+        ->toThrow(DomainException::class, 'A canonical return posting must retain its return-line provenance.');
+
+    $movement->source_line_type = 'inventory_return_line';
+    expect(fn () => returnCoverageInvoke('indexReturnPostings', [$posting, $posting]))
+        ->toThrow(DomainException::class, 'A return line cannot receive more than one canonical posting result.');
+});
 
 function returnCoverageInvoke(string $method, mixed ...$arguments): mixed
 {

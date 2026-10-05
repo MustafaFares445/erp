@@ -33,6 +33,7 @@ use App\Models\Quotation;
 use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Permission;
@@ -76,6 +77,9 @@ it('seeds an authorized system administrator and the permission catalogue', func
             })
             ->count())->toBe(0);
 
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::auth()->login($admin);
+
     foreach ([
         WarehouseResource::getUrl(),
         StockLevelResource::getUrl(),
@@ -83,7 +87,7 @@ it('seeds an authorized system administrator and the permission catalogue', func
         AdjustmentResource::getUrl(),
         InventoryOperationResource::getUrl(),
     ] as $url) {
-        $this->actingAs($admin)->get($url)->assertOk();
+        $this->get($url)->assertOk();
     }
 });
 

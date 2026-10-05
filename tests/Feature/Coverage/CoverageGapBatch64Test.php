@@ -2,124 +2,178 @@
 
 declare(strict_types=1);
 
-use App\Enums\MaintenanceBillingType;
-use App\Enums\MaintenanceStatus;
-use App\Enums\QuotationStatus;
-use App\Enums\WarrantyClaimDecision;
-use App\Enums\WarrantyCoverageSource;
-use App\Filament\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
-use App\Models\MaintenanceCoverageLine;
-use App\Models\MaintenanceRecord;
-use App\Models\Quotation;
+use App\Enums\DashboardRole;
+use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
+use App\Models\SavedTableView;
+use App\Models\TableViewPreference;
 use App\Models\User;
-use App\Services\Support\MaintenanceNextActionResolver;
+use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-beforeEach(function (): void {
-    Gate::before(static fn (): bool => true);
-});
-
-function batch64Invoke(string $class, string $method, mixed ...$arguments): mixed
+function coverage64User(): User
 {
-    return new ReflectionMethod($class, $method)->invoke(null, ...$arguments);
+    (new PurchasePermissionSeeder)->run();
+
+    $user = User::factory()->admin()->create();
+    $user->assignRole(DashboardRole::PurchasingManager->value);
+
+    return $user;
 }
 
-function batch64CustomerAmount(MaintenanceRecord $record, int $customerMinor): void
+/** @param array<string,mixed> $state */
+function coverage64View(User $user, string $name, array $state = []): SavedTableView
 {
-    MaintenanceCoverageLine::factory()->for($record)->create([
-        'description' => 'Coverage helper line',
-        'amount_minor' => $customerMinor,
-        'coverage_percent' => 0,
-        'covered_amount_minor' => 0,
-        'customer_amount_minor' => $customerMinor,
-        'coverage_source' => WarrantyCoverageSource::CustomerPaid,
+    return SavedTableView::query()->create([
+        'user_id' => $user->id,
+        'page_key' => 'purchasing.purchase-orders',
+        'name' => $name,
+        'is_public' => false,
+        'state' => $state,
+        'state_version' => ListPurchaseOrders::SAVED_TABLE_VIEW_STATE_VERSION,
     ]);
 }
 
-it('covers maintenance next-action states and every approval branch', function (): void {
-    $resolver = app(MaintenanceNextActionResolver::class);
-
-    foreach ([
-        [MaintenanceStatus::Open, 'Record diagnosis'],
-        [MaintenanceStatus::Diagnosing, 'Determine coverage'],
-        [MaintenanceStatus::ReadyForRepair, 'Start repair'],
-        [MaintenanceStatus::InProgress, 'Send to QA'],
-        [MaintenanceStatus::QualityAssurance, 'Complete QA'],
-        [MaintenanceStatus::Cancelled, 'No action — cancelled'],
-    ] as [$status, $expected]) {
-        $record = MaintenanceRecord::factory()->create(['status' => $status]);
-        expect($resolver->resolve($record))->toBe($expected);
-    }
-
-    $covered = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
-    expect($resolver->resolve($covered))->toBe('Confirm approval');
-
-    $needsQuote = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
-    batch64CustomerAmount($needsQuote, 10000);
-    expect($resolver->resolve($needsQuote->refresh()))->toBe('Create quotation');
-
-    $accepted = Quotation::factory()->accepted()->create([
-        'customer_id' => $needsQuote->customer_id,
-        'status' => QuotationStatus::Accepted,
+it('boots the default saved table view and applies its state', function (): void {
+    $user = coverage64User();
+    $view = coverage64View($user, 'Default coverage view', [
+        'preset_tab' => 'all',
+        'tableSearch' => 'COVERAGE-64',
+        'tableGrouping' => 'status',
+        'tableSort' => 'id',
+        'tableRecordsPerPage' => 25,
+        'tableFilters' => [],
+        'tableColumnSearches' => [],
     ]);
-    $needsQuote->forceFill(['quotation_id' => $accepted->getKey()])->save();
-    expect($resolver->resolve($needsQuote->refresh()))->toBe('Mark ready for repair');
 
-    $pendingQuoteRecord = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
-    batch64CustomerAmount($pendingQuoteRecord, 10000);
-    $pendingQuote = Quotation::factory()->create([
-        'customer_id' => $pendingQuoteRecord->customer_id,
-        'status' => QuotationStatus::Draft,
+    TableViewPreference::query()->create([
+        'user_id' => $user->id,
+        'page_key' => 'purchasing.purchase-orders',
+        'view_type' => 'saved',
+        'view_key' => (string) $view->id,
+        'is_default' => true,
+        'is_favorite' => true,
     ]);
-    $pendingQuoteRecord->forceFill(['quotation_id' => $pendingQuote->getKey()])->save();
 
-    expect($resolver->resolve($pendingQuoteRecord->refresh()))->toBe('Waiting quote approval');
+    $component = Livewire::actingAs($user)->test(ListPurchaseOrders::class);
+    $page = $component->instance();
+    $defaultId = new ReflectionMethod(ListPurchaseOrders::class, 'defaultSavedTableViewId')->invoke($page);
+    expect($defaultId)->toBe($view->id);
+
+    $page->savedTableViewInitialized = false;
+    $page->activeSavedTableView = null;
+    $page->bootedInteractsWithTable();
+
+    expect($page->tableSearch)->toBe('COVERAGE-64')
+        ->and($page->tableGrouping)->toBe('status')
+        ->and($page->tableSort)->toBe('id')
+        ->and($page->tableRecordsPerPage)->toBe(25);
 });
 
-it('covers the commercial follow-up of a closed maintenance request', function (): void {
-    $resolver = app(MaintenanceNextActionResolver::class);
+it('covers saved-view load replace default and delete action closures', function (): void {
+    $user = coverage64User();
+    $this->actingAs($user);
 
-    $closed = static fn (MaintenanceBillingType $billing, WarrantyClaimDecision $decision = WarrantyClaimDecision::PendingDiagnosis): MaintenanceRecord => MaintenanceRecord::factory()->create([
-        'status' => MaintenanceStatus::Closed,
-        'billing_type' => $billing,
-        'coverage_decision' => $decision,
+    $load = coverage64View($user, 'Load coverage', [
+        'preset_tab' => 'all',
+        'tableSearch' => 'LOAD-64',
+    ]);
+    $replace = coverage64View($user, 'Replace coverage');
+    $delete = coverage64View($user, 'Delete coverage');
+
+    $component = Livewire::actingAs($user)->test(ListPurchaseOrders::class);
+    $page = $component->instance();
+
+    $loadAction = new ReflectionMethod(ListPurchaseOrders::class, 'loadSavedTableViewAction')->invoke($page);
+    $loadAction->getActionFunction()(['view_id' => (string) $load->id]);
+
+    expect($page->activeSavedTableView)->toBe($load->id)
+        ->and($page->tableSearch)->toBe('LOAD-64');
+
+    $page->tableSearch = 'REPLACED-64';
+    $replaceAction = new ReflectionMethod(ListPurchaseOrders::class, 'replaceSavedTableViewAction')->invoke($page);
+    $replaceAction->getActionFunction()(['view_id' => (string) $replace->id]);
+
+    expect($replace->refresh()->state['tableSearch'])->toBe('REPLACED-64')
+        ->and($replace->state_version)->toBe(ListPurchaseOrders::SAVED_TABLE_VIEW_STATE_VERSION)
+        ->and($page->activeSavedTableView)->toBe($replace->id);
+
+    TableViewPreference::query()->create([
+        'user_id' => $user->id,
+        'page_key' => 'purchasing.purchase-orders',
+        'view_type' => 'saved',
+        'view_key' => (string) $load->id,
+        'is_default' => true,
+        'is_favorite' => true,
     ]);
 
-    expect($resolver->resolve($closed(MaintenanceBillingType::Invoiced)))->toBe('Commercial follow-up complete')
-        ->and($resolver->resolve($closed(MaintenanceBillingType::WarrantyCovered)))->toBe('Commercial follow-up complete');
+    $defaultAction = new ReflectionMethod(ListPurchaseOrders::class, 'setDefaultSavedTableViewAction')->invoke($page);
+    $defaultAction->getActionFunction()(['view_id' => (string) $replace->id]);
 
-    foreach ([
-        WarrantyClaimDecision::FullyCovered,
-        WarrantyClaimDecision::Goodwill,
-        WarrantyClaimDecision::ThirdPartyWarranty,
-        WarrantyClaimDecision::ServiceContract,
-    ] as $decision) {
-        expect($resolver->resolve($closed(MaintenanceBillingType::Unbilled, $decision)))->toBe('Settle covered repair');
-    }
+    expect(TableViewPreference::query()
+        ->where('view_key', (string) $load->id)
+        ->value('is_default'))->toBeFalse()
+        ->and(TableViewPreference::query()
+            ->where('view_key', (string) $replace->id)
+            ->value('is_default'))->toBeTrue();
 
-    foreach ([WarrantyClaimDecision::PartiallyCovered, WarrantyClaimDecision::Rejected] as $decision) {
-        expect($resolver->resolve($closed(MaintenanceBillingType::Quoted, $decision)))->toBe('Create final customer invoice');
-    }
+    TableViewPreference::query()->updateOrCreate([
+        'user_id' => $user->id,
+        'page_key' => 'purchasing.purchase-orders',
+        'view_type' => 'saved',
+        'view_key' => (string) $delete->id,
+    ], [
+        'is_default' => false,
+        'is_favorite' => true,
+    ]);
 
-    expect($resolver->resolve($closed(MaintenanceBillingType::Unbilled)))->toBe('Review billing');
+    $page->activeSavedTableView = $delete->id;
+    $deleteAction = new ReflectionMethod(ListPurchaseOrders::class, 'deleteSavedTableViewAction')->invoke($page);
+    $deleteAction->getActionFunction()(['view_id' => (string) $delete->id]);
+
+    expect($page->activeSavedTableView)->toBeNull()
+        ->and(SavedTableView::query()->whereKey($delete->id)->exists())->toBeFalse()
+        ->and(TableViewPreference::query()->where('view_key', (string) $delete->id)->exists())->toBeFalse();
 });
 
-it('covers the maintenance table actor guard', function (): void {
+it('covers saved-view state normalization and helper fallbacks', function (): void {
+    $user = coverage64User();
+    $this->actingAs($user);
+
+    $component = Livewire::actingAs($user)->test(ListPurchaseOrders::class);
+    $page = $component->instance();
+
+    $filterKeys = array_keys($page->getTable()->getFilters());
+    $stateFilters = $filterKeys === [] ? [] : [
+        $filterKeys[0] => ['value' => 'coverage'],
+        'not-a-real-filter' => ['value' => 'drop'],
+    ];
+
+    $view = coverage64View($user, 'Normalization coverage', [
+        'preset_tab' => 'not-a-real-tab',
+        'tableFilters' => $stateFilters,
+        'tableGrouping' => 'status',
+        'tableSearch' => ['not-a-string'],
+        'tableColumnSearches' => 'not-an-array',
+        'tableSort' => str_repeat('x', 300),
+        'tableRecordsPerPage' => '50',
+    ]);
+
+    new ReflectionMethod(ListPurchaseOrders::class, 'applySavedTableView')->invoke($page, $view);
+
+    expect($page->activeTab)->toBe((string) $page->getDefaultActiveTab())
+        ->and($page->tableGrouping)->toBe('status')
+        ->and($page->tableSearch)->toBe('')
+        ->and($page->tableColumnSearches)->toBe([])
+        ->and(mb_strlen((string) $page->tableSort))->toBe(255)
+        ->and($page->tableRecordsPerPage)->toBe(50);
+
+    $savedTableViewId = new ReflectionMethod(ListPurchaseOrders::class, 'savedTableViewId');
+    expect($savedTableViewId->invoke($page, ['view_id' => '123']))->toBe(123);
+
     auth()->logout();
-
-    expect(fn (): mixed => batch64Invoke(MaintenanceRequestsTable::class, 'currentActor'))
-        ->toThrow(LogicException::class, 'authenticated User');
-});
-
-it('covers caught invalid maintenance-table transition without changing the record', function (): void {
-    $actor = User::factory()->admin()->create();
-    $this->actingAs($actor);
-
-    $record = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Open]);
-    batch64Invoke(MaintenanceRequestsTable::class, 'applyTransition', $record, MaintenanceStatus::Closed);
-
-    expect($record->refresh()->status)->toBe(MaintenanceStatus::Open);
+    $defaultId = new ReflectionMethod(ListPurchaseOrders::class, 'defaultSavedTableViewId');
+    expect($defaultId->invoke($page))->toBeNull();
 });

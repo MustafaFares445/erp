@@ -2,235 +2,174 @@
 
 declare(strict_types=1);
 
-use App\Enums\CreditNoteStatus;
-use App\Enums\InvoiceStatus;
-use App\Enums\WriteOffStatus;
-use App\Filament\Resources\CreditNotes\Schemas\CreditNoteInfolist;
-use App\Filament\Resources\Invoices\Schemas\InvoiceInfolist;
-use App\Filament\Resources\Invoices\Tables\InvoicesTable;
-use App\Models\CreditNote;
-use App\Models\CreditNoteLine;
-use App\Models\DepositApplicationIssue;
-use App\Models\InventoryOperation;
-use App\Models\InventoryReturn;
-use App\Models\InventoryReturnLine;
-use App\Models\Invoice;
-use App\Models\InvoiceDeliveryLink;
-use App\Models\InvoiceLine;
-use App\Models\PriceFloorOverride;
-use App\Models\ProductVariant;
-use App\Models\ReceivableWriteOff;
-use App\Models\Unit;
+use App\Enums\SlaMilestoneKey;
+use App\Enums\TicketPriority;
+use App\Events\SlaAtRisk;
+use App\Models\SlaPolicy;
+use App\Models\SlaPolicyMilestone;
+use App\Models\Ticket;
 use App\Models\User;
-use App\Support\MoneyFormatter;
-use Illuminate\Database\Eloquent\Collection;
+use App\Services\Support\SlaService;
+use Database\Seeders\SlaPolicySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
 
-function coverage58Children(object $component): array
-{
-    $property = new ReflectionProperty($component, 'childComponents');
-    $value = $property->getValue($component)['default'] ?? [];
+it('covers the complete legacy SLA compatibility flow and early-return methods', function (): void {
+    config()->set('support.sla_v2_enabled', false);
+    (new SlaPolicySeeder)->run();
+    Event::fake([SlaAtRisk::class]);
 
-    return is_array($value) ? $value : [];
-}
-
-function coverage58Find(object $component, string $name): ?object
-{
-    if (method_exists($component, 'getName') && $component->getName() === $name) {
-        return $component;
-    }
-
-    foreach (coverage58Children($component) as $child) {
-        $found = coverage58Find($child, $name);
-
-        if ($found !== null) {
-            return $found;
-        }
-    }
-
-    return null;
-}
-
-function coverage58Closure(object $component, string $property): Closure
-{
-    $reflection = new ReflectionProperty($component, $property);
-    $value = $reflection->getValue($component);
-
-    expect($value)->toBeInstanceOf(Closure::class);
-
-    return $value;
-}
-
-it('covers invoice pricing-floor labels and outstanding breakdown details', function (): void {
-    $isBelowFloor = new ReflectionMethod(InvoiceInfolist::class, 'isBelowFloor');
-    $pricingStatus = new ReflectionMethod(InvoiceInfolist::class, 'pricingStatusLabel');
-    $outstanding = new ReflectionMethod(InvoicesTable::class, 'outstandingBreakdown');
-
-    $within = new InvoiceLine;
-    $within->forceFill([
-        'unit_price' => '12.00',
-        'floor_price_minor' => 1000,
+    $service = app(SlaService::class);
+    $ticket = Ticket::factory()->withPriority(TicketPriority::Low)->create([
+        'response_due_at' => null,
+        'resolution_due_at' => null,
+        'live_at' => null,
+        'waiting_customer_since' => null,
+        'response_breached' => false,
+        'resolution_breached' => false,
     ]);
 
-    expect($isBelowFloor->invoke(null, $within))->toBeFalse()
-        ->and($pricingStatus->invoke(null, $within))->toBe('Within allowed pricing range');
+    $service->onTicketCreated($ticket);
+    $ticket->refresh();
 
-    $below = new InvoiceLine;
-    $below->forceFill([
-        'unit_price' => '9.00',
-        'floor_price_minor' => 1000,
-    ]);
+    expect($ticket->response_due_at)->not->toBeNull()
+        ->and($ticket->sla_response_target_minutes)->toBe(1440)
+        ->and($ticket->sla_resolution_target_minutes)->toBe(4320);
 
-    expect($isBelowFloor->invoke(null, $below))->toBeTrue()
-        ->and($pricingStatus->invoke(null, $below))->toBe('Approved exception (pending approval record)');
+    // Replaying intake and live transitions covers the defensive early returns.
+    $originalResponseDue = $ticket->response_due_at?->copy();
+    $service->onTicketCreated($ticket);
+    expect($ticket->refresh()->response_due_at?->equalTo($originalResponseDue))->toBeTrue();
 
-    $approver = User::factory()->create(['name' => 'Coverage Approver']);
-    $override = new PriceFloorOverride;
-    $override->setRelation('approvedBy', $approver);
+    $service->onTicketLive($ticket);
+    $ticket->refresh();
+    expect($ticket->live_at)->not->toBeNull()
+        ->and($ticket->resolution_due_at)->not->toBeNull();
 
-    $below->setRelation('priceFloorOverride', $override);
+    $originalLiveAt = $ticket->live_at?->copy();
+    $service->onTicketLive($ticket);
+    expect($ticket->refresh()->live_at?->equalTo($originalLiveAt))->toBeTrue();
 
-    expect($pricingStatus->invoke(null, $below))
-        ->toBe('Approved exception (override by Coverage Approver)');
+    $service->onWaitingCustomer($ticket);
+    expect($ticket->refresh()->waiting_customer_since)->not->toBeNull();
 
-    $writeOff = new ReceivableWriteOff;
-    $writeOff->forceFill([
-        'status' => WriteOffStatus::Approved,
-        'amount_minor' => 300,
-    ]);
+    $this->travel(30)->minutes();
+    $service->onResumeFromWaiting($ticket->refresh());
+    expect($ticket->refresh()->waiting_customer_since)->toBeNull()
+        ->and($ticket->waiting_customer_accumulated_seconds)->toBeGreaterThanOrEqual(1800);
 
-    $invoice = new Invoice;
-    $invoice->forceFill([
-        'amount_paid' => '10.00',
-        'credited_amount' => '5.00',
-    ]);
-    $invoice->setRelation('writeOffs', new Collection([$writeOff]));
+    $actor = User::factory()->admin()->create();
+    $this->travel(5)->days();
 
-    expect($outstanding->invoke(null, $invoice))
-        ->toBe('Paid: 10.00 · Credited: 5.00 · Written off: 3.00');
+    $service->onPriorityChanged($ticket->refresh(), TicketPriority::Urgent, $actor);
+    $ticket->refresh();
+
+    expect($ticket->sla_response_target_minutes)->toBe(60)
+        ->and($ticket->sla_resolution_target_minutes)->toBe(240)
+        ->and($ticket->response_breached)->toBeTrue()
+        ->and($ticket->resolution_breached)->toBeTrue();
+
+    $service->refreshBreachFlags($ticket->refresh());
+
+    // These methods intentionally no-op when SLA v2 is disabled.
+    $service->completeFirstResponse($ticket);
+    $service->completeResolution($ticket);
+    $service->completeAssignment($ticket);
+    $service->completeOnsiteArrival($ticket);
+    $service->reopenResolution($ticket);
+
+    Event::assertDispatched(SlaAtRisk::class);
 });
 
-it('covers invoice reconciliation banner and delivery URL closure', function (): void {
-    $invoice = Invoice::factory()->create([
-        'status' => InvoiceStatus::Issued->value,
-        'issued_at' => now(),
-        'total_amount' => '100.00',
-        'amount_paid' => '0.00',
-        'credited_amount' => '0.00',
+it('uses built-in legacy targets when no stored SLA policy exists', function (): void {
+    config()->set('support.sla_v2_enabled', false);
+    SlaPolicy::query()->delete();
+
+    $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create([
+        'response_due_at' => null,
     ]);
-    DepositApplicationIssue::factory()->create([
-        'invoice_id' => $invoice->getKey(),
+
+    app(SlaService::class)->onTicketCreated($ticket);
+    $ticket->refresh();
+
+    expect($ticket->sla_response_target_minutes)->toBe(480)
+        ->and($ticket->sla_resolution_target_minutes)->toBe(2880)
+        ->and($ticket->response_due_at)->not->toBeNull();
+});
+
+it('starts active optional SLA milestones when a matching v2 policy goes live', function (): void {
+    config()->set('support.sla_v2_enabled', true);
+    (new SlaPolicySeeder)->run();
+
+    $policy = SlaPolicy::query()->where('priority', TicketPriority::Normal->value)->firstOrFail();
+    SlaPolicyMilestone::query()->create([
+        'sla_policy_id' => $policy->id,
+        'key' => SlaMilestoneKey::Assignment,
+        'target_minutes' => 30,
+        'at_risk_before_minutes' => 10,
+        'pause_when_waiting_customer' => false,
+        'is_active' => true,
+        'sort_order' => 30,
+    ]);
+
+    $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create([
+        'response_due_at' => null,
+        'live_at' => null,
+    ]);
+
+    $service = app(SlaService::class);
+    $service->onTicketCreated($ticket);
+    $service->onTicketLive($ticket->refresh());
+
+    expect($ticket->slaMilestones()
+        ->where('key', SlaMilestoneKey::Assignment->value)
+        ->exists())->toBeTrue();
+});
+
+it('refreshes both legacy SLA breach flags and dispatches the at-risk event', function (): void {
+    config()->set('support.sla_v2_enabled', false);
+    Event::fake([SlaAtRisk::class]);
+
+    $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create([
+        'response_due_at' => now()->subHours(2),
+        'resolution_due_at' => now()->subHour(),
+        'first_response_at' => null,
         'resolved_at' => null,
+        'response_breached' => false,
+        'resolution_breached' => false,
     ]);
 
-    $banner = new ReflectionMethod(InvoiceInfolist::class, 'bannerMeta');
-    $meta = $banner->invoke(null, $invoice->refresh());
+    app(SlaService::class)->refreshBreachFlags($ticket);
+    $ticket->refresh();
 
-    expect($meta['status'])->toBe('warning')
-        ->and($meta['heading'])->toBe('Reconciliation issue');
+    expect($ticket->response_breached)->toBeTrue()
+        ->and($ticket->resolution_breached)->toBeTrue();
 
-    $operation = InventoryOperation::factory()->delivery()->done()->create();
-    $link = new InvoiceDeliveryLink;
-    $link->setRelation('inventoryOperation', $operation);
-
-    $section = new ReflectionMethod(InvoiceInfolist::class, 'deliveriesSection')->invoke(null);
-    $delivery = coverage58Find($section, 'inventoryOperation.operation_number');
-
-    expect($delivery)->not->toBeNull();
-
-    $url = coverage58Closure($delivery, 'url');
-
-    expect($url($link))->toContain((string) $operation->getKey());
-
-    $link->setRelation('inventoryOperation', null);
-    expect($url($link))->toBeNull();
+    Event::assertDispatched(SlaAtRisk::class);
 });
 
-it('covers confirmed account credit-note banner and return-line source details', function (): void {
-    $credit = new CreditNote;
-    $credit->forceFill([
-        'status' => CreditNoteStatus::Confirmed,
-        'confirmed_at' => now(),
-        'reversed_at' => null,
-        'grand_total' => '25.00',
-    ]);
-    $credit->setRelation('invoice', null);
+it('falls back to legacy resume and priority handling when SLA v2 has no milestone or matching policy', function (): void {
+    config()->set('support.sla_v2_enabled', true);
+    SlaPolicy::query()->delete();
 
-    $banner = new ReflectionMethod(CreditNoteInfolist::class, 'bannerMeta');
-    $meta = $banner->invoke(null, $credit);
-
-    expect($meta['status'])->toBe('success')
-        ->and($meta['description'])->toBe(
-            __('admin.sales.credit_note_ui.confirmed_account_effect', ['amount' => MoneyFormatter::formatAmount('25.00')]),
-        );
-
-    $inventoryReturn = InventoryReturn::factory()->create([
-        'return_number' => 'RET-COV-058',
-    ]);
-    $variant = ProductVariant::factory()->create(['sku' => 'SKU-COV-058']);
-    $unit = Unit::factory()->create(['name' => 'piece']);
-
-    $returnLine = new InventoryReturnLine;
-    $returnLine->forceFill(['transaction_quantity' => '2.000000']);
-    $returnLine->setRelation('inventoryReturn', $inventoryReturn);
-    $returnLine->setRelation('productVariant', $variant);
-    $returnLine->setRelation('transactionUnit', $unit);
-
-    $line = new CreditNoteLine;
-    $line->forceFill(['description' => 'Coverage line']);
-    $line->setRelation('inventoryReturnLine', $returnLine);
-
-    $lineSource = new ReflectionMethod(CreditNoteInfolist::class, 'lineSource');
-    $label = $lineSource->invoke(null, $line);
-
-    expect($label)
-        ->toContain('RET-COV-058')
-        ->toContain('SKU-COV-058')
-        ->toContain('2')
-        ->toContain('piece');
-
-    $section = new ReflectionMethod(CreditNoteInfolist::class, 'lines')->invoke(null);
-    $sourceEntry = coverage58Find($section, 'source_reference');
-
-    expect($sourceEntry)->not->toBeNull();
-
-    $url = coverage58Closure($sourceEntry, 'url');
-    expect($url($line))->toContain((string) $inventoryReturn->getKey());
-
-    $line->setRelation('inventoryReturnLine', null);
-    $line->setRelation('creditNote', $credit);
-
-    expect($url($line))->toBeNull();
-});
-
-it('covers credit-note PDF availability and route generation', function (): void {
-    Storage::fake('local');
-
-    $credit = CreditNote::factory()->create([
-        'status' => CreditNoteStatus::Confirmed->value,
-        'confirmed_at' => now(),
+    $service = app(SlaService::class);
+    $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create([
+        'waiting_customer_since' => now()->subMinutes(15),
+        'waiting_customer_accumulated_seconds' => 0,
+        'response_due_at' => now()->addHour(),
+        'resolution_due_at' => now()->addHours(2),
+        'live_at' => now()->subHour(),
     ]);
 
-    $credit
-        ->addMedia(UploadedFile::fake()->create('credit-note.pdf', 1, 'application/pdf'))
-        ->toMediaCollection('credit-note-pdf');
+    $service->onResumeFromWaiting($ticket);
+    expect($ticket->refresh()->waiting_customer_since)->toBeNull()
+        ->and($ticket->waiting_customer_accumulated_seconds)->toBeGreaterThanOrEqual(900);
 
-    $route = new ReflectionMethod(CreditNoteInfolist::class, 'pdfRoute');
+    $service->onPriorityChanged($ticket->refresh(), TicketPriority::High, null);
+    $ticket->refresh();
 
-    expect($route->invoke(null, $credit->refresh(), 'preview'))
-        ->toContain((string) $credit->getKey());
-
-    $section = new ReflectionMethod(CreditNoteInfolist::class, 'document')->invoke(null);
-    $pdfEntry = coverage58Find($section, 'credit_note_pdf');
-
-    expect($pdfEntry)->not->toBeNull();
-
-    $state = coverage58Closure($pdfEntry, 'getConstantStateUsing');
-
-    expect($state($credit->refresh()))
-        ->toBe(__('admin.sales.credit_note_ui.pdf_available'));
+    expect($ticket->sla_response_target_minutes)->toBe(240)
+        ->and($ticket->sla_resolution_target_minutes)->toBe(1440);
 });

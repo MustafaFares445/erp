@@ -139,6 +139,19 @@ it('summarizes ready dispatched arrived returned invoiced and remaining quantiti
     ]);
 
     expect($ready->stage)->toBe(OperationStage::Ready);
+
+    $eagerOrder = $order->refresh()->load([
+        'lines',
+        'deliveries.lines.returnLines.inventoryReturn',
+        'shipments',
+        'invoices.lines',
+    ]);
+    $eagerProgress = $service->forOrder($eagerOrder)->sole();
+
+    expect($eagerProgress->invoicedBase)->toBe(4.0)
+        ->and($eagerProgress->plannedBase)->toBe(5.0)
+        ->and($eagerProgress->arrivedBase)->toBe(3.0)
+        ->and($eagerProgress->returnedBase)->toBe(1.0);
 });
 it('covers quantity helper fallbacks and non numeric guard', function (): void {
     $service = app(OrderFulfillmentQuantityService::class);

@@ -29,7 +29,8 @@ Thumbs.db
 /.claude/launch.json
 /.playwright-mcp
 .chat-worktrees/
-tests/.pest/
+tests/.pest/*
+!tests/.pest/shards.json
 /coverage-*.txt
 /coverage.xml
 /tmp/

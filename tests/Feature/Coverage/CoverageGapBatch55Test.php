@@ -12,7 +12,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Shipment;
 use App\Models\ShipmentArrivalConfirmation;
 use App\Models\SupplierConfirmation;
-use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Services\Purchasing\PurchaseOrderWorkflowProjectionStore;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -49,7 +49,7 @@ function coverage55Workflow(
 
 function bindCoverage55Workflow(PurchaseOrderWorkflowData $projection): void
 {
-    app()->instance(PurchaseOrderWorkflowService::class, new readonly class($projection)
+    app()->instance(PurchaseOrderWorkflowProjectionStore::class, new readonly class($projection)
     {
         public function __construct(private PurchaseOrderWorkflowData $projection) {}
 
