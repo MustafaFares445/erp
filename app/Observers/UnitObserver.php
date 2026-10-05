@@ -23,7 +23,10 @@ final class UnitObserver
             $unit->family = 'unspecified';
         }
 
-        if ($unit->precision < 0 || $unit->precision > 6 || (! $unit->allows_decimal && $unit->precision !== 0)) {
+        $rawPrecision = $unit->getAttributes()['precision'] ?? null;
+        $precision = is_numeric($rawPrecision) ? (int) $rawPrecision : $unit->precision;
+
+        if ($precision < 0 || $precision > 6 || (! $unit->allows_decimal && $precision !== 0)) {
             throw ValidationException::withMessages([
                 'precision' => 'A unit precision must be between zero and six, and whole units must use zero.',
             ]);

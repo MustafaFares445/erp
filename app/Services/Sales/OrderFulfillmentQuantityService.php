@@ -50,30 +50,13 @@ final class OrderFulfillmentQuantityService
         $deliveryLines = $deliveries->flatMap(
             static fn (InventoryOperation $operation) => $operation->lines,
         );
-        $deliveryLineIds = $deliveryLines->pluck('id')->all();
-
-        $allReturnLinesLoaded = $deliveryLines->every(
-            static fn (InventoryOperationLine $line): bool => $line->relationLoaded('returnLines'),
-        );
-
-        $returnedByDeliveryLine = $allReturnLinesLoaded
-            ? $deliveryLines
-                ->flatMap(static fn (InventoryOperationLine $line) => $line->returnLines)
-                ->filter(static fn (InventoryReturnLine $row): bool => $row->inventoryReturn?->status === InventoryReturnStatus::Posted)
-                ->groupBy('original_inventory_operation_line_id')
-                ->map(fn (Collection $rows): float => round($this->floatValue($rows->sum(
-                    fn (InventoryReturnLine $row): float => $this->floatValue($row->posted_base_quantity ?? $row->base_quantity),
-                )), 6))
-            : ($deliveryLineIds === []
-                ? collect()
-                : InventoryReturnLine::query()
-                    ->whereIn('original_inventory_operation_line_id', $deliveryLineIds)
-                    ->whereHas('inventoryReturn', fn (Builder $query): Builder => $query->where('status', InventoryReturnStatus::Posted->value))
-                    ->get(['original_inventory_operation_line_id', 'posted_base_quantity', 'base_quantity'])
-                    ->groupBy('original_inventory_operation_line_id')
-                    ->map(fn (Collection $rows): float => round($this->floatValue($rows->sum(
-                        fn (InventoryReturnLine $row): float => $this->floatValue($row->posted_base_quantity ?? $row->base_quantity),
-                    )), 6)));
+        $returnedByDeliveryLine = $deliveryLines
+            ->flatMap(static fn (InventoryOperationLine $line) => $line->returnLines)
+            ->filter(static fn (InventoryReturnLine $row): bool => $row->inventoryReturn?->status === InventoryReturnStatus::Posted)
+            ->groupBy('original_inventory_operation_line_id')
+            ->map(fn (Collection $rows): float => round($this->floatValue($rows->sum(
+                fn (InventoryReturnLine $row): float => $this->floatValue($row->posted_base_quantity ?? $row->base_quantity),
+            )), 6));
 
         if ($order->relationLoaded('invoices')) {
             $order->invoices->loadMissing('lines');

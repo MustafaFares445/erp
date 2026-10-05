@@ -311,7 +311,7 @@ final class ProductVariantUomService
 
     private function assertUnitPrecision(Unit $unit): void
     {
-        if ($unit->precision < 0 || $unit->precision > 6 || (! $unit->allows_decimal && $unit->precision !== 0)) {
+        if ($unit->precision > 6 || (! $unit->allows_decimal && $unit->precision !== 0)) {
             throw ValidationException::withMessages([
                 'variant_uoms' => 'Each unit must have a valid precision between zero and six decimal places.',
             ]);

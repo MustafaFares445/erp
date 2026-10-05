@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['purchase_rfq_id', 'product_variant_id', 'unit_id', 'quantity', 'notes'])]
+/** @property int $id */
 final class PurchaseRfqLine extends Model
 {
     #[\Override]

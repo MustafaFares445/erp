@@ -214,9 +214,9 @@ final readonly class FiscalPeriodService
                 'source_channel' => 'dashboard',
                 'ip_address' => request()->ip(),
                 'override_reason' => $overrideReason,
-                'failing_checks' => ($failingMandatory ?? collect())
-                    ->map(fn (PeriodCloseResult $result): string => $result->check->value)
-                    ->all(),
+                'failing_checks' => $failingMandatory === null
+                    ? []
+                    : $failingMandatory->map(fn (PeriodCloseResult $result): string => $result->check->value)->all(),
             ])->log('accounting.period.closed_with_override');
         } else {
             $log->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])

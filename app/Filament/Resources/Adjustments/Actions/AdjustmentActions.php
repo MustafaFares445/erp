@@ -13,7 +13,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use LogicException;
 
@@ -44,10 +43,6 @@ final class AdjustmentActions
 
                 try {
                     app(InventoryAdjustmentService::class)->confirm($record, $actor);
-                } catch (ValidationException $exception) {
-                    self::notifyFailure(implode(' ', $exception->validator->errors()->all()));
-
-                    return;
                 } catch (DomainException $exception) {
                     self::notifyFailure($exception->getMessage());
 

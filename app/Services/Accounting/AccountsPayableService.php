@@ -221,10 +221,6 @@ final readonly class AccountsPayableService
             if ($recognisedOn->lessThan($fromDate)) {
                 continue;
             }
-            if ($recognisedOn->greaterThan($toDate)) {
-                continue;
-            }
-
             $entries[] = [
                 'date' => $document['recognised_on'],
                 'type' => $document['type'],

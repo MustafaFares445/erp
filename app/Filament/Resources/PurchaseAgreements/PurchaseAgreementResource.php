@@ -15,6 +15,7 @@ use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\ProductVariant;
 use App\Models\PurchaseAgreement;
+use App\Models\PurchaseAgreementLine;
 use App\Models\Supplier;
 use App\Models\Unit;
 use BackedEnum;
@@ -120,7 +121,7 @@ final class PurchaseAgreementResource extends Resource
                     TextEntry::make('productVariant.sku')->label(__('SKU')),
                     TextEntry::make('productVariant.name')->label(__('Variant')),
                     TextEntry::make('unit.name')->label(__('Unit')),
-                    TextEntry::make('unit_price')->money(fn (PurchaseAgreement $record): string => $record->currency_code),
+                    TextEntry::make('unit_price')->money(fn (PurchaseAgreementLine $record): string => $record->agreement->currency_code),
                     TextEntry::make('minimum_order_quantity')->label(__('MOQ'))->placeholder('—'),
                     TextEntry::make('lead_time_days')->label(__('Lead days'))->placeholder('—'),
                 ])->columns(3),

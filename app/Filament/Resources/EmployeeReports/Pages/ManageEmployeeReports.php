@@ -215,13 +215,10 @@ final class ManageEmployeeReports extends ManageRecords
 
     private function categoryForReport(EmployeeReportType $type): string
     {
-        foreach ($this->categoryMap() as $category => $metadata) {
-            if (in_array($type, $metadata['reports'], true)) {
-                return $category;
-            }
-        }
-
-        return 'tasks_visits';
+        return array_find_key(
+            $this->categoryMap(),
+            static fn (array $metadata): bool => in_array($type, $metadata['reports'], true),
+        ) ?? 'tasks_visits';
     }
 
     private function selectReport(EmployeeReportType $type): void

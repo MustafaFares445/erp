@@ -14,7 +14,6 @@ use App\Services\Accounting\BankReconciliation\BankReconciliationService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use WeakMap;
 
 final class BankStatementActions
 {
@@ -68,15 +67,6 @@ final class BankStatementActions
      */
     public static function isClosable(BankStatement $statement): bool
     {
-        /** @var WeakMap<BankStatement, bool>|null $cache */
-        static $cache = null;
-
-        $cache ??= new WeakMap;
-
-        if (isset($cache[$statement]) && $cache[$statement] === false) {
-            unset($cache[$statement]);
-        }
-
         if ($statement->status !== 'open') {
             return false;
         }

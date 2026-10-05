@@ -111,10 +111,8 @@ final readonly class PurchaseRfqService
         return DB::transaction(function () use ($rfqSupplier, $responses): PurchaseRfqSupplier {
             /** @var PurchaseRfqSupplier $locked */
             $locked = PurchaseRfqSupplier::query()->lockForUpdate()->findOrFail($rfqSupplier->getKey());
+            /** @var PurchaseRfq $rfq */
             $rfq = $locked->rfq;
-            if (! $rfq instanceof PurchaseRfq) {
-                throw new DomainException('RFQ supplier is not linked to an RFQ.');
-            }
 
             if (! $rfq->status->acceptsResponses()) {
                 throw new DomainException('This RFQ is not open for supplier responses.');
@@ -165,10 +163,8 @@ final readonly class PurchaseRfqService
         return DB::transaction(function () use ($actor, $rfqSupplier): PurchaseOrder {
             /** @var PurchaseRfqSupplier $candidate */
             $candidate = PurchaseRfqSupplier::query()->with(['rfq.lines', 'responseLines'])->lockForUpdate()->findOrFail($rfqSupplier->getKey());
+            /** @var PurchaseRfq $rfq */
             $rfq = $candidate->rfq;
-            if (! $rfq instanceof PurchaseRfq) {
-                throw new DomainException('RFQ supplier is not linked to an RFQ.');
-            }
 
             if (! $rfq->status->isAwardable()) {
                 throw new DomainException('Only an RFQ with supplier responses under evaluation can be awarded.');
@@ -177,11 +173,7 @@ final readonly class PurchaseRfqService
             $poLines = [];
 
             foreach ($rfq->lines as $line) {
-                $lineKey = $line->getKey();
-                if (! is_int($lineKey) && ! is_string($lineKey)) {
-                    throw new DomainException('RFQ line has an invalid identifier.');
-                }
-
+                $lineKey = $line->id;
                 $response = $responses->get($lineKey);
                 if (! $response instanceof PurchaseRfqResponseLine) {
                     throw new DomainException('The selected supplier must quote every RFQ line before award.');

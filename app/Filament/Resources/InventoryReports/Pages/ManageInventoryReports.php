@@ -217,13 +217,10 @@ final class ManageInventoryReports extends ManageRecords
 
     private function categoryForReport(InventoryReportType $type): string
     {
-        foreach ($this->categoryMap() as $category => $metadata) {
-            if (in_array($type, $metadata['reports'], true)) {
-                return $category;
-            }
-        }
-
-        return 'catalog_suppliers';
+        return array_find_key(
+            $this->categoryMap(),
+            static fn (array $metadata): bool => in_array($type, $metadata['reports'], true),
+        ) ?? 'catalog_suppliers';
     }
 
     private function selectReport(InventoryReportType $type): void
