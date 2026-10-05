@@ -13,8 +13,10 @@
     ],
     "sail": false,
     "skills": [
+        "infer-conventions",
         "laravel-best-practices",
-        "pest-testing",
+        "testing-best-practices",
+        "tailwindcss-development",
         "spatie-javascript",
         "spatie-laravel-php",
         "spatie-security",

@@ -12,7 +12,7 @@ These rules govern AI-assisted changes in this application. They apply to every 
 8. **Improve legacy debt incrementally.** New PHPStan baseline entries are forbidden merely to make a change pass; the baseline should only shrink.
 9. **Never weaken quality gates.** Do not lower PHPStan, architecture, type-coverage or code-coverage requirements or delete meaningful tests to get green.
 10. **Use coverage deliberately.** `composer test:coverage` remains the authoritative 100% code-coverage command, but it is not the default command after every small edit. Full coverage belongs to the completion/CI tier defined by the test-selection policy.
-11. **Use the generic testing skills correctly.** Use `pest-testing` for Pest syntax/patterns and `test-guard` after writing or editing tests. Project-specific suite selection comes from `ierp-test-selection`.
+11. **Use the generic testing skills correctly.** Use `testing-best-practices` for Laravel test design/review, version-specific docs for Pest syntax, and `test-guard` after writing or editing tests. Project-specific suite selection comes from `ierp-test-selection`.
 12. **Keep documentation current.** Update canonical docs when behavior, lifecycle, permissions, domain ownership, public/mobile contracts or operations change.
 13. **Respect the working tree.** Do not reset/stash/discard/reformat unrelated changes.
 14. **Report verification honestly.** State the exact tests/domain suites/gates actually run. Never say “all tests pass” unless the relevant full suite was executed.

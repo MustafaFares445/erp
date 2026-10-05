@@ -1,187 +1,222 @@
 ---
 name: ierp-test-selection
-description: "IERP-specific test selection policy. Use this skill whenever an agent changes application code, tests, migrations, seeders, permissions, Filament UI, APIs, CI/testing configuration, or dependencies. It decides the smallest safe test scope during iteration and the required escalation before completion. This project policy supplements the generic pest-testing skill."
+description: "IERP-specific test selection policy. Use whenever an agent changes application code, tests, migrations, seeders, permissions, Filament UI, APIs, CI/testing configuration, or dependencies. Selects the smallest safe test scope and required escalation before completion."
 ---
 
 # IERP Test Selection
 
-Use this skill after identifying the owning domain and before choosing which tests to run.
+Use this skill after identifying the owning domain and before choosing tests.
 
-The goal is fast feedback without weakening the repository's full CI, 100% code coverage, 100% type coverage, or critical MySQL acceptance gates.
+The goal is fast feedback without weakening clean CI, 100% code coverage, 100% type coverage, architecture tests, or critical MySQL acceptance.
 
-## Core Rule
+## Decision Algorithm
 
-Do **not** run the entire repository test/coverage gate after every edit.
+For every code change:
 
-During iteration:
+1. Identify the owning domain.
+2. Classify the change type.
+3. Decide whether it is critical-risk or cross-domain.
+4. Run the exact regression test while iterating.
+5. Run the owning domain suite before completion.
+6. Add seam suites when another domain owns a side effect.
+7. Escalate to `composer test:fast` for shared/core/unknown impact.
+8. Run dedicated MySQL acceptance for locking/concurrency/engine semantics.
+9. Run the full coverage/full Composer gate only when the task, CI, dependency/tooling change, or release stage requires it.
+10. Report exactly what ran.
 
-1. run the exact regression test or exact test file;
-2. expand to the owning domain suite;
-3. escalate only when the change is shared, cross-domain, infrastructure-sensitive, or critical-risk.
+Do **not** run the entire repository coverage gate after every edit.
 
-The clean CI/full verification gate remains authoritative before merge/release and when explicitly requested.
-
-## Current Commands Only
-
-These rules describe the repository **before** the planned test-tooling optimization is fully implemented. Do not invent future Composer aliases.
+## Commands
 
 ### Exact test
 
 ```bash
 php vendor/bin/pest tests/Feature/<path>/<TestFile>.php --compact
+php vendor/bin/pest tests/Unit/<TestFile>.php --compact
 php vendor/bin/pest --filter="<test name>" --compact
 ```
 
-### True Unit scope
-
-Until the planned Unit-suite cleanup is implemented, use the directory directly instead of the current misleading `composer test:unit` alias:
+### Changed-impact selection
 
 ```bash
-php vendor/bin/pest tests/Unit --compact
+composer test:changed
+composer test:changed -- --dry-run
 ```
 
-### Owning domain suites
+Use `--dry-run` when you need to inspect the selector's decision first.
+
+The selector is intentionally conservative: shared models/enums/migrations/config/test-runner/CI changes escalate to the fast repository suite.
+
+### Unit / broad behavioral
 
 ```bash
-php vendor/bin/pest tests/Feature/Accounting --compact
-php vendor/bin/pest tests/Feature/Crm --compact
-php vendor/bin/pest tests/Feature/Employees --compact
-php vendor/bin/pest tests/Feature/Inventory --compact
-php vendor/bin/pest tests/Feature/Payments --compact
-php vendor/bin/pest tests/Feature/Purchasing --compact
-php vendor/bin/pest tests/Feature/Sales --compact
-php vendor/bin/pest tests/Feature/Settings --compact
-php vendor/bin/pest tests/Feature/Support --compact
-```
-
-For Filament-specific work, run the exact Filament test and the owning domain tests when the behavior is domain-owned:
-
-```bash
-php vendor/bin/pest tests/Feature/Filament --compact
-```
-
-For customer/API work, select the relevant subtree under:
-
-```text
-tests/Feature/Api
-```
-
-### Broad local regression without coverage
-
-Use when impact is shared/uncertain or before handoff of a cross-domain change:
-
-```bash
+composer test:unit
+composer test:feature
+composer test:behavioral
 composer test:fast
+composer test:tia
 ```
 
-### Static/type checks
+- `test:unit`: true Unit tests; Laravel does not boot by default.
+- `test:feature`: Feature tests in parallel.
+- `test:behavioral`: normal behavioral suite sequentially for troubleshooting.
+- `test:fast`: broad normal behavioral suite in parallel.
+- `test:tia`: Pest 5 local-only Test Impact Analysis for iterative broad feedback; run the exact regression first and never use TIA as a clean-CI replacement.
+- normal fast commands exclude the explicit `coverage-only` and `architecture` groups; architecture has its own required gate.
 
-Run the applicable checks when PHP behavior or types changed:
+Framework-dependent tests that were historically misclassified as Unit live under `tests/Feature/UnitIntegration`.
+
+### Domain suites
 
 ```bash
+composer test:accounting
+composer test:api
+composer test:crm
+composer test:employees
+composer test:filament
+composer test:inventory
+composer test:notifications
+composer test:payments
+composer test:performance
+composer test:purchasing
+composer test:sales
+composer test:settings
+composer test:shipments
+composer test:support
+```
+
+### Performance / shard maintenance
+
+```bash
+composer test:profile
+composer test:shards:update
+```
+
+Do not refresh shard timing after every edit. Refresh after material suite/runtime changes or observed CI imbalance.
+
+### Static / full gates
+
+```bash
+composer test:docs
+composer test:lint
 composer test:types
 composer test:type-coverage
-composer test:lint
-```
-
-### Authoritative expensive gates
-
-Do not use these after every small edit:
-
-```bash
 composer test:coverage
+composer test:full
 composer test
 ```
 
-They remain required by CI/full verification policy and when the task explicitly requires the complete gate.
+`test:coverage` and `test:full` are authoritative expensive gates, not default iteration commands.
 
 ## Selection Matrix
 
-| Change | During iteration | Before agent completion |
+| Change | During iteration | Before completion |
 |---|---|---|
-| Docs only | relevant docs check | `composer test:docs` when applicable |
-| Pure calculation/helper/value object | exact Unit test | Unit directory or owning domain if business-critical |
-| Domain service/action | exact service regression | owning domain suite |
-| Bug fix | exact reproducing regression first | owning domain suite |
-| Model relation/cast/scope | exact model test | owning domain suite |
-| Filament resource/page/action/widget | exact Filament test | relevant Filament tests + owning domain |
-| API/controller/request/resource | exact API test | relevant API subtree + owning domain |
-| Policy/permission/role | exact authorization test | owning domain + architecture/permission tests |
+| Documentation only | relevant doc inspection | `composer test:docs` |
+| Pure helper/value object/calculation | exact Unit test | `composer test:unit` or owning domain if business-critical |
+| Domain service/action | exact service regression | owning domain alias |
+| Bug fix | exact reproducing regression first | owning domain alias |
+| Model relation/cast/scope | exact test | owning domain; shared model => `test:fast` |
+| Filament resource/page/action/widget | exact Filament test | `test:filament` + owning domain when domain behavior is involved |
+| API/controller/request/resource | exact API test | `test:api` + owning domain |
+| Policy/permission/role | exact auth test | owning domain + architecture/permission tests |
 | Seeder/reference data | exact seeder test | owning domain; seed-integrity if production seed behavior changed |
-| Migration/schema | exact affected tests | owning domain; broad regression if shared schema |
-| Queue/job/listener/notification | exact test | owning domain + notification/integration tests |
-| Shared enum/module registry/common concern | exact Unit/arch test | `composer test:fast` |
-| Cross-domain workflow | exact seam test | every affected domain + existing cross-module tests |
-| Test runner/Pest/phpunit/composer test scripts | runner smoke | `composer test:fast` + coverage/static gates |
-| CI workflow/sharding | local full fast regression | complete CI validation |
-| Dependency/framework major update | focused compatibility tests | complete full gate |
+| Migration/schema | exact affected test | owning domain; shared schema => `test:fast` |
+| Queue/job/listener/notification | exact test | owning domain + `test:notifications` when applicable |
+| Shared enum/module registry/common concern | exact Unit/architecture test | `composer test:fast` |
+| Cross-domain workflow | exact seam test | every affected owner + existing cross-module suite |
+| Pest/phpunit/composer test scripts | runner smoke | `test:fast` + static/type/coverage gates |
+| CI/sharding change | dry-run/focused checks | full CI validation |
+| Composer/NPM dependency change | focused compatibility tests | affected domains; major/toolchain => full gate |
+| Framework/Pest/PHPUnit major upgrade | focused compatibility tests | complete full gate |
 
-## Domain Ownership / Seam Escalation
+## Domain / Seam Escalation
 
-Use the repository domain map and canonical docs. Typical escalations:
+Typical ownership rules:
 
-- Sales changes that alter payment/tax/accounting effects -> Sales + Payments/Accounting seam.
-- Delivery/fulfilment changes that mutate stock -> Sales/Logistics + Inventory seam.
-- Purchasing receiving changes -> Purchasing + Inventory.
-- Payment allocation/refund changes -> Payments + Accounting and originating document domain.
-- Support billing/payment changes -> Support + Payments/Accounting as applicable.
-- Employee AI changes -> Employees plus AI failure-isolation tests.
+- Sales changes altering collection/tax/accounting -> Sales + Payments/Accounting seam.
+- Delivery/fulfilment changing stock -> Sales/Logistics + Inventory.
+- Purchasing receiving -> Purchasing + Inventory.
+- Payment allocation/refund -> Payments + Accounting + originating document domain as applicable.
+- Support billing/payment -> Support + Payments/Accounting as applicable.
+- Employee AI -> Employees plus AI failure-isolation tests.
+- Shipment execution changing stock -> Shipments + Inventory/Sales as applicable.
 
-Do not duplicate an owning domain's calculation in another domain just to make a test easier.
+Do not duplicate the owning domain's calculation to make a test easier.
 
 ## Critical-Risk Escalation
 
-Always expand beyond a single exact test when changing:
+Always expand beyond one exact test for:
 
-- accounting posting/reversal/balance;
-- inventory stock, reservation, custody, movement, or locking;
-- payments, allocations, deposits, refunds, provider settlement;
+- ledger posting/reversal/balance;
+- inventory stock/reservation/custody/movement;
+- payments/allocations/deposits/refunds/provider settlement;
 - tax recognition;
+- fiscal-period restrictions;
 - posted-document immutability/correction;
-- authorization or tenant/customer/employee ownership boundaries;
+- authorization or customer/employee ownership boundaries;
 - idempotency;
-- concurrency/race handling;
+- concurrency/locking;
 - cross-domain provenance.
 
-For database concurrency/locking semantics, SQLite is insufficient. Run the dedicated MySQL acceptance test(s) that cover the changed invariant. Current examples include:
+For database concurrency/locking semantics, SQLite is insufficient. Run the applicable MySQL acceptance tests, including:
 
 ```text
+tests/Feature/Inventory/InventoryReleaseAcceptanceTest.php
 tests/Feature/Inventory/InventoryBalanceConcurrencyTest.php
 tests/Feature/Inventory/InventoryOperationConcurrencyTest.php
-tests/Feature/Inventory/InventoryReleaseAcceptanceTest.php
 ```
 
-Do not run unrelated MySQL acceptance jobs for ordinary non-concurrency edits.
+Do not run unrelated MySQL acceptance work for ordinary non-concurrency edits.
+
+## Coverage-Only Rules
+
+Tests under the configured coverage directories are grouped `coverage-only`.
+
+They:
+
+- are excluded from normal fast feedback;
+- remain included in `composer test:coverage`;
+- must not contain a production-bug regression that should execute on every normal regression run.
+
+Prefer adding real new behavior tests to the owning domain rather than adding another generic coverage-gap file.
 
 ## Test-Writing Rules
 
-When a behavior changes:
+When behavior changes:
 
-- add or update the smallest regression test that proves the behavior;
-- prefer an existing owning-domain test file before creating a new coverage-gap file;
-- do not add a test merely to execute lines if an existing behavioral test can cover the branch;
-- use datasets for input variants with the same scenario;
+- add/update the smallest regression test that proves it;
+- prefer an existing owning-domain test file;
+- use datasets for input variants of the same scenario;
 - never delete a production-bug regression;
 - do not test framework guarantees;
 - do not mock internal domain services merely to force unit isolation.
 
-Use the generic `pest-testing` skill for Pest syntax and `test-guard` after writing/editing tests.
+Use the generic `testing-best-practices` skill for Laravel test design/review, version-specific docs for Pest syntax, and `test-guard` after writing/editing tests.
 
 ## Completion Report
 
-An agent completing code work must state:
+Every coding agent must state:
 
 - owning domain(s);
 - exact/focused tests run;
 - domain suite(s) run;
-- whether `composer test:fast` was required/run;
+- whether `test:fast` was required/run;
 - whether MySQL acceptance was required/run;
-- whether full coverage/full Composer gate was run or intentionally left to CI/final verification.
+- whether full coverage/full gate was run or intentionally left to CI/final verification.
 
-Never claim “all tests pass” unless the full relevant suite actually ran.
+Never claim “all tests pass” unless the relevant full suite actually ran.
 
-## Planned Future Update
+## Pest 5 Local Accelerators
 
-The active plan `Docs/plans/TEST_SUITE_OPTIMIZATION_AND_TOOLCHAIN_UPGRADE_IMPLEMENTATION_PLAN.md` will introduce normalized domain Composer aliases, changed-domain selection, time-balanced sharding, and later Pest 5/TIA/Agent tooling.
+IERP runs Pest 5 / PHPUnit 13.
 
-After those commands exist, update this skill to use the implemented aliases/TIA. Until then, the commands in this file are the source of truth for agent selection policy.
+After the exact regression test, agents may use `composer test:tia` for faster broad local feedback when a TIA baseline exists or when recording one is worthwhile. TIA is local-only: clean CI behavioral shards must continue to execute the full required suite.
+
+For one-off exploratory verification inside the real Pest/Laravel environment, the installed Agent plugin may be invoked with:
+
+```bash
+php vendor/bin/pest --agent "<PHP snippet>" --compact
+```
+
+Agent snippets are disposable verification, not a substitute for committed regression tests. The Pest PHPStan extension is also enabled in `phpstan.neon`; do not suppress new static-analysis findings or add baseline debt merely to adopt it.

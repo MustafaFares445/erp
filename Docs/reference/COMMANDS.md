@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: engineering
-last_verified: 2026-10-04
-verified_against: composer.json, artisan command list and routes/console.php
+last_verified: 2026-10-05
+verified_against: composer.json, scripts/test-changed.php, artisan command list and routes/console.php
 ---
 
 ## Composer
@@ -12,11 +12,40 @@ verified_against: composer.json, artisan command list and routes/console.php
 ```bash
 composer run setup
 composer run dev
+
+# Focused / tiered testing
+composer test:changed
+composer test:changed -- --dry-run
+composer test:unit
+composer test:feature
+composer test:behavioral
 composer test:fast
+composer test:profile
+composer test:shards:update
+
+# Domain suites
+composer test:accounting
+composer test:api
+composer test:crm
+composer test:employees
+composer test:filament
+composer test:inventory
+composer test:notifications
+composer test:payments
+composer test:performance
+composer test:purchasing
+composer test:sales
+composer test:settings
+composer test:shipments
+composer test:support
+
+# Quality / full verification
+composer test:docs
 composer test:lint
 composer test:types
 composer test:type-coverage
 composer test:coverage
+composer test:full
 composer test
 composer lint
 ```

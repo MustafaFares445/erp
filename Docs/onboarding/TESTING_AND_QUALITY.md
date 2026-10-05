@@ -4,17 +4,19 @@
 status: canonical
 owner: engineering
 last_verified: 2026-10-05
-verified_against: composer.json, phpunit.xml, .github/workflows/tests.yml, current Pest 4 test tree
+verified_against: composer.json, phpunit.xml, tests/Pest.php, scripts/test-changed.php, .github/workflows/tests.yml
 ---
 
 ## Verification Model
 
-The repository has two different testing needs:
+IERP uses tiered verification so developers and coding agents get fast feedback without weakening the authoritative CI gates.
 
-1. **Fast developer/agent feedback** — run the smallest test scope that can prove the current change.
-2. **Authoritative full verification** — run the complete quality/coverage/acceptance gates in CI or when explicitly required.
+1. **Exact regression** — the smallest test/file/filter that proves the current change.
+2. **Domain regression** — the owning domain and required cross-domain seams.
+3. **Fast repository regression** — all normal behavioral tests, parallel, without coverage-only suites.
+4. **Authoritative full verification** — static/type checks plus 100% code coverage and dedicated MySQL acceptance jobs.
 
-Do not use the most expensive full coverage gate after every small edit. This changes execution strategy only; it does not weaken the required 100% type/code coverage gates.
+Do not run the most expensive full coverage gate after every edit.
 
 Coding agents must use:
 
@@ -22,46 +24,114 @@ Coding agents must use:
 .agents/skills/ierp-test-selection/SKILL.md
 ```
 
-to select exact, domain, broad-fast, MySQL-acceptance, or full verification scope.
+## Core Commands
 
-## Project Quality Gates
-
-### Exact/focused iteration
-
-Run the exact test file or filtered test first:
+### Exact / filtered
 
 ```bash
 php vendor/bin/pest tests/Feature/<domain>/<TestFile>.php --compact
 php vendor/bin/pest --filter="<test name>" --compact
 ```
 
-The current domain test folders are the preferred completion scope for ordinary same-domain behavior changes.
-
-### Fast behavioral suite
+### Changed-impact selector
 
 ```bash
+composer test:changed
+composer test:changed -- --dry-run
+```
+
+`scripts/test-changed.php` reads Git changes, maps clearly-owned service changes to domain/seam suites, and conservatively escalates shared infrastructure (models, enums, migrations, config, Composer, PHPUnit/Pest, CI) to the broad fast suite.
+
+It is a developer/agent feedback tool, not a replacement for clean CI.
+
+### Pest 5 local TIA
+
+```bash
+composer test:tia
+```
+
+`test:tia` runs Pest 5 Test Impact Analysis locally with parallel execution. Use it only as an iterative broad-feedback accelerator after the exact regression test. The first eligible run records the dependency graph; partial/file-filtered runs execute the selected tests directly because TIA does not apply to partial runs.
+
+Clean CI behavioral shards do **not** use TIA and continue to execute the complete behavioral suite.
+
+### Unit
+
+```bash
+composer test:unit
+```
+
+True Unit tests do not boot Laravel by default.
+
+Laravel/framework-dependent tests that were previously misclassified under `tests/Unit` live under:
+
+```text
+tests/Feature/UnitIntegration
+```
+
+### Feature / behavioral
+
+```bash
+composer test:feature
+composer test:behavioral
 composer test:fast
 ```
 
-Runs Pest compact/parallel locally without PCOV/Xdebug coverage.
+- `test:feature`: Feature tests in parallel, excluding `coverage-only`.
+- `test:behavioral`: normal behavioral tests sequentially, useful for deterministic troubleshooting.
+- `test:fast`: normal behavioral tests in parallel; this is the broad local regression command.
+- PCOV/Xdebug coverage is disabled for these commands.
 
-Use this for shared/core/uncertain-impact or cross-domain local regression. It is intentionally broader than a normal single-domain completion check.
+### Domain aliases
+
+```bash
+composer test:accounting
+composer test:api
+composer test:crm
+composer test:employees
+composer test:filament
+composer test:inventory
+composer test:notifications
+composer test:payments
+composer test:performance
+composer test:purchasing
+composer test:sales
+composer test:settings
+composer test:shipments
+composer test:support
+```
+
+Use the owning domain alias before completion of an ordinary same-domain behavior change.
+
+### Profiling
+
+```bash
+composer test:profile
+```
+
+Shows Pest's slowest tests for performance investigations. Performance improvements must be measured; do not trade determinism for speed.
+
+### Shard timing
+
+```bash
+composer test:shards:update
+```
+
+Refreshes `tests/.pest/shards.json` for time-balanced CI sharding. Refresh after material suite/runtime changes or when CI shards become imbalanced.
+
+### Pest 5 agent verification
+
+The installed `pestphp/pest-plugin-agent` supports one-off verification inside the real Pest/Laravel environment via `vendor/bin/pest --agent "<PHP snippet>"`. Use it for exploratory checks only; durable behavior still requires committed regression tests.
+
+The installed `pestphp/pest-plugin-phpstan` extension is included from `phpstan.neon` so PHPStan understands Pest's functional API and test closure context for test files that are part of the configured PHPStan analysis paths.
 
 ### Formatting / automated refactor check
 
 ```bash
 composer test:lint
-```
-
-Runs Pint in test mode and Rector dry-run.
-
-To apply the configured code cleanup/formatting:
-
-```bash
 composer lint
 ```
 
-### Documentation check
+### Documentation
 
 ```bash
 composer test:docs
@@ -73,9 +143,7 @@ composer test:docs
 composer test:types
 ```
 
-Runs PHPStan/Larastan with the project configuration.
-
-New baseline debt must not be introduced merely to pass CI.
+New PHPStan baseline debt must not be introduced merely to pass CI.
 
 ### Type coverage
 
@@ -91,90 +159,108 @@ Required minimum: **100%**.
 composer test:coverage
 ```
 
-Runs the repository's `.github/scripts/run-coverage.php` gate.
+The repository coverage runner uses PCOV when available and requires **100%** in CI.
 
-Required CI target: **100%**.
+Coverage-only test directories are explicitly grouped as `coverage-only`. They are excluded from normal fast behavioral feedback but remain part of `test:coverage`.
 
-This is an authoritative/full-verification command, not the default post-edit feedback command.
-
-### Full Composer gate
+### Full gate
 
 ```bash
+composer test:full
 composer test
 ```
 
 Current sequence:
+
 1. `test:lint`
 2. `test:docs`
-3. `test:types`
-4. `test:type-coverage`
-5. `test:coverage`
+3. `test:architecture`
+4. `test:types`
+5. `test:type-coverage`
+6. `test:coverage`
 
-Use the full gate when the task explicitly requires it, before major toolchain/test-runner changes are accepted, or through the CI/full-verification stage.
+The coverage command executes the complete suite, including coverage-only tests, so the local full gate does not redundantly run `test:fast` first.
 
-## Current Important Caveat
+## Laravel Test Bootstrap
 
-The existing `composer test:unit` script is not yet a trustworthy Unit-only selector; it currently invokes the Laravel test runner without limiting it to `tests/Unit`.
+Only Feature tests receive the project Laravel `Tests\TestCase` by default.
 
-Until the active test-suite optimization plan corrects this, agents should use:
+Feature tests intentionally do **not** use Laravel's `WithCachedConfig` or `WithCachedRoutes` traits.
 
-```bash
-php vendor/bin/pest tests/Unit --compact
-```
+Both optimizations were benchmarked during the 2026-10-05 test-suite optimization work and rejected after they changed authentication/session semantics for the first Filament request after database seeding (the first authenticated resource request redirected to login while the next request succeeded). Correct test isolation takes priority over the bootstrap speedup.
 
-for explicit Unit-directory runs.
+Do not re-enable these cache traits without a dedicated compatibility test proving first-request authentication, seeded admin access, configuration mutation, route behavior, and parallel isolation remain correct.
+
+## Coverage-Only Classification
+
+The following directories are grouped as `coverage-only`:
+
+- `tests/Feature/Coverage`
+- `tests/Feature/UnitIntegration/Coverage`
+- `tests/Unit/Coverage`
+
+A real production-bug regression or meaningful domain scenario should live in the owning domain instead of a generic coverage directory.
+
+Do not delete coverage-only tests simply to improve runtime. They remain required by the 100% coverage gate until deliberately replaced by stronger behavioral coverage.
 
 ## CI
 
 `.github/workflows/tests.yml` runs on pull requests and pushes to `main` / `dev`.
 
-It currently includes:
+Responsibilities:
 
-- quality job: docs, Pint/Rector, PHPStan, 100% type coverage;
-- behavioral tests sharded across four Ubuntu runners;
-- 100% code coverage job using PCOV;
-- focused CRM acceptance;
-- MySQL fresh-migrate/seed integrity;
-- MySQL warehouse release/concurrency acceptance.
+- **Quality** — docs, Pint/Rector, architecture, PHPStan, 100% type coverage.
+- **Behavioral shards** — normal behavioral suite split across eight time-balanced runners, coverage disabled, coverage-only and architecture groups excluded.
+- **Coverage** — full 100% PCOV coverage including coverage-only tests.
+- **Seed integrity** — MySQL fresh migrate/seed verification.
+- **Warehouse acceptance** — MySQL release/concurrency/locking behavior.
 
-The active plan `Docs/plans/TEST_SUITE_OPTIMIZATION_AND_TOOLCHAIN_UPGRADE_IMPLEMENTATION_PLAN.md` will add time-balanced sharding and clearer test tiers before the later Pest 5/toolchain upgrade.
+Composer download cache is shared through GitHub Actions cache.
 
-## Test Defaults
+The old focused CRM acceptance job was removed because its static and regression checks are already covered by the global quality and behavioral jobs and it did not require distinct infrastructure.
 
-Normal PHPUnit/Pest tests use in-memory SQLite with synchronous queues and fake Employee transcription.
+## Database / Concurrency Rules
 
-Do not assume passing SQLite tests proves database-concurrency semantics. Inventory concurrency has dedicated MySQL acceptance coverage.
+Normal tests use in-memory SQLite, synchronous queues, and fake Employee transcription.
 
-## Test Ownership
+Passing SQLite tests does **not** prove database-concurrency semantics.
 
-Domain-specific testing guidance lives under `Docs/domains/<domain>/TESTING.md` where the domain needs it.
+Changes to locking, races, inventory balances, reservations, or other engine-sensitive behavior must run the dedicated MySQL acceptance tests, including the applicable tests under:
 
-Cross-domain behavior should be tested at the seam as well as inside individual services.
+```text
+tests/Feature/Inventory/InventoryReleaseAcceptanceTest.php
+tests/Feature/Inventory/InventoryBalanceConcurrencyTest.php
+tests/Feature/Inventory/InventoryOperationConcurrencyTest.php
+```
+
+## Test Selection Order
 
 During ordinary implementation:
 
 1. exact regression test;
 2. owning domain suite;
-3. broaden only for shared/cross-domain/critical-risk impact.
+3. cross-domain seam suites when the rule crosses ownership boundaries;
+4. `composer test:fast` for shared/core/uncertain impact;
+5. MySQL acceptance when database-engine semantics are involved;
+6. full gate when required by the task/CI/release stage.
 
 ## Critical Invariants
 
 Tests must protect at least:
 
-- Inventory custody/reservation/balance invariants.
-- Accounting balance, posting immutability and period rules.
-- Payment allocation/deposit/tax/refund rules.
-- Authorization/domain isolation.
-- Lifecycle transitions.
-- Cross-domain provenance.
-- AI failure isolation and human review.
-- Provider idempotency/reconciliation where applicable.
-
-Changes to concurrency/locking semantics must use the dedicated MySQL acceptance path rather than relying on SQLite alone.
+- inventory custody/reservation/balance invariants;
+- accounting balance, posting immutability and period rules;
+- payment allocation/deposit/tax/refund rules;
+- authorization/domain isolation;
+- lifecycle transitions;
+- cross-domain provenance;
+- AI failure isolation and human review;
+- provider idempotency/reconciliation where applicable.
 
 ## Do Not Weaken the Gate
 
 Do not:
+
 - lower type/coverage thresholds;
 - delete meaningful tests to pass;
 - add arbitrary PHPStan baseline entries;

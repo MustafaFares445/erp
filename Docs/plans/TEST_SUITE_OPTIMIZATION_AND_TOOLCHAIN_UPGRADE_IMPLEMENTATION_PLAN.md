@@ -643,7 +643,7 @@ If skill synchronization is automated, use that mechanism instead of maintaining
 
 #### Do not hard-code project selection policy into generic vendor/generated skills
 
-The existing `pest-testing` skill should continue teaching Pest syntax/features. Project-specific selection policy belongs in the IERP skill/canonical docs.
+Use the currently generated generic testing skill (`testing-best-practices` after the Pest 5/Boost refresh) for framework-agnostic Laravel test design/review, and use installed-version documentation for Pest syntax/features. Project-specific selection policy belongs in the IERP skill/canonical docs.
 
 #### Skill decision algorithm
 
@@ -948,7 +948,7 @@ Then run relevant Filament/render/UI tests and the repository's full gate if gen
 Because installed-version behavior changed:
 
 1. refresh Laravel Boost/project skills through the supported generator;
-2. verify `.agents/skills/pest-testing` reflects Pest 5;
+2. verify the Boost-generated testing skill set reflects the installed Pest 5 toolchain (currently `testing-best-practices`) and remove stale Pest-4-only skill references;
 3. verify Claude-exposed skills are synchronized;
 4. update `AGENTS.md` stack versions;
 5. update `CLAUDE.md` if new Boost/Pest commands are expected;
