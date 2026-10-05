@@ -10,7 +10,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
-        "barryvdh/laravel-dompdf": "*",
+        "barryvdh/laravel-dompdf": "^3.1",
         "dedoc/scramble": "^0.13.35",
         "filament/filament": "~5.0",
         "laravel/framework": "^13.8",
@@ -20,7 +20,7 @@
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-medialibrary": "^11.23",
         "spatie/laravel-permission": "^8.3",
-        "stripe/stripe-php": "^21.3"
+        "stripe/stripe-php": "^22.0"
     },
     "require-dev": {
         "driftingly/rector-laravel": "^2.5",
@@ -32,10 +32,11 @@
         "laravel/pint": "^1.27",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "pestphp/pest": "^4.7",
-        "pestphp/pest-plugin-laravel": "^4.1",
-        "pestphp/pest-plugin-type-coverage": "^4.0",
-        "phpunit/phpunit": "^12.5.12",
+        "pestphp/pest": "^5.3",
+        "pestphp/pest-plugin-agent": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "pestphp/pest-plugin-phpstan": "^5.2",
+        "pestphp/pest-plugin-type-coverage": "^5.0",
         "roave/security-advisories": "dev-latest",
         "spatie/guidelines-skills": "^1.0"
     },
@@ -74,29 +75,28 @@
             "rector --dry-run"
         ],
         "test:docs": "@php scripts/docs-check.php",
-        "test:types": "phpstan analyse --memory-limit=1G",
+        "test:types": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpstan analyse --memory-limit=1G"
+        ],
         "test:type-coverage": [
             "Composer\\Config::disableProcessTimeout",
             "@php -d memory_limit=1G vendor/bin/pest --type-coverage --min=100"
         ],
         "test:fast": [
             "Composer\\Config::disableProcessTimeout",
-            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest --compact --parallel --max-processes=16"
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest --compact --parallel --max-processes=16 --exclude-group=coverage-only --exclude-group=architecture"
         ],
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
             "@php .github/scripts/run-coverage.php"
         ],
         "test:unit": [
-            "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test --compact --parallel --processes=2 --passthru-php=\"-d memory_limit=1G\""
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=1G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Unit --compact --exclude-group=coverage-only --exclude-group=architecture"
         ],
         "test": [
-            "@test:lint",
-            "@test:docs",
-            "@test:types",
-            "@test:type-coverage",
-            "@test:coverage"
+            "@test:full"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
@@ -116,6 +116,53 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "test:feature": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature --compact --parallel --max-processes=16 --exclude-group=coverage-only --exclude-group=architecture"
+        ],
+        "test:behavioral": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest --compact --exclude-group=coverage-only --exclude-group=architecture"
+        ],
+        "test:profile": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest --compact --profile --exclude-group=coverage-only --exclude-group=architecture"
+        ],
+        "test:shards:update": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest --compact --parallel --update-shards --exclude-group=coverage-only --exclude-group=architecture"
+        ],
+        "test:changed": "@php scripts/test-changed.php",
+        "test:accounting": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Accounting --compact",
+        "test:api": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Api --compact",
+        "test:crm": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Crm --compact",
+        "test:employees": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Employees --compact",
+        "test:filament": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Filament --compact",
+        "test:inventory": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Inventory --compact",
+        "test:notifications": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Notifications --compact",
+        "test:performance": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Performance --compact",
+        "test:payments": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Payments --compact",
+        "test:purchasing": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Purchasing --compact",
+        "test:sales": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Sales --compact",
+        "test:settings": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Settings --compact",
+        "test:shipments": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Shipments --compact",
+        "test:support": "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Feature/Support --compact",
+        "test:full": [
+            "@test:lint",
+            "@test:docs",
+            "@test:architecture",
+            "@test:types",
+            "@test:type-coverage",
+            "@test:coverage"
+        ],
+        "test:architecture": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest tests/Unit/ArchTest.php --compact"
+        ],
+        "test:tia": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest --compact --parallel --max-processes=16 --tia --locally --exclude-group=coverage-only --exclude-group=architecture"
         ]
     },
     "extra": {
