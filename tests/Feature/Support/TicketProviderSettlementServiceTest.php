@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\PaymentLinkStatus;
 use App\Enums\PaymentTransactionStatus;
 use App\Enums\TicketStatus;
+use App\Models\CustomerProfile;
 use App\Models\Order;
 use App\Models\PaymentTransaction;
 use App\Models\Ticket;
@@ -46,6 +47,21 @@ function providerSucceededTransaction(TicketPaymentLink $link, array $overrides 
         ...$overrides,
     ]);
 }
+
+it('rejects provider evidence whose amount currency or customer differs from the ticket link', function (string $field): void {
+    $link = providerSettledTicketLink();
+    $overrides = match ($field) {
+        'amount' => ['amount_minor' => 7400],
+        'currency' => ['currency' => 'USD'],
+        'customer' => ['customer_id' => CustomerProfile::factory()->create()->id],
+    };
+    $transaction = providerSucceededTransaction($link, $overrides);
+
+    expect(fn () => app(TicketProviderSettlementService::class)->settle($transaction))
+        ->toThrow(DomainException::class, 'The provider transaction does not match the ticket payment amount, currency, and customer.')
+        ->and($transaction->refresh()->isSettled())->toBeFalse()
+        ->and($link->refresh()->status)->not->toBe(PaymentLinkStatus::Settled);
+})->with(['amount', 'currency', 'customer']);
 
 it('settles a chargeable ticket from a verified Stripe transaction, reusing the same lifecycle rules a dashboard settlement uses', function (): void {
     $link = providerSettledTicketLink();

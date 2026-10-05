@@ -18,6 +18,7 @@ use App\Filament\Resources\Tickets\RelationManagers\MessagesRelationManager;
 use App\Filament\Resources\WarrantyPolicies\Pages\ListWarrantyPolicies;
 use App\Filament\Resources\WarrantyPolicies\Pages\ViewWarrantyPolicy;
 use App\Models\EmployeeProfile;
+use App\Models\MaintenanceCoverageLine;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
 use App\Models\Ticket;
@@ -32,6 +33,34 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+it('corrects an expired warranty without requiring an expiry date on the maintenance page', function (): void {
+    $manager = makeRenderSupportManager();
+    $record = MaintenanceRecord::factory()->create();
+
+    Livewire::actingAs($manager)->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
+        ->callAction(TestAction::make('overrideWarranty'), [
+            'warranty_status' => 'expired',
+            'reason' => 'Warranty term verified as expired.',
+        ])
+        ->assertHasNoActionErrors();
+    expect($record->refresh()->warranty_status->value)->toBe('expired')
+        ->and($record->warranty_expiry_date)->toBeNull();
+});
+
+it('keeps repair awaiting approval until a customer-funded quotation is accepted', function (): void {
+    $manager = makeRenderSupportManager();
+    $record = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::AwaitingApproval]);
+    MaintenanceCoverageLine::factory()->create([
+        'maintenance_record_id' => $record->id,
+        'customer_amount_minor' => 1000,
+    ]);
+
+    Livewire::actingAs($manager)->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
+        ->callAction(TestAction::make('customerApprovedRepair'))
+        ->assertNotified('Repair cannot start yet');
+    expect($record->refresh()->status)->toBe(MaintenanceStatus::AwaitingApproval);
+});
 
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();

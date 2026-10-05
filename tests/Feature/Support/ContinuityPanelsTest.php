@@ -315,3 +315,22 @@ it('shows an overdue repair with its warning', function (): void {
 
     rmaPanel(ContinuityFixtures::operator(), $repair->maintenanceRecord)->assertSee('Overdue');
 });
+
+it('reports Inventory refusals and validation failures from the panels as notifications', function (): void {
+    [, $original, $record] = ContinuityFixtures::repairScenario();
+    $operator = ContinuityFixtures::operator();
+    $loaner = ContinuityFixtures::loanerFor($original);
+    $loan = app(EquipmentLoanService::class)->reserve($record, $loaner, $operator);
+    $loaner->forceFill(['stock_condition' => StockCondition::Damaged])->save();
+
+    loanPanel($operator, $record)
+        ->callTableAction('issueLoaner', $loan, ['expected_return_at' => now()->addDay()->toDateTimeString()])
+        ->assertNotified('Unable to update the loan');
+
+    [, $misplaced, $elsewhere] = ContinuityFixtures::repairScenario();
+    $misplaced->forceFill(['custody_type' => SerializedCustodyType::Supplier])->save();
+
+    rmaPanel($operator, $elsewhere)
+        ->callAction(TestAction::make('requestRepair')->table(), ['supplier_id' => Supplier::factory()->create()->id, 'reason' => 'Bearing'])
+        ->assertNotified('Unable to update the supplier repair');
+});

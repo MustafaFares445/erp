@@ -110,7 +110,7 @@ it('keeps service policies as one compact workspace instead of separate sidebar 
         );
 });
 
-it('renders the project business scope as a compact eight-destination sidebar', function (): void {
+it('renders the project business scope as a compact nine-destination sidebar', function (): void {
     config()->set('support.field_service_enabled', true);
     config()->set('support.smart_routing_enabled', false);
     config()->set('support.support_automation_enabled', false);
@@ -124,6 +124,7 @@ it('renders the project business scope as a compact eight-destination sidebar', 
         __('admin.resources.maintenance_schedules'),
         __('admin.resources.field_service'),
         __('admin.resources.equipment_360'),
+        __('admin.resources.support_reports'),
         __('admin.sections.service_policies'),
     ]);
 });

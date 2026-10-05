@@ -48,6 +48,9 @@ it('seeds the support catalogue and fixed role mappings on the web guard', funct
             SupportPermission::EntitlementView->value,
             SupportPermission::InstallationView->value,
             SupportPermission::CalibrationView->value,
+            SupportPermission::LoanView->value,
+            SupportPermission::RmaView->value,
+            SupportPermission::QualityComplaintView->value,
         ]);
 });
 
