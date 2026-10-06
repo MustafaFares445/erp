@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 #[Fillable([
     'product_variant_id',
     'warehouse_id',
+    'sales_order_id',
+    'sales_order_line_id',
     'source_type',
     'source_id',
     'source_line_type',
@@ -62,6 +64,18 @@ final class InventoryReservation extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    /** @return BelongsTo<Order, $this> */
+    public function salesOrder(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'sales_order_id');
+    }
+
+    /** @return BelongsTo<OrderLine, $this> */
+    public function salesOrderLine(): BelongsTo
+    {
+        return $this->belongsTo(OrderLine::class, 'sales_order_line_id');
     }
 
     /** @return BelongsTo<User, $this> */

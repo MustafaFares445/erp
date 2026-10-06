@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductType;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -21,6 +22,7 @@ final class ProductFactory extends Factory
         return [
             'name' => fake()->words(3, true),
             'product_type' => ProductType::Grain,
+            'operational_profile' => ProductOperationalProfile::Standard,
             'is_active' => true,
         ];
     }
@@ -28,13 +30,19 @@ final class ProductFactory extends Factory
     /** Serialized equipment: every unit carries a serial number. */
     public function machine(): self
     {
-        return $this->state(['product_type' => ProductType::Machine]);
+        return $this->state([
+            'product_type' => ProductType::Machine,
+            'operational_profile' => ProductOperationalProfile::Serialized,
+        ]);
     }
 
     /** Consumable material received in lots that expire. */
     public function expiryMaterial(): self
     {
-        return $this->state(['product_type' => ProductType::ExpiryMaterial]);
+        return $this->state([
+            'product_type' => ProductType::ExpiryMaterial,
+            'operational_profile' => ProductOperationalProfile::Expiring,
+        ]);
     }
 
     /** Bulk goods sold by weight. */

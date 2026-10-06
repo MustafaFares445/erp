@@ -17,6 +17,7 @@ final readonly class OrderWorkflowService
         private OrderFulfillmentQuantityService $quantities,
         private OrderFinancialProjectionService $financials,
         private OrderNextActionResolver $nextActions,
+        private OrderAvailabilityService $availability,
     ) {}
 
     public function project(Order $order): OrderWorkflowProjection
@@ -26,8 +27,10 @@ final readonly class OrderWorkflowService
             ? $order->procurementRequirements
             : $order->procurementRequirements()
                 ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
-                ->get(['required_base_quantity', 'fulfilled_base_quantity', 'status']);
+                ->with('purchaseOrder.confirmations')
+                ->get(['id', 'order_id', 'purchase_order_id', 'required_base_quantity', 'fulfilled_base_quantity', 'status']);
         $requirements = $requirements->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded']);
+        $requirements->loadMissing('purchaseOrder.confirmations');
 
         $procurementOutstanding = round((float) $requirements->sum(
             fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity(),
@@ -48,6 +51,7 @@ final readonly class OrderWorkflowService
             'auto_close_due' => $autoCloseDue ? 1.0 : 0.0,
         ];
         $next = $this->nextActions->resolve($order, $facts);
+        $availability = $this->availability->resolve($order, $requirements, $facts);
         [$blockerCode, $blockerMessage] = $this->blocker($order, $facts);
         $milestone = $this->milestone($order, $facts);
         $progress = $effectiveOrdered <= 0.000001
@@ -82,6 +86,7 @@ final readonly class OrderWorkflowService
             daysUntilAutoClose: $order->auto_close_due_at !== null
                 ? max(0, (int) now()->diffInDays($order->auto_close_due_at, false))
                 : null,
+            availabilityState: $availability,
         );
     }
 

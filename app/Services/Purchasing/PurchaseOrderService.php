@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Models\PaymentTerm;
 use App\Models\ProductVariant;
 use App\Models\PurchaseAgreement;
 use App\Models\PurchaseAgreementLine;
@@ -44,18 +45,22 @@ final readonly class PurchaseOrderService
     ) {}
 
     /**
-     * @param  array{supplier_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
+     * @param  array{supplier_id: int, currency_code?: string|null, payment_term_id?: int|null, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
      */
     public function createDraft(User $actor, array $attributes): PurchaseOrder
     {
         Gate::forUser($actor)->authorize('create', PurchaseOrder::class);
 
         return DB::transaction(function () use ($actor, $attributes): PurchaseOrder {
-            $this->assertSupplierIsUsable((int) $attributes['supplier_id']);
+            $supplier = $this->assertSupplierIsUsable((int) $attributes['supplier_id']);
+            $currencyCode = $attributes['currency_code'] ?? $supplier->default_currency_code ?? $this->currencies->defaultCode();
+            $paymentTermId = $attributes['payment_term_id'] ?? $supplier->payment_term_id;
+            $this->assertPaymentTermExists($paymentTermId);
 
             $order = new PurchaseOrder([
                 'supplier_id' => $attributes['supplier_id'],
-                'currency_code' => $this->currencies->normalizeActive((string) $attributes['currency_code'], 'currency_code'),
+                'currency_code' => $this->currencies->normalizeActive((string) $currencyCode, 'currency_code'),
+                'payment_term_id' => $paymentTermId,
                 'ordered_at' => $attributes['ordered_at'],
                 'expected_at' => $attributes['expected_at'] ?? null,
                 'notes' => $attributes['notes'] ?? null,
@@ -81,7 +86,7 @@ final readonly class PurchaseOrderService
      * not duplicated here. Any rejected line rolls back the header and every
      * line added before it.
      *
-     * @param  array{supplier_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
+     * @param  array{supplier_id: int, currency_code?: string|null, payment_term_id?: int|null, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
      * @param  list<array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null}>  $lines
      */
     public function createDraftWithLines(User $actor, array $attributes, array $lines): PurchaseOrder
@@ -102,7 +107,7 @@ final readonly class PurchaseOrderService
     }
 
     /**
-     * @param  array{supplier_id?: int, currency_code?: string, ordered_at?: string, expected_at?: string|null, notes?: string|null}  $attributes
+     * @param  array{supplier_id?: int, currency_code?: string, payment_term_id?: int|null, ordered_at?: string, expected_at?: string|null, notes?: string|null}  $attributes
      */
     public function updateDraft(User $actor, PurchaseOrder $order, array $attributes): PurchaseOrder
     {
@@ -114,13 +119,23 @@ final readonly class PurchaseOrderService
 
             if (isset($attributes['supplier_id'])) {
                 $supplierId = (int) $attributes['supplier_id'];
-                $this->assertSupplierIsUsable($supplierId);
+                $supplier = $this->assertSupplierIsUsable($supplierId);
 
                 if ($supplierId !== (int) $locked->supplier_id && $locked->lines()->exists()) {
                     throw InvalidPurchaseOrderLine::supplierChangeRequiresEmptyOrder();
                 }
 
                 $attributes['supplier_id'] = $supplierId;
+
+                if (! array_key_exists('payment_term_id', $attributes)) {
+                    $attributes['payment_term_id'] = $supplier->payment_term_id;
+                }
+            }
+
+            if (array_key_exists('payment_term_id', $attributes)) {
+                $paymentTermId = $attributes['payment_term_id'];
+                $this->assertPaymentTermExists(is_numeric($paymentTermId) ? (int) $paymentTermId : null);
+                $attributes['payment_term_id'] = is_numeric($paymentTermId) ? (int) $paymentTermId : null;
             }
 
             if (isset($attributes['currency_code'])) {
@@ -168,6 +183,7 @@ final readonly class PurchaseOrderService
             $variant = ProductVariant::query()->findOrFail($variantId);
             $this->assertPurchaseUnit($variant, $unitId);
             $reference = $this->requireSupplierReference($locked, $variant);
+            $this->assertSupplierReferenceTerms($reference, $variant, $unitId, $quantityInput);
             $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, $quantityInput);
             $unitCost = $this->resolveUnitCost(
                 $attributes['unit_cost'] ?? null,
@@ -301,6 +317,7 @@ final readonly class PurchaseOrderService
             ->where('supplier_id', $order->supplier_id)
             ->where('availability_status', 'active')
             ->where('is_active', true)
+            ->currentlyValid()
             ->with('productVariant:id,sku')
             ->orderByDesc('is_preferred')
             ->orderBy('supplier_item_number')
@@ -357,6 +374,13 @@ final readonly class PurchaseOrderService
                 if (! $reference instanceof SupplierProductReference) {
                     throw InvalidPurchaseOrderLine::unsupportedSupplierItem($order->supplier, $variant);
                 }
+
+                $this->assertSupplierReferenceTerms(
+                    $reference,
+                    $variant,
+                    (int) $line->unit_id,
+                    (string) $line->quantity_ordered,
+                );
             }
 
             $this->assertQuantityIsPositive((float) $line->quantity_ordered);
@@ -394,6 +418,28 @@ final readonly class PurchaseOrderService
         $supplier = Supplier::query()->findOrFail($order->supplier_id);
 
         throw InvalidPurchaseOrderLine::unsupportedSupplierItem($supplier, $variant);
+    }
+
+    private function assertSupplierReferenceTerms(
+        SupplierProductReference $reference,
+        ProductVariant $variant,
+        int $unitId,
+        string|int $quantity,
+    ): void {
+        if ($reference->purchase_unit_id !== null && (int) $reference->purchase_unit_id !== $unitId) {
+            throw InvalidPurchaseOrderLine::supplierPurchaseUnitMismatch($variant);
+        }
+
+        if ($reference->minimum_order_quantity === null) {
+            return;
+        }
+
+        $minimum = bcadd('0.000000', (string) $reference->minimum_order_quantity, 6);
+        $ordered = bcadd('0.000000', (string) $quantity, 6);
+
+        if (bccomp($minimum, '0.000000', 6) === 1 && bccomp($ordered, $minimum, 6) === -1) {
+            throw InvalidPurchaseOrderLine::minimumOrderQuantity($variant, $minimum);
+        }
     }
 
     private function resolveUnitCost(
@@ -543,13 +589,26 @@ final readonly class PurchaseOrderService
     /**
      * @throws InvalidPurchaseOrderLine
      */
-    private function assertSupplierIsUsable(int $supplierId): void
+    private function assertSupplierIsUsable(int $supplierId): Supplier
     {
         /** @var Supplier $supplier */
         $supplier = Supplier::query()->findOrFail($supplierId);
 
         if (! $supplier->is_active) {
             throw InvalidPurchaseOrderLine::inactiveSupplier($supplier);
+        }
+
+        return $supplier;
+    }
+
+    private function assertPaymentTermExists(?int $paymentTermId): void
+    {
+        if ($paymentTermId === null) {
+            return;
+        }
+
+        if (! PaymentTerm::query()->whereKey($paymentTermId)->exists()) {
+            throw new \DomainException('The selected payment terms are not available.');
         }
     }
 }

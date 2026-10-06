@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Data\Sales;
 
+use App\Enums\OrderAvailabilityState;
 use App\Enums\OrderCloseSource;
 use App\Enums\OrderStatus;
 use Carbon\CarbonImmutable;
@@ -36,5 +37,6 @@ final readonly class OrderWorkflowProjection
         public ?CarbonImmutable $autoCloseDueAt,
         public ?OrderCloseSource $closeSource,
         public ?int $daysUntilAutoClose,
+        public OrderAvailabilityState $availabilityState = OrderAvailabilityState::CommercialPending,
     ) {}
 }

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
+use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Unit;
 use Filament\Forms\Components\FileUpload;
@@ -27,8 +29,35 @@ final class ProductForm
             TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             Select::make('category_id')->relationship('category', 'name')->searchable()->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Categories group related products for browsing, reporting, and product setup.'),
-            Select::make('brand_id')->relationship('brand', 'name')->searchable()->preload()
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the manufacturer or commercial brand used to identify this product.'),
+            Select::make('manufacturer_id')
+                ->relationship('manufacturer', 'name', fn ($query) => $query->where('is_active', true))
+                ->searchable()
+                ->preload()
+                ->live()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'The manufacturer is the legal or physical maker. Keep it separate from the commercial brand.'),
+            Select::make('brand_id')
+                ->label(__('Brand'))
+                ->options(static function (Get $get): array {
+                    $manufacturerId = $get('manufacturer_id');
+
+                    return Brand::query()
+                        ->where('is_active', true)
+                        ->when(is_numeric($manufacturerId), fn ($query) => $query->where(function ($brands) use ($manufacturerId): void {
+                            $brands->whereNull('manufacturer_id')->orWhere('manufacturer_id', (int) $manufacturerId);
+                        }))
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all();
+                })
+                ->searchable()
+                ->preload()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'The commercial brand is optional and may be linked to the selected manufacturer.'),
+            Select::make('operational_profile')
+                ->label(__('Operational profile'))
+                ->options(ProductOperationalProfile::options())
+                ->default(ProductOperationalProfile::Standard->value)
+                ->required()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Controls which dental/medical fields are relevant. Variant tracking remains explicitly configurable per sellable variant.'),
             Select::make('unit_ids')
                 ->label(__('Transition-only unit allow-list'))
                 ->options(static fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())

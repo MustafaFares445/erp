@@ -9,6 +9,9 @@ use App\Enums\PricingTierType;
 use App\Enums\ProductStatus;
 use App\Enums\ResolvedPriceSource;
 use App\Models\CustomerPricingTier;
+use App\Models\CustomerProfile;
+use App\Models\PriceList;
+use App\Models\PriceListItem;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -20,18 +23,36 @@ final readonly class PriceResolver
 {
     public function __construct(private PricingTierDiscountCalculator $calculator) {}
 
-    public function resolve(ProductVariant $variant, ?User $customer = null): ResolvedPrice
-    {
-        return $this->candidates($variant, $customer)[0];
+    public function resolve(
+        ProductVariant $variant,
+        ?User $customer = null,
+        float|string|null $quantity = null,
+    ): ResolvedPrice {
+        return $this->candidates($variant, $customer, $quantity)[0];
     }
 
     /** @return list<ResolvedPrice> */
-    public function candidates(ProductVariant $variant, ?User $customer = null): array
-    {
+    public function candidates(
+        ProductVariant $variant,
+        ?User $customer = null,
+        float|string|null $quantity = null,
+    ): array {
         $basePrice = (float) ($variant->base_price ?? 0);
 
-        if (! $customer instanceof User || ! $customer->customerProfile()->where('is_active', true)->exists()) {
+        if (! $customer instanceof User) {
             return [$this->basePrice($variant, $basePrice)];
+        }
+
+        $profile = $customer->customerProfile()->where('is_active', true)->first();
+
+        if (! $profile instanceof CustomerProfile) {
+            return [$this->basePrice($variant, $basePrice)];
+        }
+
+        $priceList = $this->priceListPrice($variant, $profile, $basePrice, $quantity);
+
+        if ($priceList instanceof ResolvedPrice) {
+            return [$priceList];
         }
 
         $specificTier = $this->customerSpecificTier($customer);
@@ -66,6 +87,96 @@ final readonly class PriceResolver
         }
 
         return [$this->basePrice($variant, $basePrice)];
+    }
+
+    private function priceListPrice(
+        ProductVariant $variant,
+        CustomerProfile $customer,
+        float $basePrice,
+        float|string|null $quantity,
+    ): ?ResolvedPrice {
+        $listIds = [];
+
+        if (is_numeric($customer->default_price_list_id)) {
+            $listIds[] = (int) $customer->default_price_list_id;
+        }
+
+        foreach ($customer->priceLists()->active()->orderBy('price_lists.id')->pluck('price_lists.id') as $id) {
+            if (is_numeric($id)) {
+                $listIds[] = (int) $id;
+            }
+        }
+
+        if (is_numeric($customer->customer_group_id)) {
+            foreach (PriceList::query()
+                ->active()
+                ->whereHas('customerGroups', static fn (Builder $query): Builder => $query
+                    ->whereKey((int) $customer->customer_group_id)
+                    ->where('is_active', true))
+                ->orderBy('id')
+                ->pluck('id') as $id) {
+                if (is_numeric($id)) {
+                    $listIds[] = (int) $id;
+                }
+            }
+        }
+
+        $listIds = array_values(array_unique($listIds));
+        $resolvedQuantity = is_numeric($quantity) && (float) $quantity > 0
+            ? number_format((float) $quantity, 6, '.', '')
+            : '1.000000';
+
+        foreach ($listIds as $listId) {
+            $list = PriceList::query()->active()->find($listId);
+
+            if (! $list instanceof PriceList) {
+                continue;
+            }
+
+            if (is_string($customer->default_currency_code)
+                && $customer->default_currency_code !== ''
+                && mb_strtoupper($customer->default_currency_code) !== mb_strtoupper($list->currency_code)) {
+                continue;
+            }
+
+            $item = PriceListItem::query()
+                ->current()
+                ->where('price_list_id', $list->getKey())
+                ->where('product_id', $variant->product_id)
+                ->where(static fn (Builder $query): Builder => $query
+                    ->whereNull('product_variant_id')
+                    ->orWhere('product_variant_id', $variant->getKey()))
+                ->where(static fn (Builder $query): Builder => $query
+                    ->whereNull('minimum_quantity')
+                    ->orWhere('minimum_quantity', '<=', $resolvedQuantity))
+                ->orderByRaw('CASE WHEN product_variant_id = ? THEN 0 ELSE 1 END', [$variant->getKey()])
+                ->orderByDesc('minimum_quantity')
+                ->orderBy('price')
+                ->orderBy('id')
+                ->first();
+
+            if (! $item instanceof PriceListItem) {
+                continue;
+            }
+
+            $amount = (float) $item->price;
+            $minimumPrice = $variant->min_price === null ? null : (float) $variant->min_price;
+
+            return new ResolvedPrice(
+                amount: $amount,
+                pricingTier: null,
+                source: ResolvedPriceSource::CustomerPriceList,
+                baseAmount: $basePrice,
+                discountAmount: round($basePrice - $amount, 2),
+                minimumPrice: $minimumPrice,
+                isBelowFloor: $minimumPrice !== null && $amount < $minimumPrice,
+                priceList: $list,
+                priceListItem: $item,
+                currencyCode: $list->currency_code,
+            );
+        }
+
+        return null;
     }
 
     /** @throws DomainException */
@@ -181,6 +292,7 @@ final readonly class PriceResolver
             discountAmount: $discount['discount_amount'],
             minimumPrice: $minimumPrice,
             isBelowFloor: $minimumPrice !== null && $discount['amount'] < $minimumPrice,
+            currencyCode: null,
         );
     }
 
@@ -196,6 +308,7 @@ final readonly class PriceResolver
             discountAmount: 0,
             minimumPrice: $minimumPrice,
             isBelowFloor: $minimumPrice !== null && $basePrice < $minimumPrice,
+            currencyCode: null,
         );
     }
 }

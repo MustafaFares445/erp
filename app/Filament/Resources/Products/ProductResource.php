@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products;
 
+use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductType;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\RelationManagers\CustomFieldsRelationManager;
@@ -63,7 +64,12 @@ final class ProductResource extends Resource
                 TextEntry::make('name'),
                 TextEntry::make('name_ar')->label(__('Arabic name')),
                 TextEntry::make('category.name'),
+                TextEntry::make('manufacturer.name')->label(__('Manufacturer'))->placeholder(__('—')),
                 TextEntry::make('brand.name'),
+                TextEntry::make('operational_profile')
+                    ->label(__('Operational profile'))
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductOperationalProfile $state): string => $state->label()),
                 TextEntry::make('status')->badge(),
                 TextEntry::make('product_type')
                     ->label(__('admin.inventory.product_type.label'))
@@ -98,6 +104,8 @@ final class ProductResource extends Resource
         return [
             'name',
             'name_ar',
+            'manufacturer.name',
+            'manufacturer.code',
             'brand.name',
             'brand.name_ar',
             'category.name',
@@ -122,6 +130,7 @@ final class ProductResource extends Resource
         }
 
         return [
+            'Manufacturer' => $record->manufacturer->name ?? 'No manufacturer',
             'Brand' => $record->brand->name ?? 'No brand',
             'Category' => $record->category->name ?? 'No category',
         ];

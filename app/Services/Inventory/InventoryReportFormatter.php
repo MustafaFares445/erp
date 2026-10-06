@@ -81,7 +81,7 @@ final readonly class InventoryReportFormatter
             InventoryReportType::Devices => ['Serial', 'IoT', 'SKU', 'Variant', 'Status', 'Warehouse', 'Receipt source', 'Movement count'],
             InventoryReportType::ExpiryLots => [
                 'Lot', 'SKU', 'Variant', 'Warehouses', 'Expiry', 'Days remaining',
-                'On hand', 'Saleable', 'Quarantine', 'Damaged', 'Reserved', 'Available', 'State',
+                'On hand', 'Saleable', 'Quarantine', 'Damaged', 'Reserved', 'Available', 'Expiry window',
             ],
             InventoryReportType::QuarantineAgeing => [
                 'SKU', 'Variant', 'Warehouse', 'Lot', 'Quantity', 'Entered quarantine',
@@ -300,7 +300,7 @@ final readonly class InventoryReportFormatter
             $record->totalConditionOnHandQuantity(StockCondition::Damaged),
             $record->totalConditionReservedQuantity(StockCondition::Saleable),
             $record->totalAvailableQuantity(),
-            $record->expiryState(),
+            $record->expiryBucket(),
         ];
     }
 

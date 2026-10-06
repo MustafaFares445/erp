@@ -169,7 +169,7 @@ final readonly class CatalogImportApplicationService
         $result->inventoryOperationId = $this->integerKey($operation->getKey());
         $result->inventoryOperationLineId = $this->integerKey($line->getKey());
 
-        if ($variant->track_serials) {
+        if ($variant->tracksSerialsConfigured()) {
             $serializedUnit = SerializedInventoryUnit::query()->forceCreate([
                 'product_variant_id' => $variant->getKey(),
                 'warehouse_id' => null,

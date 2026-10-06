@@ -9,6 +9,7 @@ use App\Enums\OperationType;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Widgets\InventoryExpiringLots;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
@@ -120,7 +121,8 @@ final class InventoryDashboard extends ModuleDashboard
         return [
             InventoryKeyMetrics::class,
             [InventoryMovementsTrend::class, InventoryStockValue::class],
-            [InventoryLowStock::class, InventoryRecentMovements::class],
+            [InventoryLowStock::class, InventoryExpiringLots::class],
+            InventoryRecentMovements::class,
         ];
     }
 }

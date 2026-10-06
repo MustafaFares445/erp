@@ -228,13 +228,14 @@ final class OrderInfolist
                             ->hintIcon(Heroicon::QuestionMarkCircle, __('Ordered quantity, minus any short-close, that Logistics has not yet allocated to stock.'))
                             ->state(QuantityFormatter::display($projection->remainingBase))
                             ->color($projection->remainingBase > 0.000001 ? 'warning' : 'success'),
-                        TextEntry::make('supply_blocker')
-                            ->label(__('Supply'))
-                            ->state($hasBlocker
-                                ? __('Requires procurement: :quantity', ['quantity' => QuantityFormatter::display($projection->procurementOutstandingBase)])
-                                : __('No procurement blocker'))
+                        TextEntry::make('availability_state')
+                            ->label(__('Availability'))
+                            ->state($projection->availabilityState->label())
                             ->badge()
-                            ->color($hasBlocker ? 'danger' : 'success'),
+                            ->color($projection->availabilityState->color())
+                            ->helperText($hasBlocker
+                                ? __('Outstanding supply: :quantity base units', ['quantity' => QuantityFormatter::display($projection->procurementOutstandingBase)])
+                                : __('Current inventory and fulfillment readiness for this order.')),
                     ]),
                 ];
             });
@@ -255,6 +256,12 @@ final class OrderInfolist
                     ->formatStateUsing(static fn (OrderStatus $state): string => $state->label())
                     ->color(static fn (OrderStatus $state): string => $state->color())
                     ->hintIcon(Heroicon::QuestionMarkCircle, 'The commercial lifecycle state of the sales order.'),
+                TextEntry::make('availability')
+                    ->label(__('Availability'))
+                    ->state(static fn (Order $record): string => app(OrderWorkflowProjectionStore::class)->project($record)->availabilityState->label())
+                    ->badge()
+                    ->color(static fn (Order $record): string => app(OrderWorkflowProjectionStore::class)->project($record)->availabilityState->color())
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Business-readable stock readiness, separate from the commercial order lifecycle.'),
                 TextEntry::make('current_stage')
                     ->label(__('Current stage'))
                     ->badge()

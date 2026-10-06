@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
+use App\Models\PaymentTerm;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
@@ -558,4 +559,116 @@ it('skips a supported reference whose related product variant is no longer visib
     $variant->delete();
 
     expect($this->service->supportedVariantOptions($order))->toBe([]);
+});
+
+it('defaults PO currency and payment terms from the supplier commercial profile', function (): void {
+    $term = PaymentTerm::factory()->create();
+    $supplier = Supplier::factory()->create([
+        'default_currency_code' => 'AED',
+        'payment_term_id' => $term->getKey(),
+    ]);
+
+    $order = $this->service->createDraft($this->buyer, [
+        'supplier_id' => $supplier->getKey(),
+        'ordered_at' => today()->toDateString(),
+    ]);
+
+    expect($order->currency_code)->toBe('AED')
+        ->and($order->payment_term_id)->toBe($term->getKey());
+});
+
+it('does not use an expired supplier product reference for a new PO line', function (): void {
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
+        'valid_to' => today()->subDay(),
+        'is_active' => true,
+        'availability_status' => 'active',
+    ]);
+
+    $order = draftFor($this->buyer, $this->service, $supplier);
+
+    expect($this->service->referenceFor((int) $supplier->getKey(), (int) $variant->getKey()))->toBeNull()
+        ->and(fn () => $this->service->addLine($this->buyer, $order, [
+            'product_variant_id' => $variant->getKey(),
+            'unit_id' => $variant->unit_id,
+            'quantity_ordered' => 1,
+        ]))->toThrow(InvalidPurchaseOrderLine::class, 'does not have an active product reference');
+});
+
+it('enforces supplier purchase UOM and minimum order quantity', function (): void {
+    $piece = Unit::factory()->whole()->create([
+        'code' => 'PO-SUP-PIECE',
+        'name' => 'Supplier piece',
+        'symbol' => 'SPC',
+        'family' => 'count',
+    ]);
+    $box = Unit::factory()->whole()->create([
+        'code' => 'PO-SUP-BOX',
+        'name' => 'Supplier box',
+        'symbol' => 'SBX',
+        'family' => 'count',
+    ]);
+    $variant = ProductVariant::factory()->create(['unit_id' => $piece->getKey()]);
+
+    app(ProductVariantUomService::class)->sync($variant, [
+        [
+            'unit_id' => $piece->getKey(),
+            'is_base' => true,
+            'is_purchase' => true,
+            'is_sale' => true,
+            'is_display' => true,
+            'factor_to_base' => '1',
+            'rounding_increment' => '1',
+            'permits_cross_family_conversion' => false,
+            'is_active' => true,
+        ],
+        [
+            'unit_id' => $box->getKey(),
+            'is_base' => false,
+            'is_purchase' => true,
+            'is_sale' => false,
+            'is_display' => false,
+            'factor_to_base' => '10',
+            'rounding_increment' => '1',
+            'permits_cross_family_conversion' => false,
+            'is_active' => true,
+        ],
+    ]);
+
+    $supplier = Supplier::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'purchase_unit_id' => $box->getKey(),
+        'minimum_order_quantity' => '5.000',
+        'currency_code' => 'AED',
+        'purchase_cost' => '2.00',
+    ]);
+    $order = draftFor($this->buyer, $this->service, $supplier);
+
+    expect(fn () => $this->service->addLine($this->buyer, $order, [
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $piece->getKey(),
+        'quantity_ordered' => 5,
+    ]))->toThrow(InvalidPurchaseOrderLine::class, 'does not match the supplier purchase UOM');
+
+    expect(fn () => $this->service->addLine($this->buyer, $order, [
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $box->getKey(),
+        'quantity_ordered' => 4,
+    ]))->toThrow(InvalidPurchaseOrderLine::class, 'minimum order quantity');
+
+    $line = $this->service->addLine($this->buyer, $order, [
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $box->getKey(),
+        'quantity_ordered' => 5,
+    ]);
+
+    expect($line->quantity_ordered)->toBe('5.000000')
+        ->and($line->unit_id)->toBe($box->getKey());
 });

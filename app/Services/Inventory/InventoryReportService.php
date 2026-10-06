@@ -239,12 +239,20 @@ final readonly class InventoryReportService
         $this->whereInteger($query, $filters, 'product_variant_id');
         $this->applyDateRange($query, $filters, 'expires_at');
 
-        $threshold = today()->addDays(InventorySetting::expiryAlertDays())->toDateString();
+        $windows = InventorySetting::expiryWindows();
+        $today = today()->toDateString();
+        $critical = today()->addDays($windows['critical'])->toDateString();
+        $warning = today()->addDays($windows['warning'])->toDateString();
+        $notice = today()->addDays($windows['notice'])->toDateString();
 
         return match ($filters['expiry_state'] ?? null) {
-            'expired' => $query->whereDate('expires_at', '<', today()),
-            'expiring' => $query->whereBetween('expires_at', [today()->toDateString(), $threshold]),
-            'healthy' => $query->whereDate('expires_at', '>', $threshold),
+            'expired' => $query->whereDate('expires_at', '<', $today),
+            'critical' => $query->whereBetween('expires_at', [$today, $critical]),
+            'warning' => $query->whereDate('expires_at', '>', $critical)->whereDate('expires_at', '<=', $warning),
+            'notice' => $query->whereDate('expires_at', '>', $warning)->whereDate('expires_at', '<=', $notice),
+            // Backward-compatible aggregate near-expiry state.
+            'expiring' => $query->whereBetween('expires_at', [$today, $notice]),
+            'healthy' => $query->whereDate('expires_at', '>', $notice),
             'no_expiry' => $query->whereNull('expires_at'),
             default => $query,
         };

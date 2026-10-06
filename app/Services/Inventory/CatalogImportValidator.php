@@ -316,7 +316,7 @@ final readonly class CatalogImportValidator
             ? ProductVariant::query()->where('sku', $payload['sku'])->first()
             : null;
 
-        return $variant instanceof ProductVariant && $variant->track_serials;
+        return $variant instanceof ProductVariant && $variant->tracksSerialsConfigured();
     }
 
     /** @param array<string, string> $payload */
@@ -334,7 +334,7 @@ final readonly class CatalogImportValidator
             ? ProductVariant::query()->where('sku', $payload['sku'])->first()
             : null;
 
-        return $variant instanceof ProductVariant && $variant->track_expiry;
+        return $variant instanceof ProductVariant && $variant->tracksExpirationConfigured();
     }
 
     /**

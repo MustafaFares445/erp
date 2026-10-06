@@ -329,8 +329,25 @@ final class QuotationLinesRepeater
         $customer = is_numeric($customerId)
             ? CustomerProfile::find((int) $customerId)?->user
             : null;
+        $quantity = $get('quantity');
+        $baseQuantity = is_numeric($quantity) && (float) $quantity > 0
+            ? (float) $quantity
+            : null;
+        $unitId = $get('unit_id');
 
-        return app(PriceResolver::class)->resolve($variant, $customer);
+        if ($baseQuantity !== null && is_numeric($unitId)) {
+            $factor = ProductVariantUnit::query()
+                ->where('product_variant_id', $variant->getKey())
+                ->where('unit_id', (int) $unitId)
+                ->where('is_active', true)
+                ->value('factor_to_base');
+
+            if (is_numeric($factor) && (float) $factor > 0) {
+                $baseQuantity *= (float) $factor;
+            }
+        }
+
+        return app(PriceResolver::class)->resolve($variant, $customer, $baseQuantity);
     }
 
     /** @return array<int, string> */

@@ -14,12 +14,13 @@ enum InventoryReturnDisposition: string implements HasLabel
     case Saleable = 'saleable';
     case Quarantine = 'quarantine';
     case Damaged = 'damaged';
+    case SupplierReturn = 'supplier_return';
 
     public function stockCondition(): StockCondition
     {
         return match ($this) {
             self::Saleable => StockCondition::Saleable,
-            self::Quarantine => StockCondition::Quarantine,
+            self::Quarantine, self::SupplierReturn => StockCondition::Quarantine,
             self::Damaged => StockCondition::Damaged,
         };
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
-use App\Enums\ProductType;
+use App\Enums\InventoryPermission;
 use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
@@ -35,13 +35,11 @@ final readonly class InventoryLotService
         int $warehouseId,
         ?string $baseQuantity = null,
     ): ?InventoryLot {
-        $type = $variant->productType();
-
-        if (! $type instanceof ProductType || ! $type->tracksBatches()) {
+        if (! $variant->tracksLotsConfigured()) {
             return null;
         }
 
-        if ($type->tracksExpiry() && $line->expires_at === null) {
+        if ($variant->tracksExpirationConfigured() && $line->expires_at === null) {
             throw new DomainException(__('admin.inventory.product_type.errors.expiry_required'));
         }
 
@@ -65,7 +63,7 @@ final readonly class InventoryLotService
         int $warehouseId,
         string $baseQuantity,
     ): ?InventoryLot {
-        if ($variant->productType()?->tracksBatches() !== true) {
+        if (! $variant->tracksLotsConfigured()) {
             return null;
         }
 
@@ -87,7 +85,7 @@ final readonly class InventoryLotService
         ?User $actor,
         bool $allowExpired = false,
     ): ?InventoryLot {
-        if ($variant->productType()?->tracksBatches() !== true) {
+        if (! $variant->tracksLotsConfigured()) {
             if ($line->inventory_lot_id !== null) {
                 throw new DomainException(__('admin.inventory.lot.errors.not_applicable'));
             }
@@ -148,7 +146,7 @@ final readonly class InventoryLotService
         ProductVariant $variant,
         ?string $baseQuantity = null,
     ): ?InventoryLot {
-        if ($variant->productType()?->tracksBatches() !== true) {
+        if (! $variant->tracksLotsConfigured()) {
             return null;
         }
 
@@ -187,6 +185,106 @@ final readonly class InventoryLotService
             ->orderByRaw('expires_at is null, expires_at asc')
             ->orderBy('id')
             ->get();
+    }
+
+    /**
+     * Returns the FEFO-preferred lot that can satisfy the requested base quantity.
+     * Only expiry-tracked lot variants participate; ordinary lot-tracked inventory keeps
+     * its existing explicit allocation behavior.
+     *
+     * @param  numeric-string  $baseQuantity
+     */
+    public function preferredFefoLot(
+        ProductVariant $variant,
+        int $warehouseId,
+        string $baseQuantity,
+    ): ?InventoryLot {
+        if (! $variant->tracksLotsConfigured() || ! $variant->tracksExpirationConfigured()) {
+            return null;
+        }
+
+        $this->baseQuantity($baseQuantity);
+        $variantKey = $variant->getKey();
+
+        if (! is_int($variantKey)) {
+            throw new \LogicException('Product variant identifiers must be integers.');
+        }
+
+        foreach ($this->availableLots($variantKey, $warehouseId) as $lot) {
+            if ($lot->expires_at !== null) {
+                return $lot;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Enforces FEFO at the reservation boundary. Choosing a later-expiring lot is allowed only
+     * with the dedicated permission and a human-readable reason, and is audited after commit.
+     *
+     * @param  numeric-string  $baseQuantity
+     */
+    public function assertFefoSelection(
+        InventoryLot $selectedLot,
+        ProductVariant $variant,
+        int $warehouseId,
+        string $baseQuantity,
+        ?User $actor,
+        ?string $overrideReason = null,
+    ): InventoryLot {
+        if (! $variant->tracksLotsConfigured() || ! $variant->tracksExpirationConfigured()) {
+            return $selectedLot;
+        }
+
+        if ($selectedLot->product_variant_id !== $variant->getKey()) {
+            throw new DomainException(__('admin.inventory.lot.errors.mismatch'));
+        }
+
+        if ($selectedLot->expires_at === null) {
+            throw new DomainException(__('admin.inventory.product_type.errors.expiry_required'));
+        }
+
+        $preferred = $this->preferredFefoLot($variant, $warehouseId, $baseQuantity);
+
+        if (! $preferred instanceof InventoryLot) {
+            return $selectedLot;
+        }
+
+        if ($preferred->expires_at?->toDateString() === $selectedLot->expires_at?->toDateString()) {
+            return $selectedLot;
+        }
+
+        if (! $actor instanceof User || ! $actor->can(InventoryPermission::FefoOverride->value)) {
+            throw new DomainException(
+                'FEFO requires the earliest valid expiry lot. An authorized override is required to choose a later lot.',
+            );
+        }
+
+        $reason = is_string($overrideReason) ? mb_trim($overrideReason) : '';
+
+        if ($reason === '' || mb_strlen($reason) > 255) {
+            throw new DomainException('A FEFO override reason between 1 and 255 characters is required.');
+        }
+
+        $selectedLotKey = $selectedLot->getKey();
+        $preferredLotKey = $preferred->getKey();
+
+        DB::afterCommit(static function () use ($selectedLot, $selectedLotKey, $preferredLotKey, $actor, $reason): void {
+            activity()
+                ->performedOn($selectedLot)
+                ->causedBy($actor)
+                ->withProperties([
+                    'preferred_inventory_lot_id' => $preferredLotKey,
+                    'selected_inventory_lot_id' => $selectedLotKey,
+                    'reason' => $reason,
+                    'source_channel' => 'dashboard',
+                    'ip_address' => request()->ip(),
+                ])
+                ->log('inventory.lot.fefo_overridden');
+        });
+
+        return $selectedLot;
     }
 
     public function conditionBalanceForUpdate(

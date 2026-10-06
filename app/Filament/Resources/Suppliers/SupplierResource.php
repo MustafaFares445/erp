@@ -13,9 +13,12 @@ use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
 use App\Filament\Resources\Suppliers\Schemas\SupplierInfolist;
 use App\Filament\Resources\Suppliers\Tables\SuppliersTable;
+use App\Filament\Support\CurrencySelect;
+use App\Models\PaymentTerm;
 use App\Models\Supplier;
 use BackedEnum;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -56,6 +59,21 @@ final class SupplierResource extends Resource
             TextInput::make('code')->label(__('Supplier code'))->required()->maxLength(50)->unique(ignoreRecord: true),
             TextInput::make('email')->email()->maxLength(255),
             TextInput::make('phone')->tel()->maxLength(50),
+            CurrencySelect::make('default_currency_code')
+                ->label(__('Default currency'))
+                ->helperText(__('Used as the starting currency on new Purchase Orders for this supplier.')),
+            Select::make('payment_term_id')
+                ->label(__('Default payment terms'))
+                ->options(fn (): array => PaymentTerm::query()->orderByDesc('is_default')->orderBy('name')->pluck('name', 'id')->all())
+                ->searchable()
+                ->preload()
+                ->placeholder(__('System default')),
+            TextInput::make('default_lead_time_days')
+                ->label(__('Default lead time'))
+                ->numeric()
+                ->minValue(0)
+                ->maxValue(3650)
+                ->suffix(__(' days')),
             Toggle::make('is_active')
                 ->label(__('Active supplier'))
                 ->helperText(__('Inactive suppliers remain visible historically but cannot be used for new Purchase Orders.'))
@@ -66,6 +84,7 @@ final class SupplierResource extends Resource
                 ->default(false)
                 ->visible(fn (): bool => self::canManageSupplierCommercialData()),
             Textarea::make('address')->columnSpanFull(),
+            Textarea::make('notes')->label(__('Procurement notes'))->rows(3)->maxLength(4000)->columnSpanFull(),
         ])->columns(2);
     }
 
@@ -118,6 +137,7 @@ final class SupplierResource extends Resource
         ];
 
         return parent::getEloquentQuery()
+            ->with('paymentTerm')
             ->withExists(Supplier::referenceFlagRelations())
             ->withCount([
                 'productReferences as active_catalog_count' => static fn (Builder $query): Builder => $query->where('is_active', true),
@@ -135,6 +155,7 @@ final class SupplierResource extends Resource
         return parent::getRecordRouteBindingEloquentQuery()
             ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with([
+                'paymentTerm',
                 'activeProductReferencesPreview.productVariant.product',
                 'activeProductSupportsPreview.product',
                 'activeProductSupportsPreview.productVariant.product',

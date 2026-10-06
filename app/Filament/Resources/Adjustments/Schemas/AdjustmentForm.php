@@ -171,7 +171,7 @@ final class AdjustmentForm
             return false;
         }
 
-        return ProductVariant::query()->with('product')->find((int) $productVariantId)?->productType()?->tracksBatches() === true;
+        return ProductVariant::query()->with('product')->find((int) $productVariantId)?->tracksLotsConfigured();
     }
 
     private static function tracksSerials(mixed $productVariantId): bool
@@ -180,7 +180,7 @@ final class AdjustmentForm
             return false;
         }
 
-        return ProductVariant::query()->with('product')->find((int) $productVariantId)?->productType()?->tracksSerials() === true;
+        return ProductVariant::query()->with('product')->find((int) $productVariantId)?->tracksSerialsConfigured();
     }
 
     /** @return array<int, string> */

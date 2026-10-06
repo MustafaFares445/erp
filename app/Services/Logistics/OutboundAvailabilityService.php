@@ -102,7 +102,7 @@ final readonly class OutboundAvailabilityService
     /** @return list<array{product_variant_id:int,quantity:float,inventory_lot_id:?int,serialized_inventory_unit_ids:list<int>}> */
     private function trackedAssignments(ProductVariant $variant, int $warehouseId, float $quantity): array
     {
-        if ($variant->track_serials) {
+        if ($variant->tracksSerialsConfigured()) {
             $count = max(0, (int) floor($quantity + self::Tolerance));
             $serialIds = array_values(SerializedInventoryUnit::query()
                 ->where('product_variant_id', $variant->id)
@@ -127,7 +127,7 @@ final readonly class OutboundAvailabilityService
             ]];
         }
 
-        if ($variant->track_batches) {
+        if ($variant->tracksLotsConfigured()) {
             $left = $quantity;
             $assignments = [];
             foreach ($this->lots->availableLots($variant->id, $warehouseId) as $lot) {

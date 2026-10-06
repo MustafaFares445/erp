@@ -4,61 +4,116 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductType;
+use App\Enums\TrackingMode;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Keeps `track_serials`/`track_expiry` a faithful projection of the parent product's
- * {@see ProductType}.
+ * Keeps the modern tracking configuration and the legacy tracking projection aligned.
  *
- * The type is the single source of truth, but the flags stay as real columns because every
- * inventory query, index and report already reads them directly. This observer is the
- * backstop, not the mechanism: write surfaces spread {@see ProductType::trackingFlags()}
- * explicitly, because a seeder running under `WithoutModelEvents` never reaches an observer.
- * What this catches is the path that forgets.
+ * New workflows use tracking_mode / tracks_expiration. The existing track_serials,
+ * track_batches and track_expiry columns remain projections so older inventory queries and
+ * reports keep working during the remediation.
  */
 final class ProductVariantObserver
 {
     public function updating(ProductVariant $variant): void
     {
-        if (! $variant->isDirty('unit_id') || ! $variant->hasStockHistory()) {
-            return;
+        if ($variant->isDirty('unit_id') && $variant->hasStockHistory()) {
+            throw ValidationException::withMessages([
+                'unit_id' => __('The base unit cannot change after this variant has stock history.'),
+            ]);
         }
 
-        throw ValidationException::withMessages([
-            'unit_id' => 'The base unit cannot change after this variant has stock history.',
-        ]);
+        if (
+            $variant->hasStockHistory()
+            && $variant->isDirty(['tracking_mode', 'tracks_expiration', 'track_serials', 'track_batches', 'track_expiry'])
+        ) {
+            throw ValidationException::withMessages([
+                'tracking_mode' => __('Tracking configuration cannot change after this variant has stock history.'),
+            ]);
+        }
     }
 
     public function saving(ProductVariant $variant): void
     {
-        $type = $this->productType($variant);
+        $product = $this->product($variant);
+        $type = $product?->product_type;
+        $profile = $product?->operational_profile;
 
-        if (! $type instanceof ProductType) {
-            return;
+        if (! $profile instanceof ProductOperationalProfile && $type instanceof ProductType) {
+            $profile = ProductOperationalProfile::fromLegacyType($type);
         }
 
-        $variant->forceFill($type->trackingFlags());
+        $mode = $variant->tracking_mode;
+
+        if (! $mode instanceof TrackingMode) {
+            $legacyMode = $this->legacyTrackingMode($type);
+            $mode = $legacyMode !== TrackingMode::None
+                ? $legacyMode
+                : ($profile?->defaultTrackingMode() ?? TrackingMode::None);
+        }
+
+        $tracksExpiration = $variant->tracks_expiration;
+
+        if ($tracksExpiration === null) {
+            $tracksExpiration = ($type?->tracksExpiry() ?? false)
+                || ($profile?->tracksExpirationByDefault() ?? false);
+        }
+
+        if ($tracksExpiration && $mode === TrackingMode::None) {
+            $mode = TrackingMode::Lot;
+        }
+
+        if (! $variant->exists && $profile instanceof ProductOperationalProfile) {
+            if (! $variant->isDirty('serviceable')) {
+                $variant->serviceable = $profile->serviceableByDefault();
+            }
+
+            if (! $variant->isDirty('warranty_enabled')) {
+                $variant->warranty_enabled = $profile->warrantyEnabledByDefault();
+            }
+
+            if (! $variant->isDirty('udi_enabled')) {
+                $variant->udi_enabled = $profile->udiEnabledByDefault();
+            }
+        }
+
+        if ($variant->warranty_policy_id !== null || $variant->warranty_duration_value !== null) {
+            $variant->warranty_enabled = true;
+        }
+
+        $variant->forceFill([
+            'tracking_mode' => $mode,
+            'tracks_expiration' => $tracksExpiration,
+            'track_serials' => $mode === TrackingMode::Serial,
+            'track_batches' => $mode === TrackingMode::Lot,
+            'track_expiry' => $tracksExpiration,
+        ]);
     }
 
-    /**
-     * Prefers an already-loaded relation so a bulk save does not issue one query per variant,
-     * and falls back to a lean lookup keyed on the foreign key being written.
-     */
-    private function productType(ProductVariant $variant): ?ProductType
+    private function legacyTrackingMode(?ProductType $type): TrackingMode
+    {
+        if ($type?->tracksSerials() === true) {
+            return TrackingMode::Serial;
+        }
+
+        if ($type?->tracksBatches() === true) {
+            return TrackingMode::Lot;
+        }
+
+        return TrackingMode::None;
+    }
+
+    private function product(ProductVariant $variant): ?Product
     {
         if ($variant->relationLoaded('product')) {
-            return $variant->product?->product_type;
+            return $variant->product;
         }
 
-        $type = Product::query()->withTrashed()->whereKey($variant->product_id)->value('product_type');
-
-        if ($type instanceof ProductType) {
-            return $type;
-        }
-
-        return is_string($type) ? ProductType::tryFrom($type) : null;
+        return Product::query()->withTrashed()->find($variant->product_id);
     }
 }

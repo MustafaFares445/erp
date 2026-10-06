@@ -263,6 +263,16 @@ final class InventoryLot extends Model
 
     public function expiryState(): string
     {
+        return match ($this->expiryBucket()) {
+            'no_expiry' => 'no_expiry',
+            'expired' => 'expired',
+            'critical', 'warning', 'notice' => 'expiring',
+            default => 'healthy',
+        };
+    }
+
+    public function expiryBucket(): string
+    {
         $daysRemaining = $this->daysRemaining();
 
         if ($daysRemaining === null) {
@@ -273,9 +283,21 @@ final class InventoryLot extends Model
             return 'expired';
         }
 
-        return $daysRemaining <= InventorySetting::expiryAlertDays()
-            ? 'expiring'
-            : 'healthy';
+        $windows = InventorySetting::expiryWindows();
+
+        if ($daysRemaining <= $windows['critical']) {
+            return 'critical';
+        }
+
+        if ($daysRemaining <= $windows['warning']) {
+            return 'warning';
+        }
+
+        if ($daysRemaining <= $windows['notice']) {
+            return 'notice';
+        }
+
+        return 'healthy';
     }
 
     private static function numericFloat(mixed $value): float

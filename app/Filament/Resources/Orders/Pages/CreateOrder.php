@@ -134,6 +134,7 @@ final class CreateOrder extends CreateRecord
                                             $get('../../customer_id'),
                                             $get('product_variant_id'),
                                             $get('unit_id'),
+                                            $get('quantity'),
                                         )),
                                     Placeholder::make('availability')
                                         ->label(__('Available now'))
@@ -334,7 +335,7 @@ final class CreateOrder extends CreateRecord
         return number_format($available, 6, '.', '').' base units';
     }
 
-    private function pricePreview(mixed $customerId, mixed $variantId, mixed $unitId): string
+    private function pricePreview(mixed $customerId, mixed $variantId, mixed $unitId, mixed $quantity): string
     {
         if (! is_numeric($variantId)) {
             return 'Select a product';
@@ -349,12 +350,6 @@ final class CreateOrder extends CreateRecord
             ? CustomerProfile::query()->with('user')->find((int) $customerId)
             : null;
 
-        try {
-            $resolved = app(PriceResolver::class)->resolve($variant, $customer?->user);
-        } catch (DomainException) {
-            return 'Price requires review';
-        }
-
         $factor = 1.0;
         if (is_numeric($unitId)) {
             $variantUnit = ProductVariantUnit::query()
@@ -365,6 +360,16 @@ final class CreateOrder extends CreateRecord
             if ($variantUnit instanceof ProductVariantUnit) {
                 $factor = (float) $variantUnit->factor_to_base;
             }
+        }
+
+        $baseQuantity = is_numeric($quantity) && (float) $quantity > 0
+            ? (float) $quantity * $factor
+            : null;
+
+        try {
+            $resolved = app(PriceResolver::class)->resolve($variant, $customer?->user, $baseQuantity);
+        } catch (DomainException) {
+            return 'Price requires review';
         }
 
         return number_format($resolved->amount * $factor, 2, '.', '').' ('.$resolved->source->value.')';

@@ -105,7 +105,7 @@ final class InventoryExportRequestSchema
         return [
             self::warehouse(),
             self::variant(),
-            self::select('expiry_state', ['expired' => 'Expired', 'expiring' => 'Expiring', 'healthy' => 'Healthy', 'no_expiry' => 'No expiry']),
+            self::select('expiry_state', ['expired' => 'Expired', 'critical' => '0–30 days', 'warning' => '31–60 days', 'notice' => '61–90 days', 'expiring' => 'All near-expiry', 'healthy' => 'Beyond alert window', 'no_expiry' => 'No expiry']),
             ...self::dateRange(),
         ];
     }

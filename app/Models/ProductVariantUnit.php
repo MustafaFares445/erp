@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'product_variant_id',
     'unit_id',
+    'packaging_name',
+    'barcode',
     'is_base',
     'is_purchase',
     'is_sale',

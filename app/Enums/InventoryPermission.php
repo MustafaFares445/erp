@@ -88,6 +88,12 @@ enum InventoryPermission: string
     case ExpiredStockOverride = 'inventory.expired-stock.override';
 
     /**
+     * Permits choosing a later-expiring lot when an earlier valid FEFO lot can satisfy the
+     * requested quantity. Every override requires a reason and is written to the audit log.
+     */
+    case FefoOverride = 'inventory.fefo.override';
+
+    /**
      * @return list<string>
      */
     public static function values(): array

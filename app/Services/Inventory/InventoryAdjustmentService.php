@@ -207,8 +207,8 @@ final readonly class InventoryAdjustmentService
             $this->productTypeGuard->assertQuantity($variant, (float) $newQuantity, $variant->unit);
         }
 
-        $tracksBatches = $variant->productType()?->tracksBatches() === true;
-        $tracksSerials = $variant->productType()?->tracksSerials() === true;
+        $tracksBatches = $variant->tracksLotsConfigured();
+        $tracksSerials = $variant->tracksSerialsConfigured();
 
         $lot = $this->lockedLot(
             $item,

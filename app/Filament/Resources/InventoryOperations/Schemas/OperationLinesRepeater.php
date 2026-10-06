@@ -160,8 +160,8 @@ final class OperationLinesRepeater
                     ->placeholder(__('admin.inventory.operation.placeholders.serialized_unit'))
                     ->options(fn (Get $get): array => self::serializedUnitOptions($get))
                     ->searchable()
-                    ->visible(fn (Get $get): bool => self::typeOf($get) === ProductType::Machine)
-                    ->required(fn (Get $get): bool => self::typeOf($get) === ProductType::Machine)
+                    ->visible(fn (Get $get): bool => self::tracksSerialsOf($get))
+                    ->required(fn (Get $get): bool => self::tracksSerialsOf($get))
                     ->createOptionForm([
                         TextInput::make('serial_number')
                             ->required()
@@ -249,12 +249,26 @@ final class OperationLinesRepeater
 
     private static function tracksExpiryOf(Get $get): bool
     {
-        return self::typeOf($get)?->tracksExpiry() === true;
+        return self::variantOf($get)?->tracksExpirationConfigured() === true;
     }
 
     private static function tracksBatchesOf(Get $get): bool
     {
-        return self::typeOf($get)?->tracksBatches() === true;
+        return self::variantOf($get)?->tracksLotsConfigured() === true;
+    }
+
+    private static function tracksSerialsOf(Get $get): bool
+    {
+        return self::variantOf($get)?->tracksSerialsConfigured() === true;
+    }
+
+    private static function variantOf(Get $get): ?ProductVariant
+    {
+        $variantId = self::toInteger($get('product_variant_id'));
+
+        return $variantId === null
+            ? null
+            : ProductVariant::query()->with('product')->find($variantId);
     }
 
     private static function isReceipt(Get $get): bool

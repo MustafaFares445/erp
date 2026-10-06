@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\Pages\InventoryDashboard;
+use App\Filament\Widgets\InventoryExpiringLots;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
@@ -22,13 +23,14 @@ beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
 
-it('registers only the essential widgets as aligned pairs', function (): void {
+it('registers the essential inventory widgets including the expiry work queue', function (): void {
     $widgets = new ReflectionMethod(InventoryDashboard::class, 'getDashboardWidgets')->invoke(new InventoryDashboard);
 
     expect($widgets)->toBe([
         InventoryKeyMetrics::class,
         [InventoryMovementsTrend::class, InventoryStockValue::class],
-        [InventoryLowStock::class, InventoryRecentMovements::class],
+        [InventoryLowStock::class, InventoryExpiringLots::class],
+        InventoryRecentMovements::class,
     ]);
 });
 

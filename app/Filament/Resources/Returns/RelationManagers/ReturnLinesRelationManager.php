@@ -224,6 +224,7 @@ final class ReturnLinesRelationManager extends RelationManager
                         InventoryReturnDisposition::Saleable->value => __('admin.inventory.stock.saleable_quantity'),
                         InventoryReturnDisposition::Quarantine->value => __('admin.inventory.stock.quarantine_quantity'),
                         InventoryReturnDisposition::Damaged->value => __('admin.inventory.stock.damaged_quantity'),
+                        InventoryReturnDisposition::SupplierReturn->value => __('Supplier return (quarantine)'),
                     ])
                     ->required(),
                 Textarea::make('inspection_notes')

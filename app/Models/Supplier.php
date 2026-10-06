@@ -9,6 +9,7 @@ use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use App\Policies\SupplierPolicy;
 use Closure;
 use Database\Factories\SupplierFactory;
@@ -16,10 +17,11 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['name', 'code', 'email', 'phone', 'address', 'logo_path', 'is_active', 'requires_confirmation'])]
+#[Fillable(['name', 'code', 'email', 'phone', 'address', 'default_currency_code', 'payment_term_id', 'default_lead_time_days', 'notes', 'logo_path', 'is_active', 'requires_confirmation'])]
 final class Supplier extends Model implements Favoritable
 {
     use HasCustomFields;
@@ -30,9 +32,20 @@ final class Supplier extends Model implements Favoritable
     use HasFavorites;
     use SoftDeletes;
     use TracksBlameable;
+    use ValidatesCurrencyCatalog;
 
     /** Attribute set by {@see self::referenceFlagRelations()}: the supplier has receipt operations. */
     public const string RECEIPT_OPERATIONS_EXISTS = 'receipt_operations_exists';
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::saving(static function (self $supplier): void {
+            if ($supplier->default_currency_code !== null) {
+                $supplier->validateActiveCurrency('default_currency_code');
+            }
+        });
+    }
 
     #[\Override]
     public function casts(): array
@@ -40,6 +53,7 @@ final class Supplier extends Model implements Favoritable
         return [
             'is_active' => 'boolean',
             'requires_confirmation' => 'boolean',
+            'default_lead_time_days' => 'integer',
         ];
     }
 
@@ -62,6 +76,12 @@ final class Supplier extends Model implements Favoritable
             'inventoryOperations as '.self::RECEIPT_OPERATIONS_EXISTS => static fn (Builder $operations): Builder => $operations
                 ->where('operation_type', OperationType::Receipt),
         ];
+    }
+
+    /** @return BelongsTo<PaymentTerm, $this> */
+    public function paymentTerm(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTerm::class);
     }
 
     /** @return HasMany<SupplierProductReference, $this> */

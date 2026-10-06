@@ -98,6 +98,7 @@ final class PurchaseOrderResource extends Resource
     {
         return parent::getEloquentQuery()->with([
             'supplier',
+            'paymentTerm',
             'lines.productVariant.unit',
             'lines.purchaseInboundLine.allocations',
             'purchaseInbound.lines.allocations.warehouse',
@@ -106,6 +107,7 @@ final class PurchaseOrderResource extends Resource
             'purchaseInbound.lines.purchaseOrderLine.productVariant.unit',
             'receipts.lines',
             'confirmations.items',
+            'confirmations.confirmedBy',
             'bills.paymentAllocations.supplierPayment',
         ]);
     }

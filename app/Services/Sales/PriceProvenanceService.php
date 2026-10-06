@@ -20,6 +20,8 @@ final readonly class PriceProvenanceService
      * @return array{
      *     resolved_price_source:string,
      *     resolved_price_tier_id:int|null,
+     *     resolved_price_list_id:int|null,
+     *     resolved_price_list_item_id:int|null,
      *     price_floor_override_id:int|null,
      *     list_price_minor:int,
      *     floor_price_minor:int|null
@@ -34,6 +36,8 @@ final readonly class PriceProvenanceService
         return [
             'resolved_price_source' => ($sourceOverride ?? $resolved->source)->value,
             'resolved_price_tier_id' => $resolved->tierId,
+            'resolved_price_list_id' => $resolved->priceListId,
+            'resolved_price_list_item_id' => $resolved->priceListItemId,
             'price_floor_override_id' => $floorOverride?->id,
             'list_price_minor' => self::minor($resolved->baseAmount * $unitMultiplier),
             'floor_price_minor' => $resolved->minimumPrice === null
@@ -49,6 +53,8 @@ final readonly class PriceProvenanceService
      * @return array{
      *     resolved_price_source:string,
      *     resolved_price_tier_id:int|null,
+     *     resolved_price_list_id:int|null,
+     *     resolved_price_list_item_id:int|null,
      *     price_floor_override_id:int|null,
      *     list_price_minor:int,
      *     floor_price_minor:int|null
@@ -60,12 +66,13 @@ final readonly class PriceProvenanceService
         float $unitPrice,
         float $unitMultiplier = 1.0,
         ?int $floorOverrideId = null,
+        float|string|null $quantity = null,
     ): array {
         if ($unitMultiplier <= 0.0) {
             throw new DomainException('Price provenance requires a positive unit conversion factor.');
         }
 
-        $resolved = $this->priceResolver->resolve($variant, $customer);
+        $resolved = $this->priceResolver->resolve($variant, $customer, $quantity);
         $baseEquivalentPrice = $unitPrice / $unitMultiplier;
         $floorOverride = $this->validatedOverride(
             $variant,

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
+use App\Enums\TrackingMode;
 use App\Enums\WarrantyDurationUnit;
 use App\Models\Concerns\TracksBlameable;
 use App\Observers\ProductVariantObserver;
@@ -30,7 +31,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property string $name
  * @property int $unit_id
  */
-#[Fillable(['product_id', 'sku', 'name', 'name_ar', 'barcode', 'unit_id', 'track_serials', 'track_expiry', 'track_batches', 'net_weight', 'weight_unit_id', 'cost_price', 'base_price', 'min_price', 'markup_percent', 'warranty_duration_value', 'warranty_duration_unit', 'warranty_policy_id', 'status', 'is_active'])]
+#[Fillable(['product_id', 'sku', 'name', 'name_ar', 'barcode', 'manufacturer_part_number', 'gtin', 'udi_di', 'device_identifier', 'unit_id', 'tracking_mode', 'tracks_expiration', 'track_serials', 'track_expiry', 'track_batches', 'serviceable', 'warranty_enabled', 'udi_enabled', 'net_weight', 'weight_unit_id', 'cost_price', 'base_price', 'min_price', 'markup_percent', 'warranty_duration_value', 'warranty_duration_unit', 'warranty_policy_id', 'status', 'is_active'])]
 #[ObservedBy(ProductVariantObserver::class)]
 final class ProductVariant extends Model implements HasMedia
 {
@@ -45,9 +46,14 @@ final class ProductVariant extends Model implements HasMedia
     public function casts(): array
     {
         return [
+            'tracking_mode' => TrackingMode::class,
+            'tracks_expiration' => 'boolean',
             'track_serials' => 'boolean',
             'track_expiry' => 'boolean',
             'track_batches' => 'boolean',
+            'serviceable' => 'boolean',
+            'warranty_enabled' => 'boolean',
+            'udi_enabled' => 'boolean',
             'net_weight' => 'decimal:3',
             'is_active' => 'boolean',
             'cost_price' => 'decimal:2',
@@ -156,6 +162,54 @@ final class ProductVariant extends Model implements HasMedia
     public function productType(): ?ProductType
     {
         return $this->product?->product_type;
+    }
+
+    public function trackingMode(): TrackingMode
+    {
+        $hasLegacySerial = array_key_exists('track_serials', $this->attributes);
+        $hasLegacyBatch = array_key_exists('track_batches', $this->attributes);
+
+        if ($hasLegacySerial && $this->track_serials === true) {
+            return TrackingMode::Serial;
+        }
+
+        if ($hasLegacyBatch && $this->track_batches === true) {
+            return TrackingMode::Lot;
+        }
+
+        // During the migration window legacy writers can still update both projection
+        // columns directly. When both are loaded and explicitly false, preserve that
+        // established behaviour instead of letting an older tracking_mode value win.
+        if ($hasLegacySerial && $hasLegacyBatch) {
+            return TrackingMode::None;
+        }
+
+        if ($this->tracking_mode instanceof TrackingMode) {
+            return $this->tracking_mode;
+        }
+
+        $type = $this->productType();
+
+        if ($type?->tracksSerials() === true) {
+            return TrackingMode::Serial;
+        }
+
+        return $type?->tracksBatches() === true ? TrackingMode::Lot : TrackingMode::None;
+    }
+
+    public function tracksSerialsConfigured(): bool
+    {
+        return $this->trackingMode() === TrackingMode::Serial;
+    }
+
+    public function tracksLotsConfigured(): bool
+    {
+        return $this->trackingMode() === TrackingMode::Lot;
+    }
+
+    public function tracksExpirationConfigured(): bool
+    {
+        return $this->tracks_expiration ?? $this->track_expiry;
     }
 
     public function weightFor(float $quantity): ?float

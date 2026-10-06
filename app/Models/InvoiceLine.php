@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'product_variant_id', 'order_line_id', 'description', 'quantity', 'unit_price',
     'tax_amount', 'line_total', 'sort_order', 'resolved_price_source',
-    'resolved_price_tier_id', 'price_floor_override_id', 'list_price_minor', 'floor_price_minor',
+    'resolved_price_tier_id', 'resolved_price_list_id', 'resolved_price_list_item_id', 'price_floor_override_id', 'list_price_minor', 'floor_price_minor',
 ])]
 /**
  * @property int $id
@@ -58,6 +58,18 @@ final class InvoiceLine extends Model
     public function resolvedPriceTier(): BelongsTo
     {
         return $this->belongsTo(PricingTier::class, 'resolved_price_tier_id');
+    }
+
+    /** @return BelongsTo<PriceList, $this> */
+    public function resolvedPriceList(): BelongsTo
+    {
+        return $this->belongsTo(PriceList::class, 'resolved_price_list_id');
+    }
+
+    /** @return BelongsTo<PriceListItem, $this> */
+    public function resolvedPriceListItem(): BelongsTo
+    {
+        return $this->belongsTo(PriceListItem::class, 'resolved_price_list_item_id');
     }
 
     /** @return BelongsTo<PriceFloorOverride, $this> */

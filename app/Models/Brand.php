@@ -9,10 +9,11 @@ use Database\Factories\BrandFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['name', 'name_ar', 'code', 'is_active'])]
+#[Fillable(['manufacturer_id', 'name', 'name_ar', 'code', 'is_active'])]
 final class Brand extends Model
 {
     /** @use HasFactory<BrandFactory> */
@@ -25,6 +26,12 @@ final class Brand extends Model
     public function casts(): array
     {
         return ['is_active' => 'boolean'];
+    }
+
+    /** @return BelongsTo<Manufacturer, $this> */
+    public function manufacturer(): BelongsTo
+    {
+        return $this->belongsTo(Manufacturer::class);
     }
 
     /** @return HasMany<Product, $this> */

@@ -6,8 +6,10 @@ namespace App\Filament\Resources\ProductVariants;
 
 use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
+use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
+use App\Enums\TrackingMode;
 use App\Enums\WarrantyDurationUnit;
 use App\Enums\WarrantyStartTrigger;
 use App\Filament\LocalizedResource as Resource;
@@ -48,6 +50,7 @@ use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -85,7 +88,25 @@ final class ProductVariantResource extends Resource
     {
         return $schema->components([
             Section::make()->columns(2)->schema([
-                Select::make('product_id')->relationship('product', 'name')->required()->searchable()->preload()->live(),
+                Select::make('product_id')
+                    ->relationship('product', 'name')
+                    ->required()
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->afterStateUpdated(static function (mixed $state, Set $set): void {
+                        $profile = self::productProfileOf($state);
+
+                        if (! $profile instanceof ProductOperationalProfile) {
+                            return;
+                        }
+
+                        $set('tracking_mode', $profile->defaultTrackingMode()->value);
+                        $set('tracks_expiration', $profile->tracksExpirationByDefault());
+                        $set('serviceable', $profile->serviceableByDefault());
+                        $set('warranty_enabled', $profile->warrantyEnabledByDefault());
+                        $set('udi_enabled', $profile->udiEnabledByDefault());
+                    }),
                 Repeater::make('variant_uoms')
                     ->label(__('Variant units of measure'))
                     ->helperText(__('Define one base unit and any explicit purchase, sale, or display conversions. Stock is always stored in the base unit.'))
@@ -97,7 +118,14 @@ final class ProductVariantResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload(),
-                        TextInput::make('factor_to_base')->label(__('Factor to base'))->inputMode('decimal')->required(),
+                        TextInput::make('packaging_name')
+                            ->label(__('Packaging name'))
+                            ->maxLength(120)
+                            ->placeholder(__('e.g. Box of 100')),
+                        TextInput::make('barcode')
+                            ->label(__('Packaging barcode'))
+                            ->maxLength(100),
+                        TextInput::make('factor_to_base')->label(__('Quantity in base UoM'))->inputMode('decimal')->required(),
                         TextInput::make('rounding_increment')->label(__('Rounding increment'))->inputMode('decimal')->required(),
                         Toggle::make('is_base')->label(__('Base unit'))->distinct(),
                         Toggle::make('is_purchase')->label(__('Purchase')),
@@ -132,6 +160,8 @@ final class ProductVariantResource extends Resource
                             ->orderBy('unit_id')
                             ->get([
                                 'unit_id',
+                                'packaging_name',
+                                'barcode',
                                 'is_base',
                                 'is_purchase',
                                 'is_sale',
@@ -143,6 +173,8 @@ final class ProductVariantResource extends Resource
                             ])
                             ->map(static fn (ProductVariantUnit $variantUnit): array => [
                                 'unit_id' => $variantUnit->unit_id,
+                                'packaging_name' => $variantUnit->packaging_name,
+                                'barcode' => $variantUnit->barcode,
                                 'is_base' => $variantUnit->is_base,
                                 'is_purchase' => $variantUnit->is_purchase,
                                 'is_sale' => $variantUnit->is_sale,
@@ -157,6 +189,9 @@ final class ProductVariantResource extends Resource
                     ->columnSpanFull(),
                 TextInput::make('sku')->required()->maxLength(100),
                 TextInput::make('barcode')->maxLength(100)->unique(ignoreRecord: true),
+                TextInput::make('manufacturer_part_number')
+                    ->label(__('Manufacturer catalog number'))
+                    ->maxLength(150),
                 TextInput::make('name')->required()->maxLength(255),
                 TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
                 Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required(),
@@ -165,6 +200,44 @@ final class ProductVariantResource extends Resource
                     ->content(static fn (Get $get): string => self::trackingSummary($get('product_id')))
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.product_type.help')),
             ]),
+            Section::make(__('Tracking & compliance'))
+                ->description(__('Configure lot/serial identity only where the item requires it. Expiry, warranty, service, and UDI capabilities remain independent.'))
+                ->columns(2)
+                ->schema([
+                    Select::make('tracking_mode')
+                        ->label(__('Tracking mode'))
+                        ->options(TrackingMode::options())
+                        ->placeholder(__('Use product profile default'))
+                        ->live()
+                        ->disabled(static fn (?ProductVariant $record): bool => $record?->hasStockHistory() === true)
+                        ->helperText(__('Stock history locks tracking identity. Untracked products do not show lot/serial receiving fields.')),
+                    Toggle::make('tracks_expiration')
+                        ->label(__('Track expiration'))
+                        ->visible(static fn (Get $get): bool => $get('tracking_mode') === TrackingMode::Lot->value)
+                        ->disabled(static fn (?ProductVariant $record): bool => $record?->hasStockHistory() === true),
+                    Toggle::make('serviceable')
+                        ->label(__('Serviceable equipment')),
+                    Toggle::make('warranty_enabled')
+                        ->label(__('Warranty enabled'))
+                        ->live(),
+                    Toggle::make('udi_enabled')
+                        ->label(__('UDI / medical-device identifiers'))
+                        ->live(),
+                    TextInput::make('gtin')
+                        ->label(__('GTIN'))
+                        ->maxLength(32)
+                        ->unique(ignoreRecord: true)
+                        ->visible(static fn (Get $get): bool => (bool) $get('udi_enabled')),
+                    TextInput::make('udi_di')
+                        ->label(__('UDI-DI'))
+                        ->maxLength(255)
+                        ->unique(ignoreRecord: true)
+                        ->visible(static fn (Get $get): bool => (bool) $get('udi_enabled')),
+                    TextInput::make('device_identifier')
+                        ->label(__('Additional device identifier'))
+                        ->maxLength(255)
+                        ->visible(static fn (Get $get): bool => (bool) $get('udi_enabled')),
+                ]),
             Section::make(__('admin.inventory.product_type.types.grain'))
                 ->description(__('admin.inventory.product_type.descriptions.grain'))
                 ->columns(2)
@@ -204,6 +277,7 @@ final class ProductVariantResource extends Resource
                 ]),
             Section::make(__('Customer Warranty'))
                 ->description(__('Assign a reusable warranty policy. Existing legacy duration fields remain available only when no policy is selected.'))
+                ->visible(static fn (Get $get): bool => (bool) $get('warranty_enabled'))
                 ->columns(2)
                 ->schema([
                     Select::make('warranty_policy_id')
@@ -319,11 +393,24 @@ final class ProductVariantResource extends Resource
                     ->columnSpanFull(),
                 TextEntry::make('sku'),
                 TextEntry::make('barcode'),
+                TextEntry::make('manufacturer_part_number')->label(__('Manufacturer catalog number'))->placeholder(__('—')),
                 TextEntry::make('name'),
                 TextEntry::make('name_ar')->label(__('Arabic name')),
                 TextEntry::make('product.name'),
+                TextEntry::make('product.manufacturer.name')->label(__('Manufacturer'))->placeholder(__('—')),
+                TextEntry::make('product.brand.name')->label(__('Brand'))->placeholder(__('—')),
+                TextEntry::make('product.operational_profile')
+                    ->label(__('Operational profile'))
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductOperationalProfile $state): string => $state->label()),
                 TextEntry::make('unit.symbol'),
                 TextEntry::make('status')->badge(),
+                TextEntry::make('tracking_mode')
+                    ->label(__('Tracking mode'))
+                    ->badge()
+                    ->formatStateUsing(static fn (TrackingMode $state): string => $state->label()),
+                TextEntry::make('gtin')->label(__('GTIN'))->placeholder(__('—')),
+                TextEntry::make('udi_di')->label(__('UDI-DI'))->placeholder(__('—')),
                 TextEntry::make('product.product_type')
                     ->label(__('admin.inventory.product_type.label'))
                     ->badge()
@@ -353,10 +440,16 @@ final class ProductVariantResource extends Resource
             ->columns([
                 ImageColumn::make('main_image')->getStateUsing(static fn (ProductVariant $record): ?string => $record->mainImageUrl()),
                 TextColumn::make('sku')->searchable()->sortable(),
+                TextColumn::make('manufacturer_part_number')->label(__('Mfr. catalog #'))->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('product.name')->searchable()->sortable(),
                 TextColumn::make('unit.symbol')->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('tracking_mode')
+                    ->label(__('Tracking'))
+                    ->badge()
+                    ->formatStateUsing(static fn (TrackingMode $state): string => $state->label())
+                    ->sortable(),
                 ToggleColumn::make('is_active'),
                 TextColumn::make('base_price')->money()->sortable()->visible(self::canViewPricing()),
                 TextColumn::make('product.product_type')
@@ -376,10 +469,14 @@ final class ProductVariantResource extends Resource
                     ->placeholder(__('Legacy / none'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('track_serials')->boolean()->toggleable(isToggledHiddenByDefault: true),
-                IconColumn::make('track_expiry')->boolean()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('tracks_expiration')->label(__('Expiry'))->boolean()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('serviceable')->boolean()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('warranty_enabled')->label(__('Warranty'))->boolean()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('udi_enabled')->label(__('UDI'))->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')->options(self::statusOptions()),
+                SelectFilter::make('tracking_mode')->options(TrackingMode::options()),
                 SelectFilter::make('product_id')->relationship('product', 'name')->searchable()->preload(),
                 SelectFilter::make('product_type')
                     ->label(__('admin.inventory.product_type.label'))
@@ -411,10 +508,16 @@ final class ProductVariantResource extends Resource
         return [
             'sku',
             'barcode',
+            'manufacturer_part_number',
+            'gtin',
+            'udi_di',
+            'device_identifier',
             'name',
             'name_ar',
             'product.name',
             'product.name_ar',
+            'product.manufacturer.name',
+            'product.manufacturer.code',
             'product.brand.name',
             'product.brand.name_ar',
             'product.category.name',
@@ -436,6 +539,7 @@ final class ProductVariantResource extends Resource
 
         return [
             'Product' => $record->product->name ?? 'Unknown product',
+            'Tracking' => $record->trackingMode()->label(),
             'Barcode' => $record->barcode ?? 'No barcode',
         ];
     }
@@ -581,12 +685,15 @@ final class ProductVariantResource extends Resource
     private static function trackingSummary(mixed $productId): string
     {
         $type = self::productTypeOf($productId);
+        $profile = self::productProfileOf($productId);
 
         if (! $type instanceof ProductType) {
             return __('admin.inventory.operation.placeholders.product');
         }
 
-        return $type->label().' — '.$type->description();
+        $prefix = $profile instanceof ProductOperationalProfile ? $profile->label().' · ' : '';
+
+        return $prefix.$type->label().' — '.$type->description();
     }
 
     private static function assertTypeRulesHold(ProductVariant $variant): void
@@ -607,6 +714,21 @@ final class ProductVariantResource extends Resource
         $type = Product::query()->withTrashed()->whereKey((int) $productId)->value('product_type');
 
         return $type instanceof ProductType ? $type : null;
+    }
+
+    private static function productProfileOf(mixed $productId): ?ProductOperationalProfile
+    {
+        if (! is_numeric($productId)) {
+            return null;
+        }
+
+        $profile = Product::query()->withTrashed()->whereKey((int) $productId)->value('operational_profile');
+
+        if ($profile instanceof ProductOperationalProfile) {
+            return $profile;
+        }
+
+        return is_string($profile) ? ProductOperationalProfile::tryFrom($profile) : null;
     }
 
     /**

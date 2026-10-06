@@ -89,6 +89,7 @@ final class PurchaseOrderInfolist
                         ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
                     TextEntry::make('ordered_at')->label(__('Ordered'))->date(),
                     TextEntry::make('expected_at')->label(__('Expected'))->date()->placeholder(__('Not specified')),
+                    TextEntry::make('paymentTerm.name')->label(__('Payment terms'))->placeholder(__('Not specified')),
                     TextEntry::make('sent_at')->label(__('Last sent'))->dateTime()->placeholder(__('Not sent')),
                     TextEntry::make('purchase_order_number')->label(__('PO number')),
                     TextEntry::make('rejection_reason')
@@ -182,9 +183,10 @@ final class PurchaseOrderInfolist
                     RepeatableEntry::make('confirmations')
                         ->label(__('Response history'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->confirmations->isNotEmpty())
-                        ->columns(4)
+                        ->columns(5)
                         ->schema([
                             TextEntry::make('confirmation_status')->label(__('Response'))->badge(),
+                            TextEntry::make('supplier_reference')->label(__('Supplier reference'))->placeholder(__('—')),
                             TextEntry::make('promised_at')->label(__('Promised date'))->date()->placeholder(__('—')),
                             TextEntry::make('confirmedBy.name')->label(__('Recorded by'))->placeholder(__('—')),
                             TextEntry::make('notes')->label(__('Notes'))->placeholder(__('No notes'))->wrap(),

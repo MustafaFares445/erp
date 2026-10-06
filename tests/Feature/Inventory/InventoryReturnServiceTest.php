@@ -92,6 +92,7 @@ it('posts customer return dispositions into saleable quarantine and damaged cond
     'saleable' => [InventoryReturnDisposition::Saleable, 8.0, 0.0, 0.0, 8.0, 8.0],
     'quarantine' => [InventoryReturnDisposition::Quarantine, 6.0, 2.0, 0.0, 6.0, 2.0],
     'damaged' => [InventoryReturnDisposition::Damaged, 6.0, 0.0, 2.0, 6.0, 2.0],
+    'supplier return' => [InventoryReturnDisposition::SupplierReturn, 6.0, 2.0, 0.0, 6.0, 2.0],
 ]);
 
 it('rejects an over-return after a prior partial customer return is posted', function (): void {

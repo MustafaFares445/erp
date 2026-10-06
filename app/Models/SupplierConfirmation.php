@@ -26,7 +26,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $confirmed_at
  * @property string|null $notes
  */
-#[Fillable(['supplier_id', 'purchase_order_id', 'notes'])]
+#[Fillable(['supplier_id', 'purchase_order_id', 'supplier_reference', 'notes'])]
 final class SupplierConfirmation extends Model
 {
     /** @use HasFactory<SupplierConfirmationFactory> */

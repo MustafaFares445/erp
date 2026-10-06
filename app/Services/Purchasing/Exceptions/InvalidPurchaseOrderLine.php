@@ -33,6 +33,23 @@ final class InvalidPurchaseOrderLine extends DomainException
         ));
     }
 
+    public static function supplierPurchaseUnitMismatch(ProductVariant $variant): self
+    {
+        return new self(sprintf(
+            'The selected unit does not match the supplier purchase UOM configured for [%s].',
+            $variant->sku,
+        ));
+    }
+
+    public static function minimumOrderQuantity(ProductVariant $variant, string $minimum): self
+    {
+        return new self(sprintf(
+            'Supplier minimum order quantity for [%s] is %s in the configured purchase UOM.',
+            $variant->sku,
+            $minimum,
+        ));
+    }
+
     public static function unsupportedSupplierItem(Supplier $supplier, ProductVariant $variant): self
     {
         return new self(sprintf(

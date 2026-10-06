@@ -288,6 +288,74 @@ final readonly class WarrantyEntitlementService
         });
     }
 
+    public function correctDates(
+        WarrantyEntitlement $entitlement,
+        CarbonInterface $startsOn,
+        CarbonInterface $expiresOn,
+        User $actor,
+        string $reason,
+    ): WarrantyEntitlement {
+        Gate::forUser($actor)->authorize(SupportPermission::WarrantyOverride->value);
+
+        if ($entitlement->state !== WarrantyEntitlementState::Active) {
+            throw new DomainException('Only an active warranty entitlement can have its dates corrected.');
+        }
+
+        if (mb_trim($reason) === '') {
+            throw new DomainException('A warranty correction reason is required.');
+        }
+
+        $start = Carbon::parse($startsOn)->startOfDay();
+        $expiry = Carbon::parse($expiresOn)->startOfDay();
+
+        if ($expiry->lt($start)) {
+            throw ValidationException::withMessages([
+                'expires_on' => 'Warranty expiry cannot be before the warranty start date.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($entitlement, $start, $expiry, $actor, $reason): WarrantyEntitlement {
+            $locked = WarrantyEntitlement::query()
+                ->whereKey($entitlement->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($locked->state !== WarrantyEntitlementState::Active) {
+                throw new DomainException('Only an active warranty entitlement can have its dates corrected.');
+            }
+
+            $before = [
+                'starts_on' => $locked->starts_on?->toDateString(),
+                'expires_on' => $locked->expires_on?->toDateString(),
+            ];
+
+            $locked->update([
+                'starts_on' => $start->toDateString(),
+                'expires_on' => $expiry->toDateString(),
+            ]);
+
+            $this->syncUnitSnapshot($locked);
+
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => $before,
+                    'attributes' => [
+                        'starts_on' => $start->toDateString(),
+                        'expires_on' => $expiry->toDateString(),
+                    ],
+                ])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'reason' => mb_trim($reason),
+                ])
+                ->log('support.warranty_entitlement.dates_corrected');
+
+            return $locked->refresh();
+        });
+    }
+
     public function cancel(WarrantyEntitlement $entitlement, User $actor, string $reason): WarrantyEntitlement
     {
         Gate::forUser($actor)->authorize(SupportPermission::WarrantyOverride->value);

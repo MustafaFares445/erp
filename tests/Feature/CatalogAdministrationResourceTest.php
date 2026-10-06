@@ -221,6 +221,7 @@ it('builds nested catalog forms and creates products through their resource', fu
 
     expect(SupplierResource::form(Schema::make())->getComponents())->not->toBeEmpty()
         ->and(ProductResource::getGlobalSearchResultDetails($product))->toBe([
+            'Manufacturer' => 'No manufacturer',
             'Brand' => 'No brand',
             'Category' => 'No category',
         ])

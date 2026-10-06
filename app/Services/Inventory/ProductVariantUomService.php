@@ -65,7 +65,7 @@ final class ProductVariantUomService
 
     /**
      * @param  array<mixed>  $definitions
-     * @return array<int, array{unit_id: int, is_base: bool, is_purchase: bool, is_sale: bool, is_display: bool, factor_to_base: numeric-string, rounding_increment: numeric-string, permits_cross_family_conversion: bool, is_active: bool}>
+     * @return array<int, array{unit_id: int, packaging_name: ?string, barcode: ?string, is_base: bool, is_purchase: bool, is_sale: bool, is_display: bool, factor_to_base: numeric-string, rounding_increment: numeric-string, permits_cross_family_conversion: bool, is_active: bool}>
      */
     private function normalizeDefinitions(array $definitions): array
     {
@@ -94,6 +94,8 @@ final class ProductVariantUomService
 
             $normalized[$unitId] = [
                 'unit_id' => $unitId,
+                'packaging_name' => $this->optionalString($definition['packaging_name'] ?? null, 'packaging_name', 120),
+                'barcode' => $this->optionalString($definition['barcode'] ?? null, 'barcode', 100),
                 'is_base' => $this->boolean($definition['is_base'] ?? false, 'is_base'),
                 'is_purchase' => $this->boolean($definition['is_purchase'] ?? false, 'is_purchase'),
                 'is_sale' => $this->boolean($definition['is_sale'] ?? false, 'is_sale'),
@@ -127,7 +129,7 @@ final class ProductVariantUomService
     }
 
     /**
-     * @param  array<int, array{unit_id: int, is_base: bool, is_purchase: bool, is_sale: bool, is_display: bool, factor_to_base: numeric-string, rounding_increment: numeric-string, permits_cross_family_conversion: bool, is_active: bool}>  $configuration
+     * @param  array<int, array{unit_id: int, packaging_name: ?string, barcode: ?string, is_base: bool, is_purchase: bool, is_sale: bool, is_display: bool, factor_to_base: numeric-string, rounding_increment: numeric-string, permits_cross_family_conversion: bool, is_active: bool}>  $configuration
      * @param  Collection<int, Unit>  $units
      */
     private function validateConfiguration(array $configuration, Collection $units): int
@@ -249,12 +251,14 @@ final class ProductVariantUomService
 
     /**
      * @param  Collection<int, ProductVariantUnit>  $existingConfigurations
-     * @param  array<int, array{unit_id: int, is_base: bool, is_purchase: bool, is_sale: bool, is_display: bool, factor_to_base: numeric-string, rounding_increment: numeric-string, permits_cross_family_conversion: bool, is_active: bool}>  $configuration
+     * @param  array<int, array{unit_id: int, packaging_name: ?string, barcode: ?string, is_base: bool, is_purchase: bool, is_sale: bool, is_display: bool, factor_to_base: numeric-string, rounding_increment: numeric-string, permits_cross_family_conversion: bool, is_active: bool}>  $configuration
      */
     private function upsertConfigurations(ProductVariant $variant, Collection $existingConfigurations, array $configuration): void
     {
         foreach ($configuration as $unitId => $definition) {
             $attributes = [
+                'packaging_name' => $definition['packaging_name'],
+                'barcode' => $definition['barcode'],
                 'is_base' => $definition['is_base'],
                 'is_purchase' => $definition['is_purchase'],
                 'is_sale' => $definition['is_sale'],
@@ -307,6 +311,21 @@ final class ProductVariantUomService
         }
 
         return $decimal;
+    }
+
+    private function optionalString(mixed $value, string $field, int $maxLength): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || mb_strlen($value) > $maxLength) {
+            throw ValidationException::withMessages([
+                $field => "The {$field} must be a string with at most {$maxLength} characters.",
+            ]);
+        }
+
+        return mb_trim($value);
     }
 
     private function assertUnitPrecision(Unit $unit): void

@@ -57,12 +57,22 @@ final class InventoryLotsTable
                 TextColumn::make('warehouse_count')
                     ->label(__('admin.inventory.lot.fields.warehouses'))
                     ->state(fn (InventoryLot $record): int => $record->warehouseCount()),
-                TextColumn::make('expiry_state')
-                    ->state(fn (InventoryLot $record): string => $record->expiryState())
+                TextColumn::make('expiry_bucket')
+                    ->label(__('Expiry window'))
+                    ->state(fn (InventoryLot $record): string => match ($record->expiryBucket()) {
+                        'expired' => __('Expired'),
+                        'critical' => __('0–30 days'),
+                        'warning' => __('31–60 days'),
+                        'notice' => __('61–90 days'),
+                        'healthy' => __('Beyond alert window'),
+                        default => __('No expiry'),
+                    })
                     ->badge()
-                    ->color(fn (InventoryLot $record): string => match ($record->expiryState()) {
+                    ->color(fn (InventoryLot $record): string => match ($record->expiryBucket()) {
                         'expired' => 'danger',
-                        'expiring' => 'warning',
+                        'critical' => 'danger',
+                        'warning' => 'warning',
+                        'notice' => 'info',
                         'healthy' => 'success',
                         default => 'gray',
                     }),
@@ -96,13 +106,39 @@ final class InventoryLotsTable
                     )),
                 Filter::make('expired')
                     ->query(fn (Builder $query): Builder => $query->whereDate('expires_at', '<', today())),
-                Filter::make('expiring')
-                    ->query(fn (Builder $query): Builder => $query
-                        ->whereDate('expires_at', '>=', today())
-                        ->whereDate('expires_at', '<=', today()->addDays(InventorySetting::expiryAlertDays()))),
+                Filter::make('critical_expiry')
+                    ->label(__('0–30 days'))
+                    ->query(static function (Builder $query): Builder {
+                        $windows = InventorySetting::expiryWindows();
+
+                        return $query
+                            ->whereDate('expires_at', '>=', today())
+                            ->whereDate('expires_at', '<=', today()->addDays($windows['critical']));
+                    }),
+                Filter::make('warning_expiry')
+                    ->label(__('31–60 days'))
+                    ->query(static function (Builder $query): Builder {
+                        $windows = InventorySetting::expiryWindows();
+
+                        return $query
+                            ->whereDate('expires_at', '>', today()->addDays($windows['critical']))
+                            ->whereDate('expires_at', '<=', today()->addDays($windows['warning']));
+                    }),
+                Filter::make('notice_expiry')
+                    ->label(__('61–90 days'))
+                    ->query(static function (Builder $query): Builder {
+                        $windows = InventorySetting::expiryWindows();
+
+                        return $query
+                            ->whereDate('expires_at', '>', today()->addDays($windows['warning']))
+                            ->whereDate('expires_at', '<=', today()->addDays($windows['notice']));
+                    }),
                 Filter::make('healthy')
-                    ->query(fn (Builder $query): Builder => $query
-                        ->whereDate('expires_at', '>', today()->addDays(InventorySetting::expiryAlertDays()))),
+                    ->query(static function (Builder $query): Builder {
+                        $windows = InventorySetting::expiryWindows();
+
+                        return $query->whereDate('expires_at', '>', today()->addDays($windows['notice']));
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),

@@ -6,10 +6,12 @@ namespace App\Filament\Resources\InventoryOperations\Pages;
 
 use App\Data\Orders\OrderFulfillmentData;
 use App\Enums\DeliveryType;
+use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\CustomerProfile;
+use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -255,8 +257,29 @@ final class CreateInventoryOperation extends CreateRecord
                                         )))
                                         ->searchable()
                                         ->live()
+                                        ->afterStateUpdated(static fn (Set $set): mixed => $set('fefo_override_reason', null))
                                         ->visible(fn (Get $get): bool => $this->requiresLot($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
                                         ->required(fn (Get $get): bool => $this->requiresLot($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
+                                        ->columnSpanFull(),
+                                    Textarea::make('fefo_override_reason')
+                                        ->label(__('FEFO override reason'))
+                                        ->maxLength(255)
+                                        ->rows(2)
+                                        ->helperText(fn (): string => auth()->user()?->can(InventoryPermission::FefoOverride->value) === true
+                                            ? __('Required because a later-expiring lot was selected instead of the FEFO lot.')
+                                            : __('This selection requires the FEFO override permission.'))
+                                        ->visible(fn (Get $get): bool => $this->isFefoOverrideSelection(
+                                            $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
+                                            $get('../../warehouse_id'),
+                                            $get('inventory_lot_id'),
+                                            $get('quantity'),
+                                        ))
+                                        ->required(fn (Get $get): bool => $this->isFefoOverrideSelection(
+                                            $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
+                                            $get('../../warehouse_id'),
+                                            $get('inventory_lot_id'),
+                                            $get('quantity'),
+                                        ))
                                         ->columnSpanFull(),
                                     Select::make('serialized_inventory_unit_ids')
                                         ->label(__('admin.inventory.operation.create.serial_numbers'))
@@ -986,7 +1009,9 @@ final class CreateInventoryOperation extends CreateRecord
             return false;
         }
 
-        return ProductVariant::query()->whereKey($variantId)->value('track_serials') === true;
+        $variant = ProductVariant::query()->with('product')->find($variantId);
+
+        return $variant instanceof ProductVariant && $variant->tracksSerialsConfigured();
     }
 
     private function requiresLot(mixed $variantId): bool
@@ -997,7 +1022,9 @@ final class CreateInventoryOperation extends CreateRecord
             return false;
         }
 
-        return ProductVariant::query()->whereKey($variantId)->value('track_batches') === true;
+        $variant = ProductVariant::query()->with('product')->find($variantId);
+
+        return $variant instanceof ProductVariant && $variant->tracksLotsConfigured();
     }
 
     /**
@@ -1032,6 +1059,40 @@ final class CreateInventoryOperation extends CreateRecord
         }
 
         return $options;
+    }
+
+    private function isFefoOverrideSelection(
+        mixed $variantId,
+        mixed $warehouseId,
+        mixed $lotId,
+        mixed $quantity,
+    ): bool {
+        $variantId = $this->integer($variantId);
+        $warehouseId = $this->integer($warehouseId);
+        $lotId = $this->integer($lotId);
+
+        if ($variantId === null || $warehouseId === null || $lotId === null) {
+            return false;
+        }
+
+        $variant = ProductVariant::query()->with('product')->find($variantId);
+        $selectedLot = InventoryLot::query()->canonical()->find($lotId);
+
+        if (! $variant instanceof ProductVariant || ! $selectedLot instanceof InventoryLot) {
+            return false;
+        }
+
+        if (! $variant->tracksLotsConfigured() || ! $variant->tracksExpirationConfigured()) {
+            return false;
+        }
+
+        $baseQuantity = is_numeric($quantity) && (float) $quantity > 0
+            ? number_format((float) $quantity, 6, '.', '')
+            : '0.000001';
+        $preferred = $this->inventoryLotService->preferredFefoLot($variant, $warehouseId, $baseQuantity);
+
+        return $preferred instanceof InventoryLot
+            && $preferred->expires_at?->toDateString() !== $selectedLot->expires_at?->toDateString();
     }
 
     /**

@@ -516,8 +516,8 @@ final readonly class InventoryConditionChangeService
         ?int $serializedUnitId,
         string $quantity,
     ): void {
-        $tracksBatches = $variant->productType()?->tracksBatches() === true;
-        $tracksSerials = $variant->productType()?->tracksSerials() === true;
+        $tracksBatches = $variant->tracksLotsConfigured();
+        $tracksSerials = $variant->tracksSerialsConfigured();
 
         if ($tracksBatches && $inventoryLotId === null) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
@@ -566,8 +566,8 @@ final readonly class InventoryConditionChangeService
         ?int $serializedUnitId,
         bool $requireQuarantineBalance,
     ): array {
-        $tracksBatches = $variant->productType()?->tracksBatches() === true;
-        $tracksSerials = $variant->productType()?->tracksSerials() === true;
+        $tracksBatches = $variant->tracksLotsConfigured();
+        $tracksSerials = $variant->tracksSerialsConfigured();
 
         if ($tracksBatches && $inventoryLotId === null) {
             throw QuarantineDispositionRejected::because('a lot is required for this variant');

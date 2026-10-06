@@ -120,10 +120,11 @@ final readonly class SupplierConfirmationService
         ?CarbonImmutable $promisedAt,
         string $note,
         array $quantities = [],
+        ?string $supplierReference = null,
     ): SupplierConfirmation {
         Gate::forUser($actor)->authorize('answer', $confirmation);
 
-        return DB::transaction(function () use ($actor, $confirmation, $outcome, $promisedAt, $note, $quantities): SupplierConfirmation {
+        return DB::transaction(function () use ($actor, $confirmation, $outcome, $promisedAt, $note, $quantities, $supplierReference): SupplierConfirmation {
             /** @var SupplierConfirmation $locked */
             $locked = SupplierConfirmation::query()
                 ->with('purchaseOrder')
@@ -154,6 +155,15 @@ final readonly class SupplierConfirmationService
             $note = mb_trim($note);
             if ($note === '') {
                 throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);
+            }
+
+            $supplierReference = is_string($supplierReference) ? mb_trim($supplierReference) : null;
+            $supplierReference = $supplierReference === '' ? null : $supplierReference;
+
+            if ($supplierReference !== null && mb_strlen($supplierReference) > 150) {
+                throw ValidationException::withMessages([
+                    'supplier_reference' => 'Supplier confirmation reference may not exceed 150 characters.',
+                ]);
             }
 
             $items = $locked->items()->lockForUpdate()->orderBy('id')->get();
@@ -204,6 +214,7 @@ final readonly class SupplierConfirmationService
 
             $locked->forceFill([
                 'confirmation_status' => $outcome,
+                'supplier_reference' => $supplierReference,
                 'promised_at' => $outcome === SupplierConfirmationStatus::Rejected ? null : $latestPromisedAt?->toDateString(),
                 'confirmed_by' => $actor->getKey(),
                 'confirmed_at' => now(),

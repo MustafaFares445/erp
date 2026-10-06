@@ -20,6 +20,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 #[Fillable([
     'warehouse_id',
     'product_variant_id',
+    'preferred_supplier_id',
     'min_quantity',
     'max_quantity',
     'is_active',
@@ -57,6 +58,17 @@ final class WarehouseReplenishmentPolicy extends Model
             if ($maximum <= $minimum) {
                 throw new DomainException('Replenishment maximum quantity must be greater than the minimum quantity.');
             }
+
+            if ($policy->preferred_supplier_id !== null) {
+                $hasReference = SupplierProductReference::query()
+                    ->activeFor((int) $policy->preferred_supplier_id, (int) $policy->product_variant_id)
+                    ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
+                    ->exists();
+
+                if (! $hasReference) {
+                    throw new DomainException('Preferred replenishment supplier must have a currently valid active Supplier Product for this variant.');
+                }
+            }
         });
 
         self::saved(static function (self $policy): void {
@@ -85,6 +97,12 @@ final class WarehouseReplenishmentPolicy extends Model
     public function productVariant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
+    }
+
+    /** @return BelongsTo<Supplier, $this> */
+    public function preferredSupplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class, 'preferred_supplier_id');
     }
 
     /** @return HasMany<ReplenishmentRequirement, $this> */
