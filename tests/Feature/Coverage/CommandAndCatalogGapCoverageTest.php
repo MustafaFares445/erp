@@ -9,6 +9,7 @@ use App\Models\Quotation;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
 use App\Services\Settings\CurrencyCatalogService;
+use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -31,11 +32,9 @@ it('validates and normalizes currency catalog fields', function (): void {
         ->and($service->defaultCode())->not->toBe('')
         ->and($service->normalizeActive(' aed '))->toBe('AED');
 
-    $model = new class extends Model
+    $model = new #[Unguarded] class extends Model
     {
         use ValidatesCurrencyCatalog;
-
-        protected $guarded = [];
 
         public function validateCurrency(string $field): void
         {

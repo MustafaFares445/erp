@@ -6,8 +6,6 @@ use App\Enums\PurchaseAgreementStatus;
 use App\Enums\PurchaseRfqStatus;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
-use App\Models\PurchaseAgreement;
-use App\Models\PurchaseRfq;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;

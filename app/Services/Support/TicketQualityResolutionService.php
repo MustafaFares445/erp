@@ -69,7 +69,7 @@ final readonly class TicketQualityResolutionService
             /** @var list<TicketProductContext> $contextList */
             $contextList = $contexts->values()->all();
 
-            $returnRequest = $this->returnRequestFor($locked, $type, $contextList, $data, $actor);
+            $returnRequest = $this->returnRequestFor($locked, $type, $contextList, $data);
             $supplier = $type === QualityResolutionType::SupplierClaim ? $this->supplierFor($contextList, $data) : null;
 
             if ($type === QualityResolutionType::LotInvestigation && $contexts->whereNotNull('inventory_lot_id')->isEmpty()) {
@@ -105,7 +105,7 @@ final readonly class TicketQualityResolutionService
      * @param  list<TicketProductContext>  $contexts
      * @param  array<string, mixed>  $data
      */
-    private function returnRequestFor(Ticket $ticket, QualityResolutionType $type, array $contexts, array $data, User $actor): ?CustomerReturnRequest
+    private function returnRequestFor(Ticket $ticket, QualityResolutionType $type, array $contexts, array $data): ?CustomerReturnRequest
     {
         if (! $type->mayLinkReturnRequest()) {
             return null;
@@ -147,8 +147,8 @@ final readonly class TicketQualityResolutionService
                 ], $contexts),
                 'Product quality complaint '.$ticket->ticket_number,
             );
-        } catch (InvalidCustomerReturnRequestTransition $exception) {
-            throw ValidationException::withMessages(['resolution_type' => $exception->getMessage()]);
+        } catch (InvalidCustomerReturnRequestTransition $invalidCustomerReturnRequestTransition) {
+            throw ValidationException::withMessages(['resolution_type' => $invalidCustomerReturnRequestTransition->getMessage()]);
         }
     }
 

@@ -103,14 +103,12 @@ final class ManageEmployeeReports extends ManageRecords
     protected function getHeaderActions(): array
     {
         $reportActions = array_map(
-            function (EmployeeReportType $type): Action {
-                return Action::make('select_report_'.$type->value)
-                    ->label($type->label())
-                    ->icon($this->reportType() === $type ? 'heroicon-m-check' : null)
-                    ->action(function () use ($type): void {
-                        $this->selectReport($type);
-                    });
-            },
+            fn (EmployeeReportType $type): Action => Action::make('select_report_'.$type->value)
+                ->label($type->label())
+                ->icon($this->reportType() === $type ? 'heroicon-m-check' : null)
+                ->action(function () use ($type): void {
+                    $this->selectReport($type);
+                }),
             $this->reportsForCategory(
                 is_string($this->activeTab)
                     ? $this->activeTab

@@ -47,15 +47,18 @@ it('covers every campaign delivery-channel mapping branch', function (): void {
 
     $smsCampaign = new Campaign(['channel' => CampaignChannel::Sms]);
     $smsCampaign->setRelation('contentTemplate', $sms);
+
     $deliverable->invoke($service, $smsCampaign);
 
     $waCampaign = new Campaign(['channel' => CampaignChannel::Whatsapp]);
     $waCampaign->setRelation('contentTemplate', $whatsapp);
+
     $deliverable->invoke($service, $waCampaign);
 
     $eventCampaign = new Campaign(['channel' => CampaignChannel::Event]);
     $eventCampaign->setRelation('contentTemplate', $mail);
-    expect(fn () => $deliverable->invoke($service, $eventCampaign))
+
+    expect(fn (): mixed => $deliverable->invoke($service, $eventCampaign))
         ->toThrow(DomainException::class, 'no longer matches');
 
     $matches->invoke($service, new CampaignData(
@@ -70,7 +73,7 @@ it('covers every campaign delivery-channel mapping branch', function (): void {
         contentTemplateId: $whatsapp->id,
     ));
 
-    expect(fn () => $matches->invoke($service, new CampaignData(
+    expect(fn (): mixed => $matches->invoke($service, new CampaignData(
         name: 'Event Coverage',
         channel: CampaignChannel::Event,
         contentTemplateId: $mail->id,
@@ -87,14 +90,14 @@ it('covers service quotation description quantity and price validation branches'
     $settings = new SalesSetting;
     $settings->forceFill(['default_tax_percent' => '5.00']);
 
-    expect(fn () => $method->invoke($service, $quotation, [[
+    expect(fn (): mixed => $method->invoke($service, $quotation, [[
         'product_variant_id' => null,
         'quantity' => '0',
         'description' => 'Service work',
         'unit_price' => '10.00',
     ]], $settings))->toThrow(ValidationException::class, 'description and positive quantity');
 
-    expect(fn () => $method->invoke($service, $quotation, [[
+    expect(fn (): mixed => $method->invoke($service, $quotation, [[
         'product_variant_id' => null,
         'quantity' => '1',
         'description' => 'Service work',

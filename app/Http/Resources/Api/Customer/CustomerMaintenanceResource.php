@@ -83,9 +83,9 @@ final class CustomerMaintenanceResource extends JsonResource
             ] : null,
             'installation' => ! (bool) config('support.equipment_installation_enabled', true) || $this->installation === null ? null : [
                 'installed_at' => $this->installation->installed_at?->toIso8601String(),
-                'commissioning_status' => $this->installation->commissioning_status?->value,
+                'commissioning_status' => $this->installation->commissioning_status->value,
                 'commissioned_at' => $this->installation->commissioned_at?->toIso8601String(),
-                'customer_acceptance_status' => $this->installation->customer_acceptance_status?->value,
+                'customer_acceptance_status' => $this->installation->customer_acceptance_status->value,
                 'customer_accepted_at' => $this->installation->customer_accepted_at?->toIso8601String(),
             ],
             'calibration' => ! (bool) config('support.calibration_enabled', true) || $this->calibration === null ? null : [
@@ -107,7 +107,7 @@ final class CustomerMaintenanceResource extends JsonResource
                 'status' => $rma->status->value,
                 'rma_number' => $rma->rma_number,
                 'supplier' => $rma->supplier?->name,
-                'requested_at' => $rma->requested_at?->toIso8601String(),
+                'requested_at' => $rma->requested_at->toIso8601String(),
                 'estimated_return_on' => $rma->estimated_return_on?->toDateString(),
                 'actual_return_on' => $rma->actual_return_on?->toDateString(),
             ] : null,

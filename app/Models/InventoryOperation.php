@@ -14,6 +14,7 @@ use App\Services\Documents\StoresDocumentUploads;
 use App\Services\Inventory\InventoryOperationService;
 use Database\Factories\InventoryOperationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -89,7 +90,8 @@ final class InventoryOperation extends Model implements Favoritable, StoresDocum
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeDeliveries(Builder $query): Builder
+    #[Scope]
+    protected function deliveries(Builder $query): Builder
     {
         return $query->where('operation_type', OperationType::Delivery->value);
     }
@@ -100,7 +102,8 @@ final class InventoryOperation extends Model implements Favoritable, StoresDocum
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeReadyToDispatch(Builder $query): Builder
+    #[Scope]
+    protected function readyToDispatch(Builder $query): Builder
     {
         return $query->deliveries()->where('stage', OperationStage::Ready->value);
     }
@@ -111,7 +114,8 @@ final class InventoryOperation extends Model implements Favoritable, StoresDocum
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeDeliveredNotInvoiced(Builder $query): Builder
+    #[Scope]
+    protected function deliveredNotInvoiced(Builder $query): Builder
     {
         return $query->deliveries()
             ->where('stage', OperationStage::Done->value)

@@ -69,7 +69,7 @@ final class LeadsTable
                 ]),
                 Filter::make('dormant')->label(__('Dormant 14+ days'))->query(function (Builder $query): Builder {
                     /** @var Builder<Lead> $query */
-                    return (new Lead)->scopeDormant($query);
+                    return (new Lead)->dormant($query);
                 }),
             ])
             ->recordActions([

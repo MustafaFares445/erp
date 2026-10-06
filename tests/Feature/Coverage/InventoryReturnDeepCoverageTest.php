@@ -40,11 +40,11 @@ it('rejects return postings with missing provenance or duplicate line results', 
         false,
     );
 
-    expect(fn () => returnCoverageInvoke('indexReturnPostings', [$posting]))
+    expect(fn (): mixed => returnCoverageInvoke('indexReturnPostings', [$posting]))
         ->toThrow(DomainException::class, 'A canonical return posting must retain its return-line provenance.');
 
     $movement->source_line_type = 'inventory_return_line';
-    expect(fn () => returnCoverageInvoke('indexReturnPostings', [$posting, $posting]))
+    expect(fn (): mixed => returnCoverageInvoke('indexReturnPostings', [$posting, $posting]))
         ->toThrow(DomainException::class, 'A return line cannot receive more than one canonical posting result.');
 });
 

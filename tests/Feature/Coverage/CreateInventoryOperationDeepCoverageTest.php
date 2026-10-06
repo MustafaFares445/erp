@@ -11,6 +11,7 @@ use App\Models\CustomerProfile;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -23,6 +24,7 @@ use App\Services\Orders\OrderFulfillmentService;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -68,16 +70,16 @@ it('rejects a delivery group whose refreshed order can no longer identify its ch
         'expires_at' => null,
     ]);
     $page = cioPage();
-    $original = \Illuminate\Database\Eloquent\Model::getEventDispatcher();
+    $original = Model::getEventDispatcher();
     $dispatcher = clone $original;
-    \Illuminate\Database\Eloquent\Model::setEventDispatcher($dispatcher);
-    $dispatcher->listen('eloquent.retrieved: '.\App\Models\Order::class, static function (\App\Models\Order $order): void {
+    Model::setEventDispatcher($dispatcher);
+    $dispatcher->listen('eloquent.retrieved: '.Order::class, static function (Order $order): void {
         if ($order->deliveries()->whereHas('lines')->exists()) {
             $order->setAttribute('id', null);
         }
     });
     try {
-        expect(fn () => cioCall($page, 'createDeliveryGroup', [
+        expect(fn (): mixed => cioCall($page, 'createDeliveryGroup', [
             'customer_id' => $customer->id,
             'shipments' => [[
                 'warehouse_id' => $warehouse->id,
@@ -86,7 +88,7 @@ it('rejects a delivery group whose refreshed order can no longer identify its ch
             ]],
         ]))->toThrow(LogicException::class, 'The delivery group did not create a child delivery.');
     } finally {
-        \Illuminate\Database\Eloquent\Model::setEventDispatcher($original);
+        Model::setEventDispatcher($original);
     }
 });
 

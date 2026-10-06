@@ -80,7 +80,7 @@ function coverage62Fixtures(): array
         'due_on' => today(),
     ]);
 
-    return compact('employee', 'unit', 'marginRecord', 'occurrence');
+    return ['employee' => $employee, 'unit' => $unit, 'marginRecord' => $marginRecord, 'occurrence' => $occurrence];
 }
 
 it('covers reliability financial and preventive support-report view branches', function (): void {

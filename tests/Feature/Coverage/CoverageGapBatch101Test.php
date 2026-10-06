@@ -114,20 +114,20 @@ it('covers projected confirm-arrival create-invoice and issue-invoice branches',
 });
 
 it('covers transfer receipt line validation and invalid discrepancy disposition', function (): void {
-    $page = (new ReflectionClass(ViewInventoryOperation::class))->newInstanceWithoutConstructor();
+    $page = new ReflectionClass(ViewInventoryOperation::class)->newInstanceWithoutConstructor();
     $method = new ReflectionMethod(ViewInventoryOperation::class, 'transferReceiptLines');
 
-    expect(fn () => $method->invoke($page, ['lines' => ['invalid']]))
+    expect(fn (): mixed => $method->invoke($page, ['lines' => ['invalid']]))
         ->toThrow(DomainException::class, 'line is invalid');
 
-    expect(fn () => $method->invoke($page, ['lines' => [[
+    expect(fn (): mixed => $method->invoke($page, ['lines' => [[
         'operation_line_id' => [],
         'received_transaction_quantity' => '1',
         'discrepancy_disposition' => null,
         'discrepancy_reason' => null,
     ]]]))->toThrow(DomainException::class, 'invalid field values');
 
-    expect(fn () => $method->invoke($page, ['lines' => [[
+    expect(fn (): mixed => $method->invoke($page, ['lines' => [[
         'operation_line_id' => '1',
         'received_transaction_quantity' => '1',
         'discrepancy_disposition' => 'not-valid',
@@ -136,10 +136,10 @@ it('covers transfer receipt line validation and invalid discrepancy disposition'
 });
 
 it('covers transfer receipt precision and zero conversion-factor branches', function (): void {
-    $page = (new ReflectionClass(ViewInventoryOperation::class))->newInstanceWithoutConstructor();
+    $page = new ReflectionClass(ViewInventoryOperation::class)->newInstanceWithoutConstructor();
 
     $quantity = new ReflectionMethod(ViewInventoryOperation::class, 'receiptTransactionQuantity');
-    expect(fn () => $quantity->invoke($page, 1.1234567))
+    expect(fn (): mixed => $quantity->invoke($page, 1.1234567))
         ->toThrow(DomainException::class, 'at most six decimal places');
 
     $line = new InventoryOperationLine;

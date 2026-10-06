@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\SupportEntitlementStatus;
 use App\Models\Concerns\TracksBlameable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,7 +52,8 @@ final class SupportEntitlement extends Model
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeActiveOn(Builder $query, string $date): Builder
+    #[Scope]
+    protected function activeOn(Builder $query, string $date): Builder
     {
         return $query
             ->where('status', SupportEntitlementStatus::Active->value)

@@ -17,6 +17,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Purchasing\PurchaseAgreementService;
 use Database\Seeders\CurrencySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -158,18 +159,16 @@ it('covers purchase-agreement view activate expire and cancel actions', function
     $actor = User::factory()->admin()->create();
     [$supplier, $variant, $unit] = coverage98PurchasingCatalog();
 
-    $createAgreement = static function (?string $endsOn = null) use ($actor, $supplier, $variant, $unit): PurchaseAgreement {
-        return app(App\Services\Purchasing\PurchaseAgreementService::class)->create($actor, [
-            'supplier_id' => $supplier->id,
-            'currency_code' => 'AED',
-            'starts_on' => today()->toDateString(),
-            'ends_on' => $endsOn,
-        ], [[
-            'product_variant_id' => $variant->id,
-            'unit_id' => $unit->id,
-            'unit_price' => '33.00',
-        ]]);
-    };
+    $createAgreement = (static fn (?string $endsOn = null): PurchaseAgreement => app(PurchaseAgreementService::class)->create($actor, [
+        'supplier_id' => $supplier->id,
+        'currency_code' => 'AED',
+        'starts_on' => today()->toDateString(),
+        'ends_on' => $endsOn,
+    ], [[
+        'product_variant_id' => $variant->id,
+        'unit_id' => $unit->id,
+        'unit_price' => '33.00',
+    ]]));
 
     $draft = $createAgreement(today()->addDay()->toDateString());
 

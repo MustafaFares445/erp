@@ -22,6 +22,7 @@ final class CoverageThrowingReportResource extends Resource
 it('covers every custom-field display value branch', function (): void {
     $value = new CustomFieldValue;
     $value->setRelation('definition', null);
+
     expect($value->displayValue())->toBe('—');
 
     $cases = [
@@ -62,6 +63,7 @@ it('covers eager-loaded relation state and invalid relation handling', function 
     };
 
     $subject->setRelation('items', new EloquentCollection);
+
     expect($subject->check('items'))->toBeFalse();
 
     $subject->setRelation('items', new EloquentCollection([new CustomFieldValue]));
@@ -73,7 +75,7 @@ it('covers eager-loaded relation state and invalid relation handling', function 
     $subject->setRelation('owner', null);
     expect($subject->check('owner'))->toBeFalse();
 
-    expect(fn () => $subject->check('bogus'))
+    expect(fn (): bool => $subject->check('bogus'))
         ->toThrow(LogicException::class, '[bogus] is not a relation');
 });
 

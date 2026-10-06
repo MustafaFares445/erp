@@ -349,7 +349,7 @@ final class SalesReportPresenter
      */
     private function table(string $heading, array $columns, array $rows): array
     {
-        return compact('heading', 'columns', 'rows');
+        return ['heading' => $heading, 'columns' => $columns, 'rows' => $rows];
     }
 
     /** @return ReportCell */

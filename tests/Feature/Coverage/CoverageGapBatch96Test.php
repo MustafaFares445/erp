@@ -95,6 +95,6 @@ it('covers serialized warranty action input guards and unauthenticated actor gua
 
     auth()->logout();
 
-    expect(fn () => new ReflectionMethod(ViewSerializedInventoryUnit::class, 'currentActor')->invoke(null))
+    expect(fn (): mixed => new ReflectionMethod(ViewSerializedInventoryUnit::class, 'currentActor')->invoke(null))
         ->toThrow(LogicException::class, 'authenticated User');
 });

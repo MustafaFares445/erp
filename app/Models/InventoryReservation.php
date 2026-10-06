@@ -8,6 +8,7 @@ use App\Enums\ReservationStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\InventoryReservationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -135,7 +136,8 @@ final class InventoryReservation extends Model
      * @param  iterable<int>  $operationIds
      * @return Builder<self>
      */
-    public function scopeExpiredForOperations(Builder $query, iterable $operationIds): Builder
+    #[Scope]
+    protected function expiredForOperations(Builder $query, iterable $operationIds): Builder
     {
         $ids = [];
 

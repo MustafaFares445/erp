@@ -11,16 +11,15 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\Tries;
 use Throwable;
 
+#[Backoff([60, 300, 900])]
+#[Tries(3)]
 final class BusinessNotification extends Notification implements ShouldQueue
 {
     use Queueable;
-
-    public int $tries = 3;
-
-    /** @var list<int> */
-    public array $backoff = [60, 300, 900];
 
     public function __construct(
         public int $deliveryId,

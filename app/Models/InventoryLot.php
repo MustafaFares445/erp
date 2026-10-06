@@ -8,6 +8,7 @@ use App\Enums\StockCondition;
 use Database\Factories\InventoryLotFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -87,7 +88,8 @@ final class InventoryLot extends Model
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeCanonical(Builder $query): Builder
+    #[Scope]
+    protected function canonical(Builder $query): Builder
     {
         return $query->whereNull('canonical_inventory_lot_id');
     }

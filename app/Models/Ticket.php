@@ -18,6 +18,7 @@ use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -283,7 +284,8 @@ final class Ticket extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeResponseBreached(Builder $query): Builder
+    #[Scope]
+    protected function responseBreached(Builder $query): Builder
     {
         return $query->where(function (Builder $query): void {
             $query->where('response_breached', true)
@@ -299,7 +301,8 @@ final class Ticket extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeResolutionBreached(Builder $query): Builder
+    #[Scope]
+    protected function resolutionBreached(Builder $query): Builder
     {
         return $query->where(function (Builder $query): void {
             $query->where('resolution_breached', true)

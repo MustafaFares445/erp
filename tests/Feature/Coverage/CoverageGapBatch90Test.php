@@ -7,7 +7,6 @@ use App\Enums\JournalEntryStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SupplierPaymentStatus;
 use App\Models\BankStatement;
-use App\Models\BankStatementLine;
 use App\Models\ChartAccount;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
@@ -138,6 +137,7 @@ it('covers reconciliation suggestion early returns supplier branch and scoring t
     [$unmappedStatement, $unmappedLine] = coverage90Statement($method);
     $loadedMethod = $unmappedStatement->paymentMethod;
     $loadedMethod->setRelation('chartAccount', null);
+
     $unmappedStatement->setRelation('paymentMethod', $loadedMethod);
     $unmappedLine->setRelation('statement', $unmappedStatement);
     expect($suggestions->suggest($unmappedLine))->toBe([]);
@@ -152,11 +152,11 @@ it('covers reconciliation target eligibility guards for payments supplier paymen
     $targetAmount = new ReflectionMethod(BankReconciliationService::class, 'targetAmountMinor');
 
     $payment = coverage90Payment($method, '100.00', today()->toDateString(), 'PAY');
-    expect(fn () => $targetAmount->invoke($service, $statement, $negativeLine, $payment))
+    expect(fn (): mixed => $targetAmount->invoke($service, $statement, $negativeLine, $payment))
         ->toThrow(DomainException::class, 'customer payment is not eligible');
 
     $payment->forceFill(['status' => PaymentStatus::Draft])->save();
-    expect(fn () => $targetAmount->invoke($service, $statement, $positiveLine, $payment->refresh()))
+    expect(fn (): mixed => $targetAmount->invoke($service, $statement, $positiveLine, $payment->refresh()))
         ->toThrow(DomainException::class, 'customer payment is not eligible');
 
     $supplierPayment = SupplierPayment::factory()->create([
@@ -164,18 +164,18 @@ it('covers reconciliation target eligibility guards for payments supplier paymen
         'amount' => '100.00',
         'status' => SupplierPaymentStatus::Paid,
     ]);
-    expect(fn () => $targetAmount->invoke($service, $statement, $positiveLine, $supplierPayment))
+    expect(fn (): mixed => $targetAmount->invoke($service, $statement, $positiveLine, $supplierPayment))
         ->toThrow(DomainException::class, 'supplier payment is not eligible');
 
     $draftEntry = JournalEntry::factory()->create();
-    expect(fn () => $targetAmount->invoke($service, $statement, $positiveLine, $draftEntry))
+    expect(fn (): mixed => $targetAmount->invoke($service, $statement, $positiveLine, $draftEntry))
         ->toThrow(DomainException::class, 'Only posted journal entries');
 
     $inactiveBank = ChartAccount::factory()->ofElement(AccountElement::Asset)->inactive()->create(['is_postable' => true]);
     $unmappedMethod = PaymentMethod::factory()->create(['chart_account_id' => $inactiveBank->id, 'is_active' => true]);
     [$unmappedStatement, $unmappedLine] = coverage90Statement($unmappedMethod);
     $postedEntry = JournalEntry::factory()->postedAndBalanced()->create();
-    expect(fn () => $targetAmount->invoke($service, $unmappedStatement, $unmappedLine, $postedEntry))
+    expect(fn (): mixed => $targetAmount->invoke($service, $unmappedStatement, $unmappedLine, $postedEntry))
         ->toThrow(DomainException::class, 'not mapped to an active postable bank account');
 
     $wrongMovement = JournalEntry::factory()->create();
@@ -191,10 +191,10 @@ it('covers reconciliation target eligibility guards for payments supplier paymen
         'fiscal_period_id' => FiscalPeriod::query()->value('id'),
     ])->saveQuietly();
 
-    expect(fn () => $targetAmount->invoke($service, $statement, $positiveLine, $wrongMovement))
+    expect(fn (): mixed => $targetAmount->invoke($service, $statement, $positiveLine, $wrongMovement))
         ->toThrow(DomainException::class, 'compatible movement');
 
-    expect(fn () => $targetAmount->invoke($service, $statement, $positiveLine, ProductVariant::factory()->create()))
+    expect(fn (): mixed => $targetAmount->invoke($service, $statement, $positiveLine, ProductVariant::factory()->create()))
         ->toThrow(DomainException::class, 'Unsupported bank reconciliation match target');
 });
 

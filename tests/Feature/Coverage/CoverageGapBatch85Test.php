@@ -11,7 +11,6 @@ use App\Models\CustomerReturnRequest;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Ticket;
-use App\Models\TicketProductContext;
 use App\Models\TicketQualityResolution;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
@@ -51,11 +50,11 @@ it('covers product-quality relation visibility title owner and actor guards', fu
     $manager = new ProductContextsRelationManager;
     $manager->ownerRecord = CustomerProfile::factory()->create();
 
-    expect(fn () => new ReflectionMethod(ProductContextsRelationManager::class, 'ticket')->invoke($manager))
+    expect(fn (): mixed => new ReflectionMethod(ProductContextsRelationManager::class, 'ticket')->invoke($manager))
         ->toThrow(LogicException::class, 'Expected the owner record to be a Ticket');
 
     auth()->logout();
-    expect(fn () => new ReflectionMethod(ProductContextsRelationManager::class, 'currentActor')->invoke(null))
+    expect(fn (): mixed => new ReflectionMethod(ProductContextsRelationManager::class, 'currentActor')->invoke(null))
         ->toThrow(LogicException::class, 'authenticated User');
 });
 

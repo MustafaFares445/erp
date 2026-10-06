@@ -11,6 +11,7 @@ use App\Enums\PaymentTransactionStatus;
 use App\Services\Support\TicketPaymentService;
 use Database\Factories\PaymentTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -39,7 +40,8 @@ final class PaymentTransaction extends Model
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeRequiresSettlementAttention(Builder $query): Builder
+    #[Scope]
+    protected function requiresSettlementAttention(Builder $query): Builder
     {
         return $query->where('status', PaymentTransactionStatus::Succeeded->value)
             ->where(function (Builder $query): void {

@@ -12,6 +12,7 @@ use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CreditNoteFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -49,7 +50,8 @@ final class CreditNote extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeConfirmedThisMonth(Builder $query): Builder
+    #[Scope]
+    protected function confirmedThisMonth(Builder $query): Builder
     {
         return $query->where('status', CreditNoteStatus::Confirmed->value)
             ->whereBetween('confirmed_at', [now()->startOfMonth(), now()->endOfMonth()]);

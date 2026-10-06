@@ -23,6 +23,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -126,10 +127,8 @@ it('uses the forced operation type for a non-contextual create page', function (
 });
 
 it('resolves a model key from a non-incrementing string identifier', function (): void {
-    $model = new class extends Model
+    $model = new #[WithoutIncrementing] class extends Model
     {
-        public $incrementing = false;
-
         protected $keyType = 'string';
     };
     $model->setAttribute('id', '99');

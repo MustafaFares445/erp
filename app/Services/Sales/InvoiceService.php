@@ -645,19 +645,17 @@ final readonly class InvoiceService
             foreach ($this->aggregateDeliveredLines($delivery, $order, $deliveredBefore) as $row) {
                 $key = $row['product_variant_id'].'|'.number_format($row['unit_price'], 4, '.', '');
 
-                if (! isset($buckets[$key])) {
-                    $buckets[$key] = [
-                        'order_line_id' => $row['order_line_id'],
-                        'product_variant_id' => $row['product_variant_id'],
-                        'base_description' => $row['description'],
-                        'unit_price' => $row['unit_price'],
-                        'quantity' => 0.0,
-                        'net_amount' => 0.0,
-                        'tax_amount' => 0.0,
-                        'price_provenance' => $row['price_provenance'],
-                        'contributions' => [],
-                    ];
-                }
+                $buckets[$key] ??= [
+                    'order_line_id' => $row['order_line_id'],
+                    'product_variant_id' => $row['product_variant_id'],
+                    'base_description' => $row['description'],
+                    'unit_price' => $row['unit_price'],
+                    'quantity' => 0.0,
+                    'net_amount' => 0.0,
+                    'tax_amount' => 0.0,
+                    'price_provenance' => $row['price_provenance'],
+                    'contributions' => [],
+                ];
 
                 $buckets[$key]['quantity'] += $row['quantity'];
                 $buckets[$key]['net_amount'] += $row['net_amount'];
@@ -761,15 +759,13 @@ final readonly class InvoiceService
             $baseDelivered = (float) ($deliveryLine->base_quantity ?? $deliveryLine->quantity);
             $key = $orderLine->id;
 
-            if (! isset($rows[$key])) {
-                $rows[$key] = [
-                    'order_line_id' => $key,
-                    'product_variant_id' => (int) $orderLine->product_variant_id,
-                    'description' => $variant->name,
-                    'base_delivered' => 0.0,
-                    'order_line' => $orderLine,
-                ];
-            }
+            $rows[$key] ??= [
+                'order_line_id' => $key,
+                'product_variant_id' => (int) $orderLine->product_variant_id,
+                'description' => $variant->name,
+                'base_delivered' => 0.0,
+                'order_line' => $orderLine,
+            ];
 
             $rows[$key]['base_delivered'] += $baseDelivered;
         }

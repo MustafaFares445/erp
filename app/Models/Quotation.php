@@ -11,6 +11,7 @@ use App\Models\Concerns\TracksBlameable;
 use App\Services\Sales\Exceptions\QuotationImmutable;
 use Database\Factories\QuotationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -65,7 +66,8 @@ final class Quotation extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeOpen(Builder $query): Builder
+    #[Scope]
+    protected function open(Builder $query): Builder
     {
         return $query->whereIn('status', [
             QuotationStatus::Draft->value,
@@ -81,7 +83,8 @@ final class Quotation extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeAwaitingDecision(Builder $query): Builder
+    #[Scope]
+    protected function awaitingDecision(Builder $query): Builder
     {
         return $query->where('status', QuotationStatus::Sent->value);
     }
@@ -93,7 +96,8 @@ final class Quotation extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeAcceptedNotConverted(Builder $query): Builder
+    #[Scope]
+    protected function acceptedNotConverted(Builder $query): Builder
     {
         return $query->where('status', QuotationStatus::Accepted->value)
             ->whereNull('converted_order_id');
@@ -106,7 +110,8 @@ final class Quotation extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeExpiringSoon(Builder $query, int $days = 7): Builder
+    #[Scope]
+    protected function expiringSoon(Builder $query, int $days = 7): Builder
     {
         return $query->open()
             ->whereNotNull('expires_at')

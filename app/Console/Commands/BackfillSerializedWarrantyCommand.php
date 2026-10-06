@@ -6,14 +6,14 @@ namespace App\Console\Commands;
 
 use App\Models\Shipment;
 use App\Services\Support\WarrantyActivationService;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
+#[Description('Backfill serialized customer-warranty snapshots from confirmed shipment provenance only.')]
+#[Signature('support:warranties:backfill {--dry-run : Report eligible confirmed shipments without changing warranty snapshots}')]
 final class BackfillSerializedWarrantyCommand extends Command
 {
-    protected $signature = 'support:warranties:backfill {--dry-run : Report eligible confirmed shipments without changing warranty snapshots}';
-
-    protected $description = 'Backfill serialized customer-warranty snapshots from confirmed shipment provenance only.';
-
     public function handle(WarrantyActivationService $activationService): int
     {
         $shipments = Shipment::query()

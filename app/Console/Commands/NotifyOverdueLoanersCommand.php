@@ -8,15 +8,15 @@ use App\Enums\EquipmentLoanStatus;
 use App\Enums\NotificationEventKey;
 use App\Events\SupportContinuityMilestone;
 use App\Models\EquipmentLoan;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
+#[Description('Notify once about each issued loaner that is past its expected return date.')]
+#[Signature('support:loaners:notify-overdue')]
 final class NotifyOverdueLoanersCommand extends Command
 {
-    protected $signature = 'support:loaners:notify-overdue';
-
-    protected $description = 'Notify once about each issued loaner that is past its expected return date.';
-
     public function handle(): int
     {
         if (! (bool) config('support.loaner_equipment_enabled', false)) {

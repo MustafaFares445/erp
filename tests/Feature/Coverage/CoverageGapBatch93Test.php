@@ -57,6 +57,7 @@ it('covers invoice pricing floor labels including pending and approved overrides
     $approver = User::factory()->create(['name' => 'Coverage Approver']);
     $override = new PriceFloorOverride;
     $override->setRelation('approvedBy', $approver);
+
     $below->setRelation('priceFloorOverride', $override);
 
     expect($label->invoke(null, $below))->toBe('Approved exception (override by Coverage Approver)');
@@ -98,6 +99,7 @@ it('covers credit-note draft reversed and confirmed banner variants', function (
 
     $confirmedWithInvoice = clone $confirmedWithoutInvoice;
     $confirmedWithInvoice->setRelation('invoice', new Invoice);
+
     $invoiceBanner = $banner->invoke(null, $confirmedWithInvoice);
 
     expect($invoiceBanner['status'])->toBe('success')

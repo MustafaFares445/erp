@@ -57,7 +57,7 @@ function coverage68QuotedRecord(QuotationStatus $status, bool $attachQuotation =
         $record->forceFill(['quotation_id' => $quotation->id])->save();
     }
 
-    return compact('record', 'quotation');
+    return ['record' => $record, 'quotation' => $quotation];
 }
 
 it('refuses a requote when the accepted quotation already covers current customer responsibility', function (): void {
@@ -108,7 +108,7 @@ it('covers quotable guards for settled billing and zero-customer coverage decisi
         'billing_type' => MaintenanceBillingType::Invoiced,
     ]);
 
-    expect(fn () => $assertQuotable->invoke($service, $settled))
+    expect(fn (): mixed => $assertQuotable->invoke($service, $settled))
         ->toThrow(InvalidBillingTransition::class);
 
     $covered = MaintenanceRecord::factory()->create([
@@ -117,6 +117,6 @@ it('covers quotable guards for settled billing and zero-customer coverage decisi
         'coverage_decision' => WarrantyClaimDecision::Goodwill,
     ]);
 
-    expect(fn () => $assertQuotable->invoke($service, $covered))
+    expect(fn (): mixed => $assertQuotable->invoke($service, $covered))
         ->toThrow(ValidationException::class, 'leaves no customer responsibility to quote');
 });

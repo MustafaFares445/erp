@@ -15,6 +15,7 @@ use App\Models\Concerns\TracksBlameable;
 use App\Services\Sales\OrderWorkflowService;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -52,7 +53,8 @@ final class Order extends Model implements Favoritable
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeActive(Builder $query): Builder
+    #[Scope]
+    protected function active(Builder $query): Builder
     {
         return $query->whereIn('status', [OrderStatus::Confirmed->value, OrderStatus::Released->value]);
     }
@@ -64,7 +66,8 @@ final class Order extends Model implements Favoritable
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeAwaitingFulfillment(Builder $query): Builder
+    #[Scope]
+    protected function awaitingFulfillment(Builder $query): Builder
     {
         return $query->where('status', OrderStatus::Confirmed->value);
     }
@@ -77,7 +80,8 @@ final class Order extends Model implements Favoritable
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeBlocked(Builder $query): Builder
+    #[Scope]
+    protected function blocked(Builder $query): Builder
     {
         return $query->where('status', OrderStatus::Released->value)
             ->whereHas('procurementRequirements', function (Builder $requirements): void {

@@ -31,6 +31,7 @@ it('covers every CRM report summary branch and nonnumeric sum fallback', functio
     $page = app(ViewCrmReports::class);
 
     $page->reportType = CrmReportType::LeadsBySource->value;
+
     expect($page->summary(collect([
         [__('Leads') => 3, __('Converted') => 1],
         [__('Leads') => 'not-numeric', __('Converted') => 2],
@@ -127,6 +128,7 @@ it('covers support lifecycle and product-quality view/export branches including 
     $page->until = now()->addDay()->toDateString();
 
     $page->section = 'equipment_lifecycle';
+
     $equipmentData = $page->getViewData();
     expect($equipmentData)->toHaveKeys([
         'installationReport',

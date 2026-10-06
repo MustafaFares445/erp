@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 use App\Enums\InvoiceStatus;
 use App\Enums\OperationStage;
+use App\Enums\OperationType;
+use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\Invoices\Schemas\InvoiceInfolist;
 use App\Models\DepositApplicationIssue;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Invoice;
+use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\SupplierConfirmation;
 use App\Services\Inventory\LogisticsInboundProjectionService;
+use App\Services\Purchasing\PurchaseOrderReceivingService;
+use App\Services\Purchasing\PurchaseOrderSupplierCommitmentService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -20,14 +26,17 @@ uses(RefreshDatabase::class);
 it('uses a loaded legacy confirmation header and rejects incomplete preloading for reuse', function (): void {
     $order = new PurchaseOrder;
     $order->forceFill(['supplier_confirmation_required' => true]);
+
     $line = new PurchaseOrderLine;
     $line->forceFill(['base_quantity' => '5.000000']);
     $line->setRelation('purchaseInboundLine', null);
-    $confirmation = new \App\Models\SupplierConfirmation;
-    $confirmation->forceFill(['id' => 1, 'confirmation_status' => \App\Enums\SupplierConfirmationStatus::Confirmed]);
+
+    $confirmation = new SupplierConfirmation;
+    $confirmation->forceFill(['id' => 1, 'confirmation_status' => SupplierConfirmationStatus::Confirmed]);
     $confirmation->setRelation('items', new EloquentCollection);
+
     $order->setRelation('confirmations', new EloquentCollection([$confirmation]));
-    $service = app(\App\Services\Purchasing\PurchaseOrderSupplierCommitmentService::class);
+    $service = app(PurchaseOrderSupplierCommitmentService::class);
 
     $quantities = $service->quantities($line, $order);
     expect($quantities['confirmed'])->toBe('5.000000')
@@ -38,15 +47,18 @@ it('uses a loaded legacy confirmation header and rejects incomplete preloading f
 });
 
 it('caps an over-reserved loaded purchase allocation at zero available quantity', function (): void {
-    $allocation = new \App\Models\PurchaseInboundAllocation;
+    $allocation = new PurchaseInboundAllocation;
     $allocation->forceFill(['allocated_base_quantity' => '5.000000']);
+
     $operation = new InventoryOperation;
-    $operation->forceFill(['operation_type' => \App\Enums\OperationType::Receipt, 'stage' => OperationStage::Done]);
+    $operation->forceFill(['operation_type' => OperationType::Receipt, 'stage' => OperationStage::Done]);
+
     $line = new InventoryOperationLine;
     $line->forceFill(['base_quantity' => '6.000000']);
     $line->setRelation('operation', $operation);
+
     $allocation->setRelation('inventoryOperationLines', new EloquentCollection([$line]));
-    $service = app(\App\Services\Purchasing\PurchaseOrderReceivingService::class);
+    $service = app(PurchaseOrderReceivingService::class);
     expect(new ReflectionMethod($service, 'allocationAvailableForNewReceipt')->invoke($service, $allocation))->toBe('0.000000');
 });
 

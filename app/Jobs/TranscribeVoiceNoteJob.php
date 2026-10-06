@@ -14,6 +14,8 @@ use App\Services\Employees\KeywordDetectionService;
 use App\Services\Employees\VoiceNoteTranscriber;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\Tries;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Throwable;
 
@@ -25,14 +27,11 @@ use Throwable;
  * {@see self::$backoff}. Failure — of either kind — never touches the
  * parent visit, a performance score, or a salary calculation.
  */
+#[Backoff([60, 300])]
+#[Tries(3)]
 final class TranscribeVoiceNoteJob implements ShouldQueue
 {
     use Queueable;
-
-    public int $tries = 3;
-
-    /** @var list<int> */
-    public array $backoff = [60, 300];
 
     public function __construct(public int $voiceNoteTranscriptionId) {}
 

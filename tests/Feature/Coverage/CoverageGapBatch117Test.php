@@ -11,6 +11,8 @@ use App\Filament\Pages\ReportsCenter;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\Resources\Adjustments\Actions\AdjustmentActions;
+use App\Filament\Resources\Adjustments\Pages\ListAdjustments;
+use App\Filament\Resources\Adjustments\Tables\AdjustmentsTable;
 use App\Filament\Resources\BankStatements\Actions\BankStatementActions;
 use App\Filament\Resources\BankStatements\Pages\CreateBankStatement;
 use App\Filament\Resources\BankStatements\Pages\ViewBankStatement;
@@ -19,6 +21,8 @@ use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Schemas\BillInfolist;
 use App\Filament\Resources\Customers\Pages\CustomerTimeline;
 use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\FiscalPeriods\Pages\ListFiscalPeriods;
+use App\Filament\Resources\FiscalPeriods\Tables\FiscalPeriodsTable;
 use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\InventoryCounts\Pages\ViewInventoryCount;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
@@ -48,6 +52,7 @@ use App\Models\Bill;
 use App\Models\BillLine;
 use App\Models\CustomerProfile;
 use App\Models\Expense;
+use App\Models\FiscalPeriod;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryCount;
 use App\Models\InventoryLot;
@@ -76,9 +81,11 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\Livewire;
 
@@ -88,7 +95,7 @@ final class Coverage117UnavailableOutputStream
 {
     public mixed $context;
 
-    public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool
+    public function stream_open(): bool
     {
         return false;
     }
@@ -158,13 +165,15 @@ it('returns safe defaults for missing purchasing documents', function (): void {
 
     $confirmation = new SupplierConfirmation;
     $confirmation->setRelation('purchaseOrder', null);
+
     expect(new ReflectionMethod(SupplierConfirmationResource::class, 'primaryLink')->invoke(null, $confirmation))->toBeNull();
 });
 
 it('rejects a non-purchase-order owner in the purchase lines manager', function (): void {
     $manager = new LinesRelationManager;
     $manager->ownerRecord = new ProductVariant;
-    expect(fn () => new ReflectionMethod($manager, 'order')->invoke($manager))
+
+    expect(fn (): mixed => new ReflectionMethod($manager, 'order')->invoke($manager))
         ->toThrow(LogicException::class, 'Expected the owner record');
 });
 
@@ -176,6 +185,7 @@ it('distinguishes serialized barcode resolutions from variant-only scans', funct
 it('invalidates expiry defaults when inventory settings are deleted', function (): void {
     $setting = InventorySetting::current();
     $setting->update(['expiry_alert_days' => 12]);
+
     expect(InventorySetting::expiryAlertDays())->toBe(12);
     $setting->delete();
     expect(InventorySetting::expiryAlertDays())->toBe(30);
@@ -190,6 +200,7 @@ it('uses the warning color for a partially configured notification template', fu
 it('refuses to close an already closed bank statement', function (): void {
     $statement = new BankStatement;
     $statement->forceFill(['status' => 'closed']);
+
     expect(BankStatementActions::isClosable($statement))->toBeFalse();
 });
 
@@ -199,15 +210,17 @@ it('reuses the saved table-view action menu within a page instance', function ()
 });
 
 it('rejects an unpersisted inventory lot identifier', function (): void {
-    expect(fn () => new ReflectionMethod(InventoryConditionChangeResource::class, 'lotKey')->invoke(null, new InventoryLot))
+    expect(fn (): mixed => new ReflectionMethod(InventoryConditionChangeResource::class, 'lotKey')->invoke(null, new InventoryLot))
         ->toThrow(LogicException::class, 'Inventory lot identifiers must be integers.');
 });
 
 it('reports credit and approved write-off amounts in the invoice balance breakdown', function (): void {
     $invoice = new Invoice;
     $invoice->forceFill(['amount_paid' => '2.50', 'credited_amount' => '12.50']);
+
     $writeOff = new ReceivableWriteOff;
     $writeOff->forceFill(['status' => WriteOffStatus::Approved, 'amount_minor' => 500]);
+
     $invoice->setRelation('writeOffs', new Collection([$writeOff]));
 
     expect(new ReflectionMethod(InvoicesTable::class, 'outstandingBreakdown')->invoke(null, $invoice))
@@ -217,10 +230,13 @@ it('reports credit and approved write-off amounts in the invoice balance breakdo
 it('flags a bill line whose price differs from its purchase order', function (): void {
     $bill = new Bill;
     $bill->forceFill(['status' => BillStatus::Approved]);
+
     $line = new BillLine;
     $line->forceFill(['unit_price' => '12.00']);
+
     $orderLine = new PurchaseOrderLine;
     $orderLine->forceFill(['unit_cost' => '10.00']);
+
     $line->setRelation('purchaseOrderLine', $orderLine);
     $bill->setRelation('lines', new Collection([$line]));
     expect(BillInfolist::blocker($bill))->toBe('Three-way match variance requires review');
@@ -231,6 +247,7 @@ it('does not link a maintenance occurrence to an unavailable schedule', function
     $table = $widget->table(Table::make($widget));
     $occurrence = new MaintenanceScheduleOccurrence;
     $occurrence->setRelation('schedule', null);
+
     expect($table->getRecordUrl($occurrence))->toBeNull();
 });
 
@@ -267,17 +284,17 @@ it('requires an authenticated actor before receiving a transfer from its detail 
 it('returns no pending confirmations to an unauthenticated adjustment viewer', function (): void {
     auth()->logout();
     InventoryAdjustment::factory()->create();
-    $page = new \App\Filament\Resources\Adjustments\Pages\ListAdjustments;
-    $table = \App\Filament\Resources\Adjustments\Tables\AdjustmentsTable::configure(\Filament\Tables\Table::make($page));
+    $page = new ListAdjustments;
+    $table = AdjustmentsTable::configure(Table::make($page));
     $query = $table->getFilter('pending_my_confirmation')->apply(InventoryAdjustment::query());
     expect($query->get())->toBeEmpty();
 });
 
 it('does not delete a fiscal period without an authenticated accounting actor', function (): void {
     auth()->logout();
-    $period = \App\Models\FiscalPeriod::factory()->create();
-    $page = new \App\Filament\Resources\FiscalPeriods\Pages\ListFiscalPeriods;
-    $table = \App\Filament\Resources\FiscalPeriods\Tables\FiscalPeriodsTable::configure(\Filament\Tables\Table::make($page));
+    $period = FiscalPeriod::factory()->create();
+    $page = new ListFiscalPeriods;
+    $table = FiscalPeriodsTable::configure(Table::make($page));
     $action = $table->getAction('delete')->record($period);
     expect($action->process(null))->toBeFalse()
         ->and($period->fresh())->not->toBeNull();
@@ -286,20 +303,21 @@ it('does not delete a fiscal period without an authenticated accounting actor', 
 it('rejects a count sheet that disappears after its existence check', function (): void {
     $this->actingAs(User::factory()->create());
     $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'missing-count-'.bin2hex(random_bytes(8)).'.csv';
-    $disk = \Mockery::mock(\Illuminate\Filesystem\FilesystemAdapter::class);
+    $disk = Mockery::mock(FilesystemAdapter::class);
     $disk->shouldReceive('exists')->once()->with('sheet.csv')->andReturnTrue();
     $disk->shouldReceive('path')->once()->with('sheet.csv')->andReturn($path);
-    \Illuminate\Support\Facades\Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+    Storage::shouldReceive('disk')->with('local')->andReturn($disk);
     $page = new ViewInventoryCount;
     $count = new InventoryCount;
     $previousHandler = set_error_handler(static function (int $severity, string $warning, string $file, int $line) use (&$previousHandler, $path): bool {
         if ($severity === E_WARNING && str_contains($warning, 'fopen('.$path.')')) {
             return true;
         }
+
         return $previousHandler !== null ? $previousHandler($severity, $warning, $file, $line) : false;
     });
     try {
-        expect(fn () => new ReflectionMethod($page, 'uploadCounts')->invoke($page, $count, 'sheet.csv'))
+        expect(fn (): mixed => new ReflectionMethod($page, 'uploadCounts')->invoke($page, $count, 'sheet.csv'))
             ->toThrow(LogicException::class, 'The uploaded count sheet could not be opened.');
     } finally {
         restore_error_handler();
@@ -325,7 +343,7 @@ it('rejects a missing actor in maintenance and collaboration helpers', function 
     auth()->logout();
     $component = new $componentClass;
 
-    expect(fn () => new ReflectionMethod($componentClass, $method)->invoke($component))
+    expect(fn (): mixed => new ReflectionMethod($componentClass, $method)->invoke($component))
         ->toThrow(LogicException::class, 'An authenticated User is required');
 })->with([
     'maintenance page' => [ViewMaintenanceRequest::class, 'currentActor'],
@@ -337,6 +355,7 @@ it('uses the expected record to build document page titles', function (string $p
     $page = new $pageClass;
     $record = new $modelClass;
     $record->forceFill([$numberField => 'TITLE-117']);
+
     $page->record = $record;
 
     expect($page->getTitle())->toBe($title);
@@ -366,7 +385,7 @@ it('halts bank statement creation without an accounting actor', function (): voi
     auth()->logout();
     $page = new CreateBankStatement;
 
-    expect(fn () => new ReflectionMethod($page, 'handleRecordCreation')->invoke($page, []))
+    expect(fn (): mixed => new ReflectionMethod($page, 'handleRecordCreation')->invoke($page, []))
         ->toThrow(Halt::class);
 });
 
@@ -467,7 +486,7 @@ it('covers purchase agreement no-actor action guards and invalid record type gua
     $page->record = new ProductVariant;
     $agreement = new ReflectionMethod(ViewPurchaseAgreement::class, 'agreement');
 
-    expect(fn () => $agreement->invoke($page))
+    expect(fn (): mixed => $agreement->invoke($page))
         ->toThrow(LogicException::class, 'Expected a PurchaseAgreement');
 });
 

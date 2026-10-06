@@ -31,7 +31,7 @@ final class ProductQualityComplaintController
             'qualityResolution.customerReturnRequest',
         ]);
 
-        return (new SupportTicketResource($ticket))
+        return new SupportTicketResource($ticket)
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }

@@ -182,7 +182,7 @@ final class ViewSupportReports extends Page
 
             foreach ($rows as $row) {
                 $csvRow = array_map(
-                    static fn (mixed $value): string|int|float|null => self::csvValue($value),
+                    self::csvValue(...),
                     $row,
                 );
 

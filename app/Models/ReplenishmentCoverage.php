@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\ReplenishmentCoverageSourceType;
 use App\Enums\ReplenishmentCoverageStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,7 +45,8 @@ final class ReplenishmentCoverage extends Model
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeActive(Builder $query): Builder
+    #[Scope]
+    protected function active(Builder $query): Builder
     {
         return $query->where('status', ReplenishmentCoverageStatus::Active->value);
     }

@@ -31,6 +31,7 @@ it('covers every customer equipment installation status branch', function (): vo
     $installation = new EquipmentInstallation;
 
     $installation->customer_acceptance_status = CustomerAcceptanceStatus::Rejected;
+
     expect($method->invoke(null, $installation))->toBe('rejected');
 
     $installation->customer_acceptance_status = CustomerAcceptanceStatus::Accepted;
@@ -38,6 +39,7 @@ it('covers every customer equipment installation status branch', function (): vo
 
     $installation->customer_acceptance_status = CustomerAcceptanceStatus::Pending;
     $installation->commissioning_status = CommissioningStatus::Failed;
+
     expect($method->invoke(null, $installation))->toBe('commissioning_failed');
 
     $installation->commissioning_status = CommissioningStatus::Passed;
@@ -45,6 +47,7 @@ it('covers every customer equipment installation status branch', function (): vo
 
     $installation->commissioning_status = CommissioningStatus::Pending;
     $installation->installed_at = null;
+
     expect($method->invoke(null, $installation))->toBe('pending');
 
     $installation->installed_at = now();
@@ -68,10 +71,12 @@ it('covers warranty entitlement active-window evaluation including default time 
 
     $entitlement->state = WarrantyEntitlementState::Active;
     $entitlement->starts_on = null;
+
     expect($entitlement->isActiveAt())->toBeFalse();
 
     $entitlement->starts_on = today()->subDay();
     $entitlement->expires_on = null;
+
     expect($entitlement->isActiveAt())->toBeFalse();
 });
 
@@ -90,6 +95,7 @@ it('covers posted fully-applied payment banner and recognized numeric tax total'
 
     $allocation = new PaymentAllocation;
     $allocation->forceFill(['amount' => '100.00']);
+
     $payment->setRelation('allocations', new EloquentCollection([$allocation]));
 
     $meta = $banner->invoke(null, $payment);
@@ -99,8 +105,10 @@ it('covers posted fully-applied payment banner and recognized numeric tax total'
 
     $numeric = new TaxRecognitionEntry;
     $numeric->forceFill(['recognised_tax_amount' => '2.50']);
+
     $empty = new TaxRecognitionEntry;
     $empty->forceFill(['recognised_tax_amount' => null]);
+
     $payment->setRelation('taxRecognitionEntries', new EloquentCollection([$numeric, $empty]));
 
     expect($taxTotal->invoke(null, $payment))->toBe(2.5);

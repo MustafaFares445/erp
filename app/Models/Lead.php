@@ -11,6 +11,7 @@ use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasFavorites;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -89,7 +90,8 @@ final class Lead extends Model implements Favoritable
      * @param  Builder<Lead>  $query
      * @return Builder<Lead>
      */
-    public function scopeDormant(Builder $query, int $days = 14): Builder
+    #[Scope]
+    public function dormant(Builder $query, int $days = 14): Builder
     {
         return $query
             ->whereNotIn('status', [LeadStatus::Converted->value, LeadStatus::Disqualified->value])

@@ -128,6 +128,6 @@ it('covers warranty action data normalization eligibility labels and unauthentic
     expect($eligibility->invoke(null, $covered))->toBe(__('Active'));
 
     auth()->logout();
-    expect(fn () => new ReflectionMethod(WarrantyClaimActions::class, 'currentActor')->invoke(null))
+    expect(fn (): mixed => new ReflectionMethod(WarrantyClaimActions::class, 'currentActor')->invoke(null))
         ->toThrow(LogicException::class, 'authenticated user');
 });

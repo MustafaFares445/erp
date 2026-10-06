@@ -121,7 +121,11 @@ final class PurchaseAgreementResource extends Resource
                     TextEntry::make('productVariant.sku')->label(__('SKU')),
                     TextEntry::make('productVariant.name')->label(__('Variant')),
                     TextEntry::make('unit.name')->label(__('Unit')),
-                    TextEntry::make('unit_price')->money(fn (PurchaseAgreementLine $record): string => $record->agreement->currency_code),
+                    TextEntry::make('unit_price')->money(static function (PurchaseAgreementLine $record): string {
+                        $agreement = $record->agreement;
+
+                        return $agreement instanceof PurchaseAgreement ? $agreement->currency_code : 'AED';
+                    }),
                     TextEntry::make('minimum_order_quantity')->label(__('MOQ'))->placeholder('—'),
                     TextEntry::make('lead_time_days')->label(__('Lead days'))->placeholder('—'),
                 ])->columns(3),

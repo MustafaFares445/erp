@@ -7,6 +7,7 @@ namespace App\Models;
 use Database\Factories\VisitGpsLogFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,12 +17,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * No `created_at`/`updated_at`, no soft delete, no update path.
  */
 #[Fillable(['customer_visit_id', 'latitude', 'longitude', 'recorded_at'])]
+#[WithoutTimestamps]
 final class VisitGpsLog extends Model
 {
     /** @use HasFactory<VisitGpsLogFactory> */
     use HasFactory;
-
-    public $timestamps = false;
 
     #[\Override]
     protected static function booted(): void

@@ -68,6 +68,7 @@ it('exports each report with a scope line, a stable-identifier header, and the o
             $page = $test->instance();
 
             $page->reportType = FinancialReportType::TrialBalance->value;
+
             $trialBalance = explode("\n", captureExportCsv($page, 'exportCurrentReport'));
             expect($trialBalance[0])->toContain('Trial Balance', $this->from, $this->to)
                 ->and($trialBalance[1])->toContain('account_code', 'period_debit', 'period_credit', 'closing_balance')

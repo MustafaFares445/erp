@@ -10,6 +10,7 @@ use App\Enums\PricingTierVisibility;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\PricingTierFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -75,7 +76,8 @@ final class PricingTier extends Model
      * @param  Builder<PricingTier>  $query
      * @return Builder<PricingTier>
      */
-    public function scopeCurrent(Builder $query): Builder
+    #[Scope]
+    protected function current(Builder $query): Builder
     {
         return $query
             ->where('is_active', true)
@@ -91,7 +93,8 @@ final class PricingTier extends Model
      * @param  Builder<PricingTier>  $query
      * @return Builder<PricingTier>
      */
-    public function scopeScheduled(Builder $query): Builder
+    #[Scope]
+    protected function scheduled(Builder $query): Builder
     {
         return $query->where('is_active', true)->whereDate('valid_from', '>', today());
     }
@@ -100,7 +103,8 @@ final class PricingTier extends Model
      * @param  Builder<PricingTier>  $query
      * @return Builder<PricingTier>
      */
-    public function scopeExpired(Builder $query): Builder
+    #[Scope]
+    protected function expired(Builder $query): Builder
     {
         return $query->where('is_active', true)->whereDate('valid_until', '<', today());
     }

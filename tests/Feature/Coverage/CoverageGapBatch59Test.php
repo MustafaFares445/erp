@@ -47,6 +47,7 @@ it('covers barcode workbench operation and count option branches plus selection 
     $page = app(BarcodeWorkbench::class);
 
     $page->mode = 'unknown';
+
     expect($page->operationOptions())->toBe([]);
 
     $page->mode = 'receipt';
@@ -65,29 +66,32 @@ it('covers barcode workbench operation and count option branches plus selection 
 
     $page->mode = 'receipt';
     $page->operationId = $receipt->id;
+
     expect($selectedOperation->invoke($page)->is($receipt))->toBeTrue();
 
     $page->operationId = $delivery->id;
-    expect(fn () => $selectedOperation->invoke($page))
+    expect(fn (): mixed => $selectedOperation->invoke($page))
         ->toThrow(DomainException::class, 'not open for this barcode mode');
 
     $page->operationId = $done->id;
-    expect(fn () => $selectedOperation->invoke($page))
+    expect(fn (): mixed => $selectedOperation->invoke($page))
         ->toThrow(DomainException::class, 'not open for this barcode mode');
 
     $page->countId = $count->id;
     expect($selectedCount->invoke($page)->is($count))->toBeTrue();
 
     $page->countId = $closedCount->id;
-    expect(fn () => $selectedCount->invoke($page))
+    expect(fn (): mixed => $selectedCount->invoke($page))
         ->toThrow(DomainException::class, 'no longer open for counting');
 
     $page->mode = 'count';
     $page->countId = $count->id;
+
     expect($page->targetUrl())->toContain((string) $count->id);
 
     $page->mode = 'receipt';
     $page->operationId = $receipt->id;
+
     expect($page->targetUrl())->toContain((string) $receipt->id);
 
     $page->scanCode = 'x';
@@ -180,6 +184,7 @@ it('records a scanned inventory count and covers invalid cached resolution handl
         ->call('recordCount');
 
     $component->assertSet('matches.0.id', $line->id);
+
     expect((string) $line->refresh()->counted_base_quantity)->toBe('3.000000');
 
     $page = app(BarcodeWorkbench::class);

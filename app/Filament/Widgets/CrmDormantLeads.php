@@ -38,12 +38,15 @@ final class CrmDormantLeads extends TableWidget
         return $this->dashboardTable($table)
             ->heading(__('dashboards.crm.tables.dormant_leads'))
             ->description(__('dashboards.crm.tables.dormant_leads_description'))
-            ->query(fn (): Builder => Lead::query()
-                ->dormant()
-                ->with('assignee:id,name')
-                ->when($this->dashboardStringFilter('leadSource'), static fn (Builder $query, string $source): Builder => $query->where('source', $source))
-                ->orderByRaw('last_interaction_at IS NOT NULL')
-                ->orderBy('last_interaction_at'))
+            ->query(function (): Builder {
+                $query = Lead::query();
+
+                return (new Lead)->dormant($query)
+                    ->with('assignee:id,name')
+                    ->when($this->dashboardStringFilter('leadSource'), static fn (Builder $query, string $source): Builder => $query->where('source', $source))
+                    ->orderByRaw('last_interaction_at IS NOT NULL')
+                    ->orderBy('last_interaction_at');
+            })
             ->recordUrl(fn (Lead $record): string => LeadResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('lead_number')

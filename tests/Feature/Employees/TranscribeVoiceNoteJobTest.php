@@ -14,14 +14,18 @@ use App\Services\Employees\Exceptions\TranscriptionPayloadException;
 use App\Services\Employees\Exceptions\TranscriptionTransportException;
 use App\Services\Employees\VoiceNoteTranscriber;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\Tries;
 
 uses(RefreshDatabase::class);
 
 it('configures bounded retries with backoff', function (): void {
-    $job = new TranscribeVoiceNoteJob(1);
+    $reflection = new ReflectionClass(TranscribeVoiceNoteJob::class);
+    $tries = $reflection->getAttributes(Tries::class)[0]->newInstance();
+    $backoff = $reflection->getAttributes(Backoff::class)[0]->newInstance();
 
-    expect($job->tries)->toBe(3)
-        ->and($job->backoff)->toBe([60, 300]);
+    expect($tries->tries)->toBe(3)
+        ->and($backoff->backoff)->toBe([60, 300]);
 });
 
 it('never retries a 4xx payload failure: it is caught and written as Failed immediately', function (): void {
@@ -39,9 +43,9 @@ it('never retries a 4xx payload failure: it is caught and written as Failed imme
 
     new TranscribeVoiceNoteJob($transcription->id)->handle($transcriber);
 
-    expect($transcription->fresh()->status)->toBe(TranscriptionStatus::Failed)
-        ->and($transcription->fresh()->error_message)->toBe('Unsupported audio format.')
-        ->and($voiceNote->fresh()->status)->toBe(VoiceNoteStatus::Failed);
+    expect($transcription->refresh()->status)->toBe(TranscriptionStatus::Failed)
+        ->and($transcription->refresh()->error_message)->toBe('Unsupported audio format.')
+        ->and($voiceNote->refresh()->status)->toBe(VoiceNoteStatus::Failed);
 });
 
 it('lets a transport failure propagate uncaught, so the queue worker can retry it', function (): void {
@@ -60,7 +64,7 @@ it('lets a transport failure propagate uncaught, so the queue worker can retry i
     expect(fn () => new TranscribeVoiceNoteJob($transcription->id)->handle($transcriber))
         ->toThrow(TranscriptionTransportException::class);
 
-    expect($transcription->fresh()->status)->toBe(TranscriptionStatus::Pending);
+    expect($transcription->refresh()->status)->toBe(TranscriptionStatus::Pending);
 });
 
 it('writes Failed via the failed() hook once the queue exhausts its retries', function (): void {
@@ -70,10 +74,10 @@ it('writes Failed via the failed() hook once the queue exhausts its retries', fu
 
     new TranscribeVoiceNoteJob($transcription->id)->failed(new TranscriptionTransportException('HTTP 503 from provider.'));
 
-    expect($transcription->fresh()->status)->toBe(TranscriptionStatus::Failed)
-        ->and($transcription->fresh()->error_message)->toBe('HTTP 503 from provider.')
-        ->and($voiceNote->fresh()->status)->toBe(VoiceNoteStatus::Failed)
-        ->and($transcription->fresh()->confidence_source)->toBe(TranscriptionConfidenceSource::Unavailable);
+    expect($transcription->refresh()->status)->toBe(TranscriptionStatus::Failed)
+        ->and($transcription->refresh()->error_message)->toBe('HTTP 503 from provider.')
+        ->and($voiceNote->refresh()->status)->toBe(VoiceNoteStatus::Failed)
+        ->and($transcription->refresh()->confidence_source)->toBe(TranscriptionConfidenceSource::Unavailable);
 });
 
 it('marks the voice note Failed when no audio is attached, without calling the transcriber', function (): void {
@@ -95,8 +99,8 @@ it('marks the voice note Failed when no audio is attached, without calling the t
     new TranscribeVoiceNoteJob($transcription->id)->handle($transcriber);
 
     expect($transcriber->called)->toBeFalse()
-        ->and($transcription->fresh()->status)->toBe(TranscriptionStatus::Failed)
-        ->and($voiceNote->fresh()->status)->toBe(VoiceNoteStatus::Failed);
+        ->and($transcription->refresh()->status)->toBe(TranscriptionStatus::Failed)
+        ->and($voiceNote->refresh()->status)->toBe(VoiceNoteStatus::Failed);
 });
 
 it('returns quietly from handle() when the linked voice note has been soft-deleted', function (): void {
@@ -119,7 +123,7 @@ it('returns quietly from handle() when the linked voice note has been soft-delet
     new TranscribeVoiceNoteJob($transcription->id)->handle($transcriber);
 
     expect($transcriber->called)->toBeFalse()
-        ->and($transcription->fresh()->status)->toBe(TranscriptionStatus::Pending);
+        ->and($transcription->refresh()->status)->toBe(TranscriptionStatus::Pending);
 });
 
 it('returns quietly from failed() when the transcription record cannot be found', function (): void {
@@ -149,8 +153,8 @@ it('persists a successful transcription and moves both rows to their terminal su
 
     new TranscribeVoiceNoteJob($transcription->id)->handle($transcriber);
 
-    expect($transcription->fresh()->status)->toBe(TranscriptionStatus::Succeeded)
-        ->and($transcription->fresh()->transcript)->toBe('Customer asked about pricing.')
-        ->and((float) $transcription->fresh()->confidence)->toBe(91.25)
-        ->and($voiceNote->fresh()->status)->toBe(VoiceNoteStatus::Transcribed);
+    expect($transcription->refresh()->status)->toBe(TranscriptionStatus::Succeeded)
+        ->and($transcription->refresh()->transcript)->toBe('Customer asked about pricing.')
+        ->and((float) $transcription->refresh()->confidence)->toBe(91.25)
+        ->and($voiceNote->refresh()->status)->toBe(VoiceNoteStatus::Transcribed);
 });

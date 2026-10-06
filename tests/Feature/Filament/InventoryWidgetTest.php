@@ -44,6 +44,7 @@ beforeEach(function (): void {
 it('keeps every inventory report in its category and selects the first report when changing category', function (): void {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(array_map(static fn (InventoryPermission $permission): string => $permission->value, InventoryPermission::cases()));
+
     $component = Livewire::actingAs($viewer)->test(ManageInventoryReports::class);
     $component->set('activeTab', 'stock_availability')->assertSet('report', InventoryReportType::StockLevels->value);
     $page = $component->instance();

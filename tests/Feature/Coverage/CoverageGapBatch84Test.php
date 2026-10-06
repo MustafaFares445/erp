@@ -6,7 +6,6 @@ use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
 use App\Enums\QuotationStatus;
 use App\Enums\WarrantyClaimDecision;
-use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyLineCategory;
 use App\Models\MaintenanceCoverageLine;
 use App\Models\MaintenanceLabourEntry;
@@ -17,7 +16,6 @@ use App\Models\ProductVariant;
 use App\Models\Quotation;
 use App\Models\SalesSetting;
 use App\Models\ServiceRecordPart;
-use App\Models\User;
 use App\Services\Support\Exceptions\InvalidBillingTransition;
 use App\Services\Support\MaintenanceBillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -191,25 +189,25 @@ it('covers billing and quotation guard branches', function (): void {
         'status' => MaintenanceStatus::Open,
         'billing_type' => MaintenanceBillingType::Unbilled,
     ]);
-    expect(fn () => coverage84Method('assertBillable')->invoke($service, $open))
+    expect(fn (): mixed => coverage84Method('assertBillable')->invoke($service, $open))
         ->toThrow(InvalidBillingTransition::class)
-        ->and(fn () => coverage84Method('assertQuotable')->invoke($service, $open))
+        ->and(fn (): mixed => coverage84Method('assertQuotable')->invoke($service, $open))
         ->toThrow(ValidationException::class, 'quotation can be created');
 
     $warrantySettled = MaintenanceRecord::factory()->create([
         'status' => MaintenanceStatus::Closed,
         'billing_type' => MaintenanceBillingType::WarrantyCovered,
     ]);
-    expect(fn () => coverage84Method('assertBillable')->invoke($service, $warrantySettled))
+    expect(fn (): mixed => coverage84Method('assertBillable')->invoke($service, $warrantySettled))
         ->toThrow(InvalidBillingTransition::class);
 
     $invoiced = MaintenanceRecord::factory()->create([
         'status' => MaintenanceStatus::Closed,
         'billing_type' => MaintenanceBillingType::Invoiced,
     ]);
-    expect(fn () => coverage84Method('assertBillable')->invoke($service, $invoiced))
+    expect(fn (): mixed => coverage84Method('assertBillable')->invoke($service, $invoiced))
         ->toThrow(InvalidBillingTransition::class)
-        ->and(fn () => coverage84Method('assertQuotable')->invoke($service, $invoiced))
+        ->and(fn (): mixed => coverage84Method('assertQuotable')->invoke($service, $invoiced))
         ->toThrow(InvalidBillingTransition::class);
 
     $fullyCovered = MaintenanceRecord::factory()->create([
@@ -217,14 +215,14 @@ it('covers billing and quotation guard branches', function (): void {
         'billing_type' => MaintenanceBillingType::Unbilled,
         'coverage_decision' => WarrantyClaimDecision::FullyCovered,
     ]);
-    expect(fn () => coverage84Method('assertQuotable')->invoke($service, $fullyCovered))
+    expect(fn (): mixed => coverage84Method('assertQuotable')->invoke($service, $fullyCovered))
         ->toThrow(ValidationException::class, 'no customer responsibility');
 
     $quoted = MaintenanceRecord::factory()->create([
         'status' => MaintenanceStatus::Closed,
         'billing_type' => MaintenanceBillingType::Quoted,
     ]);
-    expect(fn () => coverage84Method('assertQuotable')->invoke($service, $quoted))
+    expect(fn (): mixed => coverage84Method('assertQuotable')->invoke($service, $quoted))
         ->toThrow(ValidationException::class, 'quotation already exists');
 
     // Invoiceable deliberately permits Quoted requests so quotation-specific checks run later.

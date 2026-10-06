@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\StockCondition;
+use App\Filament\Pages\BarcodeWorkbench;
 use App\Models\InventoryCount;
 use App\Models\InventoryCountLine;
 use App\Models\InventoryMovement;
@@ -13,21 +14,24 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Services\Inventory\BarcodeResolver;
 use App\Services\Inventory\BarcodeWorkflowService;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
 it('rejects a valid scan that does not belong to the selected physical count', function (): void {
-    \Illuminate\Support\Facades\Gate::before(static fn (): bool => true);
+    Gate::before(static fn (): bool => true);
     $actor = User::factory()->create();
     $variant = ProductVariant::factory()->create(['sku' => 'NOT-IN-THIS-COUNT']);
     $count = InventoryCount::factory()->counting()->create();
-    \Livewire\Livewire::actingAs($actor)->test(\App\Filament\Pages\BarcodeWorkbench::class)
+    Livewire::actingAs($actor)->test(BarcodeWorkbench::class)
         ->set('mode', 'count')
         ->set('countId', $count->id)
         ->set('scanCode', $variant->sku)
         ->call('scan')
-        ->assertNotified(\Filament\Notifications\Notification::make()->danger()->title('Scan rejected')->body('The scanned item is not part of the selected inventory count.'))
+        ->assertNotified(Notification::make()->danger()->title('Scan rejected')->body('The scanned item is not part of the selected inventory count.'))
         ->assertSet('matches', [])
         ->assertSet('countLineId', null);
     expect($count->lines()->count())->toBe(0);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\StockCondition;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -14,17 +15,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property numeric-string $on_hand_base_quantity
  * @property numeric-string $reserved_base_quantity
  */
+#[Fillable([
+    'product_variant_id',
+    'warehouse_id',
+    'stock_condition',
+    'on_hand_base_quantity',
+    'reserved_base_quantity',
+])]
 final class InventoryConditionBalance extends Model
 {
-    /** @var list<string> */
-    protected $fillable = [
-        'product_variant_id',
-        'warehouse_id',
-        'stock_condition',
-        'on_hand_base_quantity',
-        'reserved_base_quantity',
-    ];
-
     #[\Override]
     public function casts(): array
     {

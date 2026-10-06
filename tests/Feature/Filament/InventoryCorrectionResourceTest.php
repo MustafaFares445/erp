@@ -9,6 +9,7 @@ use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryCorrections\Pages\ManageInventoryCorrections;
 use App\Filament\Resources\InventoryCorrections\Pages\ViewInventoryCorrection;
 use App\Models\InventoryCorrection;
+use App\Models\InventoryOperation;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\CreateAction;
@@ -23,7 +24,7 @@ beforeEach(function (): void {
 
 it('creates a receipt correction from the queue without optional notes', function (): void {
     $user = correctionLifecycleUser();
-    $receipt = \App\Models\InventoryOperation::factory()->receipt()->done()->create();
+    $receipt = InventoryOperation::factory()->receipt()->done()->create();
     Livewire::actingAs($user)->test(ManageInventoryCorrections::class)
         ->callAction(CreateAction::class, [
             'original_inventory_operation_id' => $receipt->id,

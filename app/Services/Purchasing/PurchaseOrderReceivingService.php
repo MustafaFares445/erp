@@ -569,19 +569,17 @@ final readonly class PurchaseOrderReceivingService
     ): string {
         $completedReceived = $line->received_base_quantity;
 
-        if ($completedReceived === null) {
-            $completedReceived = $this->aggregateQuantity(
-                InventoryOperationLine::query()
-                    ->where('purchase_order_line_id', $line->id)
-                    ->whereNotNull('base_quantity')
-                    ->whereHas('operation', static fn (Builder $query): Builder => $query
-                        ->where('operation_type', OperationType::Receipt->value)
-                        ->where('source_document_type', PurchaseOrder::class)
-                        ->where('source_document_id', $order->id)
-                        ->where('stage', OperationStage::Done->value))
-                    ->sum('base_quantity'),
-            );
-        }
+        $completedReceived ??= $this->aggregateQuantity(
+            InventoryOperationLine::query()
+                ->where('purchase_order_line_id', $line->id)
+                ->whereNotNull('base_quantity')
+                ->whereHas('operation', static fn (Builder $query): Builder => $query
+                    ->where('operation_type', OperationType::Receipt->value)
+                    ->where('source_document_type', PurchaseOrder::class)
+                    ->where('source_document_id', $order->id)
+                    ->where('stage', OperationStage::Done->value))
+                ->sum('base_quantity'),
+        );
 
         $pending = $this->aggregateQuantity(
             InventoryOperationLine::query()

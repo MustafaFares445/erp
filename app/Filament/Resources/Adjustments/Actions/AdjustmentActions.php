@@ -43,8 +43,8 @@ final class AdjustmentActions
 
                 try {
                     app(InventoryAdjustmentService::class)->confirm($record, $actor);
-                } catch (DomainException $exception) {
-                    self::notifyFailure($exception->getMessage());
+                } catch (DomainException $domainException) {
+                    self::notifyFailure($domainException->getMessage());
 
                     return;
                 }

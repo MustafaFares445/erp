@@ -215,14 +215,12 @@ return new class extends Migration
 
                 $key = $warehouseId.'|'.$stockCondition;
 
-                if (! isset($aggregated[$key])) {
-                    $aggregated[$key] = [
-                        'warehouse_id' => (int) $warehouseId,
-                        'stock_condition' => $stockCondition,
-                        'on_hand' => '0.000000',
-                        'reserved' => '0.000000',
-                    ];
-                }
+                $aggregated[$key] ??= [
+                    'warehouse_id' => (int) $warehouseId,
+                    'stock_condition' => $stockCondition,
+                    'on_hand' => '0.000000',
+                    'reserved' => '0.000000',
+                ];
 
                 $onHandQuantity = $balance->on_hand_base_quantity;
                 $reservedQuantity = $balance->reserved_base_quantity;

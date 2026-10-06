@@ -8,6 +8,7 @@ use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryCorrectionStatus;
 use App\Enums\InventoryCorrectionType;
 use App\Enums\MovementType;
+use App\Enums\OperationStage;
 use App\Enums\StockCondition;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryCorrectionLine;
@@ -19,6 +20,7 @@ use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryCorrectionService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -32,14 +34,14 @@ it('rejects a correction posting without correction-line provenance', function (
         false,
     );
 
-    expect(fn () => correctionCoverageInvoke('indexCorrectionPostings', [$posting]))
+    expect(fn (): mixed => correctionCoverageInvoke('indexCorrectionPostings', [$posting]))
         ->toThrow(DomainException::class, 'Every correction posting must retain correction-line provenance.');
 });
 
 it('rejects an original movement with no positive base quantity', function (string $quantity): void {
     $movement = new InventoryMovement()->forceFill(['quantity' => $quantity, 'base_quantity_delta' => $quantity]);
 
-    expect(fn () => correctionCoverageInvoke('movementPositiveBaseQuantity', $movement))
+    expect(fn (): mixed => correctionCoverageInvoke('movementPositiveBaseQuantity', $movement))
         ->toThrow(DomainException::class, 'The original movement does not contain a positive base quantity.');
 })->with(['0.000000', '-1.000000']);
 
@@ -94,21 +96,21 @@ function correctionCoverageMovementFixture(MovementType $type): array
 
 it('rejects correction posting when the loaded original operation is no longer completed', function (): void {
     [$correction, $operation] = correctionCoverageMovementFixture(MovementType::Receipt);
-    $original = \Illuminate\Database\Eloquent\Model::getEventDispatcher();
+    $original = Model::getEventDispatcher();
     $dispatcher = clone $original;
-    \Illuminate\Database\Eloquent\Model::setEventDispatcher($dispatcher);
+    Model::setEventDispatcher($dispatcher);
     $dispatcher->listen('eloquent.retrieved: '.InventoryOperation::class, static function (InventoryOperation $row) use ($operation): void {
         if ($row->id === $operation->id) {
-            $row->stage = \App\Enums\OperationStage::Waiting;
+            $row->stage = OperationStage::Waiting;
         }
     });
     try {
         expect(fn () => app(InventoryCorrectionService::class)->post($correction, User::factory()->create()))
             ->toThrow(DomainException::class, 'The original operation must remain a completed immutable operation.');
     } finally {
-        \Illuminate\Database\Eloquent\Model::setEventDispatcher($original);
+        Model::setEventDispatcher($original);
     }
-    expect($operation->refresh()->stage)->toBe(\App\Enums\OperationStage::Done);
+    expect($operation->refresh()->stage)->toBe(OperationStage::Done);
 });
 
 it('covers correction document validation guards', function (): void {

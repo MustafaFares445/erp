@@ -7,7 +7,6 @@ use App\Enums\TicketPriority;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Events\SlaAtRisk;
-use App\Models\SlaPolicy;
 use App\Models\Ticket;
 use App\Services\Support\SlaPolicyResolver;
 use App\Services\Support\SlaService;

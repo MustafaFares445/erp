@@ -11,6 +11,7 @@ use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class CustomerInfolist
 {
@@ -97,11 +98,11 @@ final class CustomerInfolist
                         ImageEntry::make('accommodation')
                             ->state(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('accommodation') ?: null),
                         TextEntry::make('license')
-                            ->state(static fn (CustomerProfile $record): string => $record->getFirstMedia('license') ? 'Download' : 'Not provided')
+                            ->state(static fn (CustomerProfile $record): string => $record->getFirstMedia('license') instanceof Media ? 'Download' : 'Not provided')
                             ->url(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('license') ?: null, shouldOpenInNewTab: true),
                         TextEntry::make('tax_certificate')
                             ->label(__('Tax certificate'))
-                            ->state(static fn (CustomerProfile $record): string => $record->getFirstMedia('tax_certificate') ? 'Download' : 'Not provided')
+                            ->state(static fn (CustomerProfile $record): string => $record->getFirstMedia('tax_certificate') instanceof Media ? 'Download' : 'Not provided')
                             ->url(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('tax_certificate') ?: null, shouldOpenInNewTab: true),
                     ])
                     ->columns(3),

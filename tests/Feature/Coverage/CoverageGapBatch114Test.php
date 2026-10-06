@@ -3,10 +3,17 @@
 declare(strict_types=1);
 
 use App\Enums\PurchaseAgreementStatus;
+use App\Enums\StockCondition;
+use App\Enums\TicketEquipmentSource;
+use App\Enums\TicketServicePath;
+use App\Enums\TicketStatus;
+use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\PurchasingStatistics;
 use App\Models\CustomerVisit;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
@@ -18,6 +25,7 @@ use App\Models\ReplenishmentRequirement;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
+use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -27,11 +35,14 @@ use App\Services\Calendar\VisitCalendarEventService;
 use App\Services\Inventory\BarcodeResolver;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryLotService;
+use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use App\Services\Purchasing\PurchaseAgreementService;
 use App\Services\Purchasing\PurchaseOrderService;
+use App\Services\Support\TicketTriageService;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -66,6 +77,7 @@ it('omits a maintenance calendar occurrence whose schedule disappeared after sel
 it('omits a visit calendar row whose selected planned date is unavailable', function (): void {
     $visit = CustomerVisit::factory()->create(['planned_at' => now()]);
     $visit->planTask->update(['due_at' => today()->addMonth()]);
+
     $events = coverage114WithModelFault(
         CustomerVisit::class,
         static fn (CustomerVisit $row) => $row->setAttribute('planned_at', null),
@@ -111,7 +123,7 @@ it('omits a delivery product whose product relation disappears during loading', 
         ProductVariant::class,
         static fn (ProductVariant $row) => $row->setAttribute('product_id', null),
         static function (): void {
-            $page = new \App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
+            $page = new CreateInventoryOperation;
             expect(new ReflectionMethod($page, 'productOptions')->invoke($page, null))->toBe([]);
         },
     );
@@ -119,15 +131,15 @@ it('omits a delivery product whose product relation disappears during loading', 
 
 it('refuses ticket triage when the selected ticket customer is unavailable', function (): void {
     Gate::before(static fn (): bool => true);
-    $ticket = \App\Models\Ticket::factory()->create(['status' => \App\Enums\TicketStatus::Pending]);
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::Pending]);
     $actor = User::factory()->create();
     coverage114WithModelFault(
-        \App\Models\Ticket::class,
-        static fn (\App\Models\Ticket $row) => $row->setAttribute('customer_id', null),
+        Ticket::class,
+        static fn (Ticket $row) => $row->setAttribute('customer_id', null),
         static function () use ($ticket, $actor): void {
-            expect(fn () => app(\App\Services\Support\TicketTriageService::class)->triage($ticket, [
-                'equipment_source' => \App\Enums\TicketEquipmentSource::External,
-                'service_path' => \App\Enums\TicketServicePath::RemoteSupport,
+            expect(fn () => app(TicketTriageService::class)->triage($ticket, [
+                'equipment_source' => TicketEquipmentSource::External,
+                'service_path' => TicketServicePath::RemoteSupport,
                 'billing_decision' => 'no_charge',
             ], $actor))->toThrow(DomainException::class, 'Ticket triage requires a customer profile.');
         },
@@ -199,26 +211,26 @@ it('recovers a stock balance inserted between the first read and creation', func
 it('rethrows a balance insert failure when no concurrent balance exists for the requested grain', function (string $grain): void {
     $variant = ProductVariant::factory()->create();
     $warehouse = Warehouse::factory()->create();
-    $stock = \App\Models\InventoryStock::factory()->for($variant)->for($warehouse)->create();
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create();
     $lot = InventoryLot::factory()->canonical()->create(['product_variant_id' => $variant->id]);
-    $condition = \App\Enums\StockCondition::Saleable;
+    $condition = StockCondition::Saleable;
     if ($grain === 'condition') {
-        $model = \App\Models\InventoryConditionBalance::class;
+        $model = InventoryConditionBalance::class;
         $existing = $model::query()->forceCreate([
             'product_variant_id' => $variant->id,
             'warehouse_id' => $warehouse->id,
-            'stock_condition' => \App\Enums\StockCondition::Quarantine,
+            'stock_condition' => StockCondition::Quarantine,
             'on_hand_base_quantity' => '0.000000',
             'reserved_base_quantity' => '0.000000',
         ]);
         $method = 'conditionBalanceForUpdate';
         $arguments = [$stock, $condition, false];
     } else {
-        $model = \App\Models\InventoryLotBalance::class;
+        $model = InventoryLotBalance::class;
         $existing = $model::query()->forceCreate([
             'inventory_lot_id' => $lot->id,
             'warehouse_id' => $warehouse->id,
-            'stock_condition' => \App\Enums\StockCondition::Quarantine,
+            'stock_condition' => StockCondition::Quarantine,
             'on_hand_base_quantity' => '0.000000',
             'reserved_base_quantity' => '0.000000',
         ]);
@@ -227,10 +239,10 @@ it('rethrows a balance insert failure when no concurrent balance exists for the 
     }
     coverage114WithModelFault(
         $model,
-        static fn (\Illuminate\Database\Eloquent\Model $row) => $row->forceFill(['id' => $existing->id]),
+        static fn (Model $row) => $row->forceFill(['id' => $existing->id]),
         static function () use ($method, $arguments): void {
-            expect(fn () => new ReflectionMethod(\App\Services\Inventory\InventoryPostingService::class, $method)->invoke(app(\App\Services\Inventory\InventoryPostingService::class), ...$arguments))
-                ->toThrow(\Illuminate\Database\QueryException::class);
+            expect(fn (): mixed => new ReflectionMethod(InventoryPostingService::class, $method)->invoke(app(InventoryPostingService::class), ...$arguments))
+                ->toThrow(QueryException::class);
         },
         'creating',
     );
@@ -251,7 +263,7 @@ it('rethrows a lot insert failure when the conflicting row is not the requested 
         static fn (InventoryLot $lot) => $lot->forceFill(['id' => $existing->id]),
         static function () use ($variant, $warehouse, $line): void {
             expect(fn () => app(InventoryLotService::class)->receive($line, $variant, $warehouse->id, '1.000000'))
-                ->toThrow(\Illuminate\Database\QueryException::class);
+                ->toThrow(QueryException::class);
         },
         'creating',
     );
@@ -262,14 +274,14 @@ it('recovers a condition or lot balance inserted concurrently for the same grain
     $warehouse = Warehouse::factory()->create();
     $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create();
     $lot = InventoryLot::factory()->canonical()->create(['product_variant_id' => $variant->id]);
-    $condition = \App\Enums\StockCondition::Saleable;
-    $model = $grain === 'condition' ? \App\Models\InventoryConditionBalance::class : \App\Models\InventoryLotBalance::class;
+    $condition = StockCondition::Saleable;
+    $model = $grain === 'condition' ? InventoryConditionBalance::class : InventoryLotBalance::class;
     $method = $grain === 'condition' ? 'conditionBalanceForUpdate' : 'lotConditionBalanceForUpdate';
     $arguments = $grain === 'condition' ? [$stock, $condition, false] : [$lot, $warehouse->id, $condition];
     $balance = coverage114WithModelFault(
         $model,
         static fn (Model $row): bool => DB::table($row->getTable())->insert($row->getAttributes()),
-        static fn () => new ReflectionMethod(\App\Services\Inventory\InventoryPostingService::class, $method)->invoke(app(\App\Services\Inventory\InventoryPostingService::class), ...$arguments),
+        static fn (): mixed => new ReflectionMethod(InventoryPostingService::class, $method)->invoke(app(InventoryPostingService::class), ...$arguments),
         'creating',
     );
     expect($balance)->toBeInstanceOf($model)
@@ -374,7 +386,7 @@ it('covers a purchase agreement line whose agreement disappears between selectio
     $method = new ReflectionMethod(PurchaseOrderService::class, 'resolveUnitCost');
 
     try {
-        expect(fn () => $method->invoke(
+        expect(fn (): mixed => $method->invoke(
             app(PurchaseOrderService::class),
             null,
             SupplierProductReference::query()
@@ -433,7 +445,7 @@ it('covers an agreement currency changed in memory after database selection', fu
     $method = new ReflectionMethod(PurchaseOrderService::class, 'resolveUnitCost');
 
     try {
-        expect(fn () => $method->invoke(
+        expect(fn (): mixed => $method->invoke(
             app(PurchaseOrderService::class),
             null,
             $reference,

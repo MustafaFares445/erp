@@ -8,15 +8,15 @@ use App\Enums\SupportAutomationEvent;
 use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use App\Services\Support\SupportAutomationEngine;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
+#[Description('Emit safe automation events for stale support tickets.')]
+#[Signature('support:automation:stale')]
 final class ProcessStaleSupportTicketsCommand extends Command
 {
-    protected $signature = 'support:automation:stale';
-
-    protected $description = 'Emit safe automation events for stale support tickets.';
-
     public function handle(SupportAutomationEngine $engine): int
     {
         if (! config('support.support_automation_enabled', false)) {

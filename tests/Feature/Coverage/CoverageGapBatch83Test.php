@@ -6,7 +6,6 @@ use App\Enums\MaintenanceStatus;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyEntitlementState;
-use App\Enums\WarrantyFailureCategory;
 use App\Enums\WarrantyLineCategory;
 use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
@@ -97,17 +96,17 @@ it('covers suggested warranty lines for parts labour and third-party actuals', f
 it('covers warranty helper validation source and normalization branches', function (): void {
     $service = app(WarrantyClaimService::class);
 
-    expect(fn () => coverage83Method('claimDecision')->invoke($service, 'not-valid'))
+    expect(fn (): mixed => coverage83Method('claimDecision')->invoke($service, 'not-valid'))
         ->toThrow(ValidationException::class, 'valid coverage decision')
-        ->and(fn () => coverage83Method('failureCategory')->invoke($service, 'not-valid'))
+        ->and(fn (): mixed => coverage83Method('failureCategory')->invoke($service, 'not-valid'))
         ->toThrow(ValidationException::class, 'valid failure category')
-        ->and(fn () => coverage83Method('coveragePercent')->invoke($service, null))
+        ->and(fn (): mixed => coverage83Method('coveragePercent')->invoke($service, null))
         ->toThrow(ValidationException::class, 'Coverage percentage is required')
-        ->and(fn () => coverage83Method('coveragePercent')->invoke($service, 101))
+        ->and(fn (): mixed => coverage83Method('coveragePercent')->invoke($service, 101))
         ->toThrow(ValidationException::class, 'between 0 and 100')
         ->and(coverage83Method('coveragePercent')->invoke($service, '12.345'))->toBe(12.35);
 
-    expect(fn () => coverage83Method('thirdPartySource')->invoke($service, WarrantyCoverageSource::SellerWarranty->value))
+    expect(fn (): mixed => coverage83Method('thirdPartySource')->invoke($service, WarrantyCoverageSource::SellerWarranty->value))
         ->toThrow(ValidationException::class, 'manufacturer or supplier warranty')
         ->and(coverage83Method('thirdPartySource')->invoke($service, WarrantyCoverageSource::ManufacturerWarranty->value))
         ->toBe(WarrantyCoverageSource::ManufacturerWarranty)
@@ -144,7 +143,7 @@ it('covers warranty helper validation source and normalization branches', functi
         ->and(coverage83Method('intValue')->invoke(null, '42'))->toBe(42)
         ->and(coverage83Method('intValue')->invoke(null, 'not-number'))->toBe(0);
 
-    expect(fn () => coverage83Method('requiredText')->invoke($service, ' ', 'field', 'Required'))
+    expect(fn (): mixed => coverage83Method('requiredText')->invoke($service, ' ', 'field', 'Required'))
         ->toThrow(ValidationException::class, 'Required');
 });
 
@@ -158,7 +157,7 @@ it('covers persisted coverage-line decision branches and malformed coverage inpu
 
     $persist = coverage83Method('persistCoverageLine');
 
-    expect(fn () => $persist->invoke(
+    expect(fn (): mixed => $persist->invoke(
         $service,
         $record,
         ['category' => 'bad', 'description' => 'Bad', 'amount_minor' => 1],
@@ -167,7 +166,7 @@ it('covers persisted coverage-line decision branches and malformed coverage inpu
         $actor,
     ))->toThrow(ValidationException::class, 'valid category');
 
-    expect(fn () => $persist->invoke(
+    expect(fn (): mixed => $persist->invoke(
         $service,
         $record,
         ['category' => WarrantyLineCategory::Part->value, 'description' => '', 'amount_minor' => 1],
@@ -176,7 +175,7 @@ it('covers persisted coverage-line decision branches and malformed coverage inpu
         $actor,
     ))->toThrow(ValidationException::class, 'requires a description');
 
-    expect(fn () => $persist->invoke(
+    expect(fn (): mixed => $persist->invoke(
         $service,
         $record,
         ['category' => WarrantyLineCategory::Part->value, 'description' => 'Bad amount', 'amount_minor' => -1],

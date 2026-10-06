@@ -87,7 +87,11 @@ final class InventoryLotInfolist
                             ->state(static fn (InventoryLot $record): int => app(LotQualitySignalService::class)->summary($record)['returns']),
                         TextEntry::make('quality_supplier')
                             ->label(__('Responsible supplier'))
-                            ->state(static fn (InventoryLot $record): string => app(TicketProductContextService::class)->supplierForLot($record)?->name ?? '—'),
+                            ->state(static function (InventoryLot $record): string {
+                                $supplier = app(TicketProductContextService::class)->supplierForLot($record);
+
+                                return $supplier !== null ? $supplier->name : '—';
+                            }),
                         TextEntry::make('quality_alert')
                             ->label(__('Potential Lot Quality Issue'))
                             ->state(static function (InventoryLot $record): string {

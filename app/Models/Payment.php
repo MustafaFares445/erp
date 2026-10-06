@@ -12,6 +12,7 @@ use App\Models\Concerns\TransitionsDocumentStatus;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -53,7 +54,8 @@ final class Payment extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopePosted(Builder $query): Builder
+    #[Scope]
+    protected function posted(Builder $query): Builder
     {
         return $query->where('status', PaymentStatus::Posted->value)->whereNull('reversed_at');
     }
@@ -62,7 +64,8 @@ final class Payment extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeCollectedThisMonth(Builder $query): Builder
+    #[Scope]
+    protected function collectedThisMonth(Builder $query): Builder
     {
         return $query->posted()->whereBetween('posted_at', [now()->startOfMonth(), now()->endOfMonth()]);
     }
@@ -73,7 +76,8 @@ final class Payment extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeCustomerDeposits(Builder $query): Builder
+    #[Scope]
+    protected function customerDeposits(Builder $query): Builder
     {
         return $query->posted()
             ->whereRaw('(select coalesce(sum(payment_allocations.amount), 0) from payment_allocations where payment_allocations.payment_id = payments.id) < payments.amount');

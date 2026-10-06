@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Enums\WarrantyEntitlementState;
-use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
 use App\Models\MaintenanceLabourEntry;
 use App\Models\MaintenanceRecord;

@@ -94,7 +94,7 @@ final class ProductContextsRelationManager extends RelationManager
                                 ->limit(100)
                                 ->get()
                                 ->mapWithKeys(static fn (CustomerReturnRequest $request): array => [
-                                    $request->getKey() => $request->request_number.' · '.$request->status->label(),
+                                    $request->id => $request->request_number.' · '.$request->status->label(),
                                 ])
                                 ->all())
                             ->searchable()
@@ -108,7 +108,7 @@ final class ProductContextsRelationManager extends RelationManager
                             }),
                         Select::make('supplier_id')
                             ->label(__('Responsible supplier'))
-                            ->helperText(__('Leave empty to use the supplier from the lot\'s purchase history.'))
+                            ->helperText(__("Leave empty to use the supplier from the lot's purchase history."))
                             ->options(fn (): array => Supplier::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
                             ->searchable()
                             ->visible(static fn (Get $get): bool => $get('resolution_type') === QualityResolutionType::SupplierClaim->value),

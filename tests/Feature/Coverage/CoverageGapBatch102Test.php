@@ -53,6 +53,7 @@ it('covers relation-loaded order prepayment aggregation with allocations', funct
 
     $allocation = new PaymentAllocation;
     $allocation->forceFill(['amount' => '40.00']);
+
     $payment->setRelation('allocations', new EloquentCollection([$allocation]));
 
     $transaction = new PaymentTransaction;

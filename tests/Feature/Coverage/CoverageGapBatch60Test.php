@@ -122,17 +122,7 @@ function coverage60Fixture(): array
         'fiscal_period_id' => $period->id,
     ])->saveQuietly();
 
-    return compact(
-        'actor',
-        'bank',
-        'difference',
-        'method',
-        'statement',
-        'customerPayment',
-        'suggestedPayment',
-        'supplierPayment',
-        'entry',
-    );
+    return ['actor' => $actor, 'bank' => $bank, 'difference' => $difference, 'method' => $method, 'statement' => $statement, 'customerPayment' => $customerPayment, 'suggestedPayment' => $suggestedPayment, 'supplierPayment' => $supplierPayment, 'entry' => $entry];
 }
 
 function coverage60Manager(BankStatement $statement): LinesRelationManager
@@ -272,6 +262,6 @@ it('covers unsupported suggestion targets and defensive owner or actor branches'
     $invalid = new LinesRelationManager;
     $invalid->ownerRecord = $fixture['customerPayment'];
 
-    expect(fn () => new ReflectionMethod(LinesRelationManager::class, 'statement')->invoke($invalid))
+    expect(fn (): mixed => new ReflectionMethod(LinesRelationManager::class, 'statement')->invoke($invalid))
         ->toThrow(LogicException::class, 'Expected a BankStatement owner record');
 });

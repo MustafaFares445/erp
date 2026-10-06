@@ -85,19 +85,19 @@ it('covers every custom-field normalization guard and boolean representation', f
         ->and($normalize->invoke($service, $boolean, '0'))->toBe(['value_boolean' => false])
         ->and($normalize->invoke($service, $select, 'Gold'))->toBe(['value_text' => 'Gold']);
 
-    expect(fn () => $normalize->invoke($service, $text, 123))
+    expect(fn (): mixed => $normalize->invoke($service, $text, 123))
         ->toThrow(DomainException::class, 'must be text')
-        ->and(fn () => $normalize->invoke($service, $number, 'not-a-number'))
+        ->and(fn (): mixed => $normalize->invoke($service, $number, 'not-a-number'))
         ->toThrow(DomainException::class, 'must be numeric')
-        ->and(fn () => $normalize->invoke($service, $date, 123))
+        ->and(fn (): mixed => $normalize->invoke($service, $date, 123))
         ->toThrow(DomainException::class, 'date string')
-        ->and(fn () => $normalize->invoke($service, $boolean, 'yes'))
+        ->and(fn (): mixed => $normalize->invoke($service, $boolean, 'yes'))
         ->toThrow(DomainException::class, 'true or false')
-        ->and(fn () => $normalize->invoke($service, $select, 'Bronze'))
+        ->and(fn (): mixed => $normalize->invoke($service, $select, 'Bronze'))
         ->toThrow(DomainException::class, 'invalid option');
 
     $stringValue = new ReflectionMethod(CustomFieldService::class, 'stringValue');
-    expect(fn () => $stringValue->invoke($service, 'abcd', 3))
+    expect(fn (): mixed => $stringValue->invoke($service, 'abcd', 3))
         ->toThrow(DomainException::class, 'cannot exceed 3');
 });
 
@@ -160,6 +160,6 @@ it('covers relation-manager state schemas selection options permissions and acto
 
     auth()->logout();
     expect(new ReflectionMethod(CustomFieldsRelationManager::class, 'canUpdateOwner')->invoke($manager))->toBeFalse()
-        ->and(fn () => new ReflectionMethod(CustomFieldsRelationManager::class, 'actor')->invoke($manager))
+        ->and(fn (): mixed => new ReflectionMethod(CustomFieldsRelationManager::class, 'actor')->invoke($manager))
         ->toThrow(LogicException::class, 'authenticated user');
 });

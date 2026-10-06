@@ -88,6 +88,6 @@ it('covers warranty recovery action success and handled failure branches', funct
 it('covers unauthenticated warranty recovery actor guard', function (): void {
     auth()->logout();
 
-    expect(fn () => new ReflectionMethod(WarrantyRecoveryActions::class, 'actor')->invoke(null))
+    expect(fn (): mixed => new ReflectionMethod(WarrantyRecoveryActions::class, 'actor')->invoke(null))
         ->toThrow(LogicException::class, 'authenticated User');
 });

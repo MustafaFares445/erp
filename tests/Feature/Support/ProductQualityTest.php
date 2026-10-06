@@ -54,7 +54,7 @@ it('adds the product quality issue ticket type with labels in both languages', f
         ->and(QualityResolutionType::NoDefectFound->label())->toBe('لم يُعثر على عيب');
 });
 
-it('lists only non-serialized lines of the customer\'s completed deliveries with a quantity left', function (): void {
+it("lists only non-serialized lines of the customer's completed deliveries with a quantity left", function (): void {
     $customer = CustomerProfile::factory()->create();
     $other = CustomerProfile::factory()->create();
     $good = QualityFixtures::delivered($customer, '10');
@@ -200,12 +200,13 @@ it('only attaches context to open product quality tickets while the feature is o
     expect(fn () => $service->attach(QualityFixtures::ticket($customer), [$row]))->toThrow(ValidationException::class, 'not enabled');
 });
 
-it('requires the quality permission for staff and none for the customer\'s own filing', function (): void {
+it("requires the quality permission for staff and none for the customer's own filing", function (): void {
     $customer = CustomerProfile::factory()->create();
     $line = QualityFixtures::delivered($customer);
     $row = [['original_inventory_operation_line_id' => $line->id, 'quantity' => '1']];
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
+
     $service = app(TicketProductContextService::class);
 
     expect(fn () => $service->attach(QualityFixtures::ticket($customer), $row, $agent))->toThrow(AuthorizationException::class)
@@ -455,7 +456,7 @@ it('refuses a customer return that spans deliveries or that the customer cannot 
         ->and(TicketQualityResolution::query()->count())->toBe(0);
 });
 
-it('links an existing return request for refunds and credit notes, but only the customer\'s own', function (): void {
+it("links an existing return request for refunds and credit notes, but only the customer's own", function (): void {
     $manager = QualityFixtures::manager();
     $service = app(TicketQualityResolutionService::class);
     $ticket = complaintWithContext();
@@ -515,10 +516,12 @@ it('guards resolutions: notes, ticket type, context, single resolution, lots and
 
     $cancelled = complaintWithContext();
     $cancelled->update(['status' => TicketStatus::Cancelled]);
+
     expect(fn () => $service->resolve($cancelled, QualityResolutionType::NoDefectFound, $manager, ['notes' => 'x']))->toThrow(ValidationException::class, 'cancelled');
 
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
+
     expect(fn () => $service->resolve($ticket, QualityResolutionType::NoDefectFound, $agent, ['notes' => 'x']))->toThrow(AuthorizationException::class);
 
     $service->resolve($ticket, QualityResolutionType::NoDefectFound, $manager, ['notes' => 'x']);

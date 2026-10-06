@@ -93,6 +93,6 @@ it('covers payment settlement domain failure notification path', function (): vo
 it('covers unauthenticated table actor guard', function (): void {
     auth()->logout();
 
-    expect(fn () => new ReflectionMethod(TicketsTable::class, 'currentActor')->invoke(null))
+    expect(fn (): mixed => new ReflectionMethod(TicketsTable::class, 'currentActor')->invoke(null))
         ->toThrow(LogicException::class, 'authenticated User');
 });

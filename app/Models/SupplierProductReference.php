@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\SupplierProductReferenceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -90,7 +91,8 @@ final class SupplierProductReference extends Model
      * @param  Builder<$this>  $query
      * @return Builder<$this>
      */
-    public function scopeActiveFor(Builder $query, int $supplierId, int $productVariantId): Builder
+    #[Scope]
+    protected function activeFor(Builder $query, int $supplierId, int $productVariantId): Builder
     {
         return $query->where('supplier_id', $supplierId)
             ->where('product_variant_id', $productVariantId)

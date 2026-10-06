@@ -56,9 +56,9 @@ final class SupportTicketResource extends JsonResource
             'equipment' => [
                 'source' => $this->equipment_source?->value,
                 'serialized_inventory_unit_id' => $this->serialized_inventory_unit_id,
-                'name' => $this->serializedInventoryUnit?->productVariant?->name ?? $this->external_equipment_name,
+                'name' => data_get($this, 'serializedInventoryUnit.productVariant.name') ?? $this->external_equipment_name,
                 'model' => $this->external_equipment_model,
-                'serial_number' => $this->serializedInventoryUnit?->serial_number ?? $this->external_serial_number,
+                'serial_number' => data_get($this, 'serializedInventoryUnit.serial_number') ?? $this->external_serial_number,
             ],
             'product_quality' => $this->productQualityPayload(),
             'warranty' => [
@@ -147,7 +147,7 @@ final class SupportTicketResource extends JsonResource
                 'type' => $resolution->resolution_type->value,
                 'label' => $resolution->resolution_type->getLabel(),
                 'return_request_number' => $resolution->customerReturnRequest?->request_number,
-                'resolved_at' => $resolution->resolved_at?->toIso8601String(),
+                'resolved_at' => $resolution->resolved_at->toIso8601String(),
             ] : null,
         ];
     }

@@ -14,6 +14,7 @@ use App\Models\Lead;
 use App\Models\User;
 use App\Services\Crm\InteractionService;
 use App\Services\Crm\LeadService;
+use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -118,11 +119,9 @@ it('rejects nonnumeric CRM model keys in the internal key guard', function (): v
     $service = app(LeadService::class);
     $method = new ReflectionMethod($service, 'modelKey');
 
-    $record = new class extends Model
+    $record = new #[WithoutIncrementing] class extends Model
     {
         protected $keyType = 'string';
-
-        public $incrementing = false;
     };
     $record->setAttribute($record->getKeyName(), 'not-numeric');
 

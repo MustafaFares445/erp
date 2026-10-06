@@ -15,9 +15,9 @@ use App\Models\CustomerReturnRequest;
 use App\Models\EquipmentCalibration;
 use App\Models\EquipmentInstallation;
 use App\Models\EquipmentLoan;
+use App\Models\InventoryReturnLine;
 use App\Models\MaintenanceExternalRepair;
 use App\Models\MaintenanceSchedule;
-use App\Models\InventoryReturnLine;
 use App\Models\TicketProductContext;
 use App\Models\TicketQualityResolution;
 use App\Models\User;
@@ -226,7 +226,7 @@ final readonly class SupportLifecycleReportService
         $completedRows = $completed->get(['requested_at', 'returned_at']);
 
         $turnaround = $completedRows
-            ->map(static fn (MaintenanceExternalRepair $repair): float => $repair->requested_at !== null && $repair->returned_at !== null
+            ->map(static fn (MaintenanceExternalRepair $repair): float => $repair->returned_at !== null
                 ? (float) $repair->requested_at->diffInMinutes($repair->returned_at) / 1440
                 : 0.0)
             ->filter(static fn (float $days): bool => $days >= 0)
@@ -299,48 +299,59 @@ final readonly class SupportLifecycleReportService
             }
         }
 
-        $byProduct = $contexts
+        $byProduct = array_values($contexts
             ->groupBy('product_variant_id')
             ->map(static function (Collection $rows, int|string $variantId): array {
                 /** @var TicketProductContext|null $first */
                 $first = $rows->first();
+                $variant = $first instanceof TicketProductContext ? $first->productVariant : null;
+                $product = $variant?->product;
+                $quantity = $rows->sum('quantity');
 
                 return [
                     'product_variant_id' => (int) $variantId,
-                    'product' => (string) ($first?->productVariant?->product?->name ?? $first?->productVariant?->name ?? '—'),
+                    'product' => $product !== null
+                        ? $product->name
+                        : ($variant !== null ? $variant->name : '—'),
                     'complaints' => $rows->pluck('ticket_id')->unique()->count(),
-                    'affected_quantity' => round((float) $rows->sum('quantity'), 6),
+                    'affected_quantity' => round(is_numeric($quantity) ? (float) $quantity : 0.0, 6),
                 ];
             })
             ->sortByDesc('complaints')
             ->values()
-            ->all();
+            ->all());
 
         $lotRows = $contexts
             ->filter(static fn (TicketProductContext $context): bool => $context->inventory_lot_id !== null)
-            ->groupBy(static fn (TicketProductContext $context): int => $context->inventoryLot?->canonical_inventory_lot_id ?? (int) $context->inventory_lot_id)
+            ->groupBy(static fn (TicketProductContext $context): int => $context->inventoryLot->canonical_inventory_lot_id ?? (int) $context->inventory_lot_id)
             ->map(static function (Collection $rows, int|string $lotId): array {
                 /** @var TicketProductContext|null $first */
                 $first = $rows->first();
+                $lot = $first instanceof TicketProductContext ? $first->inventoryLot : null;
+                $quantity = $rows->sum('quantity');
 
                 return [
                     'inventory_lot_id' => (int) $lotId,
-                    'lot_number' => (string) ($first?->inventoryLot?->lot_number ?? '—'),
+                    'lot_number' => $lot !== null && is_string($lot->lot_number) && $lot->lot_number !== ''
+                        ? $lot->lot_number
+                        : '—',
                     'complaints' => $rows->pluck('ticket_id')->unique()->count(),
                     'affected_customers' => $rows->pluck('ticket.customer_id')->filter()->unique()->count(),
-                    'affected_quantity' => round((float) $rows->sum('quantity'), 6),
+                    'affected_quantity' => round(is_numeric($quantity) ? (float) $quantity : 0.0, 6),
                 ];
             })
             ->sortByDesc('complaints')
             ->values();
 
+        $affectedQuantity = $contexts->sum('quantity');
+
         return [
             'complaints' => $ticketIds->count(),
-            'affected_quantity' => round((float) $contexts->sum('quantity'), 6),
+            'affected_quantity' => round(is_numeric($affectedQuantity) ? (float) $affectedQuantity : 0.0, 6),
             'returned_quantity' => round($returnedQuantity, 6),
             'by_product' => $byProduct,
-            'by_lot' => $lotRows->all(),
-            'top_problematic_lots' => $lotRows->take(10)->all(),
+            'by_lot' => array_values($lotRows->all()),
+            'top_problematic_lots' => array_values($lotRows->take(10)->values()->all()),
         ];
     }
 

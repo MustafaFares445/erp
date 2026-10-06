@@ -14,6 +14,7 @@ use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -68,7 +69,8 @@ final class Invoice extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeActive(Builder $query): Builder
+    #[Scope]
+    protected function active(Builder $query): Builder
     {
         return $query->whereIn('status', [InvoiceStatus::Issued->value, InvoiceStatus::Sent->value]);
     }
@@ -77,7 +79,8 @@ final class Invoice extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeIssuedThisMonth(Builder $query): Builder
+    #[Scope]
+    protected function issuedThisMonth(Builder $query): Builder
     {
         return $query->whereNotNull('issued_at')
             ->whereBetween('issued_at', [now()->startOfMonth(), now()->endOfMonth()]);
@@ -89,7 +92,8 @@ final class Invoice extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeUnpaid(Builder $query): Builder
+    #[Scope]
+    protected function unpaid(Builder $query): Builder
     {
         return $query->active()
             ->where('amount_paid', 0)
@@ -102,7 +106,8 @@ final class Invoice extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopePartiallyPaid(Builder $query): Builder
+    #[Scope]
+    protected function partiallyPaid(Builder $query): Builder
     {
         return $query->active()
             ->where('amount_paid', '>', 0)
@@ -117,7 +122,8 @@ final class Invoice extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeOverdue(Builder $query): Builder
+    #[Scope]
+    protected function overdue(Builder $query): Builder
     {
         return $query->active()
             ->whereNotNull('due_date')
@@ -132,7 +138,8 @@ final class Invoice extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeSettled(Builder $query): Builder
+    #[Scope]
+    protected function settled(Builder $query): Builder
     {
         return $query->active()
             ->whereRaw('(total_amount - amount_paid - credited_amount) <= 0');
@@ -145,7 +152,8 @@ final class Invoice extends Model implements Favoritable, HasMedia
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeNeedsAttention(Builder $query): Builder
+    #[Scope]
+    protected function needsAttention(Builder $query): Builder
     {
         return $query->where(fn (Builder $q): Builder => $q
             ->overdue()

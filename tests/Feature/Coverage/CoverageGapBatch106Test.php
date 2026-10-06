@@ -50,7 +50,7 @@ it('covers confirmed supplier commitment allocation notifications', function ():
 
     $dispatcher = app(NotificationDispatcher::class);
 
-    (new SendBusinessNotification($dispatcher))
+    new SendBusinessNotification($dispatcher)
         ->handle(new SupplierCommitmentRecorded($order, $confirmation));
 
     expect(true)->toBeTrue();
@@ -62,11 +62,10 @@ it('covers installation milestone invalid-recipient guard', function (): void {
     $record = MaintenanceRecord::factory()->create();
     $dispatcher = app(NotificationDispatcher::class);
 
-    (new SendBusinessNotification($dispatcher))->handle(
+    new SendBusinessNotification($dispatcher)->handle(
         new EquipmentInstallationMilestone(
             $record,
             NotificationEventKey::InstallationScheduled,
-            null,
         ),
     );
 
@@ -96,7 +95,7 @@ it('deduplicates a quality manager who also owns inventory condition-change perm
 
     $dispatcher = app(NotificationDispatcher::class);
 
-    (new SendBusinessNotification($dispatcher))->handle(
+    new SendBusinessNotification($dispatcher)->handle(
         new SupportQualityMilestone(
             NotificationEventKey::LotComplaintThresholdReached,
             $lot,
