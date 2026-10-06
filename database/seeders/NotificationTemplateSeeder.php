@@ -164,6 +164,36 @@ final class NotificationTemplateSeeder extends Seeder
                 'en' => ['Task assigned: {{ task_title }}', '{{ task_title }} is due on {{ due_at }}.'],
                 'ar' => ['تم تعيين مهمة: {{ task_title }}', 'المهمة {{ task_title }} مستحقة بتاريخ {{ due_at }}.'],
             ],
+            NotificationEventKey::SalesPlanPublished->value => [
+                'variables' => ['plan_name', 'month'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Monthly plan published', '{{ plan_name }} for {{ month }} is now published.'],
+                'ar' => ['تم نشر الخطة الشهرية', 'تم نشر الخطة {{ plan_name }} للشهر {{ month }}.'],
+            ],
+            NotificationEventKey::VisitAssigned->value => [
+                'variables' => ['visit_reference', 'customer_name', 'scheduled_at'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Visit assigned: {{ customer_name }}', 'Visit {{ visit_reference }} is scheduled for {{ scheduled_at }}.'],
+                'ar' => ['تم تعيين زيارة: {{ customer_name }}', 'تمت جدولة الزيارة {{ visit_reference }} بتاريخ {{ scheduled_at }}.'],
+            ],
+            NotificationEventKey::VisitRescheduled->value => [
+                'variables' => ['visit_reference', 'customer_name', 'scheduled_at'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Visit rescheduled: {{ customer_name }}', 'Visit {{ visit_reference }} was rescheduled to {{ scheduled_at }}.'],
+                'ar' => ['تمت إعادة جدولة الزيارة: {{ customer_name }}', 'تمت إعادة جدولة الزيارة {{ visit_reference }} إلى {{ scheduled_at }}.'],
+            ],
+            NotificationEventKey::FollowUpTaskCreated->value => [
+                'variables' => ['task_title', 'due_at'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Follow-up created: {{ task_title }}', 'A visit follow-up task was created and is due on {{ due_at }}.'],
+                'ar' => ['تم إنشاء متابعة: {{ task_title }}', 'تم إنشاء مهمة متابعة للزيارة وتستحق بتاريخ {{ due_at }}.'],
+            ],
+            NotificationEventKey::SalaryConfirmed->value => [
+                'variables' => ['plan_name', 'final_salary'],
+                'channels' => [NotificationChannel::Database],
+                'en' => ['Salary calculation confirmed', 'The confirmed salary for {{ plan_name }} is {{ final_salary }}.'],
+                'ar' => ['تم تأكيد احتساب الراتب', 'تم تأكيد راتب الخطة {{ plan_name }} بقيمة {{ final_salary }}.'],
+            ],
             NotificationEventKey::TicketUpdated->value => [
                 'variables' => ['ticket_number', 'status'],
                 'channels' => [NotificationChannel::Mail, NotificationChannel::Database],

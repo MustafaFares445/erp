@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MonthlyPlans\Pages;
 
+use App\Filament\Resources\MonthlyPlans\Actions\MonthlyPlanLifecycleActions;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -16,6 +17,10 @@ final class ViewMonthlyPlan extends ViewRecord
     public function getHeaderActions(): array
     {
         return [
+            MonthlyPlanLifecycleActions::publish(),
+            MonthlyPlanLifecycleActions::start(),
+            MonthlyPlanLifecycleActions::complete(),
+            MonthlyPlanLifecycleActions::archive(),
             EditAction::make(),
         ];
     }

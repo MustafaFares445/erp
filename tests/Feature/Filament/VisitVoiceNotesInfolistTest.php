@@ -12,7 +12,7 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-it('renders voice notes as audio players instead of a table, without a transcription field', function (): void {
+it('renders voice-note playback and transcription evidence without a table', function (): void {
     $admin = User::factory()->admin()->create();
     $visit = CustomerVisit::factory()->create();
 
@@ -30,11 +30,11 @@ it('renders voice notes as audio players instead of a table, without a transcrip
     Livewire::actingAs($admin)
         ->test(ViewVisit::class, ['record' => $visit->getKey()])
         ->assertSuccessful()
-        ->assertSee('Voice notes')
+        ->assertSee('Voice notes and transcription')
         ->assertSee('ar')
-        ->assertSee('42s')
-        ->assertSeeHtml('<audio')
-        ->assertDontSee('Client requested a callback.')
+        ->assertSee('42 sec')
+        ->assertSee('Play audio')
+        ->assertSee('Client requested a callback.')
         ->assertDontSeeHtml('<table');
 });
 
@@ -45,5 +45,5 @@ it('shows an empty-state placeholder when a visit has no voice notes', function 
     Livewire::actingAs($admin)
         ->test(ViewVisit::class, ['record' => $visit->getKey()])
         ->assertSuccessful()
-        ->assertSee('No voice notes recorded for this visit.');
+        ->assertSee('No voice notes for this visit');
 });

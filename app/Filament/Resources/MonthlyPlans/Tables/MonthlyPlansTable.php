@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\MonthlyPlans\Tables;
 
 use App\Enums\SalesPlanStatus;
+use App\Filament\Resources\MonthlyPlans\Actions\MonthlyPlanLifecycleActions;
 use App\Models\EmployeeProfile;
 use App\Models\SalesPlan;
 use App\Models\User;
@@ -50,10 +51,10 @@ final class MonthlyPlansTable
                 ViewAction::make(),
                 EditAction::make(),
                 ActionGroup::make([
-                    self::transitionAction('activate', 'Activate', SalesPlanStatus::Active, Heroicon::OutlinedPlay),
-                    self::transitionAction('pause', 'Pause', SalesPlanStatus::Paused, Heroicon::OutlinedPause),
-                    self::transitionAction('complete', 'Complete', SalesPlanStatus::Completed, Heroicon::OutlinedCheckCircle),
-                    self::transitionAction('archive', 'Archive', SalesPlanStatus::Archived, Heroicon::OutlinedArchiveBox),
+                    MonthlyPlanLifecycleActions::publish(),
+                    MonthlyPlanLifecycleActions::start(),
+                    MonthlyPlanLifecycleActions::complete(),
+                    MonthlyPlanLifecycleActions::archive(),
                     self::copyToMonthAction(),
                     self::assignToEmployeeAction(),
                     DeleteAction::make()
@@ -68,23 +69,6 @@ final class MonthlyPlansTable
                         ->action(static fn (SalesPlan $record) => app(SalesPlanService::class)->restore($record)),
                 ]),
             ]);
-    }
-
-    private static function transitionAction(string $name, string $label, SalesPlanStatus $to, Heroicon $icon): Action
-    {
-        return Action::make($name)
-            ->label($label)
-            ->icon($icon)
-            ->requiresConfirmation()
-            ->authorize('update')
-            ->visible(static fn (SalesPlan $record): bool => $record->status->canTransitionTo($to))
-            ->action(static function (SalesPlan $record) use ($to): void {
-                try {
-                    app(SalesPlanService::class)->transition($record, $to);
-                } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title(__('Unable to change the plan status'))->body($domainException->getMessage())->send();
-                }
-            });
     }
 
     private static function copyToMonthAction(): Action

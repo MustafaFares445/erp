@@ -21,6 +21,10 @@ enum SalesOpportunityStatus: string
 
     public function label(): string
     {
-        return $this->value;
+        return match ($this) {
+            self::Draft => __('Pending review'),
+            self::Approved => __('Accepted'),
+            self::Rejected => __('Rejected'),
+        };
     }
 }

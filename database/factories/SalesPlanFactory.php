@@ -34,12 +34,26 @@ final class SalesPlanFactory extends Factory
         ];
     }
 
-    public function active(): static
+    public function published(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => SalesPlanStatus::Published,
+            'published_at' => now(),
+        ]);
+    }
+
+    public function inProgress(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'status' => SalesPlanStatus::Active,
+            'status' => SalesPlanStatus::InProgress,
             'active_month' => $attributes['month'] ?? now()->startOfMonth()->toDateString(),
+            'published_at' => now(),
         ]);
+    }
+
+    public function active(): static
+    {
+        return $this->inProgress();
     }
 
     public function withTasks(int $count = 3): static

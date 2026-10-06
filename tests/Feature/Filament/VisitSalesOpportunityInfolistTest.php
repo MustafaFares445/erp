@@ -26,7 +26,7 @@ it('shows a sales opportunity detected from the visit voice notes', function ():
     Livewire::actingAs($admin)
         ->test(ViewVisit::class, ['record' => $visit->getKey()])
         ->assertSuccessful()
-        ->assertSee('Sales Opportunity')
+        ->assertSee('Sales activity')
         ->assertSee('Client interested in a Form 4B upgrade.');
 });
 
@@ -37,5 +37,5 @@ it('shows an empty-state placeholder when a visit has no sales opportunity', fun
     Livewire::actingAs($admin)
         ->test(ViewVisit::class, ['record' => $visit->getKey()])
         ->assertSuccessful()
-        ->assertSee('No sales opportunity detected for this visit');
+        ->assertSee('No sales opportunity evidence for this visit');
 });

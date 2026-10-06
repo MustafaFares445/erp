@@ -33,7 +33,9 @@ it('writes an audit entry for create, update, transition, delete, and restore', 
     expect(AuditLog::query()->where('description', 'plan.updated')->where('subject_id', $plan->id)->exists())->toBeTrue();
 
     PlanTask::factory()->create(['sales_plan_id' => $plan->id]);
-    $service->transition($plan, SalesPlanStatus::Active);
+    $service->transition($plan, SalesPlanStatus::Published);
+    $service->transition($plan->fresh(), SalesPlanStatus::InProgress);
+
     expect(AuditLog::query()->where('description', 'plan.transitioned')->where('subject_id', $plan->id)->exists())->toBeTrue();
 
     $service->transition($plan->fresh(), SalesPlanStatus::Completed);

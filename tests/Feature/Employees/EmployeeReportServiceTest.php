@@ -37,8 +37,8 @@ it('returns only overdue tasks for the OverdueTasks report', function (): void {
 });
 
 it('returns only Planned and Missed visits for the UnexecutedVisits report', function (): void {
-    $planned = CustomerVisit::factory()->create(['status' => VisitStatus::Planned]);
-    $missed = CustomerVisit::factory()->create(['status' => VisitStatus::Missed]);
+    $planned = CustomerVisit::factory()->create(['status' => VisitStatus::Scheduled]);
+    $missed = CustomerVisit::factory()->create(['status' => VisitStatus::UnableToComplete]);
     $completed = CustomerVisit::factory()->completed()->create();
 
     $ids = app(EmployeeReportService::class)->query(EmployeeReportType::UnexecutedVisits)->pluck('id');

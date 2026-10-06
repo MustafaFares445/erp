@@ -147,7 +147,7 @@ it('filters tickets with query-builder rules', function (): void {
 
 it('renders the visit list with presets, Starred and groups', function (): void {
     $employee = EmployeeProfile::factory()->create(['user_id' => $this->admin->id]);
-    $mine = CustomerVisit::factory()->create(['employee_id' => $employee->id, 'status' => VisitStatus::Planned]);
+    $mine = CustomerVisit::factory()->create(['employee_id' => $employee->id, 'status' => VisitStatus::Scheduled]);
     $other = CustomerVisit::factory()->completed()->create();
 
     $component = Livewire::test(ListVisits::class)
@@ -182,7 +182,7 @@ it('stars visits and lists them under the Starred tab', function (): void {
 });
 
 it('filters visits with query-builder rules', function (): void {
-    $planned = CustomerVisit::factory()->create(['status' => VisitStatus::Planned]);
+    $planned = CustomerVisit::factory()->create(['status' => VisitStatus::Scheduled]);
     $completed = CustomerVisit::factory()->completed()->create();
 
     Livewire::test(ListVisits::class)

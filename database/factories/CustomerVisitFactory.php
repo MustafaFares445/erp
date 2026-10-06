@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\VisitOutcome;
 use App\Enums\VisitStatus;
 use App\Models\CustomerProfile;
 use App\Models\CustomerVisit;
@@ -26,13 +27,15 @@ final class CustomerVisitFactory extends Factory
             'plan_task_id' => PlanTask::factory(),
             'customer_id' => CustomerProfile::factory(),
             'planned_at' => now(),
+            'scheduled_start_at' => now(),
+            'scheduled_end_at' => now()->addHour(),
             'checked_in_at' => null,
             'checked_out_at' => null,
             'outcome' => null,
             'review_note' => null,
             'reviewed_by' => null,
             'reviewed_at' => null,
-            'status' => VisitStatus::Planned,
+            'status' => VisitStatus::Scheduled,
         ];
     }
 
@@ -42,6 +45,7 @@ final class CustomerVisitFactory extends Factory
             'status' => VisitStatus::Completed,
             'checked_in_at' => now()->subMinutes(45),
             'checked_out_at' => now(),
+            'outcome_code' => VisitOutcome::Successful,
         ]);
     }
 
@@ -51,6 +55,7 @@ final class CustomerVisitFactory extends Factory
             'status' => VisitStatus::Completed,
             'checked_in_at' => now()->subMinutes(45),
             'checked_out_at' => null,
+            'outcome_code' => VisitOutcome::Successful,
         ]);
     }
 }

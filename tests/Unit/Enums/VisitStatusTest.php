@@ -3,22 +3,25 @@
 declare(strict_types=1);
 
 use App\Enums\VisitStatus;
-use Illuminate\Support\Carbon;
 
 it('allows exactly the documented transitions', function (): void {
-    expect(VisitStatus::Planned->canTransitionTo(VisitStatus::InProgress))->toBeTrue()
-        ->and(VisitStatus::Planned->canTransitionTo(VisitStatus::Missed))->toBeTrue()
-        ->and(VisitStatus::InProgress->canTransitionTo(VisitStatus::Missed))->toBeTrue()
-        ->and(VisitStatus::InProgress->canTransitionTo(VisitStatus::Completed, Carbon::now()))->toBeTrue()
-        ->and(VisitStatus::Missed->canTransitionTo(VisitStatus::Planned))->toBeTrue();
+    expect(VisitStatus::Scheduled->canTransitionTo(VisitStatus::EnRoute))->toBeTrue()
+        ->and(VisitStatus::Scheduled->canTransitionTo(VisitStatus::UnableToComplete))->toBeTrue()
+        ->and(VisitStatus::Scheduled->canTransitionTo(VisitStatus::Cancelled))->toBeTrue()
+        ->and(VisitStatus::EnRoute->canTransitionTo(VisitStatus::InProgress))->toBeTrue()
+        ->and(VisitStatus::EnRoute->canTransitionTo(VisitStatus::UnableToComplete))->toBeTrue()
+        ->and(VisitStatus::InProgress->canTransitionTo(VisitStatus::Completed))->toBeTrue()
+        ->and(VisitStatus::InProgress->canTransitionTo(VisitStatus::UnableToComplete))->toBeTrue();
 });
 
 it('rejects every undocumented transition', function (): void {
-    expect(VisitStatus::Planned->canTransitionTo(VisitStatus::Completed, Carbon::now()))->toBeFalse()
+    expect(VisitStatus::Scheduled->canTransitionTo(VisitStatus::InProgress))->toBeFalse()
+        ->and(VisitStatus::Scheduled->canTransitionTo(VisitStatus::Completed))->toBeFalse()
+        ->and(VisitStatus::EnRoute->canTransitionTo(VisitStatus::Completed))->toBeFalse()
         ->and(VisitStatus::Completed->canTransitionTo(VisitStatus::InProgress))->toBeFalse()
-        ->and(VisitStatus::Completed->canTransitionTo(VisitStatus::Missed))->toBeFalse()
-        ->and(VisitStatus::Missed->canTransitionTo(VisitStatus::InProgress))->toBeFalse()
-        ->and(VisitStatus::Missed->canTransitionTo(VisitStatus::Completed, Carbon::now()))->toBeFalse();
+        ->and(VisitStatus::Completed->canTransitionTo(VisitStatus::UnableToComplete))->toBeFalse()
+        ->and(VisitStatus::UnableToComplete->canTransitionTo(VisitStatus::Scheduled))->toBeFalse()
+        ->and(VisitStatus::UnableToComplete->canTransitionTo(VisitStatus::Completed))->toBeFalse();
 });
 
 it('rejects every self-transition', function (): void {
@@ -27,7 +30,6 @@ it('rejects every self-transition', function (): void {
     }
 });
 
-it('requires a checked-out timestamp before InProgress can move to Completed', function (): void {
-    expect(VisitStatus::InProgress->canTransitionTo(VisitStatus::Completed))->toBeFalse()
-        ->and(VisitStatus::InProgress->canTransitionTo(VisitStatus::Completed, Carbon::now()))->toBeTrue();
+it('keeps completion prerequisites in the lifecycle service rather than the enum graph', function (): void {
+    expect(VisitStatus::InProgress->canTransitionTo(VisitStatus::Completed))->toBeTrue();
 });

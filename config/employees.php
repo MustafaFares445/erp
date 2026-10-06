@@ -31,4 +31,16 @@ return [
     */
     'default_required_visit_minutes' => env('EMPLOYEES_DEFAULT_REQUIRED_VISIT_MINUTES', 30),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Visit Location Validation
+    |--------------------------------------------------------------------------
+    |
+    | A check-in farther than this many meters from the customer's saved
+    | coordinates is retained as a location warning. It never blocks the
+    | visit lifecycle; the snapshot and any explicit override stay auditable.
+    |
+    */
+    'visit_location_warning_meters' => env('EMPLOYEES_VISIT_LOCATION_WARNING_METERS', 250),
+
 ];

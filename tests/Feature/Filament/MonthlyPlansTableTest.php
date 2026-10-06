@@ -13,7 +13,7 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-it('activates a draft plan and shows a notification when the weights do not sum to 100', function (): void {
+it('keeps a draft plan unpublished and shows a notification when the weights do not sum to 100', function (): void {
     $admin = User::factory()->admin()->create();
     $plan = SalesPlan::factory()->create([
         'task_weight' => 50,
@@ -24,33 +24,45 @@ it('activates a draft plan and shows a notification when the weights do not sum 
 
     Livewire::actingAs($admin)
         ->test(ListMonthlyPlans::class)
-        ->callAction(TestAction::make('activate')->table($plan))
+        ->callAction(TestAction::make('publish')->table($plan))
         ->assertNotified();
 
     expect($plan->fresh()->status->value)->toBe('Draft');
 });
 
-it('activates a draft plan with valid weights and at least one task', function (): void {
+it('publishes and starts a draft plan with valid weights and at least one task', function (): void {
     $admin = User::factory()->admin()->create();
     $plan = SalesPlan::factory()->create();
     PlanTask::factory()->create(['sales_plan_id' => $plan->id]);
 
     Livewire::actingAs($admin)
         ->test(ListMonthlyPlans::class)
-        ->callAction(TestAction::make('activate')->table($plan));
+        ->callAction(TestAction::make('publish')->table($plan));
 
-    expect($plan->fresh()->status->value)->toBe('Active');
-});
-
-it('pauses, completes, and archives a plan through the transition actions', function (): void {
-    $admin = User::factory()->admin()->create();
-    $plan = SalesPlan::factory()->active()->create();
+    expect($plan->fresh()->status->value)->toBe('Published');
 
     Livewire::actingAs($admin)
         ->test(ListMonthlyPlans::class)
-        ->callAction(TestAction::make('pause')->table($plan));
+        ->callAction(TestAction::make('start')->table($plan->fresh()));
 
-    expect($plan->fresh()->status->value)->toBe('Paused');
+    expect($plan->fresh()->status->value)->toBe('InProgress');
+});
+
+it('completes and archives an in-progress plan through the transition actions', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->inProgress()->create();
+
+    Livewire::actingAs($admin)
+        ->test(ListMonthlyPlans::class)
+        ->callAction(TestAction::make('complete')->table($plan));
+
+    expect($plan->fresh()->status->value)->toBe('Completed');
+
+    Livewire::actingAs($admin)
+        ->test(ListMonthlyPlans::class)
+        ->callAction(TestAction::make('archive')->table($plan->fresh()));
+
+    expect($plan->fresh()->status->value)->toBe('Archived');
 });
 
 it('shows a notification instead of deleting a plan that has completed tasks', function (): void {

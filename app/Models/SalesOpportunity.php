@@ -20,10 +20,35 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
-    'voice_note_transcription_id', 'ai_keyword_rule_id', 'summary', 'origin_summary', 'status',
-    'reviewed_by', 'reviewed_at', 'review_notes', 'origin', 'customer_id', 'lead_id', 'campaign_id', 'title',
-    'estimated_value_minor', 'currency', 'expected_close_date', 'stage', 'probability_percent',
-    'owner_id', 'closed_at', 'close_reason', 'close_note',
+    'voice_note_transcription_id',
+    'ai_keyword_rule_id',
+    'source_visit_id',
+    'source_voice_note_id',
+    'detected_product_id',
+    'detected_product_variant_id',
+    'transcript_excerpt',
+    'detection_metadata',
+    'rejection_reason',
+    'summary',
+    'origin_summary',
+    'status',
+    'reviewed_by',
+    'reviewed_at',
+    'review_notes',
+    'origin',
+    'customer_id',
+    'lead_id',
+    'campaign_id',
+    'title',
+    'estimated_value_minor',
+    'currency',
+    'expected_close_date',
+    'stage',
+    'probability_percent',
+    'owner_id',
+    'closed_at',
+    'close_reason',
+    'close_note',
 ])]
 final class SalesOpportunity extends Model
 {
@@ -46,6 +71,7 @@ final class SalesOpportunity extends Model
             'expected_close_date' => 'date',
             'reviewed_at' => 'datetime',
             'closed_at' => 'datetime',
+            'detection_metadata' => 'array',
         ];
     }
 
@@ -59,6 +85,30 @@ final class SalesOpportunity extends Model
     public function keywordRule(): BelongsTo
     {
         return $this->belongsTo(AiKeywordRule::class, 'ai_keyword_rule_id');
+    }
+
+    /** @return BelongsTo<CustomerVisit, $this> */
+    public function sourceVisit(): BelongsTo
+    {
+        return $this->belongsTo(CustomerVisit::class, 'source_visit_id');
+    }
+
+    /** @return BelongsTo<EmployeeVoiceNote, $this> */
+    public function sourceVoiceNote(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeVoiceNote::class, 'source_voice_note_id');
+    }
+
+    /** @return BelongsTo<Product, $this> */
+    public function detectedProduct(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'detected_product_id');
+    }
+
+    /** @return BelongsTo<ProductVariant, $this> */
+    public function detectedProductVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class, 'detected_product_variant_id');
     }
 
     /** @return BelongsTo<CustomerProfile, $this> */
@@ -119,6 +169,12 @@ final class SalesOpportunity extends Model
             return $this->lead->convertedCustomer;
         }
 
+        $sourceVisit = $this->source_visit_id !== null ? $this->sourceVisit()->first() : null;
+
+        if ($sourceVisit instanceof CustomerVisit && $sourceVisit->customer instanceof CustomerProfile) {
+            return $sourceVisit->customer;
+        }
+
         return $this->transcription?->employeeVoiceNote?->customerVisit?->customer;
     }
 
@@ -128,20 +184,19 @@ final class SalesOpportunity extends Model
             return $this->owner->employeeProfile;
         }
 
+        $sourceVisit = $this->source_visit_id !== null ? $this->sourceVisit()->first() : null;
+
+        if ($sourceVisit instanceof CustomerVisit && $sourceVisit->employee instanceof EmployeeProfile) {
+            return $sourceVisit->employee;
+        }
+
         return $this->transcription?->employeeVoiceNote?->employee;
     }
 
-    /**
-     * Derived from retained origin evidence — the AI keyword rule reference
-     * or the transcript snapshot taken at creation (WP-1.10) — rather than
-     * from the `origin` column alone, which is not guaranteed to be
-     * populated on the in-memory model until it is refreshed from the
-     * database default, and which a historical row predating this evidence
-     * may never have set meaningfully.
-     */
     public function isAiOriginated(): bool
     {
         return $this->voice_note_transcription_id !== null
+            || $this->source_voice_note_id !== null
             || $this->ai_keyword_rule_id !== null
             || (is_string($this->origin_summary) && mb_trim($this->origin_summary) !== '');
     }
@@ -162,12 +217,6 @@ final class SalesOpportunity extends Model
         self::saving(static fn (self $record) => $record->validateActiveCurrency('currency'));
 
         self::creating(static function (self $opportunity): void {
-            // WP-1.10: an AI-originated opportunity still requires its
-            // transcription at creation time — only WP-2.2's explicit
-            // non-AI origins (Manual, Lead, ExistingCustomer, ...), set by
-            // OpportunityService::create(), are exempt. `origin` left unset
-            // defaults to `ai_voice_note` at the database level, so a null
-            // in-memory value is treated the same as the AI origin here.
             $origin = $opportunity->getAttributes()['origin'] ?? null;
             $isAiOrigin = $origin === null || $origin === OpportunityOrigin::AiVoiceNote->value;
 

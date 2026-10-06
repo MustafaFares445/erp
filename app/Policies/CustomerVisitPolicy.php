@@ -22,9 +22,16 @@ final class CustomerVisitPolicy
         return $this->authorizeEmployeeAbility($user, 'view');
     }
 
-    /**
-     * The D7/FR-045 review-note action — the only write path a visit has.
-     */
+    public function create(User $user): bool
+    {
+        return $this->authorizeEmployeeAbility($user, 'manage');
+    }
+
+    public function schedule(User $user): bool
+    {
+        return $this->authorizeEmployeeAbility($user, 'manage');
+    }
+
     public function review(User $user): bool
     {
         return $this->authorizeEmployeeAbility($user, 'review');
@@ -36,6 +43,7 @@ final class CustomerVisitPolicy
         return [
             'viewAny' => EmployeePermission::VisitView->value,
             'view' => EmployeePermission::VisitView->value,
+            'manage' => EmployeePermission::VisitManage->value,
             'review' => EmployeePermission::VisitReview->value,
         ];
     }

@@ -30,9 +30,10 @@ it('allows deletion when no task on the plan has been completed', function (): v
         ->and(SalesPlan::withTrashed()->find($plan->id))->not->toBeNull();
 });
 
-it('restores a soft-deleted plan back to Archived, never to Active, regardless of its prior status', function (): void {
+it('restores a soft-deleted plan back to Archived, never to In Progress, regardless of its prior status', function (): void {
     $plan = SalesPlan::factory()->withTasks(1)->create();
-    app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Active);
+    $published = app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Published);
+    app(SalesPlanService::class)->transition($published->refresh(), SalesPlanStatus::InProgress);
     app(SalesPlanService::class)->delete($plan->fresh());
 
     $restored = app(SalesPlanService::class)->restore(SalesPlan::withTrashed()->findOrFail($plan->id));

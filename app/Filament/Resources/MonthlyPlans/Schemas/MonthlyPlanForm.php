@@ -44,22 +44,24 @@ final class MonthlyPlanForm
                     ])
                     ->columns(2),
                 Section::make(__('Weights'))
-                    ->description(__('The four weights must sum to exactly 100 before the plan can be activated.'))
+                    ->description(__('The configured performance weights must sum to exactly 100 before the plan can be published.'))
                     ->schema([
                         TextInput::make('task_weight')->numeric()->live()->required(),
                         TextInput::make('visit_weight')->numeric()->live()->required(),
                         TextInput::make('schedule_weight')->numeric()->live()->required(),
                         TextInput::make('work_time_weight')->numeric()->live()->required(),
+                        TextInput::make('opportunity_weight')->label(__('Sales opportunity weight'))->numeric()->live()->required()->default(0),
                         Placeholder::make('weight_sum')
                             ->label(__('Current sum'))
                             ->content(static function (Get $get): string {
                                 $sum = self::toFloat($get('task_weight')) + self::toFloat($get('visit_weight'))
-                                    + self::toFloat($get('schedule_weight')) + self::toFloat($get('work_time_weight'));
+                                    + self::toFloat($get('schedule_weight')) + self::toFloat($get('work_time_weight'))
+                                    + self::toFloat($get('opportunity_weight'));
 
                                 return number_format($sum, 2);
                             }),
                     ])
-                    ->columns(5),
+                    ->columns(6),
             ]);
     }
 

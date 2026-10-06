@@ -9,19 +9,13 @@ use App\Enums\VisitStatus;
 use App\Models\CustomerVisit;
 use App\Models\EmployeePerformanceScore;
 use App\Models\PlanTask;
+use App\Models\SalesOpportunity;
 use App\Models\SalesPlan;
 use App\Services\Employees\Data\PerformanceScoreInputs;
 use App\Services\Employees\Data\PerformanceScoreResult;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Computes the four weighted component scores and the total score per plan
- * (contracts/performance-scoring.md, D2, D4, D5). {@see self::calculate()}
- * is pure and deterministic — no database access, so it is unit-testable in
- * isolation. {@see self::scoreForPlan()} gathers the real inputs and
- * persists the result.
- */
 final readonly class PerformanceScoringService
 {
     public function calculate(PerformanceScoreInputs $inputs): PerformanceScoreResult
@@ -30,11 +24,13 @@ final readonly class PerformanceScoringService
         $visitRatio = $this->ratio($inputs->completedVisits, $inputs->totalVisits);
         $scheduleRatio = $this->ratio($inputs->onTimeCompletedTasks, $inputs->completedTasks);
         $workTimeRatio = $this->ratio($inputs->durationCompliantVisits, $inputs->completedVisits);
+        $opportunityRatio = min(1.0, $this->ratio($inputs->detectedOpportunities, $inputs->completedVisits));
 
         $taskScore = round($taskRatio * $inputs->taskWeight, 2);
         $visitScore = round($visitRatio * $inputs->visitWeight, 2);
         $scheduleScore = round($scheduleRatio * $inputs->scheduleWeight, 2);
         $workTimeScore = round($workTimeRatio * $inputs->workTimeWeight, 2);
+        $opportunityScore = round($opportunityRatio * $inputs->opportunityWeight, 2);
 
         $breakdown = [
             'task_completion' => $this->factorBreakdown($inputs->completedTasks, $inputs->totalTasks, $taskRatio, $inputs->taskWeight, $taskScore),
@@ -45,6 +41,10 @@ final readonly class PerformanceScoringService
                 'required_visit_minutes' => $inputs->requiredVisitMinutes,
                 'missing_timestamp_visit_count' => $inputs->visitsMissingTimestamps,
             ],
+            'potential_sales_opportunities' => [
+                ...$this->factorBreakdown($inputs->detectedOpportunities, $inputs->completedVisits, $opportunityRatio, $inputs->opportunityWeight, $opportunityScore),
+                'rule' => 'Detected opportunities per completed visit, capped at 100%.',
+            ],
         ];
 
         return new PerformanceScoreResult(
@@ -52,7 +52,8 @@ final readonly class PerformanceScoringService
             visitScore: $visitScore,
             scheduleScore: $scheduleScore,
             workTimeScore: $workTimeScore,
-            totalScore: round($taskScore + $visitScore + $scheduleScore + $workTimeScore, 2),
+            opportunityScore: $opportunityScore,
+            totalScore: round($taskScore + $visitScore + $scheduleScore + $workTimeScore + $opportunityScore, 2),
             taskCompletionPercent: round($taskRatio * 100, 2),
             breakdown: $breakdown,
         );
@@ -60,29 +61,56 @@ final readonly class PerformanceScoringService
 
     public function scoreForPlan(SalesPlan $plan): EmployeePerformanceScore
     {
-        $result = $this->calculate($this->gatherInputs($plan));
+        $inputs = $this->gatherInputs($plan);
+        $result = $this->calculate($inputs);
+        $periodStart = $plan->month->copy()->startOfMonth();
+        $periodEnd = $plan->month->copy()->endOfMonth();
 
-        return DB::transaction(function () use ($plan, $result): EmployeePerformanceScore {
-            $score = EmployeePerformanceScore::query()->updateOrCreate(
-                ['sales_plan_id' => $plan->id, 'employee_id' => $plan->employee_id],
-                [
-                    'task_score' => $result->taskScore,
-                    'visit_score' => $result->visitScore,
-                    'schedule_score' => $result->scheduleScore,
-                    'work_time_score' => $result->workTimeScore,
-                    'total_score' => $result->totalScore,
-                    'task_completion_percent' => $result->taskCompletionPercent,
-                    'calculation_breakdown' => $result->breakdown,
-                    'calculated_at' => now(),
+        return DB::transaction(function () use ($plan, $inputs, $result, $periodStart, $periodEnd): EmployeePerformanceScore {
+            $score = EmployeePerformanceScore::query()->create([
+                'sales_plan_id' => $plan->id,
+                'employee_id' => $plan->employee_id,
+                'task_score' => $result->taskScore,
+                'visit_score' => $result->visitScore,
+                'schedule_score' => $result->scheduleScore,
+                'work_time_score' => $result->workTimeScore,
+                'opportunity_score' => $result->opportunityScore,
+                'total_score' => $result->totalScore,
+                'task_completion_percent' => $result->taskCompletionPercent,
+                'calculation_breakdown' => $result->breakdown,
+                'period_start' => $periodStart,
+                'period_end' => $periodEnd,
+                'factor_weights' => [
+                    'task_completion' => $inputs->taskWeight,
+                    'visit_completion' => $inputs->visitWeight,
+                    'schedule_adherence' => $inputs->scheduleWeight,
+                    'work_time_adherence' => $inputs->workTimeWeight,
+                    'potential_sales_opportunities' => $inputs->opportunityWeight,
                 ],
-            );
+                'raw_values' => [
+                    'total_tasks' => $inputs->totalTasks,
+                    'completed_tasks' => $inputs->completedTasks,
+                    'on_time_completed_tasks' => $inputs->onTimeCompletedTasks,
+                    'total_visits' => $inputs->totalVisits,
+                    'completed_visits' => $inputs->completedVisits,
+                    'duration_compliant_visits' => $inputs->durationCompliantVisits,
+                    'visits_missing_timestamps' => $inputs->visitsMissingTimestamps,
+                    'detected_opportunities' => $inputs->detectedOpportunities,
+                    'required_visit_minutes' => $inputs->requiredVisitMinutes,
+                ],
+                'weighted_values' => [
+                    'task_completion' => $result->taskScore,
+                    'visit_completion' => $result->visitScore,
+                    'schedule_adherence' => $result->scheduleScore,
+                    'work_time_adherence' => $result->workTimeScore,
+                    'potential_sales_opportunities' => $result->opportunityScore,
+                ],
+                'calculated_at' => now(),
+            ]);
 
-            activity()
-                ->performedOn($score)
-                ->withChanges([
-                    'attributes' => $score->getAttributes(),
-                ])
-                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            activity()->performedOn($score)
+                ->withChanges(['attributes' => $score->getAttributes()])
+                ->withProperties(['source_channel' => 'dashboard'])
                 ->log('performance.calculated');
 
             return $score;
@@ -91,7 +119,10 @@ final readonly class PerformanceScoringService
 
     private function gatherInputs(SalesPlan $plan): PerformanceScoreInputs
     {
-        $tasks = PlanTask::query()->where('sales_plan_id', $plan->id)->get();
+        $tasks = PlanTask::query()
+            ->where('sales_plan_id', $plan->id)
+            ->whereNull('source_visit_id')
+            ->get();
         $completedTasks = $tasks->where('status', PlanTaskStatus::Completed);
         $onTimeCompletedTasks = $completedTasks->filter(
             fn (PlanTask $task): bool => self::isTaskOnTime($task),
@@ -109,6 +140,16 @@ final readonly class PerformanceScoringService
             fn (CustomerVisit $visit): bool => $visit->durationMinutes() === null,
         );
 
+        $detectedOpportunities = SalesOpportunity::query()
+            ->where(function (Builder $query) use ($plan): void {
+                $query->whereHas('sourceVisit.planTask', fn (Builder $task): Builder => $task->where('sales_plan_id', $plan->id))
+                    ->orWhereHas(
+                        'transcription.employeeVoiceNote.customerVisit.planTask',
+                        fn (Builder $task): Builder => $task->where('sales_plan_id', $plan->id),
+                    );
+            })
+            ->count();
+
         return new PerformanceScoreInputs(
             totalTasks: $tasks->count(),
             completedTasks: $completedTasks->count(),
@@ -117,20 +158,16 @@ final readonly class PerformanceScoringService
             completedVisits: $completedVisits->count(),
             durationCompliantVisits: $durationCompliantVisits->count(),
             visitsMissingTimestamps: $visitsMissingTimestamps->count(),
+            detectedOpportunities: $detectedOpportunities,
             requiredVisitMinutes: $plan->requiredVisitMinutes(),
             taskWeight: (float) $plan->task_weight,
             visitWeight: (float) $plan->visit_weight,
             scheduleWeight: (float) $plan->schedule_weight,
             workTimeWeight: (float) $plan->work_time_weight,
+            opportunityWeight: (float) $plan->opportunity_weight,
         );
     }
 
-    /**
-     * "On time" per contracts/performance-scoring.md: `completed_at <= due_at`,
-     * inclusive of equality, compared by calendar day since `due_at` has no
-     * time component. Pure — reads only the two attributes already on the
-     * model, so it needs no database connection to unit test.
-     */
     public static function isTaskOnTime(PlanTask $task): bool
     {
         return $task->completed_at !== null
@@ -142,9 +179,7 @@ final readonly class PerformanceScoringService
         return $denominator === 0 ? 0.0 : $numerator / $denominator;
     }
 
-    /**
-     * @return array{numerator: int, denominator: int, ratio: float, weight: float, contribution: float}
-     */
+    /** @return array{numerator:int, denominator:int, ratio:float, weight:float, contribution:float} */
     private function factorBreakdown(int $numerator, int $denominator, float $ratio, float $weight, float $contribution): array
     {
         return [

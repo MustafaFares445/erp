@@ -26,7 +26,7 @@ final class SendVisitDueRemindersCommand extends Command
         $queued = 0;
 
         CustomerVisit::query()
-            ->where('status', VisitStatus::Planned->value)
+            ->where('status', VisitStatus::Scheduled->value)
             ->whereBetween('planned_at', [today()->startOfDay(), today()->endOfDay()])
             ->with(['employee.user', 'customer'])
             ->orderBy('id')

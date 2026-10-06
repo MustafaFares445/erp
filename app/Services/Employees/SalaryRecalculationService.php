@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Employees;
 
 use App\Enums\SalaryCalculationStatus;
+use App\Events\SalaryConfirmed;
 use App\Jobs\NotifyAdminOfSalaryRecalculation;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\SalesPlan;
@@ -78,6 +79,8 @@ final readonly class SalaryRecalculationService
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('salary.confirmed');
+
+            DB::afterCommit(static fn () => SalaryConfirmed::dispatch($calculation->refresh()));
 
             return $calculation;
         });

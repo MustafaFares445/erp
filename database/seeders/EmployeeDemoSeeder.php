@@ -12,6 +12,7 @@ use App\Enums\SalesPlanStatus;
 use App\Enums\TranscriptionConfidenceSource;
 use App\Enums\TranscriptionStatus;
 use App\Enums\UserType;
+use App\Enums\VisitOutcome;
 use App\Enums\VisitStatus;
 use App\Enums\VoiceNoteStatus;
 use App\Models\AiKeywordRule;
@@ -255,7 +256,27 @@ final class EmployeeDemoSeeder extends Seeder
     /** @param array<string, mixed> $attributes */
     private function visit(array $attributes): CustomerVisit
     {
+        $plannedAt = $attributes['planned_at'] ?? null;
+        if ($plannedAt instanceof Carbon) {
+            $attributes['scheduled_start_at'] ??= $plannedAt;
+            $attributes['scheduled_end_at'] ??= $plannedAt->copy()->addHour();
+        }
+
+        $status = $attributes['status'] ?? VisitStatus::Scheduled;
+        if ($status === VisitStatus::Completed) {
+            $attributes['outcome_code'] ??= VisitOutcome::Other;
+        } elseif ($status === VisitStatus::UnableToComplete) {
+            $attributes['outcome_code'] ??= VisitOutcome::UnableToComplete;
+        }
+
         return CustomerVisit::query()->create($attributes);
+    }
+
+    private function publishAndStart(SalesPlanService $service, SalesPlan $plan): SalesPlan
+    {
+        $published = $service->transition($plan->refresh(), SalesPlanStatus::Published);
+
+        return $service->transition($published->refresh(), SalesPlanStatus::InProgress);
     }
 
     /** @param list<array{0: float, 1: float, 2: Carbon}> $points */
@@ -400,7 +421,7 @@ final class EmployeeDemoSeeder extends Seeder
             'due_at' => $this->dateIn($previousMonth, 28),
         ]);
 
-        $planService->transition($plan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $plan);
         $this->completeTaskAt($taskService, $t1, $this->timeIn($previousMonth, 7, '17:00'));
         $this->completeTaskAt($taskService, $t2, $this->timeIn($previousMonth, 11, '17:00'));
         $this->completeTaskAt($taskService, $t3, $this->timeIn($previousMonth, 17, '17:00'));
@@ -527,7 +548,7 @@ final class EmployeeDemoSeeder extends Seeder
             'starts_at' => $this->dateIn($currentMonth, 1),
             'due_at' => $this->dateIn($currentMonth, 5),
         ]);
-        $planService->transition($augustPlan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $augustPlan);
         $this->completeTaskAt($taskService, $a1, $this->timeIn($currentMonth, 6, '17:00'));
         $taskService->transition($a2, PlanTaskStatus::InProgress);
 
@@ -554,7 +575,7 @@ final class EmployeeDemoSeeder extends Seeder
             'employee_id' => $employee->getKey(), 'plan_task_id' => $a3->getKey(), 'customer_id' => $smile?->getKey(),
             'planned_at' => $this->timeIn($currentMonth, 15, '10:00'),
             'checked_in_at' => null, 'checked_out_at' => null,
-            'outcome' => null, 'status' => VisitStatus::Planned,
+            'outcome' => null, 'status' => VisitStatus::Scheduled,
         ]);
     }
 
@@ -597,7 +618,7 @@ final class EmployeeDemoSeeder extends Seeder
             'customer_id' => null, 'starts_at' => $this->dateIn($previousMonth, 20), 'due_at' => $this->dateIn($previousMonth, 30),
         ]);
 
-        $planService->transition($plan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $plan);
         $this->completeTaskAt($taskService, $t1, $this->timeIn($previousMonth, 9, '17:00'));
         $this->completeTaskAt($taskService, $t2, $this->timeIn($previousMonth, 18, '17:00'), 'Delivered late — supplier truck was delayed at customs.');
         $taskService->transition($t3, PlanTaskStatus::Cancelled, 'Customer settled the invoice directly with finance; no visit needed.');
@@ -658,7 +679,7 @@ final class EmployeeDemoSeeder extends Seeder
             'title' => 'Prepare August invoices', 'description' => 'Prepare and send the August billing cycle invoices.',
             'customer_id' => null, 'starts_at' => $this->dateIn($currentMonth, 8), 'due_at' => $this->dateIn($currentMonth, 18),
         ]);
-        $planService->transition($augustPlan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $augustPlan);
         $this->completeTaskAt($taskService, $a1, $this->timeIn($currentMonth, 5, '17:00'));
         $taskService->transition($a3, PlanTaskStatus::InProgress);
 
@@ -710,7 +731,7 @@ final class EmployeeDemoSeeder extends Seeder
             'customer_id' => null, 'starts_at' => $this->dateIn($previousMonth, 20), 'due_at' => $this->dateIn($previousMonth, 28),
         ]);
 
-        $planService->transition($plan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $plan);
         $this->completeTaskAt($taskService, $t1, $this->timeIn($previousMonth, 15, '17:00'), 'Delivered five days late.');
         $taskService->transition($t2, PlanTaskStatus::Cancelled, 'Client backed out of the purchase before signing.');
         $this->completeTaskAt($taskService, $t3, $this->timeIn($previousMonth, 25, '17:00'), 'Completed five days late.');
@@ -726,7 +747,7 @@ final class EmployeeDemoSeeder extends Seeder
         $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t2->getKey(), 'customer_id' => $smile?->getKey(),
             'planned_at' => $this->timeIn($previousMonth, 13, '09:00'),
-            'checked_in_at' => null, 'checked_out_at' => null, 'outcome' => null, 'status' => VisitStatus::Missed,
+            'checked_in_at' => null, 'checked_out_at' => null, 'outcome' => null, 'status' => VisitStatus::UnableToComplete,
         ]);
         $coldCallVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t3->getKey(), 'customer_id' => $bright?->getKey(),
@@ -766,13 +787,13 @@ final class EmployeeDemoSeeder extends Seeder
             'title' => 'Cold call new prospects', 'description' => 'Prospect new clinics in the northern district.',
             'customer_id' => null, 'starts_at' => $this->dateIn($currentMonth, 8), 'due_at' => $this->dateIn($currentMonth, 25),
         ]);
-        $planService->transition($augustPlan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $augustPlan);
         $taskService->transition($b1, PlanTaskStatus::Cancelled, 'Customer declined again; escalated to account management.');
 
         $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $b1->getKey(), 'customer_id' => $smile?->getKey(),
             'planned_at' => $this->timeIn($currentMonth, 6, '09:00'),
-            'checked_in_at' => null, 'checked_out_at' => null, 'outcome' => null, 'status' => VisitStatus::Missed,
+            'checked_in_at' => null, 'checked_out_at' => null, 'outcome' => null, 'status' => VisitStatus::UnableToComplete,
         ]);
     }
 
@@ -814,7 +835,7 @@ final class EmployeeDemoSeeder extends Seeder
             'customer_id' => null, 'starts_at' => $this->dateIn($currentMonth, 8), 'due_at' => $this->dateIn($currentMonth, 22),
         ]);
 
-        $planService->transition($plan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $plan);
         $this->completeTaskAt($taskService, $t1, $this->timeIn($currentMonth, 6, '17:00'));
         $taskService->transition($t2, PlanTaskStatus::InProgress);
 
@@ -936,7 +957,7 @@ final class EmployeeDemoSeeder extends Seeder
             'customer_id' => null, 'starts_at' => $this->dateIn($previousMonth, 8), 'due_at' => $this->dateIn($previousMonth, 18),
         ]);
 
-        $planService->transition($plan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $plan);
         $this->completeTaskAt($taskService, $t1, $this->timeIn($previousMonth, 7, '17:00'));
         $this->completeTaskAt($taskService, $t2, $this->timeIn($previousMonth, 16, '17:00'));
 
@@ -1018,7 +1039,7 @@ final class EmployeeDemoSeeder extends Seeder
             'customer_id' => null, 'starts_at' => $this->dateIn($previousMonth, 10), 'due_at' => $this->dateIn($previousMonth, 20),
         ]);
 
-        $planService->transition($plan, SalesPlanStatus::Active);
+        $this->publishAndStart($planService, $plan);
         $this->completeTaskAt($taskService, $t1, $this->timeIn($previousMonth, 9, '17:00'));
         $this->completeTaskAt($taskService, $t2, $this->timeIn($previousMonth, 18, '17:00'));
 

@@ -9,32 +9,35 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('rejects activation unless the four weights sum to exactly 100', function (): void {
+it('rejects publishing unless the configured weights sum to exactly 100', function (): void {
     $plan = SalesPlan::factory()->withTasks(1)->create([
         'task_weight' => 40,
         'visit_weight' => 30,
         'schedule_weight' => 20,
         'work_time_weight' => 5,
+        'opportunity_weight' => 0,
     ]);
 
-    expect(fn () => app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Active))
+    expect(fn () => app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Published))
         ->toThrow(DomainException::class, __('admin.employees.errors.plan_weights_must_sum_to_100'));
 
     expect($plan->fresh()->status)->toBe(SalesPlanStatus::Draft);
 });
 
-it('rejects activation when the plan has no tasks', function (): void {
+it('rejects publishing when the plan has no tasks', function (): void {
     $plan = SalesPlan::factory()->create();
 
-    expect(fn () => app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Active))
+    expect(fn () => app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Published))
         ->toThrow(DomainException::class, __('admin.employees.errors.plan_requires_at_least_one_task'));
 });
 
-it('activates a plan whose weights sum to 100 and has at least one task', function (): void {
+it('publishes and starts a valid plan through the explicit lifecycle', function (): void {
     $plan = SalesPlan::factory()->withTasks(2)->create();
 
-    $activated = app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Active);
+    $published = app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Published);
+    $started = app(SalesPlanService::class)->transition($published->refresh(), SalesPlanStatus::InProgress);
 
-    expect($activated->status)->toBe(SalesPlanStatus::Active)
-        ->and($activated->active_month->toDateString())->toBe($plan->month->toDateString());
+    expect($published->published_at)->not->toBeNull()
+        ->and($started->status)->toBe(SalesPlanStatus::InProgress)
+        ->and($started->active_month->toDateString())->toBe($plan->month->toDateString());
 });

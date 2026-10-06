@@ -130,7 +130,7 @@ final readonly class EmployeeReportService
     {
         $query = CustomerVisit::query()
             ->with(['employee.user', 'customer'])
-            ->whereIn('status', [VisitStatus::Planned, VisitStatus::Missed]);
+            ->whereIn('status', [VisitStatus::Scheduled, VisitStatus::UnableToComplete]);
         $this->whereEmployee($query, $filters);
 
         return $query;

@@ -35,6 +35,7 @@ final class EmployeePermissionSeeder extends Seeder
                 EmployeePermission::TaskView->value,
                 EmployeePermission::TaskManage->value,
                 EmployeePermission::VisitView->value,
+                EmployeePermission::VisitManage->value,
                 EmployeePermission::VisitReview->value,
                 EmployeePermission::VoiceNoteView->value,
                 EmployeePermission::VoiceNotePlay->value,

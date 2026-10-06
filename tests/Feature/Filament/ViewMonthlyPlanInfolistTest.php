@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\SalesPlanStatus;
 use App\Filament\Resources\MonthlyPlans\Pages\ViewMonthlyPlan;
 use App\Filament\Resources\Performance\Schemas\PerformanceInfolist;
 use App\Models\EmployeePerformanceScore;
@@ -117,5 +118,5 @@ it('renders the stage bar for every plan status', function (string $status): voi
     Livewire::actingAs($admin)
         ->test(ViewMonthlyPlan::class, ['record' => $plan->getKey()])
         ->assertSuccessful()
-        ->assertSee($status);
-})->with(['Draft', 'Active', 'Paused', 'Completed', 'Archived']);
+        ->assertSee(SalesPlanStatus::from($status)->label());
+})->with(['Draft', 'Published', 'InProgress', 'Completed', 'Archived']);

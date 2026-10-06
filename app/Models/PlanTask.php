@@ -8,6 +8,7 @@ use App\Enums\PlanTaskStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\PlanTaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
-#[Fillable(['sales_plan_id', 'customer_id', 'title', 'description', 'starts_at', 'due_at', 'status'])]
+#[Fillable(['sales_plan_id', 'customer_id', 'source_visit_id', 'title', 'description', 'starts_at', 'due_at', 'status'])]
 final class PlanTask extends Model
 {
     /** @use HasFactory<PlanTaskFactory> */
@@ -25,9 +26,7 @@ final class PlanTask extends Model
     use SoftDeletes;
     use TracksBlameable;
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
@@ -39,25 +38,25 @@ final class PlanTask extends Model
         ];
     }
 
-    /**
-     * @return BelongsTo<SalesPlan, $this>
-     */
+    /** @return BelongsTo<SalesPlan, $this> */
     public function salesPlan(): BelongsTo
     {
         return $this->belongsTo(SalesPlan::class);
     }
 
-    /**
-     * @return BelongsTo<CustomerProfile, $this>
-     */
+    /** @return BelongsTo<CustomerProfile, $this> */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(CustomerProfile::class);
     }
 
-    /**
-     * @return HasMany<TaskStatusLog, $this>
-     */
+    /** @return BelongsTo<CustomerVisit, $this> */
+    public function sourceVisit(): BelongsTo
+    {
+        return $this->belongsTo(CustomerVisit::class, 'source_visit_id');
+    }
+
+    /** @return HasMany<TaskStatusLog, $this> */
     public function statusLogs(): HasMany
     {
         return $this->hasMany(TaskStatusLog::class);
@@ -67,21 +66,19 @@ final class PlanTask extends Model
      * @param  Builder<PlanTask>  $query
      * @return Builder<PlanTask>
      */
-    public function scopeOverdue(Builder $query): Builder
+    #[Scope]
+    protected function overdue(Builder $query): Builder
     {
         return $query->whereNotIn('status', [PlanTaskStatus::Completed, PlanTaskStatus::Cancelled])
             ->whereDate('due_at', '<', Carbon::today());
     }
 
     /**
-     * FR-034 does not specify a "near-due" threshold; this uses 3 days,
-     * chosen as a low-risk display default that is easy to revisit later
-     * without any data migration.
-     *
      * @param  Builder<PlanTask>  $query
      * @return Builder<PlanTask>
      */
-    public function scopeDueSoon(Builder $query): Builder
+    #[Scope]
+    protected function dueSoon(Builder $query): Builder
     {
         return $query->whereNotIn('status', [PlanTaskStatus::Completed, PlanTaskStatus::Cancelled])
             ->whereDate('due_at', '>=', Carbon::today())

@@ -40,7 +40,7 @@ it('audits an opportunity draft rejection', function (): void {
     $this->actingAs($admin);
     $draft = SalesOpportunity::factory()->create();
 
-    app(OpportunityReviewService::class)->reject($draft);
+    app(OpportunityReviewService::class)->reject($draft, 'Not relevant');
 
     expect(
         AuditLog::query()->where('description', 'opportunity.rejected')->where('subject_id', $draft->id)->exists()

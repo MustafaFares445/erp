@@ -47,7 +47,18 @@ final readonly class SalaryCalculationService
             $calculation->fill([
                 'sales_plan_id' => $plan->id,
                 'employee_id' => $plan->employee_id,
+                'performance_score_id' => $score->getKey(),
                 'status' => SalaryCalculationStatus::PendingConfirmation,
+                'use_base_salary_snapshot' => $employee->use_base_salary,
+                'base_salary_snapshot' => $employee->base_salary,
+                'salary_calculation_mode_snapshot' => $employee->salary_calculation_mode->value,
+                'calculation_explanation' => [
+                    'payable_base' => $payableBase,
+                    'performance_percent' => (float) $score->total_score,
+                    'performance_snapshot_id' => $score->getKey(),
+                    'approved_bonus_amount' => $bonusAmount,
+                    'formula' => 'payable_base × performance_percent / 100 + approved_bonus_amount',
+                ],
             ]);
             $calculation->payable_base = $payableBase;
             $calculation->performance_percent = $score->total_score;

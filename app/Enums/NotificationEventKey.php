@@ -16,6 +16,11 @@ enum NotificationEventKey: string implements HasLabel
     case QuotationDecided = 'quotation.decided';
     case QuotationExpired = 'quotation.expired';
     case TaskAssigned = 'task.assigned';
+    case SalesPlanPublished = 'employee.plan.published';
+    case VisitAssigned = 'employee.visit.assigned';
+    case VisitRescheduled = 'employee.visit.rescheduled';
+    case FollowUpTaskCreated = 'employee.follow_up.created';
+    case SalaryConfirmed = 'employee.salary.confirmed';
     case VisitDue = 'visit.due';
     case TicketUpdated = 'ticket.updated';
     case TicketFeedbackRequested = 'ticket.feedback_requested';

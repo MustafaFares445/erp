@@ -4,26 +4,25 @@ declare(strict_types=1);
 
 use App\Enums\SalesPlanStatus;
 
-it('allows exactly the documented transitions', function (): void {
-    expect(SalesPlanStatus::Draft->canTransitionTo(SalesPlanStatus::Active))->toBeTrue()
+it('allows exactly the operational plan transitions', function (): void {
+    expect(SalesPlanStatus::Draft->canTransitionTo(SalesPlanStatus::Published))->toBeTrue()
         ->and(SalesPlanStatus::Draft->canTransitionTo(SalesPlanStatus::Archived))->toBeTrue()
-        ->and(SalesPlanStatus::Active->canTransitionTo(SalesPlanStatus::Paused))->toBeTrue()
-        ->and(SalesPlanStatus::Active->canTransitionTo(SalesPlanStatus::Completed))->toBeTrue()
-        ->and(SalesPlanStatus::Paused->canTransitionTo(SalesPlanStatus::Active))->toBeTrue()
-        ->and(SalesPlanStatus::Paused->canTransitionTo(SalesPlanStatus::Archived))->toBeTrue()
+        ->and(SalesPlanStatus::Published->canTransitionTo(SalesPlanStatus::InProgress))->toBeTrue()
+        ->and(SalesPlanStatus::Published->canTransitionTo(SalesPlanStatus::Archived))->toBeTrue()
+        ->and(SalesPlanStatus::InProgress->canTransitionTo(SalesPlanStatus::Completed))->toBeTrue()
+        ->and(SalesPlanStatus::InProgress->canTransitionTo(SalesPlanStatus::Archived))->toBeTrue()
         ->and(SalesPlanStatus::Completed->canTransitionTo(SalesPlanStatus::Archived))->toBeTrue();
 });
 
-it('rejects every undocumented transition', function (): void {
-    expect(SalesPlanStatus::Draft->canTransitionTo(SalesPlanStatus::Paused))->toBeFalse()
+it('rejects undocumented plan transitions', function (): void {
+    expect(SalesPlanStatus::Draft->canTransitionTo(SalesPlanStatus::InProgress))->toBeFalse()
         ->and(SalesPlanStatus::Draft->canTransitionTo(SalesPlanStatus::Completed))->toBeFalse()
-        ->and(SalesPlanStatus::Active->canTransitionTo(SalesPlanStatus::Draft))->toBeFalse()
-        ->and(SalesPlanStatus::Completed->canTransitionTo(SalesPlanStatus::Active))->toBeFalse()
-        ->and(SalesPlanStatus::Completed->canTransitionTo(SalesPlanStatus::Paused))->toBeFalse()
+        ->and(SalesPlanStatus::Published->canTransitionTo(SalesPlanStatus::Completed))->toBeFalse()
+        ->and(SalesPlanStatus::InProgress->canTransitionTo(SalesPlanStatus::Draft))->toBeFalse()
+        ->and(SalesPlanStatus::Completed->canTransitionTo(SalesPlanStatus::Published))->toBeFalse()
         ->and(SalesPlanStatus::Archived->canTransitionTo(SalesPlanStatus::Draft))->toBeFalse()
-        ->and(SalesPlanStatus::Archived->canTransitionTo(SalesPlanStatus::Active))->toBeFalse()
-        ->and(SalesPlanStatus::Archived->canTransitionTo(SalesPlanStatus::Paused))->toBeFalse()
-        ->and(SalesPlanStatus::Archived->canTransitionTo(SalesPlanStatus::Completed))->toBeFalse();
+        ->and(SalesPlanStatus::Archived->canTransitionTo(SalesPlanStatus::Published))->toBeFalse()
+        ->and(SalesPlanStatus::Archived->canTransitionTo(SalesPlanStatus::InProgress))->toBeFalse();
 });
 
 it('rejects every self-transition', function (): void {

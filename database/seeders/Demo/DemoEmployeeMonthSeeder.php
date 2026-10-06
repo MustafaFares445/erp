@@ -7,6 +7,7 @@ namespace Database\Seeders\Demo;
 use App\Enums\BonusSuggestionStatus;
 use App\Enums\PlanTaskStatus;
 use App\Enums\SalesPlanStatus;
+use App\Enums\VisitOutcome;
 use App\Enums\VisitStatus;
 use App\Models\AiKeywordRule;
 use App\Models\BonusSuggestion;
@@ -306,7 +307,7 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
 
             $this->on('2026-09-04 10:00', function () use ($number): void {
                 $this->asManager();
-                $this->plans["{$number}-09"] = app(SalesPlanService::class)->transition($this->plans["{$number}-09"]->refresh(), SalesPlanStatus::Active);
+                $this->plans["{$number}-09"] = $this->publishAndStart($this->plans["{$number}-09"]);
             });
 
             $this->on('2026-09-28 10:00', function () use ($number, $design): void {
@@ -316,7 +317,7 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
 
             $this->on('2026-10-01 09:00', function () use ($number): void {
                 $this->asManager();
-                $this->plans["{$number}-10"] = app(SalesPlanService::class)->transition($this->plans["{$number}-10"]->refresh(), SalesPlanStatus::Active);
+                $this->plans["{$number}-10"] = $this->publishAndStart($this->plans["{$number}-10"]);
             });
         }
     }
@@ -334,6 +335,14 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
             'work_time_weight' => $design['weights'][3],
             'required_visit_minutes' => $design['minutes'],
         ]);
+    }
+
+    private function publishAndStart(SalesPlan $plan): SalesPlan
+    {
+        $service = app(SalesPlanService::class);
+        $published = $service->transition($plan->refresh(), SalesPlanStatus::Published);
+
+        return $service->transition($published->refresh(), SalesPlanStatus::InProgress);
     }
 
     // ------------------------------------------------------------------- tasks
@@ -387,7 +396,9 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
                     'plan_task_id' => $task->getKey(),
                     'customer_id' => $task->customer_id,
                     'planned_at' => Carbon::parse($planned),
-                    'status' => VisitStatus::Planned,
+                    'scheduled_start_at' => Carbon::parse($planned),
+                    'scheduled_end_at' => Carbon::parse($planned)->addHour(),
+                    'status' => VisitStatus::Scheduled,
                 ]);
             });
 
@@ -408,6 +419,7 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
                         'checked_out_at' => Carbon::parse($checkOut),
                         'status' => VisitStatus::Completed,
                         'outcome' => $outcome,
+                        'outcome_code' => VisitOutcome::Other,
                     ]);
                     $this->trail($visit, 1, $checkOut);
 
@@ -429,7 +441,11 @@ final class DemoEmployeeMonthSeeder extends DemoSeeder
             if ($status === 'missed') {
                 $this->on(Carbon::parse($planned)->setTime(18, 0)->format('Y-m-d H:i'), function () use ($key, $number, $outcome): void {
                     $this->asEmployee($number);
-                    $this->visits[$key]->refresh()->update(['status' => VisitStatus::Missed, 'outcome' => $outcome]);
+                    $this->visits[$key]->refresh()->update([
+                        'status' => VisitStatus::UnableToComplete,
+                        'outcome' => $outcome,
+                        'outcome_code' => VisitOutcome::UnableToComplete,
+                    ]);
                 });
             }
         }

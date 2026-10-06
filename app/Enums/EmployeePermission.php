@@ -27,6 +27,7 @@ enum EmployeePermission: string
     case TaskView = 'employees.task.view';
     case TaskManage = 'employees.task.manage';
     case VisitView = 'employees.visit.view';
+    case VisitManage = 'employees.visit.manage';
     case VisitReview = 'employees.visit.review';
     case VoiceNoteView = 'employees.voice-note.view';
     case VoiceNotePlay = 'employees.voice-note.play';

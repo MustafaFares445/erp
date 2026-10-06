@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Visits;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\Visits\Pages\CreateVisit;
 use App\Filament\Resources\Visits\Pages\ListVisits;
 use App\Filament\Resources\Visits\Pages\ViewVisit;
 use App\Filament\Resources\Visits\Pages\VisitsCalendar;
 use App\Filament\Resources\Visits\Schemas\VisitInfolist;
+use App\Filament\Resources\Visits\Schemas\VisitScheduleForm;
 use App\Filament\Resources\Visits\Tables\VisitsTable;
 use App\Models\CustomerVisit;
 use BackedEnum;
@@ -34,6 +36,12 @@ final class VisitResource extends Resource
     }
 
     #[\Override]
+    public static function form(Schema $schema): Schema
+    {
+        return VisitScheduleForm::configure($schema);
+    }
+
+    #[\Override]
     public static function infolist(Schema $schema): Schema
     {
         return VisitInfolist::configure($schema);
@@ -50,6 +58,7 @@ final class VisitResource extends Resource
     {
         return [
             'index' => ListVisits::route('/'),
+            'create' => CreateVisit::route('/create'),
             'calendar' => VisitsCalendar::route('/calendar'),
             'view' => ViewVisit::route('/{record}'),
         ];

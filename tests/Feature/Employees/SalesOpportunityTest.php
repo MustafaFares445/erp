@@ -54,7 +54,7 @@ it('treats Approved and Rejected as terminal — no further decision is ever rec
         ->toThrow(InvalidStatusTransition::class);
 });
 
-it('records decisions from the sales opportunity table actions without notes', function (): void {
+it('records decisions from the sales opportunity table actions with a required rejection reason', function (): void {
     $reviewer = User::factory()->admin()->create();
     $reviewer->givePermissionTo(EmployeePermission::OpportunityReview->value);
 
@@ -65,7 +65,7 @@ it('records decisions from the sales opportunity table actions without notes', f
 
     $list->callTableAction('approve', $approved)
         ->assertHasNoTableActionErrors()
-        ->callTableAction('reject', $rejected)
+        ->callTableAction('reject', $rejected, ['review_notes' => 'Not a qualified opportunity'])
         ->assertHasNoTableActionErrors();
 
     expect($approved->fresh()->status)->toBe(SalesOpportunityStatus::Approved)

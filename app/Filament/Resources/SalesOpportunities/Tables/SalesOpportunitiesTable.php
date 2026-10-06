@@ -8,6 +8,8 @@ use App\Enums\OpportunityCloseReason;
 use App\Enums\OpportunityStage;
 use App\Enums\SalesOpportunityStatus;
 use App\Filament\Resources\Quotations\QuotationResource;
+use App\Models\EmployeeProfile;
+use App\Models\Product;
 use App\Models\Quotation;
 use App\Models\SalesOpportunity;
 use App\Models\User;
@@ -18,13 +20,16 @@ use App\Services\Sales\QuotationService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use LogicException;
 
 final class SalesOpportunitiesTable
@@ -34,7 +39,10 @@ final class SalesOpportunitiesTable
         return $table->defaultSort('created_at', 'desc')->columns([
             TextColumn::make('title')->placeholder(__('—'))->searchable(), TextColumn::make('customer.company_name')->label(__('Customer'))->placeholder(__('—'))->searchable(),
             TextColumn::make('stage')->badge(), TextColumn::make('estimated_value_minor')->label(__('Value (minor)'))->numeric()->sortable(), TextColumn::make('currency'), TextColumn::make('owner.name')->label(__('Owner'))->placeholder(__('—')),
-            TextColumn::make('expected_close_date')->date()->sortable()->placeholder(__('—')), TextColumn::make('status')->label(__('AI review'))->badge(),
+            TextColumn::make('expected_close_date')->date()->sortable()->placeholder(__('—')),
+            TextColumn::make('status')->label(__('AI review'))->badge()->formatStateUsing(static fn (SalesOpportunityStatus $state): string => $state->label()),
+            TextColumn::make('sourceVisit.reference')->label(__('Source visit'))->placeholder(__('—'))->searchable(),
+            TextColumn::make('detectedProduct.name')->label(__('Detected product'))->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('origin')->badge()
                 // WP-1.10: driven by isAiOriginated() (retained origin
                 // evidence) rather than by the nullable transcription FK, so
@@ -42,6 +50,41 @@ final class SalesOpportunitiesTable
                 ->state(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'AI-originated' : $record->origin->label())
                 ->color(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'info' : 'gray'),
         ])->filters([
+            SelectFilter::make('status')
+                ->label(__('AI review status'))
+                ->options(collect(SalesOpportunityStatus::cases())->mapWithKeys(static fn (SalesOpportunityStatus $status): array => [$status->value => $status->label()])->all()),
+            SelectFilter::make('source_employee')
+                ->label(__('Source employee'))
+                ->options(static fn (): array => EmployeeProfile::query()->with('user:id,name')->get()->mapWithKeys(static function (EmployeeProfile $employee): array {
+                    $user = $employee->user;
+
+                    return [(int) $employee->id => $user instanceof User ? $user->name : $employee->employee_code];
+                })->all())
+                ->query(static function (Builder $query, array $data): Builder {
+                    $value = $data['value'] ?? null;
+
+                    return is_numeric($value)
+                        ? $query->whereHas('sourceVisit', static fn (Builder $visit): Builder => $visit->where('employee_id', (int) $value))
+                        : $query;
+                }),
+            SelectFilter::make('detected_product_id')
+                ->label(__('Detected product'))
+                ->options(static fn (): array => Product::query()->orderBy('name')->pluck('name', 'id')->all())
+                ->searchable(),
+            Filter::make('detected_at')
+                ->label(__('Detection date'))
+                ->schema([
+                    DatePicker::make('from')->label(__('From')),
+                    DatePicker::make('until')->label(__('Until')),
+                ])
+                ->query(static function (Builder $query, array $data): Builder {
+                    $from = $data['from'] ?? null;
+                    $until = $data['until'] ?? null;
+
+                    return $query
+                        ->when(is_string($from) ? $from : null, static fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '>=', $date))
+                        ->when(is_string($until) ? $until : null, static fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '<=', $date));
+                }),
             SelectFilter::make('stage')->options(collect(OpportunityStage::cases())->mapWithKeys(fn (OpportunityStage $stage): array => [$stage->value => $stage->label()])->all()),
             SelectFilter::make('owner_id')->relationship('owner', 'name'),
         ])->recordActions([
@@ -88,7 +131,12 @@ final class SalesOpportunitiesTable
     {
         return Action::make($name)->label($label)->color($approve ? 'success' : 'danger')->requiresConfirmation()->authorize('review')
             ->visible(static fn (SalesOpportunity $record): bool => $record->status === SalesOpportunityStatus::Draft)
-            ->schema([Textarea::make('review_notes')->rows(3)])
+            ->schema([
+                Textarea::make('review_notes')
+                    ->label($approve ? __('Review notes') : __('Rejection reason'))
+                    ->required(! $approve)
+                    ->rows(3),
+            ])
             ->action(static function (SalesOpportunity $record, array $data) use ($approve): void {
                 $notes = is_string($data['review_notes'] ?? null) ? $data['review_notes'] : null;
                 $service = app(OpportunityReviewService::class);

@@ -77,6 +77,8 @@ it('rejects activation at the service layer when another active plan already exi
         'active_month' => '2026-03-01',
     ]);
 
-    expect(fn () => app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Active))
+    $published = app(SalesPlanService::class)->transition($plan, SalesPlanStatus::Published);
+
+    expect(fn () => app(SalesPlanService::class)->transition($published->refresh(), SalesPlanStatus::InProgress))
         ->toThrow(DomainException::class, __('admin.employees.errors.plan_active_conflict'));
 });

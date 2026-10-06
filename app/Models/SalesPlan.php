@@ -6,7 +6,6 @@ namespace App\Models;
 
 use App\Enums\SalesPlanStatus;
 use App\Models\Concerns\TracksBlameable;
-use App\Services\Employees\PerformanceScoringService;
 use Carbon\Carbon;
 use Database\Factories\SalesPlanFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -27,8 +26,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'visit_weight',
     'schedule_weight',
     'work_time_weight',
+    'opportunity_weight',
     'required_visit_minutes',
     'status',
+    'published_at',
+    'published_by',
 ])]
 final class SalesPlan extends Model
 {
@@ -38,9 +40,7 @@ final class SalesPlan extends Model
     use SoftDeletes;
     use TracksBlameable;
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
@@ -51,50 +51,50 @@ final class SalesPlan extends Model
             'visit_weight' => 'decimal:2',
             'schedule_weight' => 'decimal:2',
             'work_time_weight' => 'decimal:2',
+            'opportunity_weight' => 'decimal:2',
+            'published_at' => 'datetime',
             'status' => SalesPlanStatus::class,
         ];
     }
 
-    /**
-     * @return BelongsTo<EmployeeProfile, $this>
-     */
+    /** @return BelongsTo<EmployeeProfile, $this> */
     public function employee(): BelongsTo
     {
         return $this->belongsTo(EmployeeProfile::class);
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
+    /** @return BelongsTo<User, $this> */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /**
-     * @return HasMany<PlanTask, $this>
-     */
+    /** @return BelongsTo<User, $this> */
+    public function publishedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'published_by');
+    }
+
+    /** @return HasMany<PlanTask, $this> */
     public function tasks(): HasMany
     {
         return $this->hasMany(PlanTask::class);
     }
 
-    /**
-     * @return HasOne<EmployeePerformanceScore, $this>
-     */
+    /** @return HasMany<EmployeePerformanceScore, $this> */
+    public function performanceScores(): HasMany
+    {
+        return $this->hasMany(EmployeePerformanceScore::class);
+    }
+
+    /** @return HasOne<EmployeePerformanceScore, $this> */
     public function performanceScore(): HasOne
     {
-        return $this->hasOne(EmployeePerformanceScore::class);
+        return $this->hasOne(EmployeePerformanceScore::class)->latestOfMany('calculated_at');
     }
 
     /**
-     * Scalar readout of the plan's performance score, kept as a plain array
-     * so Filament view surfaces outside the Performance resource namespace
-     * (banned from referencing {@see EmployeePerformanceScore} directly,
-     * see tests/Unit/ArchTest.php) can render a summary without importing
-     * the model.
-     *
-     * @return array{total_score: float, task_score: float, visit_score: float, schedule_score: float, work_time_score: float, calculated_at: Carbon}|null
+     * @return array{total_score: float, task_score: float, visit_score: float, schedule_score: float, work_time_score: float, opportunity_score: float, calculated_at: Carbon}|null
      */
     public function performanceSummary(): ?array
     {
@@ -110,18 +110,12 @@ final class SalesPlan extends Model
             'visit_score' => (float) $score->visit_score,
             'schedule_score' => (float) $score->schedule_score,
             'work_time_score' => (float) $score->work_time_score,
+            'opportunity_score' => (float) $score->opportunity_score,
             'calculated_at' => $score->calculated_at,
         ];
     }
 
-    /**
-     * Visits attributed to this plan's tasks, matching the set
-     * {@see PerformanceScoringService::gatherInputs()}
-     * scores against. Every visit must link to a plan task, so this is the
-     * complete set of visits for the plan.
-     *
-     * @return HasManyThrough<CustomerVisit, PlanTask, $this>
-     */
+    /** @return HasManyThrough<CustomerVisit, PlanTask, $this> */
     public function visits(): HasManyThrough
     {
         return $this->hasManyThrough(
@@ -132,17 +126,13 @@ final class SalesPlan extends Model
         );
     }
 
-    /**
-     * @return HasMany<EmployeeSalaryCalculation, $this>
-     */
+    /** @return HasMany<EmployeeSalaryCalculation, $this> */
     public function salaryCalculations(): HasMany
     {
         return $this->hasMany(EmployeeSalaryCalculation::class);
     }
 
-    /**
-     * @return HasMany<BonusSuggestion, $this>
-     */
+    /** @return HasMany<BonusSuggestion, $this> */
     public function bonusSuggestions(): HasMany
     {
         return $this->hasMany(BonusSuggestion::class);

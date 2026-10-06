@@ -4,29 +4,56 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\VisitOutcome;
 use App\Enums\VisitStatus;
 use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
+use Carbon\Carbon;
 use Database\Factories\CustomerVisitFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
+    'reference',
     'employee_id',
     'plan_task_id',
     'customer_id',
+    'visit_type',
     'planned_at',
+    'scheduled_start_at',
+    'scheduled_end_at',
+    'en_route_at',
     'checked_in_at',
     'checked_out_at',
+    'check_in_latitude',
+    'check_in_longitude',
+    'check_in_recorded_at',
+    'check_in_accuracy_meters',
+    'distance_from_customer_meters',
+    'location_warning',
+    'location_override_reason',
+    'location_overridden_by',
+    'location_overridden_at',
+    'schedule_override_reason',
+    'schedule_overridden_by',
+    'schedule_overridden_at',
     'outcome',
+    'outcome_code',
+    'outcome_notes',
+    'employee_notes',
+    'follow_up_required',
+    'follow_up_date',
+    'follow_up_note',
     'review_note',
     'reviewed_by',
     'reviewed_at',
@@ -42,84 +69,115 @@ final class CustomerVisit extends Model implements Favoritable, HasMedia
     use SoftDeletes;
     use TracksBlameable;
 
-    /**
-     * @return array<string, string>
-     */
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::saving(static function (self $visit): void {
+            if ($visit->checked_in_at !== null && $visit->checked_out_at !== null && $visit->checked_out_at->lessThan($visit->checked_in_at)) {
+                throw new DomainException('Check-out cannot occur before check-in.');
+            }
+
+            if ($visit->status === VisitStatus::Completed && $visit->outcome_code === null) {
+                throw new DomainException('A completed visit requires a valid visit outcome.');
+            }
+
+            if ($visit->follow_up_required && $visit->follow_up_date === null) {
+                throw new DomainException('A follow-up date is required when follow-up is requested.');
+            }
+
+            if ($visit->schedule_overridden_at !== null && mb_trim((string) $visit->schedule_override_reason) === '') {
+                throw new DomainException('A schedule conflict override reason is required.');
+            }
+        });
+    }
+
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
         return [
             'planned_at' => 'datetime',
+            'scheduled_start_at' => 'datetime',
+            'scheduled_end_at' => 'datetime',
+            'en_route_at' => 'datetime',
             'checked_in_at' => 'datetime',
             'checked_out_at' => 'datetime',
+            'check_in_recorded_at' => 'datetime',
+            'check_in_latitude' => 'decimal:7',
+            'check_in_longitude' => 'decimal:7',
+            'check_in_accuracy_meters' => 'decimal:2',
+            'distance_from_customer_meters' => 'integer',
+            'location_warning' => 'boolean',
+            'location_overridden_at' => 'datetime',
+            'schedule_overridden_at' => 'datetime',
+            'outcome_code' => VisitOutcome::class,
+            'follow_up_required' => 'boolean',
+            'follow_up_date' => 'date',
             'reviewed_at' => 'datetime',
             'status' => VisitStatus::class,
         ];
     }
 
-    /**
-     * Field-recorded images/files attached to the visit (FR-043), replacing
-     * the ERD's dropped `visit_attachments` table (D1/R-005). Private disk
-     * because these may contain customer premises photos.
-     */
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('visit-attachments')->useDisk('local');
     }
 
-    /**
-     * @return BelongsTo<EmployeeProfile, $this>
-     */
+    /** @return BelongsTo<EmployeeProfile, $this> */
     public function employee(): BelongsTo
     {
         return $this->belongsTo(EmployeeProfile::class);
     }
 
-    /**
-     * @return BelongsTo<PlanTask, $this>
-     */
+    /** @return BelongsTo<PlanTask, $this> */
     public function planTask(): BelongsTo
     {
         return $this->belongsTo(PlanTask::class);
     }
 
-    /**
-     * @return BelongsTo<CustomerProfile, $this>
-     */
+    /** @return BelongsTo<CustomerProfile, $this> */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(CustomerProfile::class);
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
+    /** @return BelongsTo<User, $this> */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
-    /**
-     * @return HasMany<VisitGpsLog, $this>
-     */
+    /** @return BelongsTo<User, $this> */
+    public function scheduleOverriddenBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'schedule_overridden_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function locationOverriddenBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'location_overridden_by');
+    }
+
+    /** @return HasMany<VisitGpsLog, $this> */
     public function gpsLogs(): HasMany
     {
         return $this->hasMany(VisitGpsLog::class)->orderBy('recorded_at');
     }
 
-    /**
-     * @return HasMany<EmployeeVoiceNote, $this>
-     */
+    /** @return HasMany<EmployeeVoiceNote, $this> */
     public function voiceNotes(): HasMany
     {
         return $this->hasMany(EmployeeVoiceNote::class)->latest();
     }
 
+    /** @return HasOne<PlanTask, $this> */
+    public function followUpTask(): HasOne
+    {
+        return $this->hasOne(PlanTask::class, 'source_visit_id');
+    }
+
     /**
-     * Sales opportunities detected across this visit's voice notes
-     * (FR-052/FR-053): no direct foreign key exists, so this walks
-     * voice note → transcription → sales opportunity.
-     *
      * @return Collection<int, SalesOpportunity>
      */
     public function salesOpportunities(): Collection
@@ -131,10 +189,6 @@ final class CustomerVisit extends Model implements Favoritable, HasMedia
             ->values();
     }
 
-    /**
-     * Derived duration (FR-041); never stored, so it cannot drift from the
-     * two timestamps it is computed from.
-     */
     public function durationMinutes(): ?int
     {
         if ($this->checked_in_at === null || $this->checked_out_at === null) {
@@ -142,5 +196,19 @@ final class CustomerVisit extends Model implements Favoritable, HasMedia
         }
 
         return (int) $this->checked_in_at->diffInMinutes($this->checked_out_at);
+    }
+
+    public function effectiveScheduledStart(): ?Carbon
+    {
+        return $this->scheduled_start_at ?? $this->planned_at;
+    }
+
+    public function isTerminal(): bool
+    {
+        return in_array($this->status, [
+            VisitStatus::Completed,
+            VisitStatus::UnableToComplete,
+            VisitStatus::Cancelled,
+        ], true);
     }
 }

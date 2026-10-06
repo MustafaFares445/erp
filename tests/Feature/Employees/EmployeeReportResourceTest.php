@@ -32,6 +32,7 @@ beforeEach(function (): void {
 it('keeps every employee report in its category and selects the first report when changing category', function (): void {
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
+
     $component = Livewire::actingAs($admin)->test(ManageEmployeeReports::class);
     $component->set('activeTab', 'performance')->assertSet('report', EmployeeReportType::PerformanceByEmployee->value);
     $page = $component->instance();
@@ -71,7 +72,7 @@ it('renders every report tab with its own columns against real underlying record
     PlanTask::factory()->for($mixedPlan, 'salesPlan')->create();
 
     $overdueTask = PlanTask::factory()->overdue()->create();
-    $missedVisit = CustomerVisit::factory()->create(['status' => VisitStatus::Missed]);
+    $missedVisit = CustomerVisit::factory()->create(['status' => VisitStatus::UnableToComplete]);
     $performanceScore = EmployeePerformanceScore::factory()->create();
     $salaryCalculation = EmployeeSalaryCalculation::factory()->create();
 
@@ -110,6 +111,7 @@ it('exports the current report using the filters already applied to the table', 
     Bus::fake();
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
+
     $employee = EmployeeProfile::factory()->create();
 
     Livewire::actingAs($admin)

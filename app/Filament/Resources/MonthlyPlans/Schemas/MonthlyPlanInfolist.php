@@ -48,9 +48,11 @@ final class MonthlyPlanInfolist
                                             return is_scalar($default) ? (string) $default : '';
                                         }),
                                     TextEntry::make('active_month')
-                                        ->label(__('Active month'))
+                                        ->label(__('In-progress month'))
                                         ->date('F Y')
                                         ->placeholder(__('—')),
+                                    TextEntry::make('published_at')->label(__('Published at'))->dateTime()->placeholder(__('Not published')),
+                                    TextEntry::make('publishedBy.name')->label(__('Published by'))->placeholder(__('—')),
                                 ])
                                 ->columns(2),
                             Section::make(__('Performance'))
@@ -71,6 +73,7 @@ final class MonthlyPlanInfolist
                                     TextEntry::make('visit_weight'),
                                     TextEntry::make('schedule_weight'),
                                     TextEntry::make('work_time_weight'),
+                                    TextEntry::make('opportunity_weight')->label(__('Sales opportunity weight')),
                                 ])
                                 ->columns(2),
                         ])->columnSpan(['lg' => 1]),
@@ -82,8 +85,8 @@ final class MonthlyPlanInfolist
     {
         return match ($state) {
             SalesPlanStatus::Draft => 'gray',
-            SalesPlanStatus::Active => 'primary',
-            SalesPlanStatus::Paused => 'warning',
+            SalesPlanStatus::Published => 'info',
+            SalesPlanStatus::InProgress => 'primary',
             SalesPlanStatus::Completed => 'success',
             SalesPlanStatus::Archived => 'danger',
         };

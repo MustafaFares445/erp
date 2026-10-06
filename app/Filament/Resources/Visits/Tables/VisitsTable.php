@@ -5,45 +5,80 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Visits\Tables;
 
 use App\Enums\VisitStatus;
+use App\Filament\Resources\Visits\Actions\VisitManagementActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\CustomerVisit;
-use App\Services\Employees\VisitReviewService;
-use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\DatePicker;
+use Filament\QueryBuilder\Constraints\BooleanConstraint;
 use Filament\QueryBuilder\Constraints\DateConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
-use Filament\Support\Icons\Heroicon;
+use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 final class VisitsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('scheduled_start_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
-                TextColumn::make('employee.user.name')->label(__('Employee'))->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->placeholder(__('Not linked')),
-                TextColumn::make('planTask.title')->label(__('Plan task'))->searchable()->placeholder(__('Not linked')),
-                TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('checked_in_at')->dateTime()->sortable(),
-                TextColumn::make('checked_out_at')->dateTime()->sortable(),
+                TextColumn::make('reference')
+                    ->label(__('Visit reference'))
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder(__('Legacy visit')),
+                TextColumn::make('customer.company_name')
+                    ->label(__('Customer'))
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('employee.user.name')
+                    ->label(__('Employee'))
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('visit_type')
+                    ->label(__('Visit type'))
+                    ->searchable()
+                    ->placeholder(__('General')),
+                TextColumn::make('scheduled_start_at')
+                    ->label(__('Scheduled start'))
+                    ->dateTime()
+                    ->sortable(),
+                TextColumn::make('scheduled_end_at')
+                    ->label(__('Scheduled end'))
+                    ->dateTime()
+                    ->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (VisitStatus $state): string => $state->label())
+                    ->color(static fn (VisitStatus $state): string => $state->color())
+                    ->sortable(),
                 TextColumn::make('duration')
                     ->label(__('Duration'))
                     ->state(static fn (CustomerVisit $record): ?string => $record->durationMinutes() !== null
                         ? $record->durationMinutes().' min'
                         : null)
                     ->placeholder(__('—')),
-                TextColumn::make('planned_at')->label(__('Planned at'))->dateTime()->placeholder(__('—'))->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('created_at')->label(__('Created at'))->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('location_warning')
+                    ->label(__('Location warning'))
+                    ->boolean()
+                    ->trueColor('warning'),
+                IconColumn::make('follow_up_required')
+                    ->label(__('Follow-up'))
+                    ->boolean()
+                    ->trueColor('warning'),
             ])
             ->groups([
                 Group::make('status')
@@ -51,12 +86,17 @@ final class VisitsTable
                     ->getTitleFromRecordUsing(static fn (CustomerVisit $record): string => $record->status->label()),
                 Group::make('employee.user.name')->label(__('Employee')),
                 Group::make('customer.company_name')->label(__('Customer')),
-                Group::make('planned_at')->label(__('Planned at'))->date(),
+                Group::make('scheduled_start_at')->label(__('Scheduled date'))->date(),
             ])
             ->filters([
                 TableQueryBuilder::make([
+                    TextConstraint::make('reference')->label(__('Visit reference')),
+                    TextConstraint::make('visit_type')->label(__('Visit type')),
                     SelectConstraint::make('status')
-                        ->options(static fn (): array => collect(VisitStatus::cases())->mapWithKeys(static fn (VisitStatus $status): array => [$status->value => $status->label()])->all())
+                        ->label(__('Status'))
+                        ->options(static fn (): array => collect(VisitStatus::cases())
+                            ->mapWithKeys(static fn (VisitStatus $status): array => [$status->value => $status->label()])
+                            ->all())
                         ->multiple(),
                     RelationshipConstraint::make('employee')
                         ->label(__('Employee'))
@@ -64,33 +104,50 @@ final class VisitsTable
                     RelationshipConstraint::make('customer')
                         ->label(__('Customer'))
                         ->selectable(IsRelatedToOperator::make()->titleAttribute('company_name')->searchable()->multiple()),
-                    RelationshipConstraint::make('planTask')
-                        ->label(__('Plan task'))
-                        ->selectable(IsRelatedToOperator::make()->titleAttribute('title')->searchable()->multiple()),
-                    DateConstraint::make('planned_at')->label(__('Planned at')),
-                    DateConstraint::make('checked_in_at')->label(__('Checked in at')),
-                    DateConstraint::make('checked_out_at')->label(__('Checked out at')),
-                    DateConstraint::make('created_at')->label(__('Created at')),
+                    DateConstraint::make('scheduled_start_at')->label(__('Scheduled start')),
+                    DateConstraint::make('scheduled_end_at')->label(__('Scheduled end')),
+                    BooleanConstraint::make('location_warning')->label(__('Location warning')),
+                    BooleanConstraint::make('follow_up_required')->label(__('Follow-up required')),
                 ]),
+                SelectFilter::make('status')
+                    ->options(static fn (): array => collect(VisitStatus::cases())
+                        ->mapWithKeys(static fn (VisitStatus $status): array => [$status->value => $status->label()])
+                        ->all())
+                    ->multiple(),
+                SelectFilter::make('employee_id')
+                    ->label(__('Employee'))
+                    ->relationship('employee', 'employee_code')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('customer_id')
+                    ->label(__('Customer'))
+                    ->relationship('customer', 'company_name')
+                    ->searchable()
+                    ->preload(),
+                Filter::make('scheduled_between')
+                    ->label(__('Scheduled date'))
+                    ->schema([
+                        DatePicker::make('from')->label(__('From')),
+                        DatePicker::make('until')->label(__('Until')),
+                    ])
+                    ->query(static fn (Builder $query, array $data): Builder => $query
+                        ->when(
+                            is_string($data['from'] ?? null) ? $data['from'] : null,
+                            static fn (Builder $query, string $date): Builder => $query->whereDate('scheduled_start_at', '>=', $date),
+                        )
+                        ->when(
+                            is_string($data['until'] ?? null) ? $data['until'] : null,
+                            static fn (Builder $query, string $date): Builder => $query->whereDate('scheduled_start_at', '<=', $date),
+                        )),
+                TernaryFilter::make('location_warning')->label(__('Location warning')),
+                TernaryFilter::make('follow_up_required')->label(__('Follow-up required')),
             ])
             ->recordActions([
                 ViewAction::make(),
-                Action::make('review')
-                    ->label(__('Add / update review note'))
-                    ->icon(Heroicon::OutlinedChatBubbleLeftRight)
-                    ->authorize('review')
-                    ->fillForm(static fn (CustomerVisit $record): array => ['review_note' => $record->review_note])
-                    ->schema([
-                        Textarea::make('review_note')
-                            ->label(__('Review note'))
-                            ->required()
-                            ->rows(4),
-                    ])
-                    ->action(static function (CustomerVisit $record, array $data): void {
-                        $note = $data['review_note'] ?? null;
-
-                        app(VisitReviewService::class)->updateReviewNote($record, is_string($note) ? $note : '');
-                    }),
+                ActionGroup::make([
+                    VisitManagementActions::reschedule(),
+                    VisitManagementActions::review(),
+                ]),
             ]);
     }
 }

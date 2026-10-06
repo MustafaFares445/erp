@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Events\CampaignCompleted;
 use App\Events\EquipmentCalibrationMilestone;
 use App\Events\EquipmentInstallationMilestone;
+use App\Events\FollowUpTaskCreated;
 use App\Events\InventoryOperationCompleted;
 use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
@@ -17,7 +18,9 @@ use App\Events\PurchaseOrderAccepted;
 use App\Events\PurchaseOrderReceived;
 use App\Events\QuotationDecided;
 use App\Events\QuotationExpired;
+use App\Events\SalaryConfirmed;
 use App\Events\SalesOrderReleased;
+use App\Events\SalesPlanPublished;
 use App\Events\ShipmentArrived;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
@@ -27,6 +30,8 @@ use App\Events\SupportQualityMilestone;
 use App\Events\TaskAssigned;
 use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
+use App\Events\VisitAssigned;
+use App\Events\VisitRescheduled;
 use App\Listeners\MarkShipmentInTransitOnDeliveryCompleted;
 use App\Listeners\RefreshOrderCompletionWindowOnShipmentArrival;
 use App\Listeners\SendBusinessNotification;
@@ -169,6 +174,11 @@ final class AppServiceProvider extends ServiceProvider
             QuotationExpired::class,
             SlaAtRisk::class,
             StockLow::class,
+            SalesPlanPublished::class,
+            VisitAssigned::class,
+            VisitRescheduled::class,
+            FollowUpTaskCreated::class,
+            SalaryConfirmed::class,
             TaskAssigned::class,
             TicketClosed::class,
             TicketUpdated::class,

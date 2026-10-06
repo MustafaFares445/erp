@@ -57,11 +57,24 @@ it('recalculates a performance score via the table row action', function (): voi
         'calculated_at' => now()->subDay(),
     ]);
 
+    $countBefore = EmployeePerformanceScore::query()->count();
+    $originalCalculatedAt = $score->calculated_at;
+
     Livewire::actingAs($admin)
         ->test(ListPerformanceScores::class)
         ->callTableAction('recalculate', $score);
 
-    expect($score->fresh()->calculated_at)->not->toEqual($score->calculated_at);
+    $latestScore = EmployeePerformanceScore::query()
+        ->where('sales_plan_id', $plan->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    expect(EmployeePerformanceScore::query()->count())->toBe($countBefore + 1)
+        ->and($score->fresh()->calculated_at)->toEqual($originalCalculatedAt)
+        ->and($latestScore->id)->not->toBe($score->id)
+        ->and($latestScore->employee_id)->toBe($score->employee_id)
+        ->and($latestScore->sales_plan_id)->toBe($score->sales_plan_id)
+        ->and($latestScore->calculated_at)->not->toBeNull();
 });
 
 it('renders the salary calculation list and view pages, including the bonus-suggestions relation manager, without error', function (): void {

@@ -27,6 +27,8 @@ final class PerformanceInfolist
                     TextEntry::make('salesPlan.name')->label(__('Plan')),
                     TextEntry::make('total_score')->label(__('Total score'))->suffix('%'),
                     TextEntry::make('task_completion_percent')->label(__('Task completion (statistic)'))->suffix('%'),
+                    TextEntry::make('period_start')->label(__('Period start'))->date(),
+                    TextEntry::make('period_end')->label(__('Period end'))->date(),
                     TextEntry::make('calculated_at')->dateTime(),
                 ]),
             Section::make(__('Factor breakdown'))
@@ -60,6 +62,7 @@ final class PerformanceInfolist
             'visit_completion' => 'Visit completion',
             'schedule_adherence' => 'Schedule adherence',
             'work_time_adherence' => 'Work-time adherence',
+            'potential_sales_opportunities' => 'Potential sales opportunities',
         ];
 
         $rows = [];

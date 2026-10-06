@@ -18,11 +18,13 @@ function performanceInputs(array $overrides = []): PerformanceScoreInputs
         'completedVisits' => 10,
         'durationCompliantVisits' => 10,
         'visitsMissingTimestamps' => 0,
+        'detectedOpportunities' => 0,
         'requiredVisitMinutes' => 30,
         'taskWeight' => 40.0,
         'visitWeight' => 30.0,
         'scheduleWeight' => 20.0,
         'workTimeWeight' => 10.0,
+        'opportunityWeight' => 0.0,
     ], $overrides));
 }
 
@@ -41,7 +43,7 @@ it('scores a plan with zero tasks and zero visits as zero across every factor, w
         ->and($result->totalScore)->toBe(0.0);
 });
 
-it('scores full completion across all four factors as the full weight sum', function (): void {
+it('scores the four core factors as the full weight sum when opportunity weight is neutral', function (): void {
     $service = new PerformanceScoringService;
 
     $result = $service->calculate(performanceInputs());
@@ -50,6 +52,28 @@ it('scores full completion across all four factors as the full weight sum', func
         ->and($result->visitScore)->toBe(30.0)
         ->and($result->scheduleScore)->toBe(20.0)
         ->and($result->workTimeScore)->toBe(10.0)
+        ->and($result->opportunityScore)->toBe(0.0)
+        ->and($result->totalScore)->toBe(100.0);
+});
+
+it('includes detected sales opportunities as the fifth weighted performance factor', function (): void {
+    $service = new PerformanceScoringService;
+
+    $result = $service->calculate(performanceInputs([
+        'detectedOpportunities' => 10,
+        'taskWeight' => 30.0,
+        'visitWeight' => 25.0,
+        'scheduleWeight' => 15.0,
+        'workTimeWeight' => 10.0,
+        'opportunityWeight' => 20.0,
+    ]));
+
+    expect($result->taskScore)->toBe(30.0)
+        ->and($result->visitScore)->toBe(25.0)
+        ->and($result->scheduleScore)->toBe(15.0)
+        ->and($result->workTimeScore)->toBe(10.0)
+        ->and($result->opportunityScore)->toBe(20.0)
+        ->and($result->breakdown['potential_sales_opportunities']['ratio'])->toBe(1.0)
         ->and($result->totalScore)->toBe(100.0);
 });
 

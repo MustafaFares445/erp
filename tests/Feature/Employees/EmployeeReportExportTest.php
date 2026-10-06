@@ -31,6 +31,7 @@ it('tolerates a secondary writer failure while cleaning up an interrupted export
     $path = tempnam(sys_get_temp_dir(), 'employee-writer-');
     $writer = new Writer;
     $writer->openToFile($path);
+
     $pointer = new ReflectionProperty(AbstractWriter::class, 'filePointer')->getValue($writer);
     fclose($pointer);
 
@@ -191,7 +192,7 @@ it('generates every report type end to end, exercising each heading and row mapp
 
     SalesPlan::factory()->withTasks(1)->create();
     PlanTask::factory()->overdue()->create();
-    CustomerVisit::factory()->create(['status' => VisitStatus::Planned]);
+    CustomerVisit::factory()->create(['status' => VisitStatus::Scheduled]);
     EmployeePerformanceScore::factory()->create();
     EmployeeSalaryCalculation::factory()->create();
 

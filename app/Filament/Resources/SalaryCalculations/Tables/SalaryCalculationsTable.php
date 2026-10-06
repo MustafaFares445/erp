@@ -24,6 +24,7 @@ final class SalaryCalculationsTable
             ->columns([
                 TextColumn::make('employee.user.name')->label(__('Employee'))->searchable()->sortable(),
                 TextColumn::make('salesPlan.name')->label(__('Plan'))->searchable(),
+                TextColumn::make('salesPlan.month')->label(__('Month'))->date('Y-m')->sortable(),
                 TextColumn::make('payable_base')->money(),
                 TextColumn::make('performance_percent')->suffix('%'),
                 TextColumn::make('bonus_amount')->money(),
@@ -32,11 +33,13 @@ final class SalaryCalculationsTable
             ])
             ->filters([
                 SelectFilter::make('status')->options(collect(SalaryCalculationStatus::cases())->mapWithKeys(static fn (SalaryCalculationStatus $status): array => [$status->value => $status->label()])->all()),
+                SelectFilter::make('employee_id')->relationship('employee', 'employee_code')->searchable()->preload(),
+                SelectFilter::make('sales_plan_id')->label(__('Plan'))->relationship('salesPlan', 'name')->searchable()->preload(),
             ])
             ->recordActions([
                 ViewAction::make(),
                 Action::make('confirm')
-                    ->label(__('Confirm'))
+                    ->label(__('Confirm after review'))
                     ->icon(Heroicon::OutlinedCheckBadge)
                     ->color('success')
                     ->requiresConfirmation()

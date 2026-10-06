@@ -9,6 +9,7 @@ use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Visits\VisitResource;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Support\Icons\Heroicon;
@@ -25,6 +26,7 @@ final class ListVisits extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            CreateAction::make()->label(__('Schedule visit')),
             Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(VisitResource::getUrl('calendar')),
         ];
     }
@@ -48,7 +50,7 @@ final class ListVisits extends ListRecords
                 )),
             'planned' => Tab::make(__('Planned'))
                 ->icon(Heroicon::OutlinedCalendarDays)
-                ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', VisitStatus::Planned->value)),
+                ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', VisitStatus::Scheduled->value)),
             'in_progress' => Tab::make(__('In progress'))
                 ->icon(Heroicon::OutlinedPlayCircle)
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', VisitStatus::InProgress->value)),

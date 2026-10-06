@@ -17,6 +17,7 @@ use App\Enums\UserType;
 use App\Events\CampaignCompleted;
 use App\Events\EquipmentCalibrationMilestone;
 use App\Events\EquipmentInstallationMilestone;
+use App\Events\FollowUpTaskCreated;
 use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
@@ -26,6 +27,8 @@ use App\Events\PurchaseOrderAccepted;
 use App\Events\PurchaseOrderReceived;
 use App\Events\QuotationDecided;
 use App\Events\QuotationExpired;
+use App\Events\SalaryConfirmed;
+use App\Events\SalesPlanPublished;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\SupplierCommitmentRecorded;
@@ -34,6 +37,8 @@ use App\Events\SupportQualityMilestone;
 use App\Events\TaskAssigned;
 use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
+use App\Events\VisitAssigned;
+use App\Events\VisitRescheduled;
 use App\Models\CustomerProfile;
 use App\Models\EquipmentInstallation;
 use App\Models\EquipmentLoan;
@@ -80,6 +85,11 @@ final readonly class SendBusinessNotification
             $event instanceof QuotationExpired => $this->quotationExpired($event->quotation),
             $event instanceof SlaAtRisk => $this->slaAtRisk($event->ticket, $event->kind),
             $event instanceof StockLow => $this->stockLow($event->stock),
+            $event instanceof SalesPlanPublished => $this->salesPlanPublished($event),
+            $event instanceof VisitAssigned => $this->visitAssigned($event),
+            $event instanceof VisitRescheduled => $this->visitRescheduled($event),
+            $event instanceof FollowUpTaskCreated => $this->followUpTaskCreated($event),
+            $event instanceof SalaryConfirmed => $this->salaryConfirmed($event),
             $event instanceof TaskAssigned => $this->taskAssigned($event->task),
             $event instanceof TicketClosed => $this->ticketClosed($event->ticket),
             $event instanceof TicketUpdated => $this->ticketUpdated($event->ticket),
@@ -278,9 +288,96 @@ final readonly class SendBusinessNotification
         }
     }
 
+    private function salesPlanPublished(SalesPlanPublished $event): void
+    {
+        $plan = $event->plan->loadMissing('employee.user');
+        $recipient = data_get($plan, 'employee.user');
+
+        if (! $recipient instanceof User) {
+            return;
+        }
+
+        $variables = [
+            'plan_name' => (string) $plan->name,
+            'month' => $plan->month->format('Y-m'),
+        ];
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::SalesPlanPublished, $variables, $plan, NotificationChannel::Database);
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::SalesPlanPublished, $variables, $plan, NotificationChannel::Mail);
+    }
+
+    private function visitAssigned(VisitAssigned $event): void
+    {
+        $visit = $event->visit->loadMissing(['employee.user', 'customer']);
+        $recipient = data_get($visit, 'employee.user');
+
+        if (! $recipient instanceof User) {
+            return;
+        }
+
+        $variables = [
+            'visit_reference' => $visit->reference ?? (string) $visit->id,
+            'customer_name' => (string) ($visit->customer->company_name ?? 'Customer'),
+            'scheduled_at' => $visit->effectiveScheduledStart()?->format('Y-m-d H:i') ?? '—',
+        ];
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::VisitAssigned, $variables, $visit, NotificationChannel::Database);
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::VisitAssigned, $variables, $visit, NotificationChannel::Mail);
+    }
+
+    private function visitRescheduled(VisitRescheduled $event): void
+    {
+        $visit = $event->visit->loadMissing(['employee.user', 'customer']);
+        $recipient = data_get($visit, 'employee.user');
+
+        if (! $recipient instanceof User) {
+            return;
+        }
+
+        $variables = [
+            'visit_reference' => $visit->reference ?? (string) $visit->id,
+            'customer_name' => (string) ($visit->customer->company_name ?? 'Customer'),
+            'scheduled_at' => $visit->effectiveScheduledStart()?->format('Y-m-d H:i') ?? '—',
+        ];
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::VisitRescheduled, $variables, $visit, NotificationChannel::Database);
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::VisitRescheduled, $variables, $visit, NotificationChannel::Mail);
+    }
+
+    private function followUpTaskCreated(FollowUpTaskCreated $event): void
+    {
+        $task = $event->task->loadMissing('salesPlan.employee.user');
+        $recipient = data_get($task, 'salesPlan.employee.user');
+
+        if (! $recipient instanceof User) {
+            return;
+        }
+
+        $variables = [
+            'task_title' => (string) $task->title,
+            'due_at' => $task->due_at->toDateString(),
+        ];
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::FollowUpTaskCreated, $variables, $task, NotificationChannel::Database);
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::FollowUpTaskCreated, $variables, $task, NotificationChannel::Mail);
+    }
+
+    private function salaryConfirmed(SalaryConfirmed $event): void
+    {
+        $calculation = $event->calculation->loadMissing(['employee.user', 'salesPlan']);
+        $recipient = data_get($calculation, 'employee.user');
+
+        if (! $recipient instanceof User) {
+            return;
+        }
+
+        $planName = data_get($calculation, 'salesPlan.name');
+        $variables = [
+            'plan_name' => is_string($planName) ? $planName : '',
+            'final_salary' => number_format((float) $calculation->final_salary, 2, '.', ''),
+        ];
+        $this->dispatcher->dispatch($recipient, NotificationEventKey::SalaryConfirmed, $variables, $calculation, NotificationChannel::Database);
+    }
+
     private function taskAssigned(PlanTask $task): void
     {
-        $recipient = $task->salesPlan?->employee?->user;
+        $recipient = data_get($task, 'salesPlan.employee.user');
         if (! $recipient instanceof User) {
             return;
         }
