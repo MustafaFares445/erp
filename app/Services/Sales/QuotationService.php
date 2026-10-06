@@ -367,7 +367,7 @@ final readonly class QuotationService
             $quantity = $snapshot->transactionQuantity;
             $multiplier = (float) $snapshot->conversionFactorSnapshot;
 
-            $resolved = $this->priceResolver->resolve($variant, $customer);
+            $resolved = $this->priceResolver->resolve($variant, $customer, $snapshot->baseQuantity);
             $resolvedUnitPrice = round($resolved->amount * $multiplier, 2);
             $submittedUnitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
                 ? round((float) $line['unit_price'], 2)
@@ -382,6 +382,7 @@ final readonly class QuotationService
                     $unitPrice,
                     $multiplier,
                     $overrideId,
+                    $snapshot->baseQuantity,
                 );
             } else {
                 $unitPrice = $resolvedUnitPrice;

@@ -992,8 +992,8 @@ final readonly class InventoryReturnService
             throw new DomainException('The original delivery variant no longer exists.');
         }
 
-        $tracksBatches = $variant->productType()?->tracksBatches() === true;
-        $tracksSerials = $variant->productType()?->tracksSerials() === true;
+        $tracksBatches = $variant->tracksLotsConfigured();
+        $tracksSerials = $variant->tracksSerialsConfigured();
 
         if ($tracksBatches && ! is_int($inventoryLotId)) {
             throw new DomainException('A lot allocation is required for this customer return.');
@@ -1064,8 +1064,8 @@ final readonly class InventoryReturnService
         ?int $inventoryLotId,
         ?int $serializedInventoryUnitId,
     ): void {
-        $tracksBatches = $variant->productType()?->tracksBatches() === true;
-        $tracksSerials = $variant->productType()?->tracksSerials() === true;
+        $tracksBatches = $variant->tracksLotsConfigured();
+        $tracksSerials = $variant->tracksSerialsConfigured();
 
         if ($tracksBatches) {
             if (! is_int($inventoryLotId)) {

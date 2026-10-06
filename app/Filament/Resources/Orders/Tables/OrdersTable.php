@@ -45,6 +45,11 @@ final class OrdersTable
                     ->badge()
                     ->formatStateUsing(static fn (OrderStatus $state): string => $state->label())
                     ->color(static fn (OrderStatus $state): string => $state->color()),
+                TextColumn::make('availability_state')
+                    ->label(__('Availability'))
+                    ->state(fn (Order $record): string => self::projection($record)->availabilityState->label())
+                    ->badge()
+                    ->color(fn (Order $record): string => self::projection($record)->availabilityState->color()),
                 TextColumn::make('workflow_milestone')
                     ->label(__('Milestone'))
                     ->state(fn (Order $record): string => self::projection($record)->businessMilestone)

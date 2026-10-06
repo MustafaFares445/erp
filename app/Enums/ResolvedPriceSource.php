@@ -6,6 +6,7 @@ namespace App\Enums;
 
 enum ResolvedPriceSource: string
 {
+    case CustomerPriceList = 'customer_price_list';
     case CustomerSpecificTier = 'customer_specific_tier';
     case ProductScopedTier = 'product_scoped_tier';
     case GeneralTier = 'general_tier';

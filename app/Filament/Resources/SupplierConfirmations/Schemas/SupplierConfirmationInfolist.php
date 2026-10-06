@@ -23,6 +23,7 @@ final class SupplierConfirmationInfolist
                     TextEntry::make('purchaseOrder.purchase_order_number')->label(__('Purchase Order')),
                     TextEntry::make('supplier.name')->label(__('Supplier')),
                     TextEntry::make('confirmation_status')->label(__('Response'))->badge(),
+                    TextEntry::make('supplier_reference')->label(__('Supplier reference'))->placeholder(__('—')),
                     TextEntry::make('promised_at')->label(__('Promised date'))->date()->placeholder(__('—')),
                     TextEntry::make('requested_total')
                         ->label(__('Requested'))

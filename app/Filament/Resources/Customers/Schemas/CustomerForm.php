@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Enums\CustomerType;
+use App\Enums\UserType;
 use App\Filament\Forms\Components\CustomerLocationPicker;
+use App\Filament\Support\CurrencySelect;
+use App\Models\CustomerGroup;
 use App\Models\CustomerProfile;
+use App\Models\PaymentTerm;
+use App\Models\PriceList;
 use App\Models\User;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -90,6 +97,62 @@ final class CustomerForm
                         Toggle::make('is_active')
                             ->default(true),
                     ]),
+                Section::make(__('Commercial profile'))
+                    ->description(__('Default B2B pricing, payment, tax, and account ownership used by Sales documents.'))
+                    ->schema([
+                        Select::make('customer_type')
+                            ->label(__('Customer Type'))
+                            ->options(CustomerType::options())
+                            ->default(CustomerType::Other->value)
+                            ->required(),
+                        Select::make('customer_group_id')
+                            ->label(__('Customer Group'))
+                            ->options(fn (): array => CustomerGroup::query()
+                                ->where('is_active', true)
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->searchable()
+                            ->preload(),
+                        CurrencySelect::make('default_currency_code')
+                            ->label(__('Default Currency'))
+                            ->live(),
+                        Select::make('default_price_list_id')
+                            ->label(__('Default Price List'))
+                            ->options(function (Get $get): array {
+                                $query = PriceList::query()->active()->orderBy('name');
+                                $currency = $get('default_currency_code');
+
+                                if (is_string($currency) && $currency !== '') {
+                                    $query->where('currency_code', mb_strtoupper($currency));
+                                }
+
+                                return $query->pluck('name', 'id')->all();
+                            })
+                            ->searchable()
+                            ->preload(),
+                        Select::make('default_payment_term_id')
+                            ->label(__('Default Payment Terms'))
+                            ->options(fn (): array => PaymentTerm::query()->orderBy('name')->pluck('name', 'id')->all())
+                            ->searchable()
+                            ->preload(),
+                        Select::make('assigned_sales_employee_id')
+                            ->label(__('Assigned Sales Employee'))
+                            ->options(fn (): array => User::query()
+                                ->where('user_type', UserType::Employee)
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->searchable()
+                            ->preload(),
+                        Textarea::make('billing_address')
+                            ->label(__('Billing Address'))
+                            ->columnSpanFull(),
+                        TextInput::make('tax_registration_number')
+                            ->label(__('Tax Registration Number'))
+                            ->maxLength(100),
+                    ])
+                    ->columns(2),
                 Section::make(__('Commercial capability'))
                     ->description(__('Whether this customer may place orders directly, bypassing the default quotation-led flow.'))
                     ->schema([

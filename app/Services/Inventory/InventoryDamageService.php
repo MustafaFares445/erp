@@ -98,7 +98,7 @@ final readonly class InventoryDamageService
         MovementType $operation,
     ): ?InventoryLot {
         $variant = ProductVariant::query()->with('product')->findOrFail($stock->product_variant_id);
-        $requiresLot = $variant->productType()?->tracksBatches() === true;
+        $requiresLot = $variant->tracksLotsConfigured();
 
         if (! $requiresLot && $data->inventoryLotId === null) {
             return null;

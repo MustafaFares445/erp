@@ -116,6 +116,73 @@ it('filters stable lot identities through their warehouse balances', function ()
         ->assertCanNotSeeTableRecords([$other]);
 });
 
+it('exposes actionable expiry tabs and excludes zero-stock lots from expiry queues', function (): void {
+    $viewer = lotViewer();
+    $variant = ProductVariant::factory()->expiryMaterial()->create();
+    $warehouse = Warehouse::factory()->create();
+
+    $expired = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'lot_number' => 'EXP-OLD',
+        'expires_at' => today()->subDay(),
+    ]);
+    $critical = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'lot_number' => 'EXP-CRIT',
+        'expires_at' => today()->addDays(20),
+    ]);
+    $warning = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'lot_number' => 'EXP-WARN',
+        'expires_at' => today()->addDays(45),
+    ]);
+    $notice = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'lot_number' => 'EXP-NOTICE',
+        'expires_at' => today()->addDays(75),
+    ]);
+    $empty = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'lot_number' => 'EXP-EMPTY',
+        'expires_at' => today()->addDays(10),
+    ]);
+
+    foreach ([$expired, $critical, $warning, $notice] as $lot) {
+        InventoryLotBalance::query()->forceCreate([
+            'inventory_lot_id' => $lot->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'stock_condition' => StockCondition::Saleable,
+            'on_hand_base_quantity' => '1.000000',
+            'reserved_base_quantity' => '0.000000',
+        ]);
+    }
+
+    InventoryLotBalance::query()->forceCreate([
+        'inventory_lot_id' => $empty->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'on_hand_base_quantity' => '0.000000',
+        'reserved_base_quantity' => '0.000000',
+    ]);
+
+    $component = Livewire::actingAs($viewer)->test(ListInventoryLots::class);
+
+    expect(array_keys($component->instance()->getTabs()))->toBe([
+        'all',
+        'expired',
+        'critical',
+        'warning',
+        'notice',
+    ]);
+
+    $component
+        ->set('activeTab', 'expired')
+        ->assertCanSeeTableRecords([$expired])
+        ->assertCanNotSeeTableRecords([$critical, $warning, $notice, $empty])
+        ->set('activeTab', 'critical')
+        ->assertCanSeeTableRecords([$critical])
+        ->assertCanNotSeeTableRecords([$expired, $warning, $notice, $empty])
+        ->set('activeTab', 'warning')
+        ->assertCanSeeTableRecords([$warning])
+        ->set('activeTab', 'notice')
+        ->assertCanSeeTableRecords([$notice]);
+});
+
 it('hides legacy lot aliases and keeps the canonical lot resource read only', function (): void {
     $viewer = lotViewer();
     $canonical = InventoryLot::factory()->canonical()->create();

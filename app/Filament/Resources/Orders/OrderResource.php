@@ -71,7 +71,7 @@ final class OrderResource extends Resource
             'invoices.writeOffs',
             'workflowPaymentTransactions.payment.allocations',
             'procurementRequirements.productVariant',
-            'procurementRequirements.purchaseOrder',
+            'procurementRequirements.purchaseOrder.confirmations',
             'lines.productVariant',
             'lines.unit',
             'lines.resolvedPriceTier',

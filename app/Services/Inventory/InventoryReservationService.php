@@ -15,6 +15,8 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReservation;
 use App\Models\InventoryReservationAllocation;
+use App\Models\Order;
+use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use DomainException;
@@ -62,9 +64,17 @@ final readonly class InventoryReservationService
                 }
 
                 $baseQuantity = $this->positiveBaseQuantity((string) $line->base_quantity);
+                $salesOrderId = $operation->source_document_type === Order::class && is_numeric($operation->source_document_id)
+                    ? (int) $operation->source_document_id
+                    : null;
+                $salesOrderLineId = $salesOrderId !== null && is_numeric($line->order_line_id)
+                    ? (int) $line->order_line_id
+                    : null;
                 $reservation = InventoryReservation::query()->forceCreate([
                     'product_variant_id' => $line->product_variant_id,
                     'warehouse_id' => $warehouseId,
+                    'sales_order_id' => $salesOrderId,
+                    'sales_order_line_id' => $salesOrderLineId,
                     'source_type' => 'inventory_operation',
                     'source_id' => $this->operationId($operation),
                     'source_line_type' => 'inventory_operation_line',
@@ -83,9 +93,11 @@ final readonly class InventoryReservationService
 
                 $lot = $this->validatedLotAllocation(
                     $allocation->inventory_lot_id,
+                    (int) $reservation->product_variant_id,
                     $warehouseId,
                     $baseQuantity,
                     $actor,
+                    $line->fefo_override_reason,
                 );
 
                 /** @var int|null $lotKey */
@@ -321,19 +333,43 @@ final readonly class InventoryReservationService
     /** @param numeric-string $baseQuantity */
     private function validatedLotAllocation(
         mixed $inventoryLotId,
+        int $productVariantId,
         int $warehouseId,
         string $baseQuantity,
         ?User $actor,
+        ?string $fefoOverrideReason,
     ): ?InventoryLot {
-        if ($inventoryLotId === null) {
-            return null;
-        }
-
-        if (! is_int($inventoryLotId)) {
+        if ($inventoryLotId !== null && ! is_int($inventoryLotId)) {
             throw new DomainException('Inventory reservation lot identifiers must be integers.');
         }
 
+        /** @var ProductVariant $variant */
+        $variant = ProductVariant::query()
+            ->with('product')
+            ->lockForUpdate()
+            ->findOrFail($productVariantId);
+
+        if ($inventoryLotId === null) {
+            if ($variant->tracksLotsConfigured()) {
+                throw new DomainException(__('admin.inventory.lot.errors.required'));
+            }
+
+            return null;
+        }
+
+        if (! $variant->tracksLotsConfigured()) {
+            throw new DomainException(__('admin.inventory.lot.errors.not_applicable'));
+        }
+
         $lot = InventoryLot::query()->lockForUpdate()->findOrFail($inventoryLotId);
+        $lot = $this->inventoryLotService->assertFefoSelection(
+            $lot,
+            $variant,
+            $warehouseId,
+            $baseQuantity,
+            $actor,
+            $fefoOverrideReason,
+        );
 
         return $this->inventoryLotService->assertReservable(
             $lot,

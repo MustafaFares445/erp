@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CustomerApprovalStatus;
+use App\Enums\CustomerType;
 use App\Enums\OperationStage;
 use App\Enums\PaymentStatus;
 use App\Enums\SerializedCustodyType;
+use App\Enums\UserType;
 use App\Models\Concerns\Favoritable;
 use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasFavorites;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use App\Observers\CustomerProfileObserver;
 use App\Services\Payments\CustomerDepositApplicationService;
 use Database\Factories\CustomerProfileFactory;
@@ -21,17 +24,20 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\ValidationException;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
-    'user_id', 'customer_code', 'company_name', 'email', 'phone', 'address', 'country', 'city', 'latitude', 'longitude',
-    'accountant_name', 'accountant_phone', 'accountant_email', 'contact_is_self', 'contact_name', 'contact_phone', 'contact_email', 'is_active',
-    'approval_status', 'reviewed_by', 'reviewed_at', 'review_note', 'allow_direct_orders',
+    'user_id', 'customer_code', 'company_name', 'customer_type', 'customer_group_id', 'default_currency_code', 'default_price_list_id',
+    'default_payment_term_id', 'assigned_sales_employee_id', 'email', 'phone', 'address', 'billing_address', 'tax_registration_number',
+    'country', 'city', 'latitude', 'longitude', 'accountant_name', 'accountant_phone', 'accountant_email', 'contact_is_self',
+    'contact_name', 'contact_phone', 'contact_email', 'is_active', 'approval_status', 'reviewed_by', 'reviewed_at', 'review_note', 'allow_direct_orders',
 ])]
 #[ObservedBy(CustomerProfileObserver::class)]
 /**
@@ -51,6 +57,49 @@ final class CustomerProfile extends Model implements Favoritable, HasMedia
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
+    use ValidatesCurrencyCatalog;
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::saving(static function (self $customer): void {
+            if ($customer->default_currency_code !== null) {
+                $customer->validateActiveCurrency('default_currency_code');
+            }
+
+            if ($customer->default_price_list_id !== null) {
+                $priceList = PriceList::query()->active()->find($customer->default_price_list_id);
+
+                if (! $priceList instanceof PriceList) {
+                    throw ValidationException::withMessages([
+                        'default_price_list_id' => 'The default price list must be active.',
+                    ]);
+                }
+
+                if ($customer->default_currency_code === null) {
+                    $customer->default_currency_code = $priceList->currency_code;
+                } elseif (mb_strtoupper((string) $customer->default_currency_code) !== mb_strtoupper((string) $priceList->currency_code)) {
+                    throw ValidationException::withMessages([
+                        'default_price_list_id' => 'The default price list currency must match the customer default currency.',
+                    ]);
+                }
+            }
+
+            if ($customer->customer_group_id !== null
+                && ! CustomerGroup::query()->whereKey($customer->customer_group_id)->where('is_active', true)->exists()) {
+                throw ValidationException::withMessages([
+                    'customer_group_id' => 'The customer group must be active.',
+                ]);
+            }
+
+            if ($customer->assigned_sales_employee_id !== null
+                && ! User::query()->whereKey($customer->assigned_sales_employee_id)->where('user_type', UserType::Employee->value)->exists()) {
+                throw ValidationException::withMessages([
+                    'assigned_sales_employee_id' => 'The assigned sales employee must be an employee account.',
+                ]);
+            }
+        });
+    }
 
     /** @return array<string, string> */
     #[\Override]
@@ -60,6 +109,7 @@ final class CustomerProfile extends Model implements Favoritable, HasMedia
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'contact_is_self' => 'boolean',
+            'customer_type' => CustomerType::class,
             'is_active' => 'boolean',
             'approval_status' => CustomerApprovalStatus::class,
             'reviewed_at' => 'datetime',
@@ -71,6 +121,36 @@ final class CustomerProfile extends Model implements Favoritable, HasMedia
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<PaymentTerm, $this> */
+    public function defaultPaymentTerm(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTerm::class, 'default_payment_term_id');
+    }
+
+    /** @return BelongsTo<PriceList, $this> */
+    public function defaultPriceList(): BelongsTo
+    {
+        return $this->belongsTo(PriceList::class, 'default_price_list_id');
+    }
+
+    /** @return BelongsTo<CustomerGroup, $this> */
+    public function customerGroup(): BelongsTo
+    {
+        return $this->belongsTo(CustomerGroup::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function assignedSalesEmployee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_sales_employee_id');
+    }
+
+    /** @return BelongsToMany<PriceList, $this> */
+    public function priceLists(): BelongsToMany
+    {
+        return $this->belongsToMany(PriceList::class, 'price_list_customer')->withTimestamps();
     }
 
     /** @return BelongsTo<User, $this> */

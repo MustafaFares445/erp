@@ -96,7 +96,7 @@ final readonly class OrderFulfillmentService
 
         $variants = ProductVariant::query()
             ->whereIn('id', $variantIds)
-            ->get(['id', 'track_serials', 'track_batches'])
+            ->get(['id', 'product_id', 'tracking_mode', 'tracks_expiration', 'track_serials', 'track_batches', 'track_expiry'])
             ->keyBy('id');
 
         foreach ($shipments as $shipmentIndex => $shipment) {
@@ -115,7 +115,7 @@ final readonly class OrderFulfillmentService
                 /** @var ProductVariant $variant */
                 $variant = $variants->get($variantId);
 
-                if ($variant->track_serials) {
+                if ($variant->tracksSerialsConfigured()) {
                     if (abs($quantity - round($quantity)) > self::QuantityTolerance) {
                         throw ValidationException::withMessages([
                             'shipments' => 'Serialized products require a whole-number base quantity.',
@@ -144,7 +144,7 @@ final readonly class OrderFulfillmentService
                     continue;
                 }
 
-                if ($variant->track_batches) {
+                if ($variant->tracksLotsConfigured()) {
                     $remaining = $quantity;
 
                     foreach ($this->inventoryLotService->availableLots($variantId, $warehouseId) as $lot) {
@@ -408,7 +408,7 @@ final readonly class OrderFulfillmentService
         $variants = ProductVariant::query()
             ->whereIn('id', array_keys($demands))
             ->lockForUpdate()
-            ->get(['id', 'unit_id', 'track_serials', 'track_batches'])
+            ->get(['id', 'product_id', 'unit_id', 'tracking_mode', 'tracks_expiration', 'track_serials', 'track_batches', 'track_expiry'])
             ->keyBy('id');
 
         if ($variants->count() !== count($demands)) {
@@ -466,7 +466,7 @@ final readonly class OrderFulfillmentService
      * @param  array<int, array<int, float>>  $assignments
      * @param  Collection<int, ProductVariant>  $variants
      * @param  array<int, array<int, list<int>>>  $serialAssignments
-     * @param  array<int, array<int, list<array{inventory_lot_id: int, quantity: float}>>>  $lotAssignments
+     * @param  array<int, array<int, list<array{inventory_lot_id: int, quantity: float, fefo_override_reason: ?string}>>>  $lotAssignments
      */
     private function createDeliveries(Order $order, array $assignments, Collection $variants, OrderFulfillmentData $fulfillment, array $serialAssignments, array $lotAssignments): void
     {
@@ -519,7 +519,7 @@ final readonly class OrderFulfillmentService
                 $serialIds = array_values(array_unique($serialAssignments[$warehouseId][$variantId] ?? []));
                 $lotRows = $lotAssignments[$warehouseId][$variantId] ?? [];
 
-                if ($variant->track_serials) {
+                if ($variant->tracksSerialsConfigured()) {
                     if (count($serialIds) !== (int) $quantity) {
                         throw ValidationException::withMessages([
                             'shipments' => 'Select exactly one serial number for every unit of a serialized product.',
@@ -567,7 +567,7 @@ final readonly class OrderFulfillmentService
                     ]);
                 }
 
-                if ($variant->track_batches) {
+                if ($variant->tracksLotsConfigured()) {
                     $lotQuantity = array_sum(array_column($lotRows, 'quantity'));
 
                     if ($lotRows === [] || abs($lotQuantity - $quantity) > self::QuantityTolerance) {
@@ -589,6 +589,7 @@ final readonly class OrderFulfillmentService
                                 'quantity' => $split['base_quantity'],
                                 'unit_id' => $variant->unit_id,
                                 'inventory_lot_id' => $lotRow['inventory_lot_id'],
+                                'fefo_override_reason' => $lotRow['fefo_override_reason'],
                                 'allocation_source' => $allocationSource,
                             ]);
                         }
@@ -988,7 +989,7 @@ final readonly class OrderFulfillmentService
      * delivery line, so every unit stays traceable to the specific batch it left in.
      *
      * @param  array<array-key, mixed>  $shipments
-     * @return array<int, array<int, list<array{inventory_lot_id: int, quantity: float}>>>
+     * @return array<int, array<int, list<array{inventory_lot_id: int, quantity: float, fefo_override_reason: ?string}>>>
      */
     private function lotAssignments(array $shipments): array
     {
@@ -1029,7 +1030,28 @@ final readonly class OrderFulfillmentService
                     continue;
                 }
 
-                $lots[$warehouseId][$variantId][] = ['inventory_lot_id' => $lotId, 'quantity' => $quantity];
+                $reasonValue = $assignment['fefo_override_reason'] ?? null;
+
+                if ($reasonValue !== null && ! is_string($reasonValue)) {
+                    throw ValidationException::withMessages([
+                        'shipments' => 'The FEFO override reason must be text.',
+                    ]);
+                }
+
+                $reason = is_string($reasonValue) ? mb_trim($reasonValue) : null;
+                $reason = $reason === '' ? null : $reason;
+
+                if ($reason !== null && mb_strlen($reason) > 255) {
+                    throw ValidationException::withMessages([
+                        'shipments' => 'The FEFO override reason may not exceed 255 characters.',
+                    ]);
+                }
+
+                $lots[$warehouseId][$variantId][] = [
+                    'inventory_lot_id' => $lotId,
+                    'quantity' => $quantity,
+                    'fefo_override_reason' => $reason,
+                ];
             }
         }
 

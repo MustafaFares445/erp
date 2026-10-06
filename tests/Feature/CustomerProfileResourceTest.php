@@ -249,14 +249,14 @@ it('records a normal customer update separately from deactivation', function ():
         ->and(AuditLog::query()->where('description', 'customer.updated')->exists())->toBeTrue();
 });
 
-it('does not expose customer payment terms through the CRM customer model or page', function (): void {
+it('exposes default payment terms through the customer commercial profile', function (): void {
     $admin = User::factory()->admin()->create();
 
-    expect((new CustomerProfile)->isFillable('default_payment_term_id'))->toBeFalse();
+    expect((new CustomerProfile)->isFillable('default_payment_term_id'))->toBeTrue();
 
     Livewire::actingAs($admin)
         ->test(CreateCustomer::class)
-        ->assertDontSee('Payment term');
+        ->assertSee('Default Payment Terms');
 });
 
 it('falls back to the base record update when handling a non-customer-profile model', function (): void {

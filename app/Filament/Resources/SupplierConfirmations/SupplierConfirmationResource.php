@@ -39,6 +39,8 @@ final class SupplierConfirmationResource extends Resource
 {
     protected static ?string $model = SupplierConfirmation::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';
@@ -143,6 +145,7 @@ final class SupplierConfirmationResource extends Resource
                         SupplierConfirmationStatus::Confirmed => 'success',
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),
+                TextColumn::make('supplier_reference')->label(__('Supplier reference'))->searchable()->placeholder(__('—')),
                 TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder(__('—'))->sortable(),
                 TextColumn::make('overdue')
                     ->label(__('Promise'))

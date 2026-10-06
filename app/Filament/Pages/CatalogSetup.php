@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\InventoryPermission;
 use App\Models\Brand;
+use App\Models\Manufacturer;
 use App\Models\ProductAttribute;
 use App\Models\ProductCategory;
 use App\Models\Unit;
@@ -34,7 +35,7 @@ use Filament\Tables\Table;
 use Livewire\Attributes\Url;
 
 /**
- * Four low-frequency reference-data tables (Categories, Brands, Attributes,
+ * Low-frequency reference-data tables (Categories, Manufacturers, Brands, Attributes,
  * Units) merged into one navigation destination. Each was previously its own
  * top-level "Manage*" resource with an identical shape (one page, no
  * separate create/edit routes); this page reproduces each one's exact
@@ -79,6 +80,7 @@ final class CatalogSetup extends Page implements HasTable
     {
         return [
             'categories' => ['label' => __('admin.resources.categories'), 'icon' => Heroicon::OutlinedRectangleGroup],
+            'manufacturers' => ['label' => __('Manufacturers'), 'icon' => Heroicon::OutlinedBuildingOffice2],
             'brands' => ['label' => __('admin.resources.brands'), 'icon' => Heroicon::OutlinedBuildingStorefront],
             'attributes' => ['label' => __('admin.resources.product_attributes'), 'icon' => Heroicon::OutlinedAdjustmentsHorizontal],
             'units' => ['label' => __('admin.resources.units'), 'icon' => Heroicon::OutlinedScale],
@@ -113,6 +115,11 @@ final class CatalogSetup extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return match ($this->tab) {
+            'manufacturers' => [
+                CreateAction::make()
+                    ->model(Manufacturer::class)
+                    ->schema(fn (Schema $schema): Schema => $this->manufacturerForm($schema)),
+            ],
             'brands' => [
                 CreateAction::make()
                     ->model(Brand::class)
@@ -139,6 +146,7 @@ final class CatalogSetup extends Page implements HasTable
     public function table(Table $table): Table
     {
         return match ($this->tab) {
+            'manufacturers' => $this->manufacturersTable($table),
             'brands' => $this->brandsTable($table),
             'attributes' => $this->attributesTable($table),
             'units' => $this->unitsTable($table),
@@ -177,6 +185,38 @@ final class CatalogSetup extends Page implements HasTable
         ]);
     }
 
+    private function manufacturersTable(Table $table): Table
+    {
+        return $table
+            ->query(Manufacturer::query())
+            ->emptyStateDescription('Add manufacturers so products can keep a reusable maker identity separate from commercial brands.')
+            ->columns([
+                TextColumn::make('code')->searchable()->sortable(),
+                TextColumn::make('name')->searchable()->sortable(),
+                TextColumn::make('country_code')->label(__('Country'))->searchable()->sortable(),
+                TextColumn::make('website')->url(static fn (?string $state): ?string => $state)->openUrlInNewTab()->limit(40),
+                TextColumn::make('brands_count')->counts('brands')->label(__('Brands')),
+                ToggleColumn::make('is_active'),
+            ])
+            ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
+            ->recordActions([
+                EditAction::make()->schema(fn (Schema $schema): Schema => $this->manufacturerForm($schema)),
+                DeleteAction::make(),
+                RestoreAction::make(),
+            ]);
+    }
+
+    private function manufacturerForm(Schema $schema): Schema
+    {
+        return $schema->components([
+            TextInput::make('name')->required()->maxLength(255),
+            TextInput::make('code')->required()->maxLength(80)->unique('manufacturers', 'code', ignoreRecord: true),
+            TextInput::make('country_code')->label(__('Country code'))->maxLength(2),
+            TextInput::make('website')->url()->maxLength(500),
+            Toggle::make('is_active')->default(true),
+        ]);
+    }
+
     private function brandsTable(Table $table): Table
     {
         return $table
@@ -186,6 +226,7 @@ final class CatalogSetup extends Page implements HasTable
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
+                TextColumn::make('manufacturer.name')->label(__('Manufacturer'))->searchable()->sortable(),
                 ToggleColumn::make('is_active'),
             ])
             ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
@@ -199,6 +240,10 @@ final class CatalogSetup extends Page implements HasTable
     private function brandForm(Schema $schema): Schema
     {
         return $schema->components([
+            Select::make('manufacturer_id')
+                ->relationship('manufacturer', 'name', fn ($query) => $query->where('is_active', true))
+                ->searchable()
+                ->preload(),
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('code')->required()->maxLength(50)->unique('brands', 'code', ignoreRecord: true),
@@ -252,9 +297,12 @@ final class CatalogSetup extends Page implements HasTable
             ->query(Unit::query())
             ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
+                TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
                 TextColumn::make('symbol')->searchable()->sortable(),
+                TextColumn::make('family')->badge()->sortable(),
+                TextColumn::make('precision')->numeric()->sortable(),
                 IconColumn::make('allows_decimal')->boolean(),
                 ToggleColumn::make('is_active'),
             ])
@@ -269,9 +317,13 @@ final class CatalogSetup extends Page implements HasTable
     private function unitForm(Schema $schema): Schema
     {
         return $schema->components([
+            TextInput::make('code')->maxLength(50)->unique('units', 'code', ignoreRecord: true)
+                ->helperText('Optional stable code for integrations and imports. Existing unit creation remains valid without one.'),
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('symbol')->required()->maxLength(20)->unique('units', 'symbol', ignoreRecord: true),
+            TextInput::make('family')->required()->maxLength(50)->default('count'),
+            TextInput::make('precision')->numeric()->integer()->minValue(0)->maxValue(6)->default(0)->required(),
             Toggle::make('allows_decimal')
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this only when quantities in this unit may include fractions, such as 0.5.'),
             Toggle::make('is_active')->default(true),
@@ -281,7 +333,8 @@ final class CatalogSetup extends Page implements HasTable
     private function emptyStateDescription(): string
     {
         return match ($this->tab) {
-            'brands' => 'Add brands so products can be identified by their manufacturer.',
+            'manufacturers' => 'Add manufacturers so products and brands can share a reusable maker identity.',
+            'brands' => 'Add commercial brands and optionally link each one to its manufacturer.',
             'attributes' => 'Add attributes so product variants can capture structured specifications.',
             'units' => 'Add units so inventory quantities are recorded consistently.',
             default => 'Add categories so products can be grouped for faster browsing and reporting.',

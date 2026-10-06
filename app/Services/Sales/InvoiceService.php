@@ -260,9 +260,10 @@ final readonly class InvoiceService
                             floorOverrideId: isset($line['price_floor_override_id'])
                                 ? self::integerValue($line['price_floor_override_id'])
                                 : null,
+                            quantity: $quantity,
                         );
                     } else {
-                        $resolved = $this->priceResolver->resolve($variant, $customerUser);
+                        $resolved = $this->priceResolver->resolve($variant, $customerUser, $quantity);
                         $unitPrice = $resolved->amount;
                         $priceEvidence = $this->priceProvenance->fromResolved($resolved);
                     }

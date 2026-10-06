@@ -72,6 +72,52 @@ final class ViewSerializedInventoryUnit extends ViewRecord
                         Notification::make()->danger()->title(__('Unable to activate warranty'))->body($domainException->getMessage())->send();
                     }
                 }),
+            Action::make('correctWarrantyDates')
+                ->label(__('Correct Warranty Dates'))
+                ->icon(Heroicon::OutlinedCalendarDays)
+                ->authorize(fn (): bool => (bool) auth()->user()?->can(SupportPermission::WarrantyOverride->value))
+                ->visible(static fn (SerializedInventoryUnit $record): bool => self::currentEntitlement($record)?->state === WarrantyEntitlementState::Active)
+                ->fillForm(static function (SerializedInventoryUnit $record): array {
+                    $entitlement = self::currentEntitlement($record);
+
+                    return [
+                        'starts_on' => $entitlement?->starts_on?->toDateString(),
+                        'expires_on' => $entitlement?->expires_on?->toDateString(),
+                    ];
+                })
+                ->schema([
+                    DatePicker::make('starts_on')->label(__('Warranty starts on'))->required(),
+                    DatePicker::make('expires_on')->label(__('Warranty expires on'))->afterOrEqual('starts_on')->required(),
+                    Textarea::make('reason')->label(__('Correction reason'))->required()->rows(3),
+                ])
+                ->action(static function (SerializedInventoryUnit $record, array $data): void {
+                    $entitlement = self::currentEntitlement($record);
+                    $startsOn = $data['starts_on'] ?? null;
+                    $expiresOn = $data['expires_on'] ?? null;
+                    $reason = $data['reason'] ?? null;
+
+                    if (
+                        ! $entitlement instanceof WarrantyEntitlement
+                        || ! is_string($startsOn)
+                        || ! is_string($expiresOn)
+                        || ! is_string($reason)
+                    ) {
+                        throw new LogicException('Warranty correction data is invalid.');
+                    }
+
+                    try {
+                        app(WarrantyEntitlementService::class)->correctDates(
+                            $entitlement,
+                            Carbon::parse($startsOn),
+                            Carbon::parse($expiresOn),
+                            self::currentActor(),
+                            $reason,
+                        );
+                        Notification::make()->success()->title(__('Warranty dates corrected'))->send();
+                    } catch (DomainException $domainException) {
+                        Notification::make()->danger()->title(__('Unable to correct warranty dates'))->body($domainException->getMessage())->send();
+                    }
+                }),
             Action::make('cancelWarrantyEntitlement')
                 ->label(__('Cancel Warranty Entitlement'))
                 ->icon(Heroicon::OutlinedShieldExclamation)

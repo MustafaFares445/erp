@@ -6,6 +6,8 @@ namespace App\Data\Inventory;
 
 use App\Enums\PricingTierDiscountType;
 use App\Enums\ResolvedPriceSource;
+use App\Models\PriceList;
+use App\Models\PriceListItem;
 use App\Models\PricingTier;
 
 final readonly class ResolvedPrice
@@ -20,10 +22,15 @@ final readonly class ResolvedPrice
         ?float $discountAmount = null,
         public ?float $minimumPrice = null,
         public bool $isBelowFloor = false,
+        public ?PriceList $priceList = null,
+        public ?PriceListItem $priceListItem = null,
+        public ?string $currencyCode = null,
     ) {
         $this->baseAmount = $baseAmount ?? $amount;
         $this->discountAmount = $discountAmount ?? round($this->baseAmount - $amount, 2);
         $this->tierId = $pricingTier?->id;
+        $this->priceListId = $priceList?->id;
+        $this->priceListItemId = $priceListItem?->id;
         $this->listPriceMinor = self::toMinor($this->baseAmount);
         $this->floorPriceMinor = $minimumPrice === null ? null : self::toMinor($minimumPrice);
     }
@@ -33,6 +40,10 @@ final readonly class ResolvedPrice
     public float $discountAmount;
 
     public ?int $tierId;
+
+    public ?int $priceListId;
+
+    public ?int $priceListItemId;
 
     public int $listPriceMinor;
 

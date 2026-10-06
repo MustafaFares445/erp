@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Filament\Resources\WarehouseReplenishmentPolicies\Schemas;
 
 use App\Models\ProductVariant;
+use App\Models\Supplier;
 use App\Models\Warehouse;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Unique;
 
@@ -36,7 +38,16 @@ final class WarehouseReplenishmentPolicyForm
                 ->options(fn (): array => ProductVariant::query()->orderBy('sku')->pluck('sku', 'id')->all())
                 ->searchable()
                 ->preload()
+                ->live()
+                ->afterStateUpdated(static fn (Set $set): mixed => $set('preferred_supplier_id', null))
                 ->required(),
+            Select::make('preferred_supplier_id')
+                ->label(__('Preferred supplier'))
+                ->options(fn (Get $get): array => self::preferredSupplierOptions($get('product_variant_id')))
+                ->searchable()
+                ->preload()
+                ->placeholder(__('Best eligible supplier'))
+                ->helperText(__('Optional. The supplier must have a currently valid Supplier Product for this variant. If left blank, recommendations choose the best active source.')),
             TextInput::make('min_quantity')
                 ->label(__('admin.inventory.replenishment.fields.min_quantity'))
                 ->numeric()
@@ -53,5 +64,24 @@ final class WarehouseReplenishmentPolicyForm
                 ->label(__('admin.inventory.replenishment.fields.is_active'))
                 ->default(true),
         ])->columns(2);
+    }
+
+    /** @return array<int, string> */
+    private static function preferredSupplierOptions(mixed $variantId): array
+    {
+        if (! is_numeric($variantId)) {
+            return [];
+        }
+
+        return Supplier::query()
+            ->where('is_active', true)
+            ->whereHas('productReferences', static fn ($query) => $query
+                ->where('product_variant_id', (int) $variantId)
+                ->where('availability_status', 'active')
+                ->where('is_active', true)
+                ->currentlyValid())
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
     }
 }

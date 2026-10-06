@@ -51,7 +51,11 @@ final class SupplierInfolist
                         ->badge(),
                     TextEntry::make('email')->label(__('Email'))->placeholder(__('—')),
                     TextEntry::make('phone')->label(__('Phone'))->placeholder(__('—')),
+                    TextEntry::make('default_currency_code')->label(__('Default currency'))->placeholder(__('System default')),
+                    TextEntry::make('paymentTerm.name')->label(__('Default payment terms'))->placeholder(__('System default')),
+                    TextEntry::make('default_lead_time_days')->label(__('Default lead time'))->suffix(__(' days'))->placeholder(__('—')),
                     TextEntry::make('address')->label(__('Address'))->placeholder(__('—'))->columnSpan(2),
+                    TextEntry::make('notes')->label(__('Procurement notes'))->placeholder(__('—'))->columnSpanFull(),
                 ]),
 
             Section::make(__('Supplier capabilities'))

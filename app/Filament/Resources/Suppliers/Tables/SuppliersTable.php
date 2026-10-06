@@ -47,6 +47,19 @@ final class SuppliersTable
                     ->badge()
                     ->color(fn (mixed $state): string => is_numeric($state) && (int) $state > 0 ? 'warning' : 'gray')
                     ->sortable(),
+                TextColumn::make('default_currency_code')
+                    ->label(__('Currency'))
+                    ->placeholder(__('System default'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('paymentTerm.name')
+                    ->label(__('Payment terms'))
+                    ->placeholder(__('System default'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('default_lead_time_days')
+                    ->label(__('Lead time'))
+                    ->suffix(__(' days'))
+                    ->placeholder(__('—'))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('last_purchase_at')
                     ->label(__('Last purchase'))
                     ->date()

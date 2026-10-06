@@ -42,6 +42,7 @@ final readonly class SalesDemandProcurementService
             ->whereIn('product_variant_id', $variantIds)
             ->where('availability_status', 'active')
             ->where('is_active', true)
+            ->currentlyValid()
             ->whereHas('supplier', static fn (Builder $supplier): Builder => $supplier->where('is_active', true));
 
         if (is_string($currencyCode) && $currencyCode !== '') {
@@ -109,8 +110,14 @@ final readonly class SalesDemandProcurementService
         foreach ($requirements as $requirement) {
             /** @var ProductVariant $variant */
             $variant = $requirement->productVariant;
-            $unit = $this->purchaseUnit($variant);
-            $factor = (float) $unit->factor_to_base;
+            $reference = $this->purchaseOrders->referenceFor($supplierId, (int) $variant->getKey());
+
+            if (! $reference instanceof SupplierProductReference) {
+                throw new DomainException("Supplier reference disappeared for variant {$variant->sku}.");
+            }
+
+            $unit = $this->purchaseUnit($variant, $reference);
+            $quantity = $this->purchaseQuantity($requirement->outstandingBaseQuantity(), $unit, $reference);
             $purchaseOrder = $this->purchaseOrders->createDraft($actor, [
                 'supplier_id' => $supplierId,
                 'currency_code' => $currencyCode,
@@ -120,7 +127,7 @@ final readonly class SalesDemandProcurementService
             $purchaseLine = $this->purchaseOrders->addLine($actor, $purchaseOrder, [
                 'product_variant_id' => $variant->id,
                 'unit_id' => $unit->unit_id,
-                'quantity_ordered' => (float) $requirement->outstandingBaseQuantity() / $factor,
+                'quantity_ordered' => $quantity,
             ]);
 
             $requirement->forceFill([
@@ -137,19 +144,52 @@ final readonly class SalesDemandProcurementService
         return $created;
     }
 
-    private function purchaseUnit(ProductVariant $variant): ProductVariantUnit
+    private function purchaseUnit(ProductVariant $variant, SupplierProductReference $reference): ProductVariantUnit
     {
-        $unit = $variant->variantUnits
+        $units = $variant->variantUnits
             ->where('is_active', true)
-            ->where('is_purchase', true)
-            ->sortByDesc('is_base')
-            ->first();
+            ->where('is_purchase', true);
+        $unit = $reference->purchase_unit_id !== null
+            ? $units->firstWhere('unit_id', (int) $reference->purchase_unit_id)
+            : $units->sortByDesc('is_base')->first();
 
         if (($unit instanceof ProductVariantUnit) === false || (float) $unit->factor_to_base <= 0.0) {
             throw new DomainException("Variant {$variant->sku} has no active purchase UOM.");
         }
 
         return $unit;
+    }
+
+    /** @param numeric-string $baseQuantity
+     * @return numeric-string
+     */
+    private function purchaseQuantity(
+        string $baseQuantity,
+        ProductVariantUnit $unit,
+        SupplierProductReference $reference,
+    ): string {
+        $factor = (string) $unit->factor_to_base;
+        $increment = (string) $unit->rounding_increment;
+
+        if (bccomp($factor, '0.000000', 6) <= 0 || bccomp($increment, '0.000000', 6) <= 0) {
+            throw new DomainException('Supplier purchase UOM conversion must be positive.');
+        }
+
+        $target = bcdiv($baseQuantity, $factor, 12);
+
+        if ($reference->minimum_order_quantity !== null
+            && bccomp((string) $reference->minimum_order_quantity, $target, 12) === 1) {
+            $target = (string) $reference->minimum_order_quantity;
+        }
+
+        $multiple = bcdiv($target, $increment, 12);
+        $whole = bcadd($multiple, '0', 0);
+
+        if (bccomp($multiple, $whole, 12) === 1) {
+            $whole = bcadd($whole, '1', 0);
+        }
+
+        return bcadd(bcmul($whole, $increment, 12), '0', 6);
     }
 
     private static function integerId(mixed $value): int

@@ -48,6 +48,13 @@
                             <th>Source</th>
                             <th>Product</th>
                             <th>Warehouse</th>
+                            <th>Available</th>
+                            <th>Reserved</th>
+                            <th>Incoming</th>
+                            <th>Min</th>
+                            <th>Max</th>
+                            <th>Suggested Qty</th>
+                            <th>Supplier</th>
                             <th>Required</th>
                             <th>Covered</th>
                             <th>Remaining</th>
@@ -86,6 +93,22 @@
                                     </div>
                                 </td>
                                 <td>{{ $need['warehouse'] }}</td>
+                                <td>{{ $need['available'] !== null ? \App\Support\QuantityFormatter::display($need['available']) : '?' }}</td>
+                                <td>{{ $need['reserved'] !== null ? \App\Support\QuantityFormatter::display($need['reserved']) : '?' }}</td>
+                                <td>{{ $need['incoming'] !== null ? \App\Support\QuantityFormatter::display($need['incoming']) : '?' }}</td>
+                                <td>{{ $need['minimum'] !== null ? \App\Support\QuantityFormatter::display($need['minimum']) : '?' }}</td>
+                                <td>{{ $need['maximum'] !== null ? \App\Support\QuantityFormatter::display($need['maximum']) : '?' }}</td>
+                                <td class="font-semibold">{{ $need['suggested_quantity'] !== null ? \App\Support\QuantityFormatter::display($need['suggested_quantity']) : '?' }}</td>
+                                <td>
+                                    @if ($need['suggested_supplier'])
+                                        <div class="font-medium text-gray-950 dark:text-white">{{ $need['suggested_supplier'] }}</div>
+                                        @if ($need['lead_time_days'] !== null)
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $need['lead_time_days'] }} day lead time</div>
+                                        @endif
+                                    @else
+                                        <span class="text-gray-500 dark:text-gray-400">?</span>
+                                    @endif
+                                </td>
                                 <td>{{ \App\Support\QuantityFormatter::display($need['required']) }}</td>
                                 <td>{{ \App\Support\QuantityFormatter::display($need['covered']) }}</td>
                                 <td class="font-semibold">{{ \App\Support\QuantityFormatter::display($need['remaining']) }}</td>
@@ -113,6 +136,19 @@
                                         >
                                             {{ $need['next_action'] }}
                                         </x-filament::button>
+                                    @elseif ($need['next_action_type'] === 'replenishment_create' && $need['replenishment_requirement_id'])
+                                        @php
+                                            $replenishmentArguments = \Illuminate\Support\Js::from([
+                                                'requirement_id' => $need['replenishment_requirement_id'],
+                                            ]);
+                                        @endphp
+                                        <x-filament::button
+                                            type="button"
+                                            size="sm"
+                                            wire:click="mountAction('createFromReplenishment', {{ $replenishmentArguments }})"
+                                        >
+                                            {{ $need['next_action'] }}
+                                        </x-filament::button>
                                     @elseif ($need['next_action_url'])
                                         <x-filament::button tag="a" size="sm" :href="$need['next_action_url']">
                                             {{ $need['next_action'] }}
@@ -124,7 +160,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="py-10 text-center text-gray-500 dark:text-gray-400">
+                                <td colspan="17" class="py-10 text-center text-gray-500 dark:text-gray-400">
                                     No uncovered purchase demand currently requires Purchasing attention.
                                 </td>
                             </tr>

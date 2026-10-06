@@ -10,8 +10,10 @@ use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
+use App\Services\Inventory\InventoryLotTimelineService;
 use App\Services\Support\LotQualitySignalService;
 use App\Services\Support\TicketProductContextService;
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -39,6 +41,17 @@ final class InventoryLotInfolist
                     TextEntry::make('expiry_state')
                         ->label(__('admin.inventory.lot.fields.expiry_state'))
                         ->state(fn (InventoryLot $record): string => $record->expiryState())
+                        ->badge(),
+                    TextEntry::make('expiry_bucket')
+                        ->label(__('Expiry window'))
+                        ->state(fn (InventoryLot $record): string => match ($record->expiryBucket()) {
+                            'expired' => __('Expired'),
+                            'critical' => __('0–30 days'),
+                            'warning' => __('31–60 days'),
+                            'notice' => __('61–90 days'),
+                            'healthy' => __('Beyond alert window'),
+                            default => __('No expiry'),
+                        })
                         ->badge(),
                 ]),
                 Section::make(__('admin.inventory.lot.sections.balances'))->columns(3)->schema([
@@ -69,6 +82,29 @@ final class InventoryLotInfolist
                         ->label(__('admin.inventory.lot.fields.warehouses'))
                         ->state(fn (InventoryLot $record): int => $record->warehouseCount()),
                 ]),
+                Section::make(__('Lot traceability'))
+                    ->description(__('Immutable warehouse movement history for backward and forward lot tracing.'))
+                    ->schema([
+                        RepeatableEntry::make('traceability_timeline')
+                            ->label(__('Movement history'))
+                            ->state(fn (InventoryLot $record): array => app(InventoryLotTimelineService::class)->events($record))
+                            ->schema([
+                                TextEntry::make('occurred_at')->label(__('Date'))->dateTime(),
+                                TextEntry::make('movement')->label(__('Movement'))->badge(),
+                                TextEntry::make('warehouse')->label(__('Warehouse')),
+                                TextEntry::make('transaction_quantity')->label(__('Transaction quantity'))->placeholder(__('—')),
+                                TextEntry::make('transaction_unit')->label(__('Unit'))->placeholder(__('—')),
+                                TextEntry::make('base_quantity_delta')->label(__('Base delta'))->numeric(decimalPlaces: 6),
+                                TextEntry::make('condition_from')->label(__('From condition'))->badge()->placeholder(__('—')),
+                                TextEntry::make('condition_to')->label(__('To condition'))->badge()->placeholder(__('—')),
+                                TextEntry::make('serial')->label(__('Serial'))->placeholder(__('—')),
+                                TextEntry::make('source')->label(__('Source document')),
+                                TextEntry::make('counterparty')->label(__('Supplier / customer'))->placeholder(__('—')),
+                                TextEntry::make('invoice')->label(__('Invoice'))->placeholder(__('—')),
+                                TextEntry::make('notes')->label(__('Notes'))->placeholder(__('—'))->columnSpanFull(),
+                            ])
+                            ->columns(3),
+                    ]),
                 Section::make(__('Customer Complaints'))
                     ->columns(3)
                     ->visible(static fn (): bool => TicketProductContextService::enabled() && (auth()->user()?->can(SupportPermission::QualityComplaintView->value) ?? false))

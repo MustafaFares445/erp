@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'product_variant_id', 'unit_id', 'description', 'quantity', 'transaction_quantity',
     'transaction_unit_id', 'conversion_factor_snapshot', 'base_quantity', 'unit_price',
-    'tax_amount', 'line_total', 'resolved_price_source', 'resolved_price_tier_id',
+    'tax_amount', 'line_total', 'resolved_price_source', 'resolved_price_tier_id', 'resolved_price_list_id', 'resolved_price_list_item_id',
     'price_floor_override_id', 'list_price_minor', 'floor_price_minor', 'sort_order',
 ])]
 /**
@@ -75,6 +75,18 @@ final class QuotationLine extends Model
     public function resolvedPriceTier(): BelongsTo
     {
         return $this->belongsTo(PricingTier::class, 'resolved_price_tier_id');
+    }
+
+    /** @return BelongsTo<PriceList, $this> */
+    public function resolvedPriceList(): BelongsTo
+    {
+        return $this->belongsTo(PriceList::class, 'resolved_price_list_id');
+    }
+
+    /** @return BelongsTo<PriceListItem, $this> */
+    public function resolvedPriceListItem(): BelongsTo
+    {
+        return $this->belongsTo(PriceListItem::class, 'resolved_price_list_item_id');
     }
 
     /** @return BelongsTo<PriceFloorOverride, $this> */

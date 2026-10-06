@@ -44,6 +44,10 @@ final class SupplierConfirmationActions
                     ])
                     ->required()
                     ->live(),
+                TextInput::make('supplier_reference')
+                    ->label(__('Supplier confirmation reference'))
+                    ->maxLength(150)
+                    ->helperText(__('Optional supplier acknowledgement, confirmation, or order reference.')),
                 DatePicker::make('promised_at')
                     ->label(__('Default promised date'))
                     ->helperText(__('Used for every line unless a line-specific promised date is entered below.'))
@@ -109,6 +113,7 @@ final class SupplierConfirmationActions
                         $promised === null ? null : CarbonImmutable::parse($promised),
                         self::stringFrom($data['notes'] ?? null),
                         self::quantityPayload($items),
+                        self::nullableStringFrom($data['supplier_reference'] ?? null),
                     ),
                     'admin.purchasing.notifications.confirmation_recorded',
                 );

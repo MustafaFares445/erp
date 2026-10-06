@@ -25,6 +25,10 @@ final class InventoryReservationsTable
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.reservation.fields.sku'))->searchable()->sortable(),
                 TextColumn::make('productVariant.name')->label(__('admin.inventory.reservation.fields.variant'))->searchable(),
                 TextColumn::make('warehouse.name')->label(__('admin.inventory.reservation.fields.warehouse'))->searchable()->sortable(),
+                TextColumn::make('salesOrder.order_number')
+                    ->label(__('Sales Order'))
+                    ->searchable()
+                    ->placeholder(__('—')),
                 TextColumn::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6)->sortable(),
                 TextColumn::make('allocations_count')->counts('allocations')->label(__('admin.inventory.reservation.fields.allocations')),
                 TextColumn::make('source_document')

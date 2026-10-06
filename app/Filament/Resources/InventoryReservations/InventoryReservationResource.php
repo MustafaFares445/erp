@@ -63,6 +63,13 @@ final class InventoryReservationResource extends Resource
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.reservation.fields.sku')),
                     TextEntry::make('productVariant.name')->label(__('admin.inventory.reservation.fields.variant')),
                     TextEntry::make('warehouse.name')->label(__('admin.inventory.reservation.fields.warehouse')),
+                    TextEntry::make('salesOrder.order_number')
+                        ->label(__('Sales Order'))
+                        ->placeholder(__('Not a customer-order reservation'))
+                        ->url(fn (InventoryReservation $record): ?string => $record->salesOrder !== null
+                            ? OrderResource::getUrl('view', ['record' => $record->salesOrder])
+                            : null),
+                    TextEntry::make('salesOrderLine.id')->label(__('Sales Order line'))->placeholder(__('—')),
                     TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6),
                     TextEntry::make('status')->badge(),
                     TextEntry::make('expires_at')->dateTime()->placeholder(__('admin.inventory.reservation.no_expiry')),
@@ -110,6 +117,8 @@ final class InventoryReservationResource extends Resource
             ->with([
                 'productVariant',
                 'warehouse',
+                'salesOrder',
+                'salesOrderLine',
                 'releasedBy',
                 'createdBy',
                 'updatedBy',

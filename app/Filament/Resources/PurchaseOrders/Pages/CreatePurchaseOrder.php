@@ -55,7 +55,20 @@ final class CreatePurchaseOrder extends CreateRecord
             }
         }
 
+        /** @var Supplier $supplier */
+        $supplier = Supplier::query()->findOrFail((int) $supplierId);
         $state['supplier_id'] = (int) $supplierId;
+
+        if (is_string($supplier->default_currency_code) && $supplier->default_currency_code !== '') {
+            $state['currency_code'] = $supplier->default_currency_code;
+        }
+
+        $state['payment_term_id'] = $supplier->payment_term_id;
+
+        if (is_int($supplier->default_lead_time_days)) {
+            $state['expected_at'] = today()->addDays($supplier->default_lead_time_days)->toDateString();
+        }
+
         $this->form->fill($state);
     }
 
@@ -99,6 +112,7 @@ final class CreatePurchaseOrder extends CreateRecord
                 [
                     'supplier_id' => self::integerFrom($data['supplier_id'] ?? null),
                     'currency_code' => self::stringFrom($data['currency_code'] ?? 'AED'),
+                    'payment_term_id' => isset($data['payment_term_id']) ? self::integerFrom($data['payment_term_id']) : null,
                     'ordered_at' => self::stringFrom($data['ordered_at'] ?? null),
                     'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),
                     'notes' => self::nullableStringFrom($data['notes'] ?? null),

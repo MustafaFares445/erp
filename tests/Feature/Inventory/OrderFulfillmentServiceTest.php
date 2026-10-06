@@ -120,7 +120,7 @@ it('covers defensive allocation, parsing, and preview branches', function (): vo
         ->toBe([
             1 => [
                 2 => [
-                    ['inventory_lot_id' => 3, 'quantity' => 2.0],
+                    ['inventory_lot_id' => 3, 'quantity' => 2.0, 'fefo_override_reason' => null],
                 ],
             ],
         ]);

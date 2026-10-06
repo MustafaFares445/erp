@@ -468,7 +468,7 @@ final readonly class PurchaseOrderReceivingService
      */
     private function receiptLineQuantities(PurchaseOrderLine $line, string $baseQuantity): array
     {
-        if ($line->productVariant->productType()?->tracksSerials() !== true) {
+        if ($line->productVariant->tracksSerialsConfigured() !== true) {
             return [$baseQuantity];
         }
 

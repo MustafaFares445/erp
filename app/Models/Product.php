@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Models\Concerns\HasCustomFields;
@@ -25,7 +26,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-#[Fillable(['name', 'name_ar', 'description', 'status', 'product_type', 'category_id', 'brand_id', 'is_active'])]
+#[Fillable(['name', 'name_ar', 'description', 'status', 'product_type', 'operational_profile', 'category_id', 'manufacturer_id', 'brand_id', 'is_active'])]
 #[ObservedBy(ProductObserver::class)]
 final class Product extends Model implements HasMedia
 {
@@ -44,6 +45,7 @@ final class Product extends Model implements HasMedia
         return [
             'status' => ProductStatus::class,
             'product_type' => ProductType::class,
+            'operational_profile' => ProductOperationalProfile::class,
             'is_active' => 'boolean',
         ];
     }
@@ -62,6 +64,12 @@ final class Product extends Model implements HasMedia
     public function category(): BelongsTo
     {
         return $this->belongsTo(ProductCategory::class);
+    }
+
+    /** @return BelongsTo<Manufacturer, $this> */
+    public function manufacturer(): BelongsTo
+    {
+        return $this->belongsTo(Manufacturer::class);
     }
 
     /** @return BelongsTo<Brand, $this> */

@@ -75,6 +75,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[Fillable([
     'supplier_id',
     'currency_code',
+    'payment_term_id',
     'ordered_at',
     'expected_at',
     'notes',
@@ -124,6 +125,12 @@ final class PurchaseOrder extends Model implements Favoritable, StoresDocumentUp
             'closed_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
+    }
+
+    /** @return BelongsTo<PaymentTerm, $this> */
+    public function paymentTerm(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTerm::class);
     }
 
     /** @return BelongsTo<Supplier, $this> */

@@ -552,8 +552,8 @@ final readonly class InventoryCountService
     ): void {
         $variant = ProductVariant::query()->with('product')->findOrFail($variantId);
         $conditionValues = array_map(static fn (StockCondition $condition): string => $condition->value, $conditions);
-        $tracksSerials = $variant->productType()?->tracksSerials() === true;
-        $tracksBatches = $variant->productType()?->tracksBatches() === true;
+        $tracksSerials = $variant->tracksSerialsConfigured();
+        $tracksBatches = $variant->tracksLotsConfigured();
 
         if ($tracksSerials) {
             $query = SerializedInventoryUnit::query()

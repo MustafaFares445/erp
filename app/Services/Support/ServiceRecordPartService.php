@@ -230,7 +230,7 @@ final readonly class ServiceRecordPartService
         $lot = null;
         $unit = null;
 
-        if ($variant->productType()?->tracksBatches() === true) {
+        if ($variant->tracksLotsConfigured()) {
             if ($inventoryLotId === null) {
                 throw ValidationException::withMessages([
                     'inventory_lot_id' => __('admin.inventory.lot.errors.required'),
@@ -251,7 +251,7 @@ final readonly class ServiceRecordPartService
             }
         }
 
-        if ($variant->productType()?->tracksSerials() === true) {
+        if ($variant->tracksSerialsConfigured()) {
             if ($serializedInventoryUnitId === null || round($quantity, 6) !== 1.0) {
                 throw ValidationException::withMessages([
                     'serialized_inventory_unit_id' => 'A serialized maintenance part requires exactly one device allocation.',

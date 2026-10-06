@@ -523,3 +523,26 @@ it('does not accept a late supplier response after the Purchase Order is conclud
         [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
     ))->toThrow(ValidationException::class, 'only be recorded while the Purchase Order remains active');
 });
+
+it('stores the supplier confirmation reference with the answered commitment', function (): void {
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+
+    $answered = $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Supplier confirmed by email',
+        [[
+            'id' => $item->getKey(),
+            'confirmed_base_quantity' => 5,
+            'backordered_base_quantity' => 0,
+        ]],
+        'SUP-CONF-2026-1042',
+    );
+
+    expect($answered->supplier_reference)->toBe('SUP-CONF-2026-1042')
+        ->and($answered->refresh()->supplier_reference)->toBe('SUP-CONF-2026-1042');
+});

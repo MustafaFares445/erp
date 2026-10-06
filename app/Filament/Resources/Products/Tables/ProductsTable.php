@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Models\Product;
@@ -42,7 +43,13 @@ final class ProductsTable
                     ->color(static fn (ProductType $state): string => $state->color())
                     ->sortable(),
                 TextColumn::make('category.name')->searchable()->sortable(),
+                TextColumn::make('manufacturer.name')->label(__('Manufacturer'))->searchable()->sortable(),
                 TextColumn::make('brand.name')->searchable()->sortable(),
+                TextColumn::make('operational_profile')
+                    ->label(__('Profile'))
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductOperationalProfile $state): string => $state->label())
+                    ->sortable(),
                 TextColumn::make('variants_count')->counts('variants')->label(__('admin.resources.product_variants_number')),
                 ToggleColumn::make('is_active'),
             ])
@@ -52,7 +59,9 @@ final class ProductsTable
                     ->label(__('admin.inventory.product_type.label'))
                     ->options(ProductType::options())
                     ->multiple(),
+                SelectFilter::make('operational_profile')->options(ProductOperationalProfile::options()),
                 SelectFilter::make('category_id')->relationship('category', 'name')->searchable()->preload(),
+                SelectFilter::make('manufacturer_id')->relationship('manufacturer', 'name')->searchable()->preload(),
                 SelectFilter::make('brand_id')->relationship('brand', 'name')->searchable()->preload(),
                 TrashedFilter::make(),
             ])

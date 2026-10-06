@@ -6,6 +6,7 @@ namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
 use App\Enums\PurchaseOrderDocument;
 use App\Filament\Support\CurrencySelect;
+use App\Models\PaymentTerm;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
@@ -56,15 +57,41 @@ final class PurchaseOrderForm
                         ->live()
                         ->required()
                         ->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && $record->lines()->exists())
-                        ->afterStateUpdated(function (Set $set, ?PurchaseOrder $record): void {
+                        ->afterStateUpdated(function (Set $set, mixed $state, ?PurchaseOrder $record): void {
                             if (! $record instanceof PurchaseOrder) {
                                 $set('lines', []);
+                            }
+
+                            if (! is_numeric($state)) {
+                                return;
+                            }
+
+                            $supplier = Supplier::query()->find((int) $state);
+
+                            if (! $supplier instanceof Supplier) {
+                                return;
+                            }
+
+                            if (is_string($supplier->default_currency_code) && $supplier->default_currency_code !== '') {
+                                $set('currency_code', $supplier->default_currency_code);
+                            }
+
+                            $set('payment_term_id', $supplier->payment_term_id);
+
+                            if (is_int($supplier->default_lead_time_days)) {
+                                $set('expected_at', today()->addDays($supplier->default_lead_time_days)->toDateString());
                             }
                         }),
                     CurrencySelect::make('currency_code')
                         ->label(__('admin.purchasing.fields.currency_code'))
                         ->required()
                         ->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && $record->lines()->exists()),
+                    Select::make('payment_term_id')
+                        ->label(__('Payment terms'))
+                        ->options(fn (): array => PaymentTerm::query()->orderByDesc('is_default')->orderBy('name')->pluck('name', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->placeholder(__('Supplier / system default')),
                     DatePicker::make('ordered_at')
                         ->label(__('admin.purchasing.fields.ordered_at'))
                         ->required()
@@ -242,6 +269,7 @@ final class PurchaseOrderForm
             ->where('supplier_id', (int) $supplierId)
             ->where('availability_status', 'active')
             ->where('is_active', true)
+            ->currentlyValid()
             ->whereHas('productVariant', static fn (Builder $query) => $query->where('is_active', true)
                 ->whereHas('product', static fn (Builder $products) => $products->where('is_active', true)))
             ->with('productVariant.product:id,name')->get()
@@ -266,6 +294,7 @@ final class PurchaseOrderForm
             ->where('supplier_id', (int) $supplierId)
             ->where('availability_status', 'active')
             ->where('is_active', true)
+            ->currentlyValid()
             ->whereHas('productVariant', static fn (Builder $query) => $query
                 ->where('product_id', (int) $productId)
                 ->where('is_active', true))

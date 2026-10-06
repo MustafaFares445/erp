@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Customers\Schemas;
 
 use App\Enums\CustomerApprovalStatus;
+use App\Enums\CustomerType;
 use App\Models\CustomerProfile;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
@@ -29,6 +30,21 @@ final class CustomerInfolist
                         IconEntry::make('is_active')->label(__('Active'))->boolean(),
                         TextEntry::make('created_at')->dateTime(),
                     ]),
+                Section::make(__('Commercial profile'))
+                    ->schema([
+                        TextEntry::make('customer_type')
+                            ->label(__('Customer Type'))
+                            ->badge()
+                            ->formatStateUsing(static fn (mixed $state): string => $state instanceof CustomerType ? $state->label() : '?'),
+                        TextEntry::make('customerGroup.name')->label(__('Customer Group'))->placeholder(__('?')),
+                        TextEntry::make('default_currency_code')->label(__('Default Currency'))->placeholder(__('?')),
+                        TextEntry::make('defaultPriceList.name')->label(__('Default Price List'))->placeholder(__('?')),
+                        TextEntry::make('defaultPaymentTerm.name')->label(__('Default Payment Terms'))->placeholder(__('?')),
+                        TextEntry::make('assignedSalesEmployee.name')->label(__('Assigned Sales Employee'))->placeholder(__('?')),
+                        TextEntry::make('tax_registration_number')->label(__('Tax Registration Number'))->placeholder(__('?')),
+                        TextEntry::make('billing_address')->label(__('Billing Address'))->placeholder(__('?'))->columnSpanFull(),
+                    ])
+                    ->columns(4),
                 Section::make(__('Review & commercial capability'))
                     ->schema([
                         TextEntry::make('approval_status')

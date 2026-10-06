@@ -187,7 +187,7 @@ final readonly class OutboundFulfillmentService
                     /** @var ProductVariant $variant */
                     $variant = $variants->get($assignment['product_variant_id']);
                     $serialIds = $assignment['serialized_inventory_unit_ids'];
-                    if ($variant->track_serials) {
+                    if ($variant->tracksSerialsConfigured()) {
                         if (abs($assignment['quantity'] - round($assignment['quantity'])) > self::Tolerance
                             || count($serialIds) !== (int) round($assignment['quantity'])) {
                             throw ValidationException::withMessages(['shipments' => 'Serialized demand requires exactly one serial per unit.']);
@@ -209,7 +209,7 @@ final readonly class OutboundFulfillmentService
                         continue;
                     }
 
-                    if ($variant->track_batches && $assignment['inventory_lot_id'] === null) {
+                    if ($variant->tracksLotsConfigured() && $assignment['inventory_lot_id'] === null) {
                         throw ValidationException::withMessages(['shipments' => 'Batch-tracked demand requires a lot assignment.']);
                     }
 

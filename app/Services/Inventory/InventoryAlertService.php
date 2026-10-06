@@ -178,7 +178,7 @@ final readonly class InventoryAlertService
     {
         $variant = ProductVariant::query()->find($stock->product_variant_id);
 
-        if (! $variant instanceof ProductVariant || ! $variant->track_serials) {
+        if (! $variant instanceof ProductVariant || ! $variant->tracksSerialsConfigured()) {
             $this->resolve(InventoryAlertType::MissingDeviceIdentity, $stock);
 
             return;

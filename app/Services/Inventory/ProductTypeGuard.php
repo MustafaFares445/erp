@@ -121,9 +121,7 @@ final readonly class ProductTypeGuard
      */
     public function assertInboundExpiry(ProductVariant $variant, ?DateTimeInterface $expiresAt): void
     {
-        $type = $variant->productType();
-
-        if ($type?->tracksExpiry() !== true) {
+        if (! $variant->tracksExpirationConfigured()) {
             if ($expiresAt instanceof DateTimeInterface) {
                 throw new DomainException(__('admin.inventory.product_type.errors.expiry_not_applicable'));
             }
@@ -149,7 +147,7 @@ final readonly class ProductTypeGuard
     {
         $type = $variant->productType();
 
-        if ($type?->tracksSerials() !== true) {
+        if (! $variant->tracksSerialsConfigured()) {
             if ($serialCount > 0) {
                 throw new DomainException(__('admin.inventory.product_type.errors.serials_not_applicable'));
             }
@@ -183,9 +181,7 @@ final readonly class ProductTypeGuard
      */
     public function assertOperationLineSerial(ProductVariant $variant, ?int $serializedUnitId, float $quantity): void
     {
-        $type = $variant->productType();
-
-        if ($type?->tracksSerials() !== true) {
+        if (! $variant->tracksSerialsConfigured()) {
             if ($serializedUnitId !== null) {
                 throw new DomainException(__('admin.inventory.product_type.errors.serials_not_applicable'));
             }

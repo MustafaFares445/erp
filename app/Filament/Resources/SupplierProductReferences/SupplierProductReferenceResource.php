@@ -9,18 +9,22 @@ use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProduct
 use App\Filament\Support\CurrencySelect;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\ProductVariantUnit;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
+use App\Models\Unit;
 use App\Services\Purchasing\SupplierCostWritebackService;
 use BackedEnum;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -93,8 +97,21 @@ final class SupplierProductReferenceResource extends Resource
                 ->getOptionLabelFromRecordUsing(fn (ProductVariant $record): string => self::variantLabel($record))
                 ->searchable(['sku', 'name', 'product.name'])
                 ->preload()
+                ->live()
                 ->required()
                 ->helperText(__('Adding an active supplier product automatically makes this supplier available for sourcing.')),
+            Select::make('purchase_unit_id')
+                ->label(__('Purchase UoM'))
+                ->options(fn (Get $get): array => self::purchaseUnitOptions($get('product_variant_id')))
+                ->searchable()
+                ->preload()
+                ->helperText(__('Optional supplier-specific purchase unit. It must be enabled for purchasing on the selected variant.')),
+            TextInput::make('pack_size')
+                ->label(__('Supplier pack size'))
+                ->numeric()
+                ->minValue(0.000001)
+                ->step(0.000001)
+                ->helperText(__('Optional commercial pack size. Inventory conversion still follows the variant UoM configuration.')),
             Select::make('availability_status')
                 ->label(__('Availability'))
                 ->options([
@@ -132,6 +149,8 @@ final class SupplierProductReferenceResource extends Resource
                 ->numeric()
                 ->minValue(0)
                 ->step(0.001),
+            DatePicker::make('valid_from')->label(__('Valid from')),
+            DatePicker::make('valid_to')->label(__('Valid to')),
             Textarea::make('notes')->label(__('Notes'))->rows(2)->columnSpanFull(),
         ])->columns(2);
     }
@@ -189,11 +208,22 @@ final class SupplierProductReferenceResource extends Resource
                     ->money(static fn (SupplierProductReference $record): string => $record->currency_code)
                     ->placeholder(__('Not configured'))
                     ->sortable(),
+                TextColumn::make('purchaseUnit.name')
+                    ->label(__('Purchase UoM'))
+                    ->placeholder(__('Base purchase UoM'))
+                    ->toggleable(),
+                TextColumn::make('pack_size')
+                    ->label(__('Pack size'))
+                    ->numeric(decimalPlaces: 6)
+                    ->placeholder(__('—'))
+                    ->toggleable(),
                 TextColumn::make('lead_time_days')
                     ->label(__('Lead time'))
                     ->suffix(__(' days'))
                     ->placeholder(__('—'))
                     ->sortable(),
+                TextColumn::make('valid_from')->label(__('Valid from'))->date()->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('valid_to')->label(__('Valid to'))->date()->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('is_preferred')
                     ->label(__('Preferred'))
                     ->boolean()
@@ -239,7 +269,28 @@ final class SupplierProductReferenceResource extends Resource
             'productVariant.media',
             'productVariant.product.media',
             'productVariant.product.brand',
+            'purchaseUnit',
         ]);
+    }
+
+    /** @return array<int, string> */
+    private static function purchaseUnitOptions(mixed $variantId): array
+    {
+        if (! is_numeric($variantId)) {
+            return [];
+        }
+
+        return ProductVariantUnit::query()
+            ->with('unit:id,name,symbol')
+            ->where('product_variant_id', (int) $variantId)
+            ->where('is_active', true)
+            ->where('is_purchase', true)
+            ->orderByDesc('is_base')
+            ->get()
+            ->mapWithKeys(static fn (ProductVariantUnit $configuration): array => $configuration->unit instanceof Unit
+                ? [$configuration->unit_id => mb_trim($configuration->unit->name.' · '.$configuration->unit->symbol, ' ·')]
+                : [])
+            ->all();
     }
 
     private static function variantLabel(ProductVariant $variant): string

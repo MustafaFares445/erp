@@ -205,13 +205,13 @@ final class AdjustmentItemsRelationManager extends RelationManager
     private function tracksBatches(mixed $variantId): bool
     {
         return is_numeric($variantId)
-            && ProductVariant::query()->with('product')->find((int) $variantId)?->productType()?->tracksBatches() === true;
+            && ProductVariant::query()->with('product')->find((int) $variantId)?->tracksLotsConfigured();
     }
 
     private function tracksSerials(mixed $variantId): bool
     {
         return is_numeric($variantId)
-            && ProductVariant::query()->with('product')->find((int) $variantId)?->productType()?->tracksSerials() === true;
+            && ProductVariant::query()->with('product')->find((int) $variantId)?->tracksSerialsConfigured();
     }
 
     /** @return array<int, string> */

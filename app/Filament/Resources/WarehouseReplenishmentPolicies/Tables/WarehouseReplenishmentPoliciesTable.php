@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\WarehouseReplenishmentPolicies\Tables;
 
+use App\Data\Inventory\ReplenishmentRecommendation;
+use App\Models\WarehouseReplenishmentPolicy;
+use App\Services\Inventory\ReplenishmentRecommendationService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
@@ -26,6 +29,18 @@ final class WarehouseReplenishmentPoliciesTable
                     ->label(__('admin.inventory.replenishment.fields.product_variant'))
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('available')
+                    ->label(__('Available'))
+                    ->state(fn (WarehouseReplenishmentPolicy $record): float => self::recommendation($record)->available)
+                    ->numeric(decimalPlaces: 3),
+                TextColumn::make('reserved')
+                    ->label(__('Reserved'))
+                    ->state(fn (WarehouseReplenishmentPolicy $record): float => self::recommendation($record)->reserved)
+                    ->numeric(decimalPlaces: 3),
+                TextColumn::make('incoming')
+                    ->label(__('Incoming'))
+                    ->state(fn (WarehouseReplenishmentPolicy $record): float => self::recommendation($record)->incoming)
+                    ->numeric(decimalPlaces: 3),
                 TextColumn::make('min_quantity')
                     ->label(__('admin.inventory.replenishment.fields.min_quantity'))
                     ->numeric(decimalPlaces: 3)
@@ -34,6 +49,21 @@ final class WarehouseReplenishmentPoliciesTable
                     ->label(__('admin.inventory.replenishment.fields.max_quantity'))
                     ->numeric(decimalPlaces: 3)
                     ->sortable(),
+                TextColumn::make('suggested_quantity')
+                    ->label(__('Suggested qty'))
+                    ->state(fn (WarehouseReplenishmentPolicy $record): float => self::recommendation($record)->suggestedBaseQuantity)
+                    ->numeric(decimalPlaces: 3)
+                    ->badge()
+                    ->color(fn (WarehouseReplenishmentPolicy $record): string => self::recommendation($record)->needsPurchase() ? 'warning' : 'success'),
+                TextColumn::make('supplier')
+                    ->label(__('Supplier'))
+                    ->state(fn (WarehouseReplenishmentPolicy $record): ?string => self::recommendation($record)->supplierName)
+                    ->placeholder(__('No eligible supplier')),
+                TextColumn::make('lead_time')
+                    ->label(__('Lead time'))
+                    ->state(fn (WarehouseReplenishmentPolicy $record): ?int => self::recommendation($record)->leadTimeDays)
+                    ->suffix(__(' days'))
+                    ->placeholder(__('—')),
                 IconColumn::make('is_active')
                     ->label(__('admin.inventory.replenishment.fields.is_active'))
                     ->boolean(),
@@ -49,5 +79,10 @@ final class WarehouseReplenishmentPoliciesTable
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
+    }
+
+    private static function recommendation(WarehouseReplenishmentPolicy $policy): ReplenishmentRecommendation
+    {
+        return app(ReplenishmentRecommendationService::class)->recommendation($policy);
     }
 }

@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'product_variant_id', 'quantity', 'transaction_quantity', 'unit_id', 'transaction_unit_id',
     'conversion_factor_snapshot', 'base_quantity', 'purchase_order_line_id', 'purchase_inbound_allocation_id',
-    'order_line_id', 'package_id', 'inventory_lot_id', 'lot_number', 'expires_at', 'serialized_inventory_unit_id',
+    'order_line_id', 'package_id', 'inventory_lot_id', 'fefo_override_reason', 'lot_number', 'expires_at', 'serialized_inventory_unit_id',
     'is_picked', 'allocation_source',
 ])]
 /**
