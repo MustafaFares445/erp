@@ -84,7 +84,7 @@ it('builds the sales funnel from quotations issued in the period, tracked throug
     ]);
     Invoice::factory()->create(['order_id' => $order->id, 'status' => InvoiceStatus::Issued->value, 'issued_at' => now()]);
 
-    Quotation::factory()->accepted()->create(['converted_order_id' => $order->id, 'status' => QuotationStatus::ConvertedToDelivery]);
+    Quotation::factory()->accepted()->create(['converted_order_id' => $order->id, 'status' => QuotationStatus::ConvertedToOrder]);
     Quotation::factory()->accepted()->create(); // accepted, not converted
     Quotation::factory()->create(); // draft, in the cohort but not accepted
 
@@ -160,7 +160,7 @@ it('attributes orders to a salesperson only by tracing quotation.employee_id, ne
     Quotation::factory()->create([
         'employee_id' => $employee->id,
         'converted_order_id' => $order->id,
-        'status' => QuotationStatus::ConvertedToDelivery,
+        'status' => QuotationStatus::ConvertedToOrder,
         'issue_date' => now(),
     ]);
 
@@ -181,7 +181,7 @@ it('scopes confirmed order value to a given customer or salesperson', function (
         'employee_id' => $employee->id,
         'customer_id' => $customer->id,
         'converted_order_id' => $ownedOrder->id,
-        'status' => QuotationStatus::ConvertedToDelivery,
+        'status' => QuotationStatus::ConvertedToOrder,
     ]);
     $ownedOrder->forceFill(['quotation_id' => $quotation->id])->saveQuietly();
     confirmedOrder(['grand_total' => '900.00']); // unrelated order, must be excluded

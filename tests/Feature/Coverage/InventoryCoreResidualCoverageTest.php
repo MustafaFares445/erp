@@ -80,7 +80,9 @@ it('covers reservation expiry no-op and validation helpers', function (): void {
         $service,
         'not-an-integer',
         1,
+        1,
         '1.000000',
+        null,
         null,
     ))->toThrow(DomainException::class, 'lot identifiers must be integers');
 

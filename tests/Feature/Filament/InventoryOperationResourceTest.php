@@ -367,7 +367,7 @@ it('resolves an integer from various scalar inputs on the operation lines repeat
         ->and($toInteger->invoke(null, null))->toBeNull();
 });
 
-it('resolves operation line type and batch options from fallback state', function (): void {
+it('resolves operation line tracking and batch options from fallback state', function (): void {
     $variant = ProductVariant::factory()->expiryMaterial()->create();
     $warehouse = Warehouse::factory()->create();
     $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
@@ -385,11 +385,15 @@ it('resolves operation line type and batch options from fallback state', functio
         default => null,
     });
 
-    $type = new ReflectionMethod(OperationLinesRepeater::class, 'typeOf');
+    $tracksExpiry = new ReflectionMethod(OperationLinesRepeater::class, 'tracksExpiryOf');
+    $tracksBatches = new ReflectionMethod(OperationLinesRepeater::class, 'tracksBatchesOf');
+    $tracksSerials = new ReflectionMethod(OperationLinesRepeater::class, 'tracksSerialsOf');
     $lotOptions = new ReflectionMethod(OperationLinesRepeater::class, 'lotOptions');
     $serializedOptions = new ReflectionMethod(OperationLinesRepeater::class, 'serializedUnitOptions');
 
-    expect($type->invoke(null, $get))->toBe($variant->product->product_type)
+    expect($tracksExpiry->invoke(null, $get))->toBeTrue()
+        ->and($tracksBatches->invoke(null, $get))->toBeTrue()
+        ->and($tracksSerials->invoke(null, $get))->toBeFalse()
         ->and($lotOptions->invoke(null, $get))->toHaveKey($lot->getKey())
         ->and($serializedOptions->invoke(null, $get))->toBe([]);
 });

@@ -163,6 +163,7 @@ return [
         'saleable' => 'Saleable',
         'quarantine' => 'Quarantine',
         'damaged' => 'Damaged',
+        'supplier_return' => 'Supplier Return',
     ],
     'inventory_return_type' => [
         'customer' => 'Customer',

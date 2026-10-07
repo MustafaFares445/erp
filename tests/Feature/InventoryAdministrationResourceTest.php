@@ -44,11 +44,15 @@ it('creates the singleton inventory setting and then disables further creation',
         ->test(ManageInventorySettings::class)
         ->callAction(TestAction::make('create'), [
             'default_markup_percent' => 20,
-            'expiry_alert_days' => 45,
+            'expiry_critical_days' => 15,
+            'expiry_warning_days' => 30,
+            'expiry_notice_days' => 45,
         ])
         ->assertHasNoActionErrors();
 
-    expect(InventorySetting::query()->sole()->expiry_alert_days)->toBe(45)
+    $setting = InventorySetting::query()->sole();
+    expect($setting->expiry_notice_days)->toBe(45)
+        ->and($setting->expiry_alert_days)->toBe(45)
         ->and(InventorySettingResource::canCreate())->toBeFalse();
 });
 

@@ -21,6 +21,7 @@ use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Supply\PurchaseReplenishmentCoverageService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -153,4 +154,36 @@ it('treats releasing coverage for a purchase order without lines as an idempoten
     app(PurchaseReplenishmentCoverageService::class)->releaseForOrder($order);
 
     expect(ReplenishmentCoverage::query()->count())->toBe(0);
+});
+
+it('releases every coverage passed to the internal release batch', function (): void {
+    [, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator);
+
+    $release = new ReflectionMethod(PurchaseReplenishmentCoverageService::class, 'releaseCoverages');
+    $release->invoke(
+        app(PurchaseReplenishmentCoverageService::class),
+        new Collection([$coverage]),
+    );
+
+    expect($coverage->refresh()->status)->toBe(ReplenishmentCoverageStatus::Released);
+});
+
+it('skips attaching new purchase coverage when the requirement has no remaining capacity', function (): void {
+    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator);
+    $line = $order->lines()->firstOrFail();
+    $inboundLine = $line->purchaseInboundLine()->firstOrFail();
+    $requirement = $coverage->requirement()->firstOrFail();
+
+    $coverage->forceFill(['source_id' => 999999991])->saveQuietly();
+    $requirement->forceFill([
+        'covered_base_quantity' => $requirement->required_base_quantity,
+    ])->saveQuietly();
+
+    app(PurchaseReplenishmentCoverageService::class)->syncForInboundLine($inboundLine->refresh());
+
+    expect(ReplenishmentCoverage::query()
+        ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
+        ->where('source_id', $line->getKey())
+        ->where('status', ReplenishmentCoverageStatus::Active->value)
+        ->count())->toBe(0);
 });

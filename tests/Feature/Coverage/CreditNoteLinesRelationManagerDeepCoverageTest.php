@@ -13,6 +13,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\ProductVariant;
 use App\Models\User;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -140,4 +141,28 @@ it('covers invoice and return line options plus defensive helpers', function ():
 
     expect(fn (): mixed => creditNoteLinesMethod('creditNoteRecord')->invoke($invalid))
         ->toThrow(LogicException::class, 'Expected a CreditNote');
+});
+
+it('resolves a submitted inventory return line id before validating the credit note link', function (): void {
+    $actor = User::factory()->create();
+    $this->actingAs($actor);
+
+    $creditNote = CreditNote::factory()->create([
+        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+        'inventory_return_id' => null,
+    ]);
+    $returnLine = InventoryReturnLine::factory()->create();
+
+    $manager = creditNoteLinesManager($creditNote);
+    $action = creditNoteLinesMethod('addLineAction')->invoke($manager);
+    $run = $action->getActionFunction();
+
+    expect(fn () => $run([
+        'invoice_line_id' => null,
+        'inventory_return_line_id' => $returnLine->getKey(),
+        'description' => 'Return line coverage',
+        'quantity' => 1,
+        'unit_price' => 1,
+        'tax_amount' => 0,
+    ]))->toThrow(Halt::class);
 });

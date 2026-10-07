@@ -9,11 +9,12 @@ use App\Models\ProductVariantUnit;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SupplierProductReference;
+use App\Models\Unit;
 use App\Models\User;
 use App\Models\WarehouseReplenishmentPolicy;
-use App\Services\Inventory\ReplenishmentRecommendationService;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,7 +24,6 @@ final readonly class ReplenishmentPurchaseOrderDraftService
 
     public function __construct(
         private PurchaseOrderService $purchaseOrders,
-        private ReplenishmentRecommendationService $recommendations,
         private ReplenishmentTransferSuggestionService $transferSuggestions,
     ) {}
 
@@ -41,8 +41,6 @@ final readonly class ReplenishmentPurchaseOrderDraftService
     public function createDrafts(User $actor, array $requirementIds): Collection
     {
         $ids = collect($requirementIds)
-            ->filter(static fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)))
-            ->map(static fn (mixed $id): int => (int) $id)
             ->filter(static fn (int $id): bool => $id > 0)
             ->unique()
             ->values();
@@ -90,13 +88,9 @@ final readonly class ReplenishmentPurchaseOrderDraftService
             $groups = [];
 
             foreach ($requirements as $requirement) {
+                $requirementId = self::integerModelKey($requirement, 'replenishment requirement');
+                /** @var WarehouseReplenishmentPolicy $policy */
                 $policy = $requirement->policy;
-
-                if (! $policy instanceof WarehouseReplenishmentPolicy) {
-                    throw ValidationException::withMessages([
-                        'requirement_ids' => 'A selected replenishment recommendation has no policy.',
-                    ]);
-                }
 
                 $purchaseBaseQuantity = $this->externalPurchaseBaseQuantity($requirement);
 
@@ -104,13 +98,13 @@ final readonly class ReplenishmentPurchaseOrderDraftService
                     continue;
                 }
 
-                $reference = $this->recommendations->preferredReference($policy);
+                $reference = $policy->resolvePreferredPurchasingReference();
 
                 if (! $reference instanceof SupplierProductReference) {
                     throw ValidationException::withMessages([
                         'requirement_ids' => sprintf(
                             'REQ-%d has no currently valid supplier product reference.',
-                            (int) $requirement->getKey(),
+                            $requirementId,
                         ),
                     ]);
                 }
@@ -124,13 +118,14 @@ final readonly class ReplenishmentPurchaseOrderDraftService
                 }
 
                 $configuration = $this->purchaseConfiguration($variant, $reference);
+                $variantId = self::integerModelKey($variant, 'product variant');
                 $currencyCode = mb_strtoupper((string) $reference->currency_code);
                 $groupKey = $reference->supplier_id.'|'.$currencyCode;
-                $lineKey = $variant->getKey().'|'.$configuration->unit_id;
+                $lineKey = $variantId.'|'.$configuration->unit_id;
 
                 if (! isset($groups[$groupKey])) {
                     $leadTimeDays = $reference->lead_time_days
-                        ?? $reference->supplier?->default_lead_time_days
+                        ?? $reference->supplier->default_lead_time_days
                         ?? 0;
 
                     $groups[$groupKey] = [
@@ -142,7 +137,7 @@ final readonly class ReplenishmentPurchaseOrderDraftService
                     ];
                 } else {
                     $leadTimeDays = $reference->lead_time_days
-                        ?? $reference->supplier?->default_lead_time_days
+                        ?? $reference->supplier->default_lead_time_days
                         ?? 0;
                     $groups[$groupKey]['lead_time_days'] = max(
                         $groups[$groupKey]['lead_time_days'],
@@ -150,14 +145,12 @@ final readonly class ReplenishmentPurchaseOrderDraftService
                     );
                 }
 
-                if (! isset($groups[$groupKey]['lines'][$lineKey])) {
-                    $groups[$groupKey]['lines'][$lineKey] = [
-                        'variant' => $variant,
-                        'configuration' => $configuration,
-                        'reference' => $reference,
-                        'base_quantity' => '0.000000',
-                    ];
-                }
+                $groups[$groupKey]['lines'][$lineKey] ??= [
+                    'variant' => $variant,
+                    'configuration' => $configuration,
+                    'reference' => $reference,
+                    'base_quantity' => '0.000000',
+                ];
 
                 $groups[$groupKey]['lines'][$lineKey]['base_quantity'] = bcadd(
                     $groups[$groupKey]['lines'][$lineKey]['base_quantity'],
@@ -167,8 +160,8 @@ final readonly class ReplenishmentPurchaseOrderDraftService
 
                 $groups[$groupKey]['requirement_labels'][] = sprintf(
                     'REQ-%d %s (%s base)',
-                    (int) $requirement->getKey(),
-                    $requirement->warehouse?->name ?? 'Warehouse',
+                    $requirementId,
+                    $requirement->warehouse->name ?? 'Warehouse',
                     $purchaseBaseQuantity,
                 );
             }
@@ -187,7 +180,7 @@ final readonly class ReplenishmentPurchaseOrderDraftService
 
                 foreach ($group['lines'] as $line) {
                     $lines[] = [
-                        'product_variant_id' => (int) $line['variant']->getKey(),
+                        'product_variant_id' => self::integerModelKey($line['variant'], 'product variant'),
                         'unit_id' => (int) $line['configuration']->unit_id,
                         'quantity_ordered' => $this->roundedPurchaseQuantity(
                             $line['base_quantity'],
@@ -216,6 +209,19 @@ final readonly class ReplenishmentPurchaseOrderDraftService
 
             return $orders;
         }, attempts: 5);
+    }
+
+    private static function integerModelKey(Model $model, string $label): int
+    {
+        $key = $model->getKey();
+
+        if (! is_int($key)) {
+            throw ValidationException::withMessages([
+                'requirement_ids' => sprintf('The %s must have an integer identifier.', $label),
+            ]);
+        }
+
+        return $key;
     }
 
     /** @return numeric-string */
@@ -297,9 +303,7 @@ final readonly class ReplenishmentPurchaseOrderDraftService
         $increment = (string) $configuration->rounding_increment;
 
         if (
-            ! is_numeric($factor)
-            || ! is_numeric($increment)
-            || bccomp($factor, '0.000000', self::SCALE) <= 0
+            bccomp($factor, '0.000000', self::SCALE) <= 0
             || bccomp($increment, '0.000000', self::SCALE) <= 0
         ) {
             throw ValidationException::withMessages([
@@ -312,7 +316,7 @@ final readonly class ReplenishmentPurchaseOrderDraftService
         if ($reference->minimum_order_quantity !== null) {
             $minimum = (string) $reference->minimum_order_quantity;
 
-            if (is_numeric($minimum) && bccomp($minimum, $target, 12) === 1) {
+            if (bccomp($minimum, $target, 12) === 1) {
                 $target = $minimum;
             }
         }
@@ -325,9 +329,10 @@ final readonly class ReplenishmentPurchaseOrderDraftService
         }
 
         $rounded = bcmul($wholeMultiple, $increment, 12);
-        $precision = $configuration->unit?->precision;
+        $unit = $configuration->unit;
+        $precision = $unit instanceof Unit ? $unit->precision : self::SCALE;
 
-        if (! is_int($precision) || $precision < 0 || $precision > self::SCALE) {
+        if ($precision > self::SCALE) {
             $precision = self::SCALE;
         }
 

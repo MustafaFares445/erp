@@ -38,7 +38,7 @@ then stock decreases and no tax is recognized"), §9 Payments and Tax ("Given a
 partial payment, then tax is recognized proportionally"), and §10 Credit Notes
 ("Given a credit note is confirmed, then the invoice is corrected without
 physical deletion"). `Docs/product/PRODUCT_OVERVIEW.md` names the lifecycle in its objectives
-(§Objectives: "Quotation -> Delivery Note -> Invoice -> Payment"), lists eleven
+(§Objectives, reconciled after the dental-core remediation: "Quotation -> Sales Order -> Delivery Note -> Invoice -> Payment"), lists eleven
 functional requirements covering it (FR-003 through FR-013), and states the tax
 rule twice more in §Business Rules. `Docs/architecture/DATA_ARCHITECTURE.md` supplies eighteen
 tables and a status catalogue for five of them.
@@ -46,8 +46,9 @@ tables and a status catalogue for five of them.
 Most decisively, the constitution itself specifies this module in Principle III,
 which is marked NON-NEGOTIABLE:
 
-> The sales lifecycle MUST follow `Quotation → Delivery Note → Invoice →
-> Payment`. Quotations MUST NOT affect inventory. Delivery notes affect
+> The reconciled sales lifecycle follows `Quotation → Sales Order → Delivery Note →
+> Invoice → Payment`. Quotations MUST NOT affect inventory. Sales Orders establish
+> the commercial fulfillment context; delivery notes affect
 > inventory but MUST NOT recognize tax. Invoices represent the financial claim.
 > Payments record actual collection.
 >
@@ -56,6 +57,8 @@ which is marked NON-NEGOTIABLE:
 >
 > Manual payments and Stripe payments MUST share the same accounting and
 > tax-recognition logic — no divergent code paths per payment channel.
+
+**Reconciled implementation note (2026-10):** the accepted quotation is now converted to a **Sales Order** before fulfillment, so the operational lifecycle is `Quotation → Sales Order → Delivery Note → Invoice → Payment`. The historical requirement excerpts above are preserved as source quotations; the Sales Order is the commercial handoff that now enforces availability, reservation, procurement, and tracked-inventory rules before delivery.
 
 No other module has its core invariants written into the constitution. This is
 the module Principle III was drafted for.
@@ -222,7 +225,7 @@ it must assert that these three sources exist and that no other does.
   chart of accounts stays the accountant's to own.
 - **Quotations**: priced lines defaulted from the existing pricing-tier
   resolution and guarded by the existing price floor; a
-  `draft → sent → accepted | rejected | expired → converted_to_delivery`
+  `draft → sent → accepted | rejected | expired → converted_to_order`
   lifecycle; immutability once sent; expiry; and creation from an approved sales
   opportunity. A quotation affects **no** stock, in any state.
 - **Orders**, extended in place per D2 with the accepted quotation's pricing, a

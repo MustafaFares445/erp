@@ -16,6 +16,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /** @extends resource<InventoryLot> */
@@ -67,6 +68,35 @@ final class InventoryLotResource extends Resource
             ->orderByRaw('expires_at IS NULL')
             ->orderBy('expires_at')
             ->orderBy('id');
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'lot_number',
+            'normalized_lot_number',
+            'productVariant.sku',
+            'productVariant.name',
+            'productVariant.name_ar',
+            'productVariant.product.name',
+            'productVariant.product.name_ar',
+        ];
+    }
+
+    #[\Override]
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        if (! $record instanceof InventoryLot) {
+            return [];
+        }
+
+        return [
+            'Product' => $record->productVariant->product->name ?? 'Unknown product',
+            'SKU' => $record->productVariant->sku ?? 'No SKU',
+            'Expiry' => $record->expires_at?->toDateString() ?? 'No expiry',
+        ];
     }
 
     #[\Override]

@@ -216,9 +216,9 @@ it('previews resolved pricing and handles missing selections', function (): void
     $component = Livewire::actingAs($actor)->test(CreateOrder::class);
     $method = new ReflectionMethod(CreateOrder::class, 'pricePreview');
 
-    expect($method->invoke($component->instance(), $customer->getKey(), null, null))->toBe('Select a product')
-        ->and($method->invoke($component->instance(), $customer->getKey(), 999999, null))->toBe('Unavailable')
-        ->and((string) $method->invoke($component->instance(), $customer->getKey(), $variant->getKey(), $variant->unit_id))
+    expect($method->invoke($component->instance(), $customer->getKey(), null, null, null))->toBe('Select a product')
+        ->and($method->invoke($component->instance(), $customer->getKey(), 999999, null, null))->toBe('Unavailable')
+        ->and((string) $method->invoke($component->instance(), $customer->getKey(), $variant->getKey(), $variant->unit_id, null))
         ->toContain('88.50')
         ->toContain('base');
 });

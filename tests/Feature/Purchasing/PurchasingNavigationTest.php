@@ -35,7 +35,6 @@ const PURCHASING_ITEMS = [
     'admin.resources.purchase_agreements' => PurchaseAgreementResource::class,
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
     'admin.resources.suppliers' => SupplierResource::class,
-    'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
     'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
     'admin.resources.supplier_product_supports' => SupplierProductSupportResource::class,
     'admin.resources.purchasing_reports' => PurchasingReportResource::class,
@@ -52,6 +51,7 @@ beforeEach(function (): void {
     $group = collect(AdminModuleRegistry::groups())->firstWhere('key', 'vendors');
 
     $this->items = collect($group['items']);
+    $this->contextual = collect($group['contextual'] ?? []);
 });
 
 it('lists every purchasing item in order, each pointing at a class that exists', function (): void {
@@ -66,6 +66,11 @@ it('lists every purchasing item in order, each pointing at a class that exists',
             // panel could not render.
             ->and(class_exists($link))->toBeTrue($label);
     }
+});
+
+it('keeps supplier confirmations contextual to the purchase order workflow', function (): void {
+    expect($this->items->pluck('link')->all())->not->toContain(SupplierConfirmationResource::class)
+        ->and($this->contextual->all())->toContain(SupplierConfirmationResource::class);
 });
 
 it('leaves no placeholder in the vendors group', function (): void {

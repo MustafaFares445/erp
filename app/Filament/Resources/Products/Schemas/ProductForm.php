@@ -18,6 +18,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class ProductForm
@@ -30,7 +31,7 @@ final class ProductForm
             Select::make('category_id')->relationship('category', 'name')->searchable()->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Categories group related products for browsing, reporting, and product setup.'),
             Select::make('manufacturer_id')
-                ->relationship('manufacturer', 'name', fn ($query) => $query->where('is_active', true))
+                ->relationship('manufacturer', 'name', fn (Builder $query): Builder => $query->where('is_active', true))
                 ->searchable()
                 ->preload()
                 ->live()
@@ -39,11 +40,12 @@ final class ProductForm
                 ->label(__('Brand'))
                 ->options(static function (Get $get): array {
                     $manufacturerId = $get('manufacturer_id');
+                    $manufacturerKey = is_numeric($manufacturerId) ? (int) $manufacturerId : null;
 
                     return Brand::query()
                         ->where('is_active', true)
-                        ->when(is_numeric($manufacturerId), fn ($query) => $query->where(function ($brands) use ($manufacturerId): void {
-                            $brands->whereNull('manufacturer_id')->orWhere('manufacturer_id', (int) $manufacturerId);
+                        ->when($manufacturerKey !== null, fn (Builder $query): Builder => $query->where(function (Builder $brands) use ($manufacturerKey): void {
+                            $brands->whereNull('manufacturer_id')->orWhere('manufacturer_id', $manufacturerKey);
                         }))
                         ->orderBy('name')
                         ->pluck('name', 'id')

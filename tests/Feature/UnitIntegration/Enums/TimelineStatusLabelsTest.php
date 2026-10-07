@@ -13,7 +13,7 @@ use App\Enums\VisitStatus;
  * The Customer 360 timeline (CR-05) renders every source's status through
  * label()/color() instead of the raw enum value — this guards that every
  * case of every timeline-facing enum has both, so a new case can't ship
- * `converted_to_delivery` back onto the screen.
+ * `converted_to_order` back onto the screen.
  */
 it('exposes a non-empty translated label and a valid Filament color for every timeline status enum case', function (): void {
     $validColors = ['gray', 'info', 'primary', 'success', 'warning', 'danger'];

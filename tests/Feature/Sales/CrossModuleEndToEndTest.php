@@ -254,7 +254,7 @@ it('E2E-01 carries a normal sale from quotation to a fully paid invoice with cor
     $order = app(QuotationConversionService::class)->convert($quotation);
 
     expect(Order::query()->count())->toBe(1)
-        ->and($quotation->refresh()->status)->toBe(QuotationStatus::ConvertedToDelivery)
+        ->and($quotation->refresh()->status)->toBe(QuotationStatus::ConvertedToOrder)
         ->and($quotation->converted_order_id)->toBe($order->getKey())
         ->and((float) $order->grand_total)->toBe(1100.0)
         ->and(JournalEntry::query()->count())->toBe(0)

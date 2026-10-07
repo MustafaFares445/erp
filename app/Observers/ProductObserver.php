@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Enums\ProductOperationalProfile;
-use App\Enums\ProductType;
 use App\Models\Brand;
 use App\Models\Product;
 use Illuminate\Validation\ValidationException;
@@ -19,11 +18,7 @@ final class ProductObserver
     public function saving(Product $product): void
     {
         if ($product->operational_profile === null) {
-            $type = $product->product_type;
-
-            if ($type instanceof ProductType) {
-                $product->operational_profile = ProductOperationalProfile::fromLegacyType($type);
-            }
+            $product->operational_profile = ProductOperationalProfile::fromLegacyType($product->product_type);
         }
 
         if ($product->brand_id === null) {

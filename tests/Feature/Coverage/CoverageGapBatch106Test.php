@@ -10,10 +10,13 @@ use App\Enums\SupportPermission;
 use App\Events\EquipmentInstallationMilestone;
 use App\Events\SupplierCommitmentRecorded;
 use App\Events\SupportQualityMilestone;
+use App\Events\VisitAssigned;
 use App\Listeners\SendBusinessNotification;
+use App\Models\CustomerVisit;
 use App\Models\InventoryLot;
 use App\Models\LotQualityAlert;
 use App\Models\MaintenanceRecord;
+use App\Models\NotificationDelivery;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
@@ -103,4 +106,18 @@ it('deduplicates a quality manager who also owns inventory condition-change perm
     );
 
     expect(true)->toBeTrue();
+});
+
+it('dispatches visit assignment notifications to the assigned employee', function (): void {
+    $visit = CustomerVisit::factory()->create();
+    $recipient = $visit->employee->user;
+
+    expect($recipient)->toBeInstanceOf(User::class);
+
+    app(SendBusinessNotification::class)->handle(new VisitAssigned($visit));
+
+    expect(NotificationDelivery::query()
+        ->where('template_key', NotificationEventKey::VisitAssigned->value)
+        ->where('notifiable_id', $recipient->getKey())
+        ->count())->toBeGreaterThanOrEqual(2);
 });

@@ -48,7 +48,7 @@ it('scopes awaiting-decision quotations to sent status only', function (): void 
 it('scopes accepted-not-converted quotations, excluding converted ones', function (): void {
     Quotation::factory()->accepted()->create();
     Quotation::factory()->create([
-        'status' => QuotationStatus::ConvertedToDelivery,
+        'status' => QuotationStatus::ConvertedToOrder,
         'converted_order_id' => Order::factory(),
     ]);
 

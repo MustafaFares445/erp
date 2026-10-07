@@ -15,6 +15,7 @@ use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Crm\CustomerReturnRequestService;
+use App\Services\Crm\Exceptions\InvalidCustomerReturnRequestTransition;
 use App\Services\Inventory\InventoryOperationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -145,4 +146,22 @@ it('rejects a return request from the view page', function (): void {
         ->assertNotified();
 
     expect($request->refresh()->status)->toBe(CustomerReturnRequestStatus::Rejected);
+});
+
+it('ignores non-array dashboard return lines before service validation', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    [$delivery] = completedDeliveryForReturnRequestResourceTest($customer);
+
+    $page = app(CreateCustomerReturnRequest::class);
+    $create = new ReflectionMethod(CreateCustomerReturnRequest::class, 'handleRecordCreation');
+
+    expect(fn () => $create->invoke($page, [
+        'customer_id' => $customer->getKey(),
+        'original_inventory_operation_id' => $delivery->getKey(),
+        'reason' => null,
+        'lines' => ['not-an-array'],
+    ]))->toThrow(
+        InvalidCustomerReturnRequestTransition::class,
+        'requires at least one line',
+    );
 });

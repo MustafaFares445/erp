@@ -21,6 +21,7 @@ use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\DeliveryTypeResolver;
 use App\Services\Orders\OrderFulfillmentService;
+use Filament\Forms\Components\Field;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -445,4 +446,127 @@ it('covers remaining stock warning filtered variant and no expiry lot paths', fu
         'product_variant_id' => $missingStockVariant->getKey(),
     ]);
     expect(cioCall($page, 'quantityPlaceholder', $placeholder))->toBe('No available stock.');
+});
+
+it('detects FEFO override selection and defensive branches', function (): void {
+    $page = cioPage();
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->expiryMaterial()->create();
+
+    InventoryLot::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'expires_at' => today()->addDays(5),
+        'on_hand_quantity' => 5,
+        'reserved_quantity' => 0,
+    ]);
+    $later = InventoryLot::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'expires_at' => today()->addDays(10),
+        'on_hand_quantity' => 5,
+        'reserved_quantity' => 0,
+    ]);
+
+    expect(cioCall(
+        $page,
+        'isFefoOverrideSelection',
+        $variant->getKey(),
+        $warehouse->getKey(),
+        $later->getKey(),
+        '1.000000',
+    ))->toBeTrue()
+        ->and(cioCall(
+            $page,
+            'isFefoOverrideSelection',
+            999999999,
+            $warehouse->getKey(),
+            $later->getKey(),
+            '1.000000',
+        ))->toBeFalse()
+        ->and(cioCall(
+            $page,
+            'isFefoOverrideSelection',
+            $variant->getKey(),
+            $warehouse->getKey(),
+            $later->getKey(),
+            null,
+        ))->toBeTrue();
+
+    $plainVariant = ProductVariant::factory()->create();
+    $plainLot = InventoryLot::factory()->create([
+        'product_variant_id' => $plainVariant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'expires_at' => null,
+        'on_hand_quantity' => 5,
+        'reserved_quantity' => 0,
+    ]);
+
+    expect(cioCall(
+        $page,
+        'isFefoOverrideSelection',
+        $plainVariant->getKey(),
+        $warehouse->getKey(),
+        $plainLot->getKey(),
+        '1.000000',
+    ))->toBeFalse();
+});
+
+function cioFindComponent(iterable $components, string $name): mixed
+{
+    foreach ($components as $component) {
+        if (is_object($component) && method_exists($component, 'getName') && $component->getName() === $name) {
+            return $component;
+        }
+
+        if (! is_object($component)) {
+            continue;
+        }
+
+        if (method_exists($component, 'getDefaultChildComponents')) {
+            $found = cioFindComponent($component->getDefaultChildComponents(), $name);
+
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        if (method_exists($component, 'getChildSchema')) {
+            try {
+                $child = $component->getChildSchema();
+
+                if ($child !== null) {
+                    $found = cioFindComponent($child->getFlatComponents(withHidden: true), $name);
+
+                    if ($found !== null) {
+                        return $found;
+                    }
+                }
+            } catch (Throwable) {
+            }
+        }
+    }
+
+    return null;
+}
+
+it('shows the authorized FEFO override explanation in the delivery form', function (): void {
+    $permission = Permission::findOrCreate(InventoryPermission::FefoOverride->value, 'web');
+    $actor = User::factory()->create();
+    $actor->givePermissionTo($permission);
+    $this->actingAs($actor);
+
+    $page = cioPage();
+    $page->isContextualDelivery = true;
+    $page->selectedOperationType = OperationType::Delivery;
+    $schema = $page->form(Schema::make($page)->model(new InventoryOperation));
+    $field = cioFindComponent($schema->getFlatComponents(withHidden: true), 'fefo_override_reason');
+
+    expect($field)->not->toBeNull();
+
+    $children = (new ReflectionProperty($field, 'childComponents'))->getValue($field);
+    $helperFactory = $children[Field::BELOW_CONTENT_SCHEMA_KEY] ?? null;
+
+    expect($helperFactory)->toBeInstanceOf(Closure::class)
+        ->and($helperFactory($field))->not->toBeNull();
 });

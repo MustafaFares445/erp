@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Data\Inventory\LogisticsInboundBlockerData;
+use App\Data\Inventory\LogisticsInboundData;
 use App\Enums\CrmPermission;
 use App\Enums\OccurrenceStatus;
+use App\Enums\PurchaseInboundStatus;
 use App\Filament\Pages\CrmDashboard;
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\MaintenanceSchedules\RelationManagers\OccurrencesRelationManager;
@@ -12,8 +15,10 @@ use App\Filament\Resources\ReceivableWriteOffs\Pages\CreateReceivableWriteOff;
 use App\Filament\Resources\Shipments\Pages\ViewShipment;
 use App\Models\InventoryStock;
 use App\Models\MaintenanceSchedule;
+use App\Models\PurchaseInbound;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Services\Inventory\LogisticsInboundProjectionService;
 use Database\Seeders\CrmPermissionSeeder;
 use Filament\Tables\Table;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -94,4 +99,44 @@ it('covers inventory stock saleable availability fallback calculation', function
     ]);
 
     expect($stock->saleableAvailableQuantity())->toBe(5.0);
+});
+
+it('covers the purchase inbound blocker translation branch', function (): void {
+    $inbound = PurchaseInbound::factory()->create();
+    $projection = new LogisticsInboundData(
+        purchaseInboundId: (int) $inbound->getKey(),
+        purchaseOrderId: (int) $inbound->purchase_order_id,
+        purchaseOrderReference: (string) $inbound->purchaseOrder->purchase_order_number,
+        supplier: (string) $inbound->purchaseOrder->supplier->name,
+        expectedAt: null,
+        inboundStatus: PurchaseInboundStatus::AwaitingAllocation,
+        businessState: 'Awaiting Allocation',
+        overdue: false,
+        confirmedBaseQuantity: '1.000000',
+        allocatedBaseQuantity: '0.000000',
+        receivedBaseQuantity: '0.000000',
+        remainingBaseQuantity: '1.000000',
+        destinationWarehouses: [],
+        blockers: [new LogisticsInboundBlockerData(
+            'awaiting_supplier_confirmation',
+            'Pending supplier response',
+        )],
+        lines: [],
+        nextAction: 'Allocate warehouse quantities',
+    );
+
+    app()->instance(LogisticsInboundProjectionService::class, new readonly class($projection)
+    {
+        public function __construct(private LogisticsInboundData $projection) {}
+
+        public function project(PurchaseInbound $record): LogisticsInboundData
+        {
+            return $this->projection;
+        }
+    });
+
+    $message = (new ReflectionMethod(PurchaseInboundsTable::class, 'blockerMessage'))
+        ->invoke(null, $inbound);
+
+    expect($message)->toBe((string) __('admin.logistics.inbound.blocker_messages.awaiting_supplier_confirmation'));
 });

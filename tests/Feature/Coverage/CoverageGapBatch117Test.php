@@ -184,11 +184,15 @@ it('distinguishes serialized barcode resolutions from variant-only scans', funct
 
 it('invalidates expiry defaults when inventory settings are deleted', function (): void {
     $setting = InventorySetting::current();
-    $setting->update(['expiry_alert_days' => 12]);
+    $setting->update([
+        'expiry_critical_days' => 10,
+        'expiry_warning_days' => 11,
+        'expiry_notice_days' => 12,
+    ]);
 
     expect(InventorySetting::expiryAlertDays())->toBe(12);
     $setting->delete();
-    expect(InventorySetting::expiryAlertDays())->toBe(30);
+    expect(InventorySetting::expiryAlertDays())->toBe(90);
 });
 
 it('uses the warning color for a partially configured notification template', function (): void {

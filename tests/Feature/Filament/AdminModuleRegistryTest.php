@@ -9,6 +9,7 @@ use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
+use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
@@ -181,8 +182,9 @@ it('places suppliers in vendors and pricing controls in CRM', function (): void 
         ->and(collect($vendors['items'])->pluck('label'))->toContain(
             'admin.resources.suppliers',
             'admin.resources.purchase_orders',
-            'admin.resources.supplier_confirmations',
         )
+        ->and(collect($vendors['items'])->pluck('label'))->not->toContain('admin.resources.supplier_confirmations')
+        ->and(AdminModuleRegistry::contextualResources())->toContain(SupplierConfirmationResource::class)
         ->and($crm['items'])->toHaveCount(12)
         ->and(collect($crm['items'])->pluck('label'))->toContain(
             'admin.resources.crm_dashboard',

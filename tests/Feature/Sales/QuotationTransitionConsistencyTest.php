@@ -160,7 +160,7 @@ it('gives the loser of two racing conversions a business error and no second ord
         ->toThrow(InvalidQuotationTransition::class, $order->order_number);
 
     expect(Order::query()->count())->toBe(1)
-        ->and($winner->status)->toBe(QuotationStatus::ConvertedToDelivery);
+        ->and($winner->status)->toBe(QuotationStatus::ConvertedToOrder);
 });
 
 it('refuses to cancel a sales order that was closed after the caller loaded it', function (): void {

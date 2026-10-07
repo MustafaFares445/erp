@@ -64,7 +64,7 @@ it('covers every quotation lifecycle branch and label', function (): void {
     $terminal = [
         QuotationStatus::Rejected->value,
         QuotationStatus::Expired->value,
-        QuotationStatus::ConvertedToDelivery->value,
+        QuotationStatus::ConvertedToOrder->value,
         QuotationStatus::Cancelled->value,
     ];
 
@@ -76,9 +76,9 @@ it('covers every quotation lifecycle branch and label', function (): void {
             $expected = match ($source) {
                 QuotationStatus::Draft => in_array($target, [QuotationStatus::Sent, QuotationStatus::Cancelled], true),
                 QuotationStatus::Sent => in_array($target, [QuotationStatus::Accepted, QuotationStatus::Rejected, QuotationStatus::Expired, QuotationStatus::ChangesRequested, QuotationStatus::Cancelled], true),
-                QuotationStatus::Accepted => in_array($target, [QuotationStatus::ConvertedToDelivery, QuotationStatus::Cancelled], true),
+                QuotationStatus::Accepted => in_array($target, [QuotationStatus::ConvertedToOrder, QuotationStatus::Cancelled], true),
                 QuotationStatus::ChangesRequested => in_array($target, [QuotationStatus::Rejected, QuotationStatus::Cancelled], true),
-                QuotationStatus::Rejected, QuotationStatus::Expired, QuotationStatus::ConvertedToDelivery, QuotationStatus::Cancelled => false,
+                QuotationStatus::Rejected, QuotationStatus::Expired, QuotationStatus::ConvertedToOrder, QuotationStatus::Cancelled => false,
             };
 
             expect($source->canTransitionTo($target))->toBe($expected);

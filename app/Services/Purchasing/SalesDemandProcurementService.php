@@ -110,7 +110,7 @@ final readonly class SalesDemandProcurementService
         foreach ($requirements as $requirement) {
             /** @var ProductVariant $variant */
             $variant = $requirement->productVariant;
-            $reference = $this->purchaseOrders->referenceFor($supplierId, (int) $variant->getKey());
+            $reference = $this->purchaseOrders->referenceFor($supplierId, self::integerId($variant->getKey()));
 
             if (! $reference instanceof SupplierProductReference) {
                 throw new DomainException("Supplier reference disappeared for variant {$variant->sku}.");

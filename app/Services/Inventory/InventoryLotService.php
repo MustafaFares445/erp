@@ -11,6 +11,7 @@ use App\Models\InventoryLotBalance;
 use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
 use App\Models\User;
+use Carbon\Carbon;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -251,7 +252,12 @@ final readonly class InventoryLotService
             return $selectedLot;
         }
 
-        if ($preferred->expires_at?->toDateString() === $selectedLot->expires_at?->toDateString()) {
+        /** @var Carbon $preferredExpiry */
+        $preferredExpiry = $preferred->expires_at;
+        /** @var Carbon $selectedExpiry */
+        $selectedExpiry = $selectedLot->expires_at;
+
+        if ($preferredExpiry->toDateString() === $selectedExpiry->toDateString()) {
             return $selectedLot;
         }
 

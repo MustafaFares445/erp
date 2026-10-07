@@ -112,6 +112,26 @@ final class WarehouseReplenishmentPolicy extends Model
         return $this->hasMany(ReplenishmentRequirement::class);
     }
 
+    public function resolvePreferredPurchasingReference(): ?SupplierProductReference
+    {
+        return SupplierProductReference::query()
+            ->activeFor((int) $this->preferred_supplier_id, (int) $this->product_variant_id)
+            ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
+            ->with('supplier:id,name,default_lead_time_days')
+            ->first()
+            ?? SupplierProductReference::query()
+                ->where('product_variant_id', $this->product_variant_id)
+                ->where('availability_status', 'active')
+                ->where('is_active', true)
+                ->currentlyValid()
+                ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
+                ->with('supplier:id,name,default_lead_time_days')
+                ->orderByDesc('is_preferred')
+                ->orderByRaw('lead_time_days is null, lead_time_days asc')
+                ->orderBy('id')
+                ->first();
+    }
+
     /**
      * @param  Builder<self>  $query
      * @return Builder<self>

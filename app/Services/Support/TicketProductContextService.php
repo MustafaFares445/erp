@@ -155,11 +155,8 @@ final readonly class TicketProductContextService
             }
 
             foreach ($created->pluck('inventory_lot_id')->filter()->unique() as $lotId) {
-                if (! is_numeric($lotId)) {
-                    continue;
-                }
-
-                $this->signals->evaluate(InventoryLot::query()->whereKey((int) $lotId)->firstOrFail());
+                /** @var int $lotId */
+                $this->signals->evaluate(InventoryLot::query()->whereKey($lotId)->firstOrFail());
             }
 
             if ($first) {

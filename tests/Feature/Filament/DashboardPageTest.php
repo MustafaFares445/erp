@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\CrmPermissionSeeder;
@@ -188,18 +189,17 @@ it('opens a working placeholder page from a sidebar navigation item', function (
     $response->assertSeeText(__('admin.empty_module'));
 });
 
-it('registers vendors and its unfinished workflow placeholders', function (): void {
+it('registers vendors and keeps supplier confirmations contextual to purchase orders', function (): void {
     $user = User::factory()->create();
 
     $purchaseOrdersUrl = ModulePlaceholder::getUrl(['group' => 'vendors', 'item' => 'purchase_orders']);
-    $supplierConfirmationsUrl = ModulePlaceholder::getUrl(['group' => 'vendors', 'item' => 'supplier_confirmations']);
 
     expect(AdminModuleRegistry::findItem('vendors', 'suppliers'))->not->toBeNull()
         ->and(AdminModuleRegistry::findItem('vendors', 'purchase_orders'))->not->toBeNull()
-        ->and(AdminModuleRegistry::findItem('vendors', 'supplier_confirmations'))->not->toBeNull();
+        ->and(AdminModuleRegistry::findItem('vendors', 'supplier_confirmations'))->toBeNull()
+        ->and(AdminModuleRegistry::contextualResources())->toContain(SupplierConfirmationResource::class);
 
     $this->actingAs($user)->get($purchaseOrdersUrl)->assertOk();
-    $this->actingAs($user)->get($supplierConfirmationsUrl)->assertOk();
 });
 
 it('returns a 404 for a placeholder page with an unknown group or item', function (): void {

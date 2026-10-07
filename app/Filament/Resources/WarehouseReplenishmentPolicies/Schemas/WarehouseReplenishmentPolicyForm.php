@@ -13,6 +13,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rules\Unique;
 
 final class WarehouseReplenishmentPolicyForm
@@ -73,9 +74,9 @@ final class WarehouseReplenishmentPolicyForm
             return [];
         }
 
-        return Supplier::query()
+        $options = Supplier::query()
             ->where('is_active', true)
-            ->whereHas('productReferences', static fn ($query) => $query
+            ->whereHas('productReferences', static fn (Builder $query): Builder => $query
                 ->where('product_variant_id', (int) $variantId)
                 ->where('availability_status', 'active')
                 ->where('is_active', true)
@@ -83,5 +84,8 @@ final class WarehouseReplenishmentPolicyForm
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
+
+        /** @var array<int, string> $options */
+        return $options;
     }
 }

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Visits\Schemas;
 
+use App\Enums\SerializedCustodyType;
 use App\Models\EmployeeProfile;
+use App\Models\SerializedInventoryUnit;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -41,10 +43,45 @@ final class VisitScheduleForm
                         ->relationship('customer', 'company_name')
                         ->searchable()
                         ->preload()
+                        ->live()
                         ->required(),
+                    Select::make('serialized_inventory_unit_id')
+                        ->label(__('Customer-owned equipment'))
+                        ->options(static function (Get $get): array {
+                            $customerId = $get('customer_id');
+
+                            if (! is_numeric($customerId)) {
+                                return [];
+                            }
+
+                            return SerializedInventoryUnit::query()
+                                ->where('custody_type', SerializedCustodyType::Customer->value)
+                                ->where('custody_reference_type', 'customer')
+                                ->where('custody_reference_id', (int) $customerId)
+                                ->with('productVariant.product')
+                                ->orderBy('serial_number')
+                                ->get()
+                                ->mapWithKeys(static function (SerializedInventoryUnit $unit): array {
+                                    /** @var int $unitKey */
+                                    $unitKey = $unit->getKey();
+
+                                    return [
+                                        $unitKey => sprintf(
+                                            '%s — %s',
+                                            $unit->productVariant->product->name ?? $unit->productVariant->name ?? __('Product'),
+                                            $unit->serial_number,
+                                        ),
+                                    ];
+                                })
+                                ->all();
+                        })
+                        ->searchable()
+                        ->visible(static fn (Get $get): bool => self::isServiceVisit($get('visit_type')) || is_numeric($get('serialized_inventory_unit_id')))
+                        ->helperText(__('Optional. Select only when this visit concerns a specific customer-owned device.')),
                     TextInput::make('visit_type')
                         ->label(__('Visit type'))
                         ->maxLength(80)
+                        ->live(onBlur: true)
                         ->placeholder(__('Customer meeting, demo, follow-up…')),
                 ]),
             Section::make(__('Schedule'))
@@ -65,5 +102,19 @@ final class VisitScheduleForm
                         ->columnSpanFull(),
                 ]),
         ]);
+    }
+
+    private static function isServiceVisit(mixed $visitType): bool
+    {
+        if (! is_string($visitType) || mb_trim($visitType) === '') {
+            return false;
+        }
+
+        $normalized = mb_strtolower($visitType);
+
+        return str_contains($normalized, 'service')
+            || str_contains($normalized, 'maintenance')
+            || str_contains($normalized, 'technical')
+            || str_contains($normalized, 'repair');
     }
 }

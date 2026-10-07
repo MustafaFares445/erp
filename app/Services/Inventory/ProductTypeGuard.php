@@ -41,7 +41,7 @@ final readonly class ProductTypeGuard
 
         $type = $variant->productType();
 
-        if ($type?->requiresWholeQuantity() === true && $this->hasFraction($quantity)) {
+        if ($type instanceof ProductType && $type->requiresWholeQuantity() && $this->hasFraction($quantity)) {
             throw new DomainException(__('admin.inventory.product_type.errors.whole_quantity_required', [
                 'type' => $type->label(),
             ]));
@@ -157,7 +157,7 @@ final readonly class ProductTypeGuard
 
         if ($this->hasFraction($quantity)) {
             throw new DomainException(__('admin.inventory.product_type.errors.whole_quantity_required', [
-                'type' => $type->label(),
+                'type' => $type instanceof ProductType ? $type->label() : 'Product',
             ]));
         }
 

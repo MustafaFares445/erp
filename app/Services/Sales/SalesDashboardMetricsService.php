@@ -125,7 +125,7 @@ final class SalesDashboardMetricsService
         )->with(['convertedOrder.deliveries', 'convertedOrder.invoices'])->get();
 
         $acceptedOrBeyond = $quotations->filter(
-            fn (Quotation $quotation): bool => in_array($quotation->status, [QuotationStatus::Accepted, QuotationStatus::ConvertedToDelivery], true),
+            fn (Quotation $quotation): bool => in_array($quotation->status, [QuotationStatus::Accepted, QuotationStatus::ConvertedToOrder], true),
         );
         $ordered = $quotations->filter(fn (Quotation $quotation): bool => $quotation->convertedOrder instanceof Order);
         $delivered = $ordered->filter(function (Quotation $quotation): bool {
@@ -527,7 +527,7 @@ final class SalesDashboardMetricsService
                 ->whereDate('decided_at', '<=', $to->toDateString())
                 ->whereIn('status', [
                     QuotationStatus::Accepted->value,
-                    QuotationStatus::ConvertedToDelivery->value,
+                    QuotationStatus::ConvertedToOrder->value,
                     QuotationStatus::Rejected->value,
                 ]),
             $filters,

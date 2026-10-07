@@ -66,7 +66,7 @@ final class ListQuotations extends ListRecords
             'open' => Tab::make(__('Open'))
                 ->modifyQueryUsing(self::openQuery(...)),
             'converted' => Tab::make(__('Converted'))
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::ConvertedToDelivery->value)),
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::ConvertedToOrder->value)),
             'rejected_cancelled' => Tab::make(__('Rejected / Cancelled'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     QuotationStatus::Rejected->value,

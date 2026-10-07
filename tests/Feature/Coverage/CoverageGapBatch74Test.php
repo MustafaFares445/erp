@@ -255,7 +255,7 @@ it('covers create-order unauthenticated creation guard and no-customer price pre
 
     $variant = ProductVariant::factory()->create(['base_price' => 80]);
     $preview = new ReflectionMethod(CreateOrder::class, 'pricePreview')
-        ->invoke($instance, 'not-a-customer', $variant->getKey(), null);
+        ->invoke($instance, 'not-a-customer', $variant->getKey(), null, null);
 
     expect($preview)->toContain('80.00');
 });

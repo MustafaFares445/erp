@@ -14,7 +14,6 @@ use App\Services\Documents\DocumentUploadSynchronizer;
 use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
-use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -41,11 +40,7 @@ final class CreatePurchaseOrder extends CreateRecord
             return;
         }
 
-        $rawState = $this->form->getRawState();
-
-        if ($rawState instanceof Arrayable) {
-            $rawState = $rawState->toArray();
-        }
+        $rawState = collect($this->form->getRawState())->all();
 
         $state = [];
 

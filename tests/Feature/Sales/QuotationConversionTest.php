@@ -45,7 +45,7 @@ it('converts an accepted quotation into an order whose totals equal the quotatio
         ->and($order->customer_id)->toBe($quotation->customer_id)
         ->and($order->quotation_id)->toBe($quotation->getKey())
         ->and($order->payment_term_id)->toBe($quotation->payment_term_id)
-        ->and($quotation->refresh()->status)->toBe(QuotationStatus::ConvertedToDelivery)
+        ->and($quotation->refresh()->status)->toBe(QuotationStatus::ConvertedToOrder)
         ->and($quotation->converted_order_id)->toBe($order->getKey())
         ->and(Order::query()->count())->toBe(1);
 

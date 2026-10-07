@@ -508,7 +508,7 @@ it('covers report filter boundary values and every stock and expiry state', func
         ])))->toBe([$lowStock->getKey(), $available->getKey()]);
 
     $expiring = InventoryLot::factory()->create(['expires_at' => today()->addDay()]);
-    $healthy = InventoryLot::factory()->create(['expires_at' => today()->addDays(31)]);
+    $healthy = InventoryLot::factory()->create(['expires_at' => today()->addDays(91)]);
     $withoutExpiry = InventoryLot::factory()->create(['expires_at' => null]);
 
     expect(reportIds($service->query(InventoryReportType::ExpiryLots, [

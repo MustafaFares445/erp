@@ -329,14 +329,11 @@ final class AllocationsRelationManager extends RelationManager
     /** @return numeric-string */
     private static function receivedForLine(PurchaseInboundLine $line): string
     {
+        /** @var numeric-string|int|float|null $received */
         $received = $line->purchaseOrderLine()->value('received_base_quantity');
 
         if ($received !== null) {
-            if (is_int($received) || is_float($received) || (is_string($received) && is_numeric($received))) {
-                return bcadd('0.000000', (string) $received, self::QUANTITY_SCALE);
-            }
-
-            return '0.000000';
+            return bcadd('0.000000', (string) $received, self::QUANTITY_SCALE);
         }
 
         $total = '0.000000';

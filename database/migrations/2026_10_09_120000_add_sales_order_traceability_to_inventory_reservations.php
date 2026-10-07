@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Order;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +40,7 @@ return new class extends Migration
                         ->first(['source_document_type', 'source_document_id']);
 
                     if ($operation === null
-                        || $operation->source_document_type !== 'App\\Models\\Order'
+                        || $operation->source_document_type !== Order::class
                         || ! is_numeric($operation->source_document_id)) {
                         continue;
                     }

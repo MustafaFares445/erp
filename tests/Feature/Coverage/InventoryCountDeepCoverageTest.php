@@ -8,6 +8,7 @@ use App\Enums\InventoryCountStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
+use App\Enums\TrackingMode;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryCount;
@@ -304,6 +305,11 @@ it('falls back to aggregate condition balances when the product relation is soft
     $actor = User::factory()->create();
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
+    $variant->forceFill([
+        'tracking_mode' => TrackingMode::None,
+        'track_serials' => false,
+        'track_batches' => false,
+    ])->saveQuietly();
     $product = $variant->product;
 
     expect($product)->not->toBeNull();

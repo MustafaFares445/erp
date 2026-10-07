@@ -11,7 +11,9 @@ use App\Models\SupplierProductReference;
 use App\Models\SupplierProductSupport;
 use App\Models\User;
 use App\Services\Purchasing\SalesDemandProcurementService;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 uses(RefreshDatabase::class);
@@ -262,4 +264,74 @@ it('rejects a Sales procurement requirement whose variant was soft-deleted after
         DomainException::class,
         'A procurement requirement requires a product variant.',
     );
+});
+
+it('rejects when a supplier product reference disappears after eligibility is computed', function (): void {
+    Gate::before(static fn (): bool => true);
+    Currency::query()->firstOrCreate(
+        ['code' => 'USD'],
+        ['name' => 'US Dollar', 'is_active' => true, 'is_default' => false],
+    );
+
+    $actor = User::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $line = OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 2,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 2,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+    SupplierProductSupport::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create();
+    $reference = SupplierProductReference::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create([
+            'currency_code' => 'USD',
+            'purchase_cost' => '12.50',
+            'is_active' => true,
+        ]);
+
+    $connection = DB::connection();
+    $originalDispatcher = $connection->getEventDispatcher();
+    $dispatcher = clone $originalDispatcher;
+    $connection->setEventDispatcher($dispatcher);
+    $deleted = false;
+
+    $dispatcher->listen(QueryExecuted::class, static function (QueryExecuted $query) use (&$deleted, $reference): void {
+        $sql = mb_strtolower($query->sql);
+
+        if ($deleted || ! str_contains($sql, 'supplier_product_references') || ! str_contains($sql, 'group by')) {
+            return;
+        }
+
+        $deleted = true;
+        SupplierProductReference::query()->whereKey($reference->getKey())->delete();
+    });
+
+    try {
+        expect(fn () => app(SalesDemandProcurementService::class)->createDrafts(
+            $actor,
+            $order,
+            $supplier->getKey(),
+            'USD',
+        ))->toThrow(DomainException::class, 'Supplier reference disappeared');
+    } finally {
+        $connection->setEventDispatcher($originalDispatcher);
+    }
+
+    expect($deleted)->toBeTrue();
 });

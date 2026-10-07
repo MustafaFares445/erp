@@ -32,6 +32,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 final class PriceListResource extends Resource
 {
@@ -193,13 +194,13 @@ final class PriceListResource extends Resource
     }
 
     #[\Override]
-    public static function canEdit($record): bool
+    public static function canEdit(Model $record): bool
     {
         return self::canManagePricing();
     }
 
     #[\Override]
-    public static function canDelete($record): bool
+    public static function canDelete(Model $record): bool
     {
         return self::canManagePricing();
     }

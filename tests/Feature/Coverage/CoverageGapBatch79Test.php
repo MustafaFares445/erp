@@ -177,7 +177,7 @@ it('covers create-order price review when the resolver rejects the price', funct
         $page = new ReflectionClass(CreateOrder::class)->newInstanceWithoutConstructor();
         $preview = new ReflectionMethod(CreateOrder::class, 'pricePreview');
 
-        expect($preview->invoke($page, null, $variant->getKey(), null))
+        expect($preview->invoke($page, null, $variant->getKey(), null, null))
             ->toBe('Price requires review');
     } finally {
         app()->forgetInstance(PriceResolver::class);

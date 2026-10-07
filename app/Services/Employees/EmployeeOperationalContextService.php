@@ -92,13 +92,21 @@ final readonly class EmployeeOperationalContextService
     {
         return CustomerVisit::query()
             ->where('employee_id', $employee->getKey())
-            ->with('customer:id,company_name')
+            ->with([
+                'customer:id,company_name,customer_type,contact_name,contact_phone,address',
+                'equipment:id,product_variant_id,serial_number',
+            ])
             ->orderByDesc('scheduled_start_at')
             ->limit(20)
             ->get()
             ->map(static fn (CustomerVisit $visit): array => [
                 'reference' => $visit->reference ?? '#'.$visit->id,
                 'customer' => $visit->customer?->company_name,
+                'customer_type' => $visit->customer?->customer_type?->label(),
+                'contact' => $visit->customer?->contact_name,
+                'contact_phone' => $visit->customer?->contact_phone,
+                'visit_address' => $visit->customer?->address,
+                'equipment_serial' => $visit->equipment?->serial_number,
                 'scheduled_at' => $visit->effectiveScheduledStart()?->format('Y-m-d H:i'),
                 'status' => $visit->status->label(),
                 'outcome' => $visit->outcome_code?->label(),
@@ -113,7 +121,13 @@ final readonly class EmployeeOperationalContextService
     {
         return PlanTask::query()
             ->whereHas('salesPlan', static fn (Builder $query): Builder => $query->where('employee_id', $employee->getKey()))
-            ->with(['salesPlan:id,name', 'customer:id,company_name'])
+            ->with([
+                'salesPlan:id,name',
+                'customer:id,company_name',
+                'quotation:id,quotation_number',
+                'order:id,order_number',
+                'equipment:id,serial_number',
+            ])
             ->latest('due_at')
             ->limit(20)
             ->get()
@@ -121,6 +135,9 @@ final readonly class EmployeeOperationalContextService
                 'title' => $task->title,
                 'plan' => $task->salesPlan?->name,
                 'customer' => $task->customer?->company_name,
+                'quotation' => $task->quotation?->quotation_number,
+                'sales_order' => $task->order?->order_number,
+                'equipment_serial' => $task->equipment?->serial_number,
                 'due_at' => $task->due_at->toDateString(),
                 'status' => $task->status->value,
                 'source' => $task->source_visit_id !== null ? self::translation('Visit follow-up') : self::translation('Monthly plan'),

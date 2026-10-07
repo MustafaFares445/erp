@@ -95,7 +95,11 @@ final class InventorySetting extends Model
     /** @return array{critical: int, warning: int, notice: int} */
     public static function expiryWindows(): array
     {
-        $setting = self::current();
+        $setting = self::query()->firstOrNew([], [
+            'expiry_critical_days' => 30,
+            'expiry_warning_days' => 60,
+            'expiry_notice_days' => 90,
+        ]);
         $critical = max(1, (int) ($setting->expiry_critical_days ?? 30));
         $warning = max($critical, (int) ($setting->expiry_warning_days ?? 60));
         $notice = max($warning, (int) ($setting->expiry_notice_days ?? 90));

@@ -292,7 +292,6 @@ final readonly class PriceResolver
             discountAmount: $discount['discount_amount'],
             minimumPrice: $minimumPrice,
             isBelowFloor: $minimumPrice !== null && $discount['amount'] < $minimumPrice,
-            currencyCode: null,
         );
     }
 
@@ -308,7 +307,6 @@ final readonly class PriceResolver
             discountAmount: 0,
             minimumPrice: $minimumPrice,
             isBelowFloor: $minimumPrice !== null && $basePrice < $minimumPrice,
-            currencyCode: null,
         );
     }
 }

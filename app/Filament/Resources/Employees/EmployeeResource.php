@@ -18,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use UnitEnum;
 
@@ -30,6 +31,8 @@ final class EmployeeResource extends Resource
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.employees';
 
     protected static ?int $navigationSort = 601;
+
+    protected static ?string $recordTitleAttribute = 'employee_code';
 
     #[\Override]
     public static function getNavigationLabel(): string
@@ -53,6 +56,35 @@ final class EmployeeResource extends Resource
     public static function table(Table $table): Table
     {
         return EmployeesTable::configure($table);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'employee_code',
+            'job_title',
+            'phone',
+            'email',
+            'user.name',
+            'user.username',
+            'user.email',
+        ];
+    }
+
+    #[\Override]
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        if (! $record instanceof EmployeeProfile) {
+            return [];
+        }
+
+        return [
+            'Employee' => $record->user->name ?? 'Unknown user',
+            'Job title' => $record->job_title,
+            'Code' => $record->employee_code,
+        ];
     }
 
     #[\Override]

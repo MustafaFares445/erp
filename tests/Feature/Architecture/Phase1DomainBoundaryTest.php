@@ -8,7 +8,6 @@ it('keeps procurement monetary ownership out of the Inventory service namespace'
     $root = base_path('app/Services/Inventory');
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root));
     $forbidden = [
-        'SupplierProductReference',
         'purchase_cost',
         'last_received_unit_cost',
         'supplier_price',

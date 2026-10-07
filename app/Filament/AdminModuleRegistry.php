@@ -404,11 +404,13 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.purchase_agreements', 'link' => PurchaseAgreementResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class, 'section' => 'suppliers'],
-                    ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class, 'section' => 'suppliers'],
                     ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class, 'section' => 'catalog'],
                     ['label' => 'admin.resources.supplier_product_supports', 'link' => SupplierProductSupportResource::class, 'section' => 'catalog'],
                     ['label' => 'admin.resources.purchasing_reports', 'link' => PurchasingReportResource::class, 'section' => 'reports'],
                     ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class, 'section' => 'setup'],
+                ],
+                'contextual' => [
+                    SupplierConfirmationResource::class,
                 ],
             ],
             [

@@ -12,12 +12,16 @@ use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceRes
 use App\Filament\Support\CurrencySelect;
 use App\Models\Currency;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SalesProcurementRequirement;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
+use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\ReplenishmentRecommendationService;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use App\Services\Purchasing\ReplenishmentPurchaseOrderDraftService;
@@ -181,7 +185,7 @@ final class PurchaseNeeds extends Page
 
                     $rawIds = is_array($data['requirement_ids'] ?? null) ? $data['requirement_ids'] : [];
                     $ids = array_values(array_map(
-                        static fn (mixed $id): int => self::integerFrom($id),
+                        self::integerFrom(...),
                         $rawIds,
                     ));
 
@@ -211,7 +215,7 @@ final class PurchaseNeeds extends Page
      * A read-only projection over the source-domain requirements. No Purchasing
      * duplicate rows are created merely to display demand.
      *
-     * @return list<array<string, int|string|null>>
+     * @return list<array<string, int|float|string|null>>
      */
     public function needs(): array
     {
@@ -299,6 +303,9 @@ final class PurchaseNeeds extends Page
         $recommendations = app(ReplenishmentRecommendationService::class);
 
         foreach ($replenishment as $requirement) {
+            /** @var int $requirementId */
+            $requirementId = $requirement->getKey();
+
             $transferQuantity = 0.0;
 
             foreach ($transferSuggestions->suggest($requirement) as $suggestion) {
@@ -309,9 +316,9 @@ final class PurchaseNeeds extends Page
                 0.0,
                 round($requirement->remainingUncoveredQuantity() - $transferQuantity, 6),
             );
-            $recommendation = $requirement->policy !== null
-                ? $recommendations->recommendation($requirement->policy)
-                : null;
+            /** @var WarehouseReplenishmentPolicy $policy */
+            $policy = $requirement->policy;
+            $recommendation = $recommendations->recommendation($policy);
 
             if ($purchaseRemaining <= 0.0) {
                 continue;
@@ -319,7 +326,7 @@ final class PurchaseNeeds extends Page
 
             $rows[] = [
                 'source' => 'Inventory Replenishment',
-                'source_reference' => 'REQ-'.$requirement->id,
+                'source_reference' => 'REQ-'.$requirementId,
                 'source_url' => null,
                 'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
                 'sku' => $requirement->productVariant->sku ?? '—',
@@ -333,15 +340,15 @@ final class PurchaseNeeds extends Page
                 'status' => $requirement->status->value,
                 'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
                 'sales_order_id' => null,
-                'replenishment_requirement_id' => $requirement->getKey(),
-                'available' => $recommendation?->available,
-                'reserved' => $recommendation?->reserved,
-                'incoming' => $recommendation?->incoming,
-                'minimum' => $recommendation?->minimum,
-                'maximum' => $recommendation?->maximum,
-                'suggested_quantity' => $recommendation?->suggestedBaseQuantity,
-                'suggested_supplier' => $recommendation?->supplierName,
-                'lead_time_days' => $recommendation?->leadTimeDays,
+                'replenishment_requirement_id' => $requirementId,
+                'available' => $recommendation->available,
+                'reserved' => $recommendation->reserved,
+                'incoming' => $recommendation->incoming,
+                'minimum' => $recommendation->minimum,
+                'maximum' => $recommendation->maximum,
+                'suggested_quantity' => $recommendation->suggestedBaseQuantity,
+                'suggested_supplier' => $recommendation->supplierName,
+                'lead_time_days' => $recommendation->leadTimeDays,
                 'next_action' => ($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
                     ? 'Create PO draft'
                     : 'Add Supplier Product',
@@ -396,11 +403,8 @@ final class PurchaseNeeds extends Page
         $options = [];
 
         foreach ($requirements as $requirement) {
+            /** @var WarehouseReplenishmentPolicy $policy */
             $policy = $requirement->policy;
-
-            if ($policy === null) {
-                continue;
-            }
 
             $transferQuantity = 0.0;
 
@@ -420,15 +424,22 @@ final class PurchaseNeeds extends Page
                 continue;
             }
 
-            $product = $requirement->productVariant?->product?->name
-                ?? $requirement->productVariant?->name
-                ?? 'Product';
-            $sku = $requirement->productVariant?->sku ?? '—';
-            $warehouse = $requirement->warehouse?->name ?? 'Warehouse';
+            /** @var int $requirementId */
+            $requirementId = $requirement->getKey();
+            /** @var ProductVariant $variant */
+            $variant = $requirement->productVariant;
+            /** @var Product $productRecord */
+            $productRecord = $variant->product;
+            /** @var Warehouse $warehouseRecord */
+            $warehouseRecord = $requirement->warehouse;
 
-            $options[(int) $requirement->getKey()] = sprintf(
+            $product = $productRecord->name;
+            $sku = $variant->sku;
+            $warehouse = $warehouseRecord->name;
+
+            $options[$requirementId] = sprintf(
                 'REQ-%d · %s (%s) · %s · %.3f · %s',
-                (int) $requirement->getKey(),
+                $requirementId,
                 $product,
                 $sku,
                 $warehouse,

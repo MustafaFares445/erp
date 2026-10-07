@@ -610,10 +610,7 @@ final readonly class SendBusinessNotification
         $seen = [];
 
         foreach ($recipients as $recipient) {
-            if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
-                continue;
-            }
-
+            /** @var User|CustomerProfile $recipient */
             $identity = sprintf('%s:%d', $recipient->getMorphClass(), $recipient->id);
 
             if (isset($seen[$identity])) {

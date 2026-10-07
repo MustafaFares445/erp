@@ -59,10 +59,8 @@ final class ProductVariantObserver
 
         $tracksExpiration = $variant->tracks_expiration;
 
-        if ($tracksExpiration === null) {
-            $tracksExpiration = ($type?->tracksExpiry() ?? false)
-                || ($profile?->tracksExpirationByDefault() ?? false);
-        }
+        $tracksExpiration ??= ($type?->tracksExpiry() ?? false)
+            || ($profile?->tracksExpirationByDefault() ?? false);
 
         if ($tracksExpiration && $mode === TrackingMode::None) {
             $mode = TrackingMode::Lot;

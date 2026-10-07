@@ -16,7 +16,9 @@ use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Sales\InvoiceService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 
@@ -285,4 +287,40 @@ it('covers invoice send status email and queued send paths', function (): void {
 
     expect($sent->getKey())->toBe($valid->getKey());
     Queue::assertPushed(SendInvoiceEmail::class);
+});
+
+it('rejects a source order that disappears between delivery validation and order locking', function (): void {
+    $actor = User::factory()->create();
+    $customer = CustomerProfile::factory()->create();
+    $order = Order::factory()->create(['customer_id' => $customer->getKey()]);
+    $delivery = InventoryOperation::factory()->delivery()->done()->create([
+        'customer_id' => $customer->getKey(),
+        'source_document_type' => Order::class,
+        'source_document_id' => $order->getKey(),
+    ]);
+
+    $original = Model::getEventDispatcher();
+    $dispatcher = clone $original;
+    Model::setEventDispatcher($dispatcher);
+    $deleted = false;
+
+    $dispatcher->listen('eloquent.retrieved: '.Order::class, static function (Order $retrieved) use (&$deleted, $order): void {
+        if ($deleted || $retrieved->getKey() !== $order->getKey()) {
+            return;
+        }
+
+        $deleted = true;
+        DB::table('orders')->where('id', $order->getKey())->delete();
+    });
+
+    try {
+        expect(fn () => app(InvoiceService::class)->createFromDeliveries(
+            $actor,
+            new EloquentCollection([$delivery]),
+        ))->toThrow(DomainException::class, 'originating sales order');
+    } finally {
+        Model::setEventDispatcher($original);
+    }
+
+    expect($deleted)->toBeTrue();
 });

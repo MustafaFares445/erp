@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -91,7 +92,8 @@ final class PriceListItem extends Model
     /** @param Builder<$this> $query
      * @return Builder<$this>
      */
-    public function scopeCurrent(Builder $query): Builder
+    #[Scope]
+    protected function current(Builder $query): Builder
     {
         return $query
             ->where('is_active', true)

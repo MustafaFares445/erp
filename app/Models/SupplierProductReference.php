@@ -143,7 +143,8 @@ final class SupplierProductReference extends Model
     /** @param Builder<$this> $query
      * @return Builder<$this>
      */
-    public function scopeCurrentlyValid(Builder $query): Builder
+    #[Scope]
+    protected function currentlyValid(Builder $query): Builder
     {
         return $query
             ->where(static fn (Builder $validFrom): Builder => $validFrom

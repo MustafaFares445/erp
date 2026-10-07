@@ -163,6 +163,7 @@ return [
         'saleable' => 'قابل للبيع',
         'quarantine' => 'حجر',
         'damaged' => 'تالف',
+        'supplier_return' => 'إرجاع إلى المورد',
     ],
     'inventory_return_type' => [
         'customer' => 'عميل',

@@ -61,6 +61,10 @@ final class ListInventoryLots extends ListRecords
         ];
     }
 
+    /**
+     * @param  Builder<InventoryLot>  $query
+     * @return Builder<InventoryLot>
+     */
     private static function withPhysicalStock(Builder $query): Builder
     {
         return $query->whereHas(
@@ -74,13 +78,14 @@ final class ListInventoryLots extends ListRecords
         $query = self::withPhysicalStock(InventoryLot::query())->whereNotNull('expires_at');
 
         if ($toDays < 0) {
-            return $query->whereDate('expires_at', '<', today())->count();
+            return $query->whereDate('expires_at', '<', today()->toDateString())->count();
         }
 
         if ($fromDays !== null) {
-            $query->whereDate('expires_at', $fromDays === 0 ? '>=' : '>', today()->addDays(max(0, $fromDays - 1)));
+            $date = today()->addDays(max(0, $fromDays - 1))->toDateString();
+            $query->whereDate('expires_at', $fromDays === 0 ? '>=' : '>', $date);
         }
 
-        return $query->whereDate('expires_at', '<=', today()->addDays($toDays))->count();
+        return $query->whereDate('expires_at', '<=', today()->addDays($toDays)->toDateString())->count();
     }
 }

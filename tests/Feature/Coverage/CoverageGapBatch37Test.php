@@ -273,7 +273,7 @@ it('covers sales dashboard activity filters and private helpers', function (): v
         'customer_id' => $customer->getKey(),
         'employee_id' => $employee->getKey(),
         'converted_order_id' => $order->getKey(),
-        'status' => QuotationStatus::ConvertedToDelivery->value,
+        'status' => QuotationStatus::ConvertedToOrder->value,
         'issue_date' => today(),
     ]);
     $order->forceFill(['quotation_id' => $quotation->getKey()])->saveQuietly();

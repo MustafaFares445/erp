@@ -176,7 +176,7 @@ it('shows the supply blocker and links an order viewer to outbound review when p
         ->assertTableActionHasUrl('next_step', OutboundFulfillmentResource::getUrl('view', ['record' => $order]), $order);
     Livewire::actingAs($viewer)->test(ViewOrder::class, ['record' => $order->id])
         ->assertSee('Supply blocked')
-        ->assertSee('Requires procurement: 2');
+        ->assertSee('Outstanding supply: 2 base units');
     expect(PurchaseNeeds::canAccess())->toBeFalse();
 });
 

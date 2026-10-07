@@ -33,7 +33,7 @@ final readonly class QuotationConversionService
                 ->lockForUpdate()
                 ->sole();
 
-            if ($locked->status === QuotationStatus::ConvertedToDelivery || $locked->converted_order_id !== null) {
+            if ($locked->status === QuotationStatus::ConvertedToOrder || $locked->converted_order_id !== null) {
                 throw InvalidQuotationTransition::alreadyConverted(
                     (string) $locked->quotation_number,
                     (string) $locked->convertedOrder?->order_number,
@@ -69,7 +69,7 @@ final readonly class QuotationConversionService
             }
 
             $locked->update([
-                'status' => QuotationStatus::ConvertedToDelivery,
+                'status' => QuotationStatus::ConvertedToOrder,
                 'converted_order_id' => $order->getKey(),
             ]);
             $quotation->refresh();

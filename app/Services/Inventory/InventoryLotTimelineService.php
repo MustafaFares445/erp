@@ -103,15 +103,54 @@ final readonly class InventoryLotTimelineService
                     'condition_to' => $movement->stock_condition_to?->value,
                     'serial' => $movement->serializedUnit?->serial_number,
                     'source' => $this->sourceLabel($movement, $operation, $return),
-                    'counterparty' => $operation?->customer?->company_name
-                        ?? $operation?->supplier?->name
-                        ?? $return?->customer?->company_name
-                        ?? $return?->supplier?->name,
+                    'counterparty' => $this->counterpartyLabel($operation, $return),
                     'invoice' => $operation?->invoiceDeliveryLink?->invoice?->invoice_number,
                     'notes' => $movement->notes,
                 ];
             })
             ->all());
+    }
+
+    private function counterpartyLabel(?InventoryOperation $operation, ?InventoryReturn $return): ?string
+    {
+        if ($operation instanceof InventoryOperation) {
+            $customer = $operation->customer;
+
+            if ($customer !== null) {
+                return $customer->company_name;
+            }
+
+            $supplier = $operation->supplier;
+
+            if ($supplier !== null) {
+                return $supplier->name;
+            }
+        }
+
+        if ($return instanceof InventoryReturn) {
+            $customer = $return->customer;
+
+            if ($customer !== null) {
+                return $customer->company_name;
+            }
+
+            $supplier = $return->supplier;
+
+            if ($supplier !== null) {
+                return $supplier->name;
+            }
+        }
+
+        return null;
+    }
+
+    private function modelKeyLabel(InventoryOperation|InventoryReturn $model): string
+    {
+        $key = $model->getKey();
+
+        return is_int($key) || is_string($key)
+            ? (string) $key
+            : '—';
     }
 
     private function sourceLabel(
@@ -122,13 +161,13 @@ final readonly class InventoryLotTimelineService
         if ($operation instanceof InventoryOperation) {
             $reference = is_string($operation->operation_number) && $operation->operation_number !== ''
                 ? $operation->operation_number
-                : '#'.$operation->getKey();
+                : '#'.$this->modelKeyLabel($operation);
 
             return $operation->operation_type->label().' '.$reference;
         }
 
         if ($return instanceof InventoryReturn) {
-            return 'Inventory Return '.($return->return_number ?? '#'.$return->getKey());
+            return 'Inventory Return '.($return->return_number ?? '#'.$this->modelKeyLabel($return));
         }
 
         if ($movement->source_type === null) {

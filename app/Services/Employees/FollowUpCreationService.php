@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Employees;
 
 use App\Enums\PlanTaskStatus;
+use App\Enums\SalesOpportunityStatus;
 use App\Events\FollowUpTaskCreated;
 use App\Models\CustomerVisit;
 use App\Models\PlanTask;
+use App\Models\SalesOpportunity;
 use App\Models\SalesPlan;
 use App\Models\TaskStatusLog;
 use DomainException;
@@ -36,10 +38,21 @@ final readonly class FollowUpCreationService
                 throw new LogicException('The visit must belong to a monthly plan task.');
             }
 
+            $opportunities = $visit->salesOpportunities()->sortByDesc('id');
+            $opportunity = $opportunities->first(
+                static fn (SalesOpportunity $candidate): bool => $candidate->status === SalesOpportunityStatus::Approved,
+            ) ?? $opportunities->first();
+            $quotation = $opportunity?->quotation;
+            $order = $quotation?->convertedOrder;
+
             $task = PlanTask::query()->create([
                 'sales_plan_id' => $plan->getKey(),
                 'customer_id' => $visit->customer_id,
                 'source_visit_id' => $visit->getKey(),
+                'sales_opportunity_id' => $opportunity?->getKey(),
+                'quotation_id' => $quotation?->getKey(),
+                'order_id' => $order?->getKey(),
+                'serialized_inventory_unit_id' => $visit->serialized_inventory_unit_id,
                 'title' => 'Visit follow-up: '.($visit->customer->company_name ?? $visit->reference ?? '#'.$visit->id),
                 'description' => $visit->follow_up_note ?: $visit->outcome_notes,
                 'starts_at' => $visit->follow_up_date,

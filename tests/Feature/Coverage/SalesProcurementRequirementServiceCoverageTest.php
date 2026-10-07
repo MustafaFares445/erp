@@ -278,3 +278,43 @@ it('preserves a failed PO attempt and requeues only its remaining Sales demand',
         'Repeated terminal callback',
     ))->toBeEmpty();
 });
+
+it('requeues the stored fulfilled quantity when the linked purchase order line was deleted', function (): void {
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $orderLine = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
+        'quantity' => 5,
+        'unit_id' => $variant->unit_id,
+    ]);
+    $purchaseOrder = PurchaseOrder::factory()->create();
+    $purchaseLine = PurchaseOrderLine::factory()
+        ->for($purchaseOrder)
+        ->for($variant, 'productVariant')
+        ->create([
+            'unit_id' => $variant->unit_id,
+            'quantity_ordered' => 5,
+        ]);
+
+    $requirement = $order->procurementRequirements()->create([
+        'order_line_id' => $orderLine->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'purchase_order_id' => $purchaseOrder->getKey(),
+        'purchase_order_line_id' => $purchaseLine->getKey(),
+        'required_base_quantity' => '5.000000',
+        'fulfilled_base_quantity' => '2.000000',
+        'status' => 'purchasing',
+    ]);
+
+    $purchaseLine->delete();
+    expect($requirement->refresh()->purchase_order_line_id)->toBeNull();
+
+    $requeued = app(SalesProcurementRequirementService::class)->requeueFromPurchaseOrder(
+        $purchaseOrder,
+        'Deleted line coverage fallback',
+    );
+
+    expect($requirement->refresh()->status)->toBe('superseded')
+        ->and((float) $requirement->fulfilled_base_quantity)->toBe(2.0)
+        ->and($requeued)->toHaveCount(1)
+        ->and((float) $requeued->sole()->required_base_quantity)->toBe(3.0);
+});

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryOperations\Schemas;
 
 use App\Enums\OperationType;
-use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\InventoryOperationLine;
@@ -218,33 +217,6 @@ final class OperationLinesRepeater
     {
         return $record instanceof InventoryOperationLine
             && $record->purchase_inbound_allocation_id !== null;
-    }
-
-    /**
-     * The product type governing this line, read from the product the row already names.
-     *
-     * Prefers `product_id`, which the row's own product select holds, and falls back to the
-     * variant so a line hydrated from an existing record resolves before that select is filled.
-     */
-    private static function typeOf(Get $get): ?ProductType
-    {
-        $productId = self::toInteger($get('product_id'));
-
-        if ($productId === null) {
-            $variantId = self::toInteger($get('product_variant_id'));
-
-            $productId = $variantId === null
-                ? null
-                : self::toInteger(ProductVariant::query()->whereKey($variantId)->value('product_id'));
-        }
-
-        if ($productId === null) {
-            return null;
-        }
-
-        $type = Product::query()->withTrashed()->whereKey($productId)->value('product_type');
-
-        return $type instanceof ProductType ? $type : null;
     }
 
     private static function tracksExpiryOf(Get $get): bool

@@ -111,7 +111,7 @@ it('projects only replenishment demand that still requires external purchasing',
         ->and($row['sku'])->toBe($variant->sku)
         ->and($row['warehouse'])->toBe($target->name)
         ->and($row['remaining'])->toBe('50.000000')
-        ->and($row['next_action'])->toBe('Create Purchase Order')
+        ->and($row['next_action'])->toBe('Create PO draft')
         ->and($row['supplier_count'])->toBe(1);
 
     $sourceStock->forceFill([

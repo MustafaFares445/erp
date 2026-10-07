@@ -21,14 +21,14 @@ enum QuotationStatus: string
     case Accepted = 'accepted';
     case Rejected = 'rejected';
     case Expired = 'expired';
-    case ConvertedToDelivery = 'converted_to_delivery';
+    case ConvertedToOrder = 'converted_to_order';
     case Cancelled = 'cancelled';
     case ChangesRequested = 'changes_requested';
 
     public function isTerminal(): bool
     {
         return match ($this) {
-            self::Rejected, self::Expired, self::ConvertedToDelivery, self::Cancelled => true,
+            self::Rejected, self::Expired, self::ConvertedToOrder, self::Cancelled => true,
             default => false,
         };
     }
@@ -38,9 +38,9 @@ enum QuotationStatus: string
         return match ($this) {
             self::Draft => in_array($target, [self::Sent, self::Cancelled], true),
             self::Sent => in_array($target, [self::Accepted, self::Rejected, self::Expired, self::ChangesRequested, self::Cancelled], true),
-            self::Accepted => in_array($target, [self::ConvertedToDelivery, self::Cancelled], true),
+            self::Accepted => in_array($target, [self::ConvertedToOrder, self::Cancelled], true),
             self::ChangesRequested => in_array($target, [self::Rejected, self::Cancelled], true),
-            self::Rejected, self::Expired, self::ConvertedToDelivery, self::Cancelled => false,
+            self::Rejected, self::Expired, self::ConvertedToOrder, self::Cancelled => false,
         };
     }
 
@@ -54,7 +54,7 @@ enum QuotationStatus: string
         return match ($this) {
             self::Draft => 'gray',
             self::Sent => 'info',
-            self::Accepted, self::ConvertedToDelivery => 'success',
+            self::Accepted, self::ConvertedToOrder => 'success',
             self::Rejected, self::Expired, self::Cancelled => 'danger',
             self::ChangesRequested => 'warning',
         };

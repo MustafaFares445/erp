@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -21,7 +22,9 @@ final class PriceList extends Model
     #[\Override]
     protected static function booted(): void
     {
-        self::saving(static fn (self $priceList): mixed => $priceList->validateActiveCurrency('currency_code'));
+        self::saving(static function (self $priceList): void {
+            $priceList->validateActiveCurrency('currency_code');
+        });
     }
 
     /** @return array<string, string> */
@@ -52,7 +55,8 @@ final class PriceList extends Model
     /** @param Builder<$this> $query
      * @return Builder<$this>
      */
-    public function scopeActive(Builder $query): Builder
+    #[Scope]
+    protected function active(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }

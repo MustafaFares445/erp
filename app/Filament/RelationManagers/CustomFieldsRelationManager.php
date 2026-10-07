@@ -70,10 +70,8 @@ final class CustomFieldsRelationManager extends RelationManager
     {
         $state = [];
         foreach (app(CustomFieldService::class)->valuesFor($this->getOwnerRecord()) as $value) {
+            /** @var CustomFieldDefinition $definition */
             $definition = $value->definition;
-            if (! $definition instanceof CustomFieldDefinition) {
-                continue;
-            }
 
             $state['field_'.$definition->id] = match ($definition->data_type) {
                 CustomFieldDataType::Number => $value->value_number,

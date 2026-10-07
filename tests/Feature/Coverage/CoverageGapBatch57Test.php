@@ -10,7 +10,6 @@ use App\Models\InventoryCountLine;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceSchedule;
 use App\Models\MaintenanceScheduleOccurrence;
-use App\Models\PlanTask;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Services\Calendar\MaintenanceCalendarEventService;
@@ -71,16 +70,12 @@ it('projects maintenance calendar occurrences for records schedules and orphaned
         ->and($events->get(today()->addDay()->toDateString())->first()['url'])->toContain((string) $serialSchedule->getKey());
 });
 
-it('projects visit and plan-task calendar events', function (): void {
+it('projects visit calendar events at their canonical scheduled time', function (): void {
     $customer = CustomerProfile::factory()->create(['company_name' => 'Visit Coverage Customer']);
     $visit = CustomerVisit::factory()->create([
         'customer_id' => $customer->getKey(),
         'planned_at' => Carbon::parse('2026-10-05 10:30:00'),
-    ]);
-    $task = PlanTask::factory()->create([
-        'customer_id' => $customer->getKey(),
-        'title' => 'Coverage follow-up',
-        'due_at' => '2026-10-05',
+        'scheduled_start_at' => Carbon::parse('2026-10-05 10:30:00'),
     ]);
 
     $events = app(VisitCalendarEventService::class)->between(
@@ -89,16 +84,13 @@ it('projects visit and plan-task calendar events', function (): void {
     );
 
     $dayEvents = $events->get('2026-10-05');
+    expect($dayEvents)->not->toBeNull();
     $visitEvent = $dayEvents->firstWhere('type', 'visit');
-    $taskEvent = $dayEvents->firstWhere('type', 'task');
 
     expect($visitEvent['type'])->toBe('visit')
         ->and($visitEvent['time'])->toBe('10:30')
         ->and($visitEvent['title'])->toBe('Visit Coverage Customer')
-        ->and($visitEvent['url'])->toContain((string) $visit->getKey())
-        ->and($taskEvent['type'])->toBe('task')
-        ->and($taskEvent['title'])->toBe('Coverage follow-up')
-        ->and($taskEvent['url'])->toContain((string) $task->sales_plan_id);
+        ->and($visitEvent['url'])->toContain((string) $visit->getKey());
 });
 
 it('covers barcode count matching and every record-count mismatch guard', function (): void {

@@ -32,6 +32,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Url;
 
 /**
@@ -241,7 +242,7 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $schema->components([
             Select::make('manufacturer_id')
-                ->relationship('manufacturer', 'name', fn ($query) => $query->where('is_active', true))
+                ->relationship('manufacturer', 'name', fn (Builder $query): Builder => $query->where('is_active', true))
                 ->searchable()
                 ->preload(),
             TextInput::make('name')->required()->maxLength(255),

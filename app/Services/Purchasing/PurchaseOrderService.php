@@ -434,8 +434,16 @@ final readonly class PurchaseOrderService
             return;
         }
 
-        $minimum = bcadd('0.000000', (string) $reference->minimum_order_quantity, 6);
-        $ordered = bcadd('0.000000', (string) $quantity, 6);
+        if (! is_numeric($quantity)) {
+            throw InvalidPurchaseOrderLine::quantityNotPositive();
+        }
+
+        /** @var numeric-string $minimumInput */
+        $minimumInput = $reference->minimum_order_quantity;
+        /** @var numeric-string $orderedInput */
+        $orderedInput = (string) $quantity;
+        $minimum = bcadd('0.000000', $minimumInput, 6);
+        $ordered = bcadd('0.000000', $orderedInput, 6);
 
         if (bccomp($minimum, '0.000000', 6) === 1 && bccomp($ordered, $minimum, 6) === -1) {
             throw InvalidPurchaseOrderLine::minimumOrderQuantity($variant, $minimum);

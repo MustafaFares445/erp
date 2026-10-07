@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Employees;
 
 use App\Enums\PlanTaskStatus;
+use App\Enums\SalesOpportunityStatus;
 use App\Enums\VisitStatus;
 use App\Models\CustomerVisit;
 use App\Models\EmployeePerformanceScore;
@@ -43,7 +44,7 @@ final readonly class PerformanceScoringService
             ],
             'potential_sales_opportunities' => [
                 ...$this->factorBreakdown($inputs->detectedOpportunities, $inputs->completedVisits, $opportunityRatio, $inputs->opportunityWeight, $opportunityScore),
-                'rule' => 'Detected opportunities per completed visit, capped at 100%.',
+                'rule' => 'Reviewed and accepted opportunities per completed visit, capped at 100%.',
             ],
         ];
 
@@ -141,6 +142,7 @@ final readonly class PerformanceScoringService
         );
 
         $detectedOpportunities = SalesOpportunity::query()
+            ->where('status', SalesOpportunityStatus::Approved->value)
             ->where(function (Builder $query) use ($plan): void {
                 $query->whereHas('sourceVisit.planTask', fn (Builder $task): Builder => $task->where('sales_plan_id', $plan->id))
                     ->orWhereHas(

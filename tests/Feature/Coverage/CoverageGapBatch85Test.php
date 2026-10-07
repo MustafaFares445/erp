@@ -13,7 +13,10 @@ use App\Models\InventoryOperationLine;
 use App\Models\Ticket;
 use App\Models\TicketQualityResolution;
 use App\Models\User;
+use App\Services\Support\TicketProductContextService;
 use Filament\Actions\Testing\TestAction;
+use Filament\Schemas\Schema;
+use Filament\Tables\Table;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -133,4 +136,62 @@ it('covers resolution summary return-request link line options and helper transl
         throw ValidationException::withMessages(['field' => ['One error.', 'Another error.']]);
     };
     expect(new ReflectionMethod(ProductContextsRelationManager::class, 'run')->invoke($manager, $callback))->toBeNull();
+});
+
+it('covers return-request options and invalid resolution fallback in the complaint action', function (): void {
+    $user = User::factory()->admin()->create();
+    $this->actingAs($user);
+
+    $ticket = Ticket::factory()->create(['type' => TicketType::ProductQualityIssue]);
+    $return = CustomerReturnRequest::factory()->create([
+        'customer_id' => $ticket->customer_id,
+    ]);
+
+    $operation = InventoryOperation::factory()->delivery()->done()->create([
+        'customer_id' => $ticket->customer_id,
+    ]);
+    $line = InventoryOperationLine::factory()->create([
+        'inventory_operation_id' => $operation->getKey(),
+        'quantity' => '1.000000',
+        'transaction_quantity' => '1.000000',
+        'serialized_inventory_unit_id' => null,
+    ]);
+    app(TicketProductContextService::class)->attach(
+        $ticket,
+        [[
+            'original_inventory_operation_line_id' => $line->getKey(),
+            'quantity' => '1.000000',
+            'notes' => null,
+        ]],
+        $user,
+    );
+
+    $manager = new ProductContextsRelationManager;
+    $manager->ownerRecord = $ticket;
+    $manager->pageClass = ViewTicket::class;
+    $table = $manager->table(Table::make($manager));
+    $action = collect($table->getHeaderActions())
+        ->first(static fn (mixed $candidate): bool => method_exists($candidate, 'getName')
+            && $candidate->getName() === 'resolveComplaint');
+
+    expect($action)->not->toBeNull();
+
+    $schema = $action->getSchema(Schema::make($manager));
+    $returnSelect = collect($schema?->getFlatComponents(withHidden: true) ?? [])
+        ->first(static fn (mixed $component): bool => method_exists($component, 'getName')
+            && $component->getName() === 'customer_return_request_id');
+
+    expect($returnSelect)->not->toBeNull()
+        ->and($returnSelect->getOptions())->toHaveKey($return->getKey());
+
+    $run = $action->getActionFunction();
+    $run([
+        'resolution_type' => 'not-a-resolution',
+        'notes' => 'Fallback coverage resolution.',
+        'customer_return_request_id' => null,
+        'supplier_id' => null,
+    ]);
+
+    expect($ticket->qualityResolution()->firstOrFail()->resolution_type)
+        ->toBe(QualityResolutionType::NoDefectFound);
 });

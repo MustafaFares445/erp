@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SerializedCustodyType;
 use App\Enums\VisitOutcome;
 use App\Enums\VisitStatus;
 use App\Models\Concerns\Favoritable;
@@ -28,6 +29,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'employee_id',
     'plan_task_id',
     'customer_id',
+    'serialized_inventory_unit_id',
     'visit_type',
     'planned_at',
     'scheduled_start_at',
@@ -88,6 +90,19 @@ final class CustomerVisit extends Model implements Favoritable, HasMedia
             if ($visit->schedule_overridden_at !== null && mb_trim((string) $visit->schedule_override_reason) === '') {
                 throw new DomainException('A schedule conflict override reason is required.');
             }
+
+            if ($visit->serialized_inventory_unit_id !== null) {
+                $validEquipment = SerializedInventoryUnit::query()
+                    ->whereKey($visit->serialized_inventory_unit_id)
+                    ->where('custody_type', SerializedCustodyType::Customer->value)
+                    ->where('custody_reference_type', 'customer')
+                    ->where('custody_reference_id', $visit->customer_id)
+                    ->exists();
+
+                if (! $validEquipment) {
+                    throw new DomainException('Selected equipment must be owned by the visit customer.');
+                }
+            }
         });
     }
 
@@ -139,6 +154,12 @@ final class CustomerVisit extends Model implements Favoritable, HasMedia
     public function customer(): BelongsTo
     {
         return $this->belongsTo(CustomerProfile::class);
+    }
+
+    /** @return BelongsTo<SerializedInventoryUnit, $this> */
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(SerializedInventoryUnit::class, 'serialized_inventory_unit_id');
     }
 
     /** @return BelongsTo<User, $this> */

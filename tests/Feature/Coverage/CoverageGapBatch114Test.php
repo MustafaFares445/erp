@@ -74,13 +74,19 @@ it('omits a maintenance calendar occurrence whose schedule disappeared after sel
     expect($events)->toBeEmpty();
 });
 
-it('omits a visit calendar row whose selected planned date is unavailable', function (): void {
-    $visit = CustomerVisit::factory()->create(['planned_at' => now()]);
+it('omits a visit calendar row whose selected schedule is unavailable', function (): void {
+    $visit = CustomerVisit::factory()->create([
+        'planned_at' => now(),
+        'scheduled_start_at' => now(),
+    ]);
     $visit->planTask->update(['due_at' => today()->addMonth()]);
 
     $events = coverage114WithModelFault(
         CustomerVisit::class,
-        static fn (CustomerVisit $row) => $row->setAttribute('planned_at', null),
+        static function (CustomerVisit $row): void {
+            $row->setAttribute('scheduled_start_at', null);
+            $row->setAttribute('planned_at', null);
+        },
         static fn () => app(VisitCalendarEventService::class)->between(now()->subDay(), now()->addDay()),
     );
     expect($events)->toBeEmpty()

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Visits\Schemas;
 
+use App\Enums\CustomerType;
 use App\Enums\VisitOutcome;
 use App\Enums\VisitStatus;
 use App\Models\CustomerVisit;
@@ -31,6 +32,29 @@ final class VisitInfolist
                 ->schema([
                     TextEntry::make('reference')->label(__('Visit reference'))->placeholder(__('Legacy visit')),
                     TextEntry::make('customer.company_name')->label(__('Customer')),
+                    TextEntry::make('customer.customer_type')
+                        ->label(__('Customer type'))
+                        ->formatStateUsing(static fn (?CustomerType $state): string => $state?->label() ?? __('Not specified')),
+                    TextEntry::make('customer.defaultPriceList.name')->label(__('Price list'))->placeholder(__('Default pricing')),
+                    TextEntry::make('customer.default_currency_code')->label(__('Customer currency'))->placeholder(__('System default')),
+                    TextEntry::make('customer.contact_name')->label(__('Contact'))->placeholder(__('Not provided')),
+                    TextEntry::make('customer.contact_phone')->label(__('Contact phone'))->placeholder(__('Not provided')),
+                    TextEntry::make('active_quotation')
+                        ->label(__('Active quotation'))
+                        ->state(static function (CustomerVisit $record): ?string {
+                            $value = $record->customer?->quotations()->open()->latest('id')->value('quotation_number');
+
+                            return is_string($value) ? $value : null;
+                        })
+                        ->placeholder(__('None')),
+                    TextEntry::make('active_sales_order')
+                        ->label(__('Active sales order'))
+                        ->state(static function (CustomerVisit $record): ?string {
+                            $value = $record->customer?->orders()->active()->latest('id')->value('order_number');
+
+                            return is_string($value) ? $value : null;
+                        })
+                        ->placeholder(__('None')),
                     TextEntry::make('employee.user.name')->label(__('Employee')),
                     TextEntry::make('visit_type')->label(__('Visit type'))->placeholder(__('General')),
                     TextEntry::make('planTask.title')->label(__('Plan task')),
@@ -101,6 +125,49 @@ final class VisitInfolist
                             TextEntry::make('schedule_overridden_at')->label(__('Schedule override at'))->dateTime()->placeholder(__('—')),
                         ])
                         ->columns(2),
+                ]),
+
+            Section::make(__('Customer-owned equipment'))
+                ->description(__('Shown only when this visit is linked to a specific customer-owned serialized device.'))
+                ->visible(static fn (CustomerVisit $record): bool => $record->serialized_inventory_unit_id !== null)
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('equipment.productVariant.product.name')->label(__('Product'))->placeholder(__('—')),
+                    TextEntry::make('equipment.productVariant.sku')->label(__('SKU'))->placeholder(__('—')),
+                    TextEntry::make('equipment.serial_number')->label(__('Serial number'))->placeholder(__('—')),
+                    TextEntry::make('equipment_warranty_state')
+                        ->label(__('Warranty state'))
+                        ->state(static function (CustomerVisit $record): string {
+                            $equipment = $record->equipment;
+                            $entitlement = $equipment?->currentWarrantyEntitlement()->first();
+
+                            if ($entitlement !== null) {
+                                return $entitlement->state->label();
+                            }
+
+                            if ($equipment?->warranty_expires_on === null) {
+                                return self::translation('Not recorded');
+                            }
+
+                            return $equipment->warranty_expires_on->isPast()
+                                ? self::translation('Expired')
+                                : self::translation('Active');
+                        }),
+                    TextEntry::make('equipment_recent_maintenance')
+                        ->label(__('Recent maintenance'))
+                        ->state(static function (CustomerVisit $record): string {
+                            $maintenance = $record->equipment?->maintenanceRecords()->latest('id')->first();
+
+                            if ($maintenance === null) {
+                                return self::translation('No maintenance history');
+                            }
+
+                            $maintenanceKey = $maintenance->getKey();
+                            $reference = is_int($maintenanceKey) ? '#'.$maintenanceKey : '#?';
+
+                            return $reference.' — '.$maintenance->status->label();
+                        })
+                        ->columnSpan(2),
                 ]),
 
             Section::make(__('GPS trail'))

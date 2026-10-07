@@ -39,6 +39,8 @@ use App\Models\CreditNoteLine;
 use App\Models\Currency;
 use App\Models\CustomFieldDefinition;
 use App\Models\CustomFieldValue;
+use App\Models\CustomerProfile;
+use App\Models\CustomerVisit;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
@@ -55,6 +57,7 @@ use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
+use App\Models\InventoryReservation;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\InventorySetting;
@@ -64,6 +67,7 @@ use App\Models\InvoiceConfirmation;
 use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Models\KnowledgeArticle;
 use App\Models\Lead;
 use App\Models\LeadStageTransition;
 use App\Models\MaintenanceRecord;
@@ -78,8 +82,13 @@ use App\Models\OrderLine;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\PaymentMethod;
+use App\Models\PaymentTransaction;
+use App\Models\PlanTask;
 use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
+use App\Models\PriceList;
+use App\Models\PriceListItem;
+use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
@@ -89,20 +98,25 @@ use App\Models\Quotation;
 use App\Models\QuotationLine;
 use App\Models\ReceivableWriteOff;
 use App\Models\Refund;
+use App\Models\ReplenishmentCoverage;
+use App\Models\ReplenishmentRequirement;
 use App\Models\SalesOpportunity;
 use App\Models\SalesProcurementRequirement;
 use App\Models\ServiceRecordPart;
 use App\Models\Shipment;
 use App\Models\SlaCalendar;
 use App\Models\SlaPolicy;
+use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
 use App\Models\SupplierPayment;
 use App\Models\SupplierPaymentAllocation;
 use App\Models\SupplierProductReference;
 use App\Models\SupplierProductSupport;
+use App\Models\SupportEntitlement;
 use App\Models\TaskStatusLog;
 use App\Models\TaxRecognitionEntry;
+use App\Models\Ticket;
 use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
 use App\Models\TicketPaymentLink;
@@ -240,6 +254,14 @@ arch()->preset()->php();
 // the singleton row is saved or deleted, the same required Eloquent-override signature as Currency above.
 // SlaCalendar: protected static booted() keeps exactly one default calendar (promoting one demotes the
 // rest), the same required Eloquent-override signature as Currency above.
+//
+// Post-parallel dental/employee alignment adds the same framework-owned patterns to
+// CustomerProfile/CustomerVisit/Supplier (protected booted() guards) and to
+// InventoryReservation, KnowledgeArticle, PaymentTransaction, PlanTask, PriceList,
+// PriceListItem, PricingTier, ReplenishmentCoverage, ReplenishmentRequirement,
+// SupportEntitlement, and Ticket (Laravel #[Scope] methods). These are protected
+// because that is Laravel's documented attribute-scope convention, not hidden
+// application APIs.
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
@@ -252,6 +274,7 @@ arch()->preset()->strict()->ignoring([
     ConstraintOverride::class,
     PriceFloorOverride::class,
     PriceHistory::class,
+    EmployeePerformanceScore::class,
     EmployeeProfile::class,
     MaintenanceRecord::class,
     MaintenanceTask::class,
@@ -275,6 +298,7 @@ arch()->preset()->strict()->ignoring([
     InventoryCorrection::class,
     InventoryCorrectionLine::class,
     InventoryConditionChange::class,
+    InventoryOperation::class,
     InventoryOperationLine::class,
     InventoryStock::class,
     WarehouseReplenishmentPolicy::class,
@@ -323,6 +347,20 @@ arch()->preset()->strict()->ignoring([
     BankStatementLine::class,
     CustomFieldDefinition::class,
     CustomFieldValue::class,
+    CustomerProfile::class,
+    CustomerVisit::class,
+    InventoryReservation::class,
+    KnowledgeArticle::class,
+    PaymentTransaction::class,
+    PlanTask::class,
+    PriceList::class,
+    PriceListItem::class,
+    PricingTier::class,
+    ReplenishmentCoverage::class,
+    ReplenishmentRequirement::class,
+    Supplier::class,
+    SupportEntitlement::class,
+    Ticket::class,
     FiscalPeriodCloseCheck::class,
     'Database',
 ]);

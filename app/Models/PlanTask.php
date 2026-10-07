@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
-#[Fillable(['sales_plan_id', 'customer_id', 'source_visit_id', 'title', 'description', 'starts_at', 'due_at', 'status'])]
+#[Fillable(['sales_plan_id', 'customer_id', 'source_visit_id', 'sales_opportunity_id', 'quotation_id', 'order_id', 'serialized_inventory_unit_id', 'title', 'description', 'starts_at', 'due_at', 'status'])]
 final class PlanTask extends Model
 {
     /** @use HasFactory<PlanTaskFactory> */
@@ -54,6 +54,30 @@ final class PlanTask extends Model
     public function sourceVisit(): BelongsTo
     {
         return $this->belongsTo(CustomerVisit::class, 'source_visit_id');
+    }
+
+    /** @return BelongsTo<SalesOpportunity, $this> */
+    public function salesOpportunity(): BelongsTo
+    {
+        return $this->belongsTo(SalesOpportunity::class);
+    }
+
+    /** @return BelongsTo<Quotation, $this> */
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
+    }
+
+    /** @return BelongsTo<Order, $this> */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    /** @return BelongsTo<SerializedInventoryUnit, $this> */
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(SerializedInventoryUnit::class, 'serialized_inventory_unit_id');
     }
 
     /** @return HasMany<TaskStatusLog, $this> */

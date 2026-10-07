@@ -289,11 +289,9 @@ final class ReturnLinesRelationManager extends RelationManager
             ->get()
             ->mapWithKeys(function (InventoryOperationLine $line): array {
                 $lineId = self::integerKey($line);
+                /** @var ProductVariant $variant */
                 $variant = $line->productVariant;
-                $variantSku = $variant instanceof ProductVariant
-                    ? $variant->sku
-                    // The required product-variant FK makes this fallback structurally unreachable.
-                    : (string) $line->product_variant_id;
+                $variantSku = $variant->sku;
 
                 return [$lineId => sprintf(
                     '%s — %s',
