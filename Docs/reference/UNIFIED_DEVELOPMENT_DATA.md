@@ -4,14 +4,15 @@
 Root: C:\laragon\www\ierp-new. Branch: dev. Local MySQL: ierp on 127.0.0.1. Only one Git worktree remains; unpublished changes from old worktrees were preserved in Git stashes. No other persistent development environment was created.
 Pre-seed backup: storage/app/private/backups/ierp-pre-unified-20261010.sql.
 
-## Commands
-  php artisan db:seed
-  php artisan demo:seed --dry-run --anchor=2026-10-10
-  php artisan demo:seed --anchor=2026-10-10
-  php artisan demo:seed --verify-only --anchor=2026-10-10
-  php artisan test tests/Feature/Demo/DemoMonthSeederTest.php tests/Feature/Demo/UnifiedDevelopmentSeederTest.php
+## Standard local setup
 
-DatabaseSeeder is reference/permissions only. It does not create default fixed-password admin users. Demo seeders work only in local/testing. The CLI refuses nonlocal MySQL hosts. It does not offer a destructive truncate/reset. Synthetic identifiers and test-domain emails must not be mistaken for real customer data.
+    php artisan migrate:fresh --seed
+
+In **APP_ENV=local**, this standard Laravel command migrates and seeds the complete unified demo business through DatabaseSeeder. No custom demo seeding command is needed. It creates the canonical month, bilingual catalog, customers, purchasing/sales history, fulfilled orders, invoices, accounting, employees and support data.
+
+**Warning:** migrate:fresh irreversibly deletes existing tables and data in the selected database. The IERP destructive-operation guard only permits MySQL schemas explicitly listed in IERP_DISPOSABLE_DATABASES (for example, IERP_DISPOSABLE_DATABASES=ierp in your local .env). Verify DB_DATABASE first; never list a production schema. The demo seed stage additionally refuses non-local MySQL hosts. On production and automated testing, DatabaseSeeder adds reference/permission data only, never demo business records.
+
+Local-only demonstration login: demo.admin@ierp.test / password. Synthetic data and credentials are not suitable for production.
 
 ## Unified seeder stages
 1. DemoMonthSeeder: curated complete Sep/Oct 2026 workflows for purchasing, receiving, inventory, sales, accounting, employees, CRM, support, warranty, installation and calibration.

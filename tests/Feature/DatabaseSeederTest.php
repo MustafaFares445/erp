@@ -10,123 +10,84 @@ use App\Enums\PurchasePermission;
 use App\Enums\SalesPermission;
 use App\Enums\SupportPermission;
 use App\Enums\SystemPermission;
-use App\Enums\UserType;
-use App\Filament\Resources\Adjustments\AdjustmentResource;
-use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
-use App\Filament\Resources\StockLevels\StockLevelResource;
-use App\Filament\Resources\StockMovements\StockMovementResource;
-use App\Filament\Resources\Warehouses\WarehouseResource;
-use App\Models\Brand;
 use App\Models\CustomerProfile;
-use App\Models\CustomerVisit;
-use App\Models\Interaction;
-use App\Models\Invoice;
-use App\Models\MaintenanceRecord;
-use App\Models\Order;
-use App\Models\OrderLine;
-use App\Models\Payment;
-use App\Models\Product;
-use App\Models\ProductCategory;
-use App\Models\ProductVariant;
-use App\Models\PurchaseOrderLine;
-use App\Models\Quotation;
-use App\Models\Ticket;
-use App\Models\Unit;
 use App\Models\User;
-use Filament\Facades\Filament;
+use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\Demo\UnifiedDevelopmentSeeder;
+use Illuminate\Database\Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
 
-it('seeds an authorized system administrator and the permission catalogue', function (): void {
-    $this->seed();
+it('seeds configuration and permissions without demo accounts or transactions in testing', function (): void {
+    $this->seed(DatabaseSeeder::class);
 
-    $admin = User::query()->where('email', 'admin@ierp.com')->sole();
-    $permissions = [...InventoryPermission::values(), ...CrmPermission::values(), ...EmployeePermission::values(), ...SupportPermission::values(), ...AccountingPermission::values(), ...PurchasePermission::values(), ...SalesPermission::values(), ...SystemPermission::values()];
-
-    expect($admin->user_type)->toBe(UserType::Admin)
-        ->and($admin->getAllPermissions()->pluck('name')->all())
-        ->toEqualCanonicalizing($permissions)
-        ->and(Permission::query()->where('guard_name', 'web')->pluck('name')->all())
-        ->toEqualCanonicalizing($permissions);
-
-    expect(Brand::query()->whereIn('code', ['FORMLABS', 'DENTSPLY-SIRONA', 'IVOCLAR'])->count())->toBe(3)
-        ->and(ProductCategory::query()->count())->toBe(4)
-        ->and(Unit::query()->whereIn('symbol', ['EA', 'L', 'SACK', 'KG'])->count())->toBe(4)
-        ->and(Product::query()->count())->toBe(8)
-        ->and(ProductVariant::query()->count())->toBe(16)
-        ->and(ProductVariant::query()->where('sku', 'like', 'DEMO-%')->exists())->toBeFalse();
-
-    expect(OrderLine::query()
-        ->where(function ($query): void {
-            $query->whereNull('transaction_quantity')
-                ->orWhereNull('transaction_unit_id')
-                ->orWhereNull('conversion_factor_snapshot')
-                ->orWhereNull('base_quantity');
-        })
-        ->count())->toBe(0)
-        ->and(PurchaseOrderLine::query()
-            ->where(function ($query): void {
-                $query->whereNull('transaction_quantity')
-                    ->orWhereNull('transaction_unit_id')
-                    ->orWhereNull('conversion_factor_snapshot')
-                    ->orWhereNull('base_quantity')
-                    ->orWhereNull('received_base_quantity');
-            })
-            ->count())->toBe(0);
-
-    Filament::setCurrentPanel(Filament::getPanel('admin'));
-    Filament::auth()->login($admin);
-
-    foreach ([
-        WarehouseResource::getUrl(),
-        StockLevelResource::getUrl(),
-        StockMovementResource::getUrl(),
-        AdjustmentResource::getUrl(),
-        InventoryOperationResource::getUrl(),
-    ] as $url) {
-        $this->get($url)->assertOk();
-    }
-});
-
-/**
- * Regression guard for the CR-05 timeline demo-data defects: a duplicate
- * "Bright Orthodontics" customer profile across two seeders, and a
- * showcase customer whose every document lands on the seeding day, leaving
- * the timeline's date-group headers with nothing to group.
- */
-it('merges the duplicate customer and gives the showcase customer a full, chronologically-spread timeline', function (): void {
-    $this->seed();
-
-    expect(CustomerProfile::query()->where('company_name', 'Bright Orthodontics')->count())->toBe(1);
-
-    $customer = CustomerProfile::query()->where('customer_code', 'DEMO-SMILE')->sole();
-
-    $counts = [
-        'quotation' => Quotation::query()->where('customer_id', $customer->id)->count(),
-        'order' => Order::query()->where('customer_id', $customer->id)->count(),
-        'invoice' => Invoice::query()->where('customer_id', $customer->id)->count(),
-        'payment' => Payment::query()->where('customer_id', $customer->id)->count(),
-        'ticket' => Ticket::query()->where('customer_id', $customer->id)->count(),
-        'interaction' => Interaction::query()->where('subject_type', CustomerProfile::class)->where('subject_id', $customer->id)->count(),
-        'visit' => CustomerVisit::query()->where('customer_id', $customer->id)->count(),
-        'maintenance_record' => MaintenanceRecord::query()->where('customer_id', $customer->id)->count(),
+    $permissions = [
+        ...InventoryPermission::values(),
+        ...CrmPermission::values(),
+        ...EmployeePermission::values(),
+        ...SupportPermission::values(),
+        ...AccountingPermission::values(),
+        ...PurchasePermission::values(),
+        ...SalesPermission::values(),
+        ...SystemPermission::values(),
     ];
 
-    foreach ($counts as $type => $count) {
-        expect($count)->toBeGreaterThanOrEqual(1, "Expected at least one seeded {$type} for the showcase customer.");
+    expect(Permission::query()->where('guard_name', 'web')->pluck('name')->all())
+        ->toEqualCanonicalizing($permissions)
+        ->and(User::query()->count())->toBe(0)
+        ->and(CustomerProfile::query()->count())->toBe(0)
+        ->and(DB::table('journal_entries')->count())->toBe(0)
+        ->and(DB::table('currencies')->count())->toBeGreaterThan(0);
+});
+
+it('calls the full unified demo from the default seeder in local development', function (): void {
+    $this->app['env'] = 'local';
+    $this->app->bind(UnifiedDevelopmentSeeder::class, static fn (): Seeder => new class extends Seeder
+    {
+        public function run(): void
+        {
+            app()->instance('test.unified-seeder-invoked', true);
+        }
+    });
+
+    $this->seed(DatabaseSeeder::class);
+
+    expect(app()->bound('test.unified-seeder-invoked'))->toBeTrue()
+        ->and(app('test.unified-seeder-invoked'))->toBeTrue()
+        ->and(DB::table('currencies')->count())->toBeGreaterThan(0);
+});
+
+it('rejects remote connections before writing even reference data in local mode', function (): void {
+    $this->app['env'] = 'local';
+    $originalConnection = DB::getDefaultConnection();
+    $existingCurrencies = DB::table('currencies')->count();
+    config([
+        'database.default' => 'mysql',
+        'database.connections.mysql.host' => 'external-db.example.test',
+    ]);
+
+    try {
+        expect(fn () => app(DatabaseSeeder::class)->setContainer(app())->run())
+            ->toThrow(RuntimeException::class, 'outside a local database');
+    } finally {
+        config(['database.default' => $originalConnection]);
     }
 
-    $earliest = Interaction::query()
-        ->where('subject_type', CustomerProfile::class)
-        ->where('subject_id', $customer->id)
-        ->min('occurred_at');
-    $latest = Interaction::query()
-        ->where('subject_type', CustomerProfile::class)
-        ->where('subject_id', $customer->id)
-        ->max('occurred_at');
+    expect(DB::table('currencies')->count())->toBe($existingCurrencies);
+});
 
-    expect(Carbon::parse($earliest)->diffInDays(Carbon::parse($latest)))->toBeGreaterThanOrEqual(180);
+it('never invokes unified demo data when the default seeder runs in production', function (): void {
+    $this->app['env'] = 'production';
+    $this->app->bind(UnifiedDevelopmentSeeder::class, static function (): never {
+        throw new RuntimeException('Unexpected demo seeder in production.');
+    });
+
+    // Invoke the seeder directly: Laravel's "db:seed" CLI asks for confirmation
+    // in production before it reaches the code being tested.
+    app(DatabaseSeeder::class)->setContainer(app())->run();
+
+    expect(User::query()->count())->toBe(0)
+        ->and(CustomerProfile::query()->count())->toBe(0);
 });

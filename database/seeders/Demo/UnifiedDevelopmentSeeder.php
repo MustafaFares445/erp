@@ -7,8 +7,9 @@ namespace Database\Seeders\Demo;
 /**
  * ONE cohesive local development dataset. No independent demo environments/profiles.
  *
- *     php artisan db:seed --class='Database\Seeders\Demo\UnifiedDevelopmentSeeder'
+ *     php artisan migrate:fresh --seed
  *
+ * DatabaseSeeder calls this automatically in the local environment.
  * Builds and retains the canonical domain-service-driven month, then enriches
  * master data and creates twelve months of CRM/quotation activity in the same DB.
  * Deliberately does not call the older disconnected legacy demo seeders.
@@ -26,6 +27,6 @@ final class UnifiedDevelopmentSeeder extends DemoSeeder
         $this->call(UnifiedSupportHistorySeeder::class);
         $this->call(UnifiedMaintenanceHistorySeeder::class);
 
-        $this->note('Unified development company complete. Run DemoVerificationSeeder and demo:verify.');
+        $this->note('Unified development company complete.');
     }
 }

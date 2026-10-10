@@ -73,16 +73,19 @@ php artisan queue:work
 php artisan config:clear
 ```
 
-## Demo Month Dataset (local only)
+## Unified Development Dataset (local only)
 
-`database/seeders/Demo/` builds one deterministic month of company activity (2026-09-04 to 2026-10-03) through the real domain services. It is not part of `DatabaseSeeder`, refuses to run in production, and skips stages it has already seeded.
+The standard Laravel command is now the sole required setup step for the unified company:
 
 ```bash
-php artisan db:seed --class='Database\Seeders\Demo\DemoMonthSeeder'
-php artisan db:seed --class='Database\Seeders\Demo\DemoVerificationSeeder'
+php artisan migrate:fresh --seed
 ```
 
-Run it on a freshly migrated database (`migrate:fresh`). See [`DEMO_SCENARIO_COVERAGE.md`](DEMO_SCENARIO_COVERAGE.md) for the F-01..F-21 coverage map and intentional non-applicable flows. The verification seeder includes a dedicated canonical-flow evidence table in addition to integrity/status checks. The legacy `PO-DEMO` rows from `PurchasingDemoSeeder` break purchase-order numbering, and the legacy demo journals prevent the receivables control account from reconciling. The month seeder now also runs `DemoSupportOperationsSeeder`, which adds realistic Support service levels/entitlement, three field-service visits and closed-ticket feedback on top of the existing tickets, maintenance, warranty, parts and billing history. It also runs `DemoInstallationSeeder`, which receives a dental sintering furnace, sells and delivers it to a customer, then installs, commissions and gets it accepted (with a commissioning-trigger warranty) through the same services as the UI. It then runs `DemoCalibrationSeeder`, which passes a furnace temperature calibration with a certificate and a six-monthly calibration schedule, and fails a handpiece speed calibration with a follow-up repair request. It then runs `DemoContinuitySeeder`, which gives the customer of the failed handpiece calibration an issued loaner handpiece (through Inventory) and approves a supplier repair; the seeder enables the loaner and supplier-repair flags only while it runs, so set `SUPPORT_LOANER_EQUIPMENT_ENABLED` and `SUPPORT_EXTERNAL_REPAIR_ENABLED` in `.env` to see them. It deliberately does not seed optional Teams/Queues/Automation/Knowledge fixtures. The dashboards read the real clock, so select the custom range 2026-09-04 to 2026-10-03 once the date has moved past 2026-10-03. Demo staff log in as `demo.*@ierp.test` (password `password`).
+On APP_ENV=local, DatabaseSeeder automatically creates reference/permission data, the canonical operational demo month and the 12-month cross-module synthetic history. It does not need an extra seeder-specific Artisan command. Outside local development, DatabaseSeeder only creates safe reference/permission data.
+
+**Warning:** migrate:fresh permanently clears the selected database. The existing guard requires the exact local MySQL DB_DATABASE to appear in IERP_DISPOSABLE_DATABASES, configured explicitly in your local .env (e.g. IERP_DISPOSABLE_DATABASES=ierp). Never add a production database to this list.
+
+See [`DEMO_SCENARIO_COVERAGE.md`](DEMO_SCENARIO_COVERAGE.md) for the F-01..F-21 coverage map and intentional non-applicable flows. The verification seeder includes a dedicated canonical-flow evidence table in addition to integrity/status checks. The legacy `PO-DEMO` rows from `PurchasingDemoSeeder` break purchase-order numbering, and the legacy demo journals prevent the receivables control account from reconciling. The month seeder now also runs `DemoSupportOperationsSeeder`, which adds realistic Support service levels/entitlement, three field-service visits and closed-ticket feedback on top of the existing tickets, maintenance, warranty, parts and billing history. It also runs `DemoInstallationSeeder`, which receives a dental sintering furnace, sells and delivers it to a customer, then installs, commissions and gets it accepted (with a commissioning-trigger warranty) through the same services as the UI. It then runs `DemoCalibrationSeeder`, which passes a furnace temperature calibration with a certificate and a six-monthly calibration schedule, and fails a handpiece speed calibration with a follow-up repair request. It then runs `DemoContinuitySeeder`, which gives the customer of the failed handpiece calibration an issued loaner handpiece (through Inventory) and approves a supplier repair; the seeder enables the loaner and supplier-repair flags only while it runs, so set `SUPPORT_LOANER_EQUIPMENT_ENABLED` and `SUPPORT_EXTERNAL_REPAIR_ENABLED` in `.env` to see them. It deliberately does not seed optional Teams/Queues/Automation/Knowledge fixtures. The dashboards read the real clock, so select the custom range 2026-09-04 to 2026-10-03 once the date has moved past 2026-10-03. Demo staff log in as `demo.*@ierp.test` (password `password`).
 
 ## Current Domain Commands
 
