@@ -11,6 +11,7 @@ use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderInfolist;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Models\AuditLog;
 use App\Models\Bill;
@@ -44,7 +45,7 @@ final class ViewPurchaseOrder extends ViewRecord
         /** @var PurchaseOrder $record */
         $record = $this->getRecord();
 
-        return 'Purchase Order '.$record->purchase_order_number;
+        return PurchaseOrderInfolist::display('Purchase Order').' '.$record->purchase_order_number;
     }
 
     #[\Override]
@@ -53,13 +54,14 @@ final class ViewPurchaseOrder extends ViewRecord
         /** @var PurchaseOrder $record */
         $record = $this->getRecord();
 
-        $expected = $record->expected_at?->toDateString() ?? 'Not specified';
+        $expected = $record->expected_at?->toDateString() ?? PurchaseOrderInfolist::display('Not specified');
 
         return sprintf(
-            '%s · %s %s · Expected %s',
+            '%s · %s %s · %s %s',
             $record->supplier->name,
             $record->currency_code,
             number_format((float) $record->total_amount, 2),
+            PurchaseOrderInfolist::display('Expected'),
             $expected,
         );
     }

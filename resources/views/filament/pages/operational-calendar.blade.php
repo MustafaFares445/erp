@@ -30,7 +30,7 @@
             'grid-cols-7' => $mode !== 'day',
         ])>
             @if ($mode !== 'day')
-                @foreach ([__('Mon'), __('Tue'), __('Wed'), __('Thu'), __('Fri'), __('Sat'), __('Sun')] as $weekday)
+                @foreach ($weekdays as $weekday)
                     <div class="bg-gray-50 px-2 py-2 text-center text-xs font-semibold uppercase text-gray-500 dark:bg-gray-900 dark:text-gray-400">{{ $weekday }}</div>
                 @endforeach
             @endif
@@ -59,10 +59,13 @@
                     <div class="space-y-2">
                         @forelse ($dayEvents as $event)
                             <a href="{{ $event['url'] }}" class="block rounded-lg bg-gray-50 px-2.5 py-2 text-xs ring-1 ring-gray-950/5 transition hover:bg-primary-50 dark:bg-white/5 dark:ring-white/10 dark:hover:bg-primary-950/30">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="font-semibold text-gray-950 dark:text-white">{{ $event['time'] ?? null }} {{ $event['title'] }}</div>
-                                    <span class="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-200 dark:bg-white/10 dark:text-gray-300 dark:ring-white/10">{{ $event['status'] }}</span>
+                                <div class="flex flex-wrap items-start justify-between gap-1">
+                                    @if ($event['time'] ?? null)
+                                        <span dir="ltr" class="font-medium text-gray-500 dark:text-gray-400">{{ $event['time'] }}</span>
+                                    @endif
+                                    <span class="shrink-0 whitespace-nowrap rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-200 dark:bg-white/10 dark:text-gray-300 dark:ring-white/10">{{ $event['status'] }}</span>
                                 </div>
+                                <div class="mt-1 font-semibold text-gray-950 dark:text-white"><bdi>{{ $event['title'] }}</bdi></div>
                                 @if ($event['subtitle'] ?? null)
                                     <div class="mt-1 truncate text-gray-500 dark:text-gray-400">{{ $event['subtitle'] }}</div>
                                 @endif
@@ -70,7 +73,7 @@
                         @empty
                             @if ($mode === 'day')
                                 <div class="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
-                                    {{ __('No visits scheduled for this day.') }}
+                                    {{ $emptyDayMessage }}
                                 </div>
                             @endif
                         @endforelse

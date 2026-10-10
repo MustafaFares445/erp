@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-10-04
-verified_against: .github/workflows/deploy.yml and scripts/deploy.sh
+last_verified: 2026-10-07
+verified_against: .github/workflows/deploy.yml, scripts/deploy.sh and user-guide VitePress build configuration
 ---
 
 ## Current Automated Dev Deployment
@@ -55,6 +55,20 @@ The server `.env` is intentionally left untouched.
 The current server deploy script does **not** run `npm install` or `npm run build`.
 
 Do not document an automatic server-side asset build unless the workflow/script changes. Any deployment that depends on newly built frontend assets must ensure the required build artifact is already present or add an explicit build step.
+
+## Standalone User Guide Deployment
+
+`user-guide/` is an independent VitePress application. Its default configuration uses base `/guide/` and writes the static build to `public/guide`:
+
+```bash
+cd user-guide
+npm ci
+npm run docs:build
+```
+
+`public/guide` is generated output and is not committed. A deployment that expects the same-host `/guide/` route must run the guide build or deploy an equivalent artifact. The checked-in `public/.htaccess` resolves VitePress clean article URLs under `/guide/*` before Laravel's front controller. Equivalent clean-URL handling is required when deploying behind a different web server. Alternatively, publish the VitePress build on a dedicated docs host and set `USER_GUIDE_URL` to that URL.
+
+The Filament dashboard does not contain the guide UI; it only opens the configured documentation URL.
 
 ## Support Service-Management Rollout
 

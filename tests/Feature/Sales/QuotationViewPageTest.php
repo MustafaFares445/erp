@@ -11,6 +11,7 @@ use App\Models\CustomerProfile;
 use App\Models\CustomerQuotationRequest;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\Inventory\ProductPricingService;
 use App\Services\Sales\QuotationConversionService;
@@ -237,4 +238,31 @@ it('keeps the numeric totals shown on the redesigned page unchanged', function (
     expect((float) $quotation->subtotal)->toBe(200.0)
         ->and((float) $quotation->tax_total)->toBe(10.0)
         ->and((float) $quotation->grand_total)->toBe(210.0);
+});
+
+// Release QA 2026-10-10: the quotation lines repeated their "Lines" heading, left an unlabelled empty "Main image" slot and showed the English unit name in Arabic.
+it('renders quotation lines once, with an image placeholder and the unit name in the viewer language', function (): void {
+    $officer = viewQuotationOfficer();
+    $customer = CustomerProfile::factory()->create();
+    $unit = Unit::factory()->create(['name' => 'Each', 'name_ar' => 'قطعة']);
+    $variant = activeVariant(['unit_id' => $unit->getKey()]);
+    $quotation = app(QuotationService::class)->create(
+        ['customer_id' => $customer->getKey(), 'issue_date' => now()->toDateString()],
+        [['product_variant_id' => $variant->getKey(), 'quantity' => 1]],
+    );
+
+    $html = Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $quotation->getKey()])
+        ->assertSuccessful()
+        ->assertSeeText(['No image', 'Each'])
+        ->html();
+
+    expect($html)->not->toMatch('/class="fi-in-entry-label"[^>]*>\s*(Lines|Main image)\s*</');
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $quotation->getKey()])
+        ->assertSeeText('قطعة')
+        ->assertDontSeeText('Each');
 });

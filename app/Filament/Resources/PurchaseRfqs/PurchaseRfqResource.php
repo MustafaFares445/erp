@@ -13,8 +13,11 @@ use App\Filament\Resources\PurchaseRfqs\Tables\PurchaseRfqsTable;
 use App\Filament\Support\CurrencySelect;
 use App\Models\ProductVariant;
 use App\Models\PurchaseRfq;
+use App\Models\PurchaseRfqResponseLine;
+use App\Models\PurchaseRfqSupplier;
 use App\Models\Supplier;
 use App\Models\Unit;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -30,6 +33,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 final class PurchaseRfqResource extends Resource
@@ -136,23 +140,40 @@ final class PurchaseRfqResource extends Resource
                 RepeatableEntry::make('lines')->schema([
                     TextEntry::make('productVariant.sku')->label(__('SKU')),
                     TextEntry::make('productVariant.name')->label(__('Variant')),
-                    TextEntry::make('quantity'),
+                    TextEntry::make('quantity')
+                        ->label(__('Quantity'))
+                        ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                     TextEntry::make('unit.name')->label(__('Unit')),
                 ])->columns(4),
             ]),
             Section::make(__('Supplier responses'))->schema([
                 RepeatableEntry::make('suppliers')->schema([
                     TextEntry::make('supplier.name')->label(__('Supplier')),
-                    TextEntry::make('status')->badge(),
-                    TextEntry::make('sent_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('responded_at')->dateTime()->placeholder('—'),
-                    RepeatableEntry::make('responseLines')->schema([
-                        TextEntry::make('rfqLine.productVariant.sku')->label(__('SKU')),
-                        TextEntry::make('unit_price')->money(fn (PurchaseRfq $record): string => $record->currency_code),
-                        TextEntry::make('offered_quantity')->label(__('Qty')),
-                        TextEntry::make('lead_time_days')->label(__('Lead days'))->placeholder('—'),
-                        TextEntry::make('minimum_order_quantity')->label(__('MOQ'))->placeholder('—'),
-                    ])->columns(5),
+                    TextEntry::make('status')
+                        ->label(__('Status'))
+                        ->badge()
+                        ->formatStateUsing(static fn (string $state): string => self::supplierResponseStatusLabel($state))
+                        ->color(static fn (string $state): string => $state === 'responded' ? 'success' : 'gray'),
+                    TextEntry::make('sent_at')->label(__('Sent at'))->dateTime()->placeholder('—'),
+                    TextEntry::make('responded_at')->label(__('Responded at'))->dateTime()->placeholder('—'),
+                    RepeatableEntry::make('responseLines')
+                        ->label(__('Response lines'))
+                        ->visible(static fn (PurchaseRfqSupplier $record): bool => $record->responseLines->isNotEmpty())
+                        ->columnSpanFull()
+                        ->schema([
+                            TextEntry::make('rfqLine.productVariant.sku')->label(__('SKU')),
+                            TextEntry::make('unit_price')
+                                ->label(__('Unit price'))
+                                ->money(static fn (PurchaseRfqResponseLine $record): string => self::responseLineCurrency($record)),
+                            TextEntry::make('offered_quantity')
+                                ->label(__('Offered quantity'))
+                                ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
+                            TextEntry::make('lead_time_days')->label(__('Lead time (days)'))->placeholder('—'),
+                            TextEntry::make('minimum_order_quantity')
+                                ->label(__('Minimum order quantity'))
+                                ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
+                                ->placeholder('—'),
+                        ])->columns(5),
                 ])->columns(4),
             ]),
         ]);
@@ -162,6 +183,23 @@ final class PurchaseRfqResource extends Resource
     public static function table(Table $table): Table
     {
         return PurchaseRfqsTable::configure($table);
+    }
+
+    /** Invited suppliers are stored as `pending` until a response is recorded, then `responded`. */
+    public static function supplierResponseStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'pending' => __('Pending'),
+            'responded' => __('Responded'),
+            default => __(Str::headline($status)),
+        };
+    }
+
+    private static function responseLineCurrency(PurchaseRfqResponseLine $line): string
+    {
+        $currency = $line->rfqSupplier?->rfq?->currency_code;
+
+        return is_string($currency) && $currency !== '' ? $currency : 'AED';
     }
 
     /** @return array<string> */
@@ -190,6 +228,7 @@ final class PurchaseRfqResource extends Resource
             'lines.unit:id,name',
             'suppliers.supplier:id,name',
             'suppliers.responseLines.rfqLine.productVariant:id,sku',
+            'suppliers.responseLines.rfqSupplier.rfq:id,currency_code',
         ]);
     }
 }

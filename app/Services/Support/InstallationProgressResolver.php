@@ -67,13 +67,13 @@ final readonly class InstallationProgressResolver
             'failed' => $commissionFailed || $anyFailedCheck || $acceptance === CustomerAcceptanceStatus::Rejected,
             'steps' => [
                 $this->step('equipment', $this->t('Shipment / Equipment'), 'done', $installation->shipment?->tracking_number),
-                $this->step('installation', $this->t('Installation'), $installed ? 'done' : 'current', $installation->installed_at?->toDayDateTimeString()),
+                $this->step('installation', $this->t('Installation'), $installed ? 'done' : 'current', $installation->installed_at?->translatedFormat('M j, Y H:i')),
                 $this->step('checklist', $this->t('Checklist'), $total > 0 && $done === $total ? 'done' : ($installed ? 'current' : 'upcoming'), $done.' / '.$total),
                 $this->step(
                     'commissioning',
                     $this->t('Commissioning'),
                     $commissioning === CommissioningStatus::Passed ? 'done' : ($commissionFailed ? 'failed' : ($installed ? 'current' : 'upcoming')),
-                    $installation->commissioned_at?->toDayDateTimeString(),
+                    $installation->commissioned_at?->translatedFormat('M j, Y H:i'),
                 ),
                 $this->step(
                     'acceptance',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryReservations;
 
+use App\Filament\Components\InventoryViewDiagnostics;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryReservations\Pages\ListInventoryReservations;
@@ -15,6 +16,8 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryReservation;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Services\Inventory\Diagnostics\InventoryReservationDiagnoser;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -57,8 +60,12 @@ final class InventoryReservationResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
+            InventoryViewDiagnostics::section(),
+            InventoryViewDiagnostics::metrics(
+                static fn (InventoryReservation $record): array => app(InventoryReservationDiagnoser::class)->keyFigures($record),
+            ),
             Section::make(__('admin.inventory.reservation.sections.reservation'))
-                ->columns(3)
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.reservation.fields.sku')),
                     TextEntry::make('productVariant.name')->label(__('admin.inventory.reservation.fields.variant')),
@@ -69,8 +76,9 @@ final class InventoryReservationResource extends Resource
                         ->url(fn (InventoryReservation $record): ?string => $record->salesOrder !== null
                             ? OrderResource::getUrl('view', ['record' => $record->salesOrder])
                             : null),
-                    TextEntry::make('salesOrderLine.id')->label(__('Sales Order line'))->placeholder(__('—')),
-                    TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6),
+                    TextEntry::make('salesOrderLine.productVariant.sku')->label(__('Sales Order line'))->placeholder(__('—')),
+                    TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))
+                        ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                     TextEntry::make('status')->badge(),
                     TextEntry::make('expires_at')->dateTime()->placeholder(__('admin.inventory.reservation.no_expiry')),
                     TextEntry::make('source_document')
@@ -89,11 +97,12 @@ final class InventoryReservationResource extends Resource
                         ->schema([
                             TextEntry::make('lot.lot_number')->label(__('admin.inventory.reservation.fields.lot'))->placeholder(__('—')),
                             TextEntry::make('serializedUnit.serial_number')->label(__('admin.inventory.reservation.fields.serial'))->placeholder(__('—')),
-                            TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6),
+                            TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))
+                                ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                         ]),
                 ]),
             Section::make(__('admin.inventory.reservation.sections.lifecycle'))
-                ->columns(3)
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     TextEntry::make('created_at')->label(__('admin.inventory.reservation.fields.reserved_at'))->dateTime(),
                     TextEntry::make('consumed_at')->label(__('admin.inventory.reservation.fields.consumed_at'))->dateTime()->placeholder(__('—')),
@@ -118,7 +127,7 @@ final class InventoryReservationResource extends Resource
                 'productVariant',
                 'warehouse',
                 'salesOrder',
-                'salesOrderLine',
+                'salesOrderLine.productVariant',
                 'releasedBy',
                 'createdBy',
                 'updatedBy',

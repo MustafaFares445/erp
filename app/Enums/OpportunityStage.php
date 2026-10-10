@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum OpportunityStage: string
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasLabel;
+
+enum OpportunityStage: string implements HasColor, HasLabel
 {
     case Qualification = 'qualification';
     case NeedsAnalysis = 'needs_analysis';
@@ -34,6 +37,22 @@ enum OpportunityStage: string
 
     public function label(): string
     {
-        return str($this->value)->replace('_', ' ')->headline()->toString();
+        return __(str($this->value)->replace('_', ' ')->headline()->toString());
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
+
+    public function getColor(): string
+    {
+        return match ($this) {
+            self::Qualification => 'gray',
+            self::NeedsAnalysis, self::Demo, self::Proposal => 'info',
+            self::Negotiation => 'warning',
+            self::ClosedWon => 'success',
+            self::ClosedLost => 'danger',
+        };
     }
 }

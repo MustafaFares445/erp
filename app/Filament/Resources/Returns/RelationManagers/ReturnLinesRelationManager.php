@@ -11,6 +11,7 @@ use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Filament\Concerns\InteractsWithInventoryServices;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturn;
@@ -38,9 +39,15 @@ final class ReturnLinesRelationManager extends RelationManager
 
     protected static string $relationship = 'lines';
 
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('inventory_phase4.return.lines_title');
+    }
+
     public function table(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->recordTitleAttribute('id')
             ->columns([
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.stock.variant')),
@@ -62,10 +69,10 @@ final class ReturnLinesRelationManager extends RelationManager
                 $this->addCustomerLineAction(),
                 $this->addSupplierLineAction(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 $this->inspectAction(),
                 $this->removeAction(),
-            ])
+            ]))
             ->toolbarActions([]);
     }
 

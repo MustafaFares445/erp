@@ -13,10 +13,17 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 final class VisitsRelationManager extends RelationManager
 {
     protected static string $relationship = 'visits';
+
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Visits');
+    }
 
     #[\Override]
     public function infolist(Schema $schema): Schema

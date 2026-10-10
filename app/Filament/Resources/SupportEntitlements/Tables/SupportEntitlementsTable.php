@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SupportEntitlements\Tables;
 
 use App\Enums\SupportEntitlementStatus;
+use App\Filament\Tables\TableFit;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -16,11 +17,11 @@ final class SupportEntitlementsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('starts_on', 'desc')
             ->modifyQueryUsing(static fn (Builder $query): Builder => $query->with(['customer:id,company_name', 'serviceLevel:id,name', 'serializedInventoryUnit:id,serial_number']))
             ->columns([
-                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->sortable(),
+                TextColumn::make('customer.company_name')->wrap()->label(__('Customer'))->searchable()->sortable(),
                 TextColumn::make('serviceLevel.name')->label(__('Service level'))->badge(),
                 TextColumn::make('serializedInventoryUnit.serial_number')->label(__('Equipment (serial number)'))
                     ->placeholder(__('Whole customer'))->searchable(),
@@ -33,7 +34,7 @@ final class SupportEntitlementsTable
                     }),
                 TextColumn::make('starts_on')->label(__('Starts on'))->date()->sortable(),
                 TextColumn::make('ends_on')->label(__('Ends on'))->date()->placeholder(__('Open-ended'))->sortable(),
-                TextColumn::make('external_reference')->label(__('External reference'))->searchable()->toggleable(),
+                TextColumn::make('external_reference')->label(__('External reference'))->searchable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')->label(__('Status'))->options(
@@ -44,6 +45,6 @@ final class SupportEntitlementsTable
                 SelectFilter::make('support_service_level_id')->label(__('Service level'))
                     ->relationship('serviceLevel', 'name'),
             ])
-            ->recordActions([EditAction::make(), DeleteAction::make()]);
+            ->recordActions(TableFit::rowActions([EditAction::make(), DeleteAction::make()]));
     }
 }

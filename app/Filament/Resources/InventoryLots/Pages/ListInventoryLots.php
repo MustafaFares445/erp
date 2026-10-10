@@ -43,17 +43,17 @@ final class ListInventoryLots extends ListRecords
                 ->badge(self::expiryCount(null, -1))
                 ->modifyQueryUsing(fn (Builder $query): Builder => self::withPhysicalStock($query)
                     ->whereDate('expires_at', '<', today())),
-            'critical' => Tab::make(__('0?30 Days'))
+            'critical' => Tab::make(__('inventory-other.lot.buckets.critical'))
                 ->badge(self::expiryCount(0, $windows['critical']))
                 ->modifyQueryUsing(fn (Builder $query): Builder => self::withPhysicalStock($query)
                     ->whereDate('expires_at', '>=', today())
                     ->whereDate('expires_at', '<=', today()->addDays($windows['critical']))),
-            'warning' => Tab::make(__('31?60 Days'))
+            'warning' => Tab::make(__('inventory-other.lot.buckets.warning'))
                 ->badge(self::expiryCount($windows['critical'] + 1, $windows['warning']))
                 ->modifyQueryUsing(fn (Builder $query): Builder => self::withPhysicalStock($query)
                     ->whereDate('expires_at', '>', today()->addDays($windows['critical']))
                     ->whereDate('expires_at', '<=', today()->addDays($windows['warning']))),
-            'notice' => Tab::make(__('61?90 Days'))
+            'notice' => Tab::make(__('inventory-other.lot.buckets.notice'))
                 ->badge(self::expiryCount($windows['warning'] + 1, $windows['notice']))
                 ->modifyQueryUsing(fn (Builder $query): Builder => self::withPhysicalStock($query)
                     ->whereDate('expires_at', '>', today()->addDays($windows['warning']))

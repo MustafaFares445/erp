@@ -6,6 +6,7 @@ namespace Database\Seeders\Demo;
 
 use App\Enums\CustomerProvisioningSource;
 use App\Enums\ProductType;
+use App\Enums\WarrantyDurationUnit;
 use App\Models\CustomerProfile;
 use App\Models\PaymentTerm;
 use App\Models\Product;
@@ -125,6 +126,12 @@ final class DemoMasterDataSeeder extends DemoSeeder
                     'markup_percent' => round(($price - $cost) / $cost * 100, 2),
                     'net_weight' => $type === ProductType::Grain ? 0.25 : null,
                     'weight_unit_id' => $type === ProductType::Grain ? $units['KG']->getKey() : null,
+                    // P019 is the shipped/serviceable serialized equipment story. Its
+                    // 12-month legacy warranty starts on confirmed delivery, allowing
+                    // F-12 to exercise shipment-driven warranty activation before the
+                    // later Support maintenance/calibration history.
+                    'warranty_duration_value' => $code === 'P019' ? 12 : null,
+                    'warranty_duration_unit' => $code === 'P019' ? WarrantyDurationUnit::Months : null,
                     'status' => 'active',
                     'is_active' => true,
                 ]);

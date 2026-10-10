@@ -51,7 +51,8 @@ it('covers timeline source detail branches', function (): void {
     ]);
     $noDue = Invoice::factory()->create(['due_date' => null]);
 
-    expect($invoiceDetail->invoke(new InvoiceSource, $overdue))->toContain('days overdue')
+    // Release QA 2026-10-10: Carbon 3 returned a signed fraction ("-3.17… days overdue").
+    expect($invoiceDetail->invoke(new InvoiceSource, $overdue))->toBe('Due '.$overdue->due_date->toDateString().' — 3 days overdue')
         ->and($invoiceDetail->invoke(new InvoiceSource, $future))->toBe('Due '.$future->due_date->toDateString())
         ->and($invoiceDetail->invoke(new InvoiceSource, $noDue))->toBeNull();
 

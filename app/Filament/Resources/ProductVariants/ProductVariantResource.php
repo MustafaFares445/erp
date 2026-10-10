@@ -13,10 +13,12 @@ use App\Enums\TrackingMode;
 use App\Enums\WarrantyDurationUnit;
 use App\Enums\WarrantyStartTrigger;
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\Products\Pages\ManageProductVariants as ManageProductVariantsOfProduct;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariantAttributeValues;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
+use App\Filament\Tables\TableFit;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
@@ -384,75 +386,87 @@ final class ProductVariantResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->columns(2)->schema([
-                ImageEntry::make('main_image')
-                    ->label(__('Image'))
-                    ->state(fn (ProductVariant $record): ?string => $record->mainImageUrl())
-                    ->height(140)
-                    ->square()
-                    ->columnSpanFull(),
-                TextEntry::make('sku'),
-                TextEntry::make('barcode'),
-                TextEntry::make('manufacturer_part_number')->label(__('Manufacturer catalog number'))->placeholder(__('—')),
-                TextEntry::make('name'),
-                TextEntry::make('name_ar')->label(__('Arabic name')),
-                TextEntry::make('product.name'),
-                TextEntry::make('product.manufacturer.name')->label(__('Manufacturer'))->placeholder(__('—')),
-                TextEntry::make('product.brand.name')->label(__('Brand'))->placeholder(__('—')),
-                TextEntry::make('product.operational_profile')
-                    ->label(__('Operational profile'))
-                    ->badge()
-                    ->formatStateUsing(static fn (ProductOperationalProfile $state): string => $state->label()),
-                TextEntry::make('unit.symbol'),
-                TextEntry::make('status')->badge(),
-                TextEntry::make('tracking_mode')
-                    ->label(__('Tracking mode'))
-                    ->badge()
-                    ->formatStateUsing(static fn (TrackingMode $state): string => $state->label()),
-                TextEntry::make('gtin')->label(__('GTIN'))->placeholder(__('—')),
-                TextEntry::make('udi_di')->label(__('UDI-DI'))->placeholder(__('—')),
-                TextEntry::make('product.product_type')
-                    ->label(__('admin.inventory.product_type.label'))
-                    ->badge()
-                    ->formatStateUsing(static fn (ProductType $state): string => $state->label())
-                    ->color(static fn (ProductType $state): string => $state->color()),
-                TextEntry::make('net_weight')
-                    ->label(__('admin.inventory.product_type.fields.net_weight'))
-                    ->numeric(decimalPlaces: 3)
-                    ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
-                    ->visible(static fn (ProductVariant $record): bool => $record->productType() === ProductType::Grain),
-                TextEntry::make('base_price')->money()->visible(self::canViewPricing()),
-                TextEntry::make('warrantyPolicy.name')->label(__('Warranty policy'))->placeholder(__('Legacy / no policy')),
-                TextEntry::make('warrantyPolicy.start_trigger')
-                    ->label(__('Warranty starts from'))
-                    ->formatStateUsing(static fn (mixed $state): string => $state instanceof WarrantyStartTrigger ? $state->label() : '—')
-                    ->placeholder(__('—')),
-                TextEntry::make('warranty_duration_value')->label(__('Legacy duration'))->placeholder(__('—')),
-                TextEntry::make('warranty_duration_unit')->label(__('Legacy unit'))->placeholder(__('—')),
-            ]),
+            Section::make(__('inventory_view_explanations.variant_identity_title'))
+                ->description(__('inventory_view_explanations.variant_identity_desc'))
+                ->columns(['default' => 1, 'md' => 2])->schema([
+                    ImageEntry::make('main_image')
+                        ->label(__('Image'))
+                        ->state(fn (ProductVariant $record): ?string => $record->mainImageUrl())
+                        ->placeholder(__('No image'))
+                        ->height(140)
+                        ->square()
+                        ->columnSpanFull(),
+                    TextEntry::make('sku')->label(__('SKU'))->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.sku')),
+                    TextEntry::make('barcode'),
+                    TextEntry::make('manufacturer_part_number')->label(__('Manufacturer catalog number'))->placeholder(__('—')),
+                    TextEntry::make('name'),
+                    TextEntry::make('name_ar')->label(__('Arabic name')),
+                    TextEntry::make('product.name'),
+                    TextEntry::make('product.manufacturer.name')->label(__('Manufacturer'))->placeholder(__('—')),
+                    TextEntry::make('product.brand.name')->label(__('Brand'))->placeholder(__('—')),
+                    TextEntry::make('product.operational_profile')
+                        ->label(__('Operational profile'))
+                        ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.operational_profile'))
+                        ->badge()
+                        ->formatStateUsing(static fn (ProductOperationalProfile $state): string => $state->label()),
+                    TextEntry::make('unit.symbol')->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.unit')),
+                    TextEntry::make('status')->badge(),
+                    TextEntry::make('tracking_mode')
+                        ->label(__('Tracking mode'))
+                        ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.tracking_mode'))
+                        ->badge()
+                        ->formatStateUsing(static fn (TrackingMode $state): string => $state->label()),
+                    TextEntry::make('gtin')->label(__('GTIN'))->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.gtin'))->placeholder(__('—')),
+                    TextEntry::make('udi_di')->label(__('UDI-DI'))->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.udi_di'))->placeholder(__('—')),
+                    TextEntry::make('product.product_type')
+                        ->label(__('admin.inventory.product_type.label'))
+                        ->badge()
+                        ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                        ->color(static fn (ProductType $state): string => $state->color()),
+                    TextEntry::make('net_weight')
+                        ->label(__('admin.inventory.product_type.fields.net_weight'))
+                        ->numeric(decimalPlaces: 3)
+                        ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
+                        ->visible(static fn (ProductVariant $record): bool => $record->productType() === ProductType::Grain),
+                    TextEntry::make('base_price')->money()->visible(self::canViewPricing()),
+                    TextEntry::make('warrantyPolicy.name')->label(__('Warranty policy'))->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.warranty_policy'))->placeholder(__('Legacy / no policy')),
+                    TextEntry::make('warrantyPolicy.start_trigger')
+                        ->label(__('Warranty starts from'))
+                        ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_view_explanations.warranty_start'))
+                        ->formatStateUsing(static fn (mixed $state): string => $state instanceof WarrantyStartTrigger ? $state->label() : '—')
+                        ->placeholder(__('—')),
+                    TextEntry::make('warranty_duration_value')->label(__('Legacy duration'))->placeholder(__('—')),
+                    TextEntry::make('warranty_duration_unit')->label(__('Legacy unit'))->placeholder(__('—')),
+                ]),
         ]);
     }
 
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
+        // On a product's own variants page the product name and type repeat the page header.
+        $isProductPage = $table->getLivewire() instanceof ManageProductVariantsOfProduct;
+
+        return TableFit::apply($table)
             ->columns([
-                ImageColumn::make('main_image')->getStateUsing(static fn (ProductVariant $record): ?string => $record->mainImageUrl()),
-                TextColumn::make('sku')->searchable()->sortable(),
+                ImageColumn::make('main_image')
+                    ->getStateUsing(static fn (ProductVariant $record): ?string => $record->mainImageUrl())
+                    ->placeholder(__('No image')),
+                TextColumn::make('sku')->label(__('SKU'))->searchable()->sortable(),
                 TextColumn::make('manufacturer_part_number')->label(__('Mfr. catalog #'))->searchable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('product.name')->searchable()->sortable(),
-                TextColumn::make('unit.symbol')->sortable(),
+                TextColumn::make('name')->wrap()->searchable()->sortable(),
+                TextColumn::make('product.name')->wrap()->searchable()->sortable()->visible(! $isProductPage),
+                TextColumn::make('unit.symbol')->toggleable(isToggledHiddenByDefault: true)->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('tracking_mode')
+                TextColumn::make('tracking_mode')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Tracking'))
                     ->badge()
                     ->formatStateUsing(static fn (TrackingMode $state): string => $state->label())
                     ->sortable(),
-                ToggleColumn::make('is_active'),
+                ToggleColumn::make('is_active')->label(__('Active'))->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('base_price')->money()->sortable()->visible(self::canViewPricing()),
                 TextColumn::make('product.product_type')
+                    ->visible(! $isProductPage)
                     ->label(__('admin.inventory.product_type.label'))
                     ->badge()
                     ->formatStateUsing(static fn (ProductType $state): string => $state->label())
@@ -498,7 +512,7 @@ final class ProductVariantResource extends Resource
                             ->orWhereNull('weight_unit_id'))),
                 TrashedFilter::make(),
             ])
-            ->recordActions([ViewAction::make(), self::editAction(), DeleteAction::make(), RestoreAction::make()]);
+            ->recordActions(TableFit::rowActions([ViewAction::make(), self::editAction(), DeleteAction::make(), RestoreAction::make()]));
     }
 
     /** @return array<string> */

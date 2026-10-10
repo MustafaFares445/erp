@@ -35,6 +35,19 @@ final class Unit extends Model
         ];
     }
 
+    /**
+     * The unit name in the viewer's language: the Arabic name under the Arabic
+     * locale when one is recorded, otherwise the base (English) name.
+     */
+    public function localizedName(): string
+    {
+        if (app()->isLocale('ar') && filled($this->name_ar)) {
+            return (string) $this->name_ar;
+        }
+
+        return (string) $this->name;
+    }
+
     /** @return HasMany<ProductVariant, $this> */
     public function variants(): HasMany
     {

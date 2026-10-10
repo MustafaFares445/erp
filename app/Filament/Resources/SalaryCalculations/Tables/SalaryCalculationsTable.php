@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SalaryCalculations\Tables;
 
 use App\Enums\SalaryCalculationStatus;
+use App\Filament\Tables\TableFit;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\SalesPlan;
 use App\Services\Employees\SalaryRecalculationService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -19,47 +21,52 @@ final class SalaryCalculationsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('employee.user.name')->label(__('Employee'))->searchable()->sortable(),
-                TextColumn::make('salesPlan.name')->label(__('Plan'))->searchable(),
+                TextColumn::make('employee.user.name')->wrap()->label(__('Employee'))->searchable()->sortable(),
+                TextColumn::make('salesPlan.name')->wrap()->label(__('Plan'))->searchable(),
                 TextColumn::make('salesPlan.month')->label(__('Month'))->date('Y-m')->sortable(),
-                TextColumn::make('payable_base')->money(),
+                TextColumn::make('payable_base')->money()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('performance_percent')->suffix('%'),
-                TextColumn::make('bonus_amount')->money(),
+                TextColumn::make('bonus_amount')->money()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('final_salary')->money()->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (SalaryCalculationStatus $state): string => $state->label())
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')->options(collect(SalaryCalculationStatus::cases())->mapWithKeys(static fn (SalaryCalculationStatus $status): array => [$status->value => $status->label()])->all()),
                 SelectFilter::make('employee_id')->relationship('employee', 'employee_code')->searchable()->preload(),
                 SelectFilter::make('sales_plan_id')->label(__('Plan'))->relationship('salesPlan', 'name')->searchable()->preload(),
             ])
-            ->recordActions([
-                ViewAction::make(),
-                Action::make('confirm')
-                    ->label(__('Confirm after review'))
-                    ->icon(Heroicon::OutlinedCheckBadge)
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->authorize('confirm')
-                    ->visible(static fn (EmployeeSalaryCalculation $record): bool => $record->status === SalaryCalculationStatus::PendingConfirmation)
-                    ->action(static function (EmployeeSalaryCalculation $record): void {
-                        app(SalaryRecalculationService::class)->confirm($record);
-                    }),
-                Action::make('recalculate')
-                    ->label(__('Recalculate'))
-                    ->icon(Heroicon::OutlinedArrowPath)
-                    ->requiresConfirmation()
-                    ->authorize('create')
-                    ->action(static function (EmployeeSalaryCalculation $record): void {
-                        $plan = $record->salesPlan;
+            ->recordActions(TableFit::rowActions([
+                ActionGroup::make([
+                    ViewAction::make(),
+                    Action::make('confirm')
+                        ->label(__('Confirm after review'))
+                        ->icon(Heroicon::OutlinedCheckBadge)
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->authorize('confirm')
+                        ->visible(static fn (EmployeeSalaryCalculation $record): bool => $record->status === SalaryCalculationStatus::PendingConfirmation)
+                        ->action(static function (EmployeeSalaryCalculation $record): void {
+                            app(SalaryRecalculationService::class)->confirm($record);
+                        }),
+                    Action::make('recalculate')
+                        ->label(__('Recalculate'))
+                        ->icon(Heroicon::OutlinedArrowPath)
+                        ->requiresConfirmation()
+                        ->authorize('create')
+                        ->action(static function (EmployeeSalaryCalculation $record): void {
+                            $plan = $record->salesPlan;
 
-                        if ($plan instanceof SalesPlan) {
-                            app(SalaryRecalculationService::class)->recalculate($plan);
-                        }
-                    }),
-            ]);
+                            if ($plan instanceof SalesPlan) {
+                                app(SalaryRecalculationService::class)->recalculate($plan);
+                            }
+                        }),
+                ]),
+            ]));
     }
 }

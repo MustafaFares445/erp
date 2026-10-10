@@ -83,6 +83,7 @@ return [
         'taxes' => 'الضرائب',
         'financial_reports' => 'التقارير المالية',
         'replenishment_policies' => 'سياسات إعادة التزويد',
+        'replenishment_policy' => 'سياسة إعادة التزويد',
         'inventory_condition_changes' => 'تغييرات حالة المخزون',
         'inventory_counts' => 'الجرد المخزني / الجرد الدوري',
         'pricing_tiers' => 'شرائح التسعير',

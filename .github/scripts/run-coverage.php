@@ -47,6 +47,12 @@ if ($usePcov) {
 
 $minimum = getenv('COVERAGE_MIN');
 $minimum = $minimum === false ? '100' : $minimum;
+$processCount = getenv('COVERAGE_PROCESSES');
+if ($processCount !== false && (! ctype_digit($processCount) || (int) $processCount < 1 || (int) $processCount > 16)) {
+    fwrite(STDERR, "COVERAGE_PROCESSES must be an integer from 1 to 16.\n");
+    exit(2);
+}
+
 $pestOptions = [
     '--coverage',
     '--only-summary-for-coverage-text',
@@ -54,6 +60,15 @@ $pestOptions = [
     '--parallel',
     '--max-processes=16',
 ];
+
+if ($processCount !== false) {
+    $pestOptions[] = '--processes='.$processCount;
+}
+
+$cloverPath = getenv('COVERAGE_CLOVER');
+if ($cloverPath !== false && $cloverPath !== '') {
+    $pestOptions[] = '--coverage-clover='.$cloverPath;
+}
 
 if ($minimum !== 'off') {
     $pestOptions[] = '--min='.$minimum;

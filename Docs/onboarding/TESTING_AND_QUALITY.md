@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: engineering
-last_verified: 2026-10-05
-verified_against: composer.json, phpunit.xml, tests/Pest.php, scripts/test-changed.php, .github/workflows/tests.yml
+last_verified: 2026-10-07
+verified_against: composer.json, phpunit.xml, tests/Pest.php, user-guide/package.json, scripts/test-changed.php, .github/workflows/tests.yml
 ---
 
 ## Verification Model
@@ -135,7 +135,10 @@ composer lint
 
 ```bash
 composer test:docs
+composer test:guide
 ```
+
+`test:docs` validates internal canonical Markdown under `Docs/`. `test:guide` first compares the generated admin manifest with the current `AdminModuleRegistry`/Filament Resource pages, then validates bilingual screen coverage, screenshot placeholder coverage and required workflow articles, and finally performs the VitePress production build. A newly registered dashboard class/page therefore makes the guide gate fail until the guide is regenerated and reviewed. The two documentation products intentionally use separate tooling and lifecycles.
 
 ### Static analysis
 
@@ -161,6 +164,8 @@ composer test:coverage
 
 The repository coverage runner uses PCOV when available and requires **100%** in CI.
 
+For a constrained local release host, set `COVERAGE_PROCESSES=2` in the command's environment to cap the full gate at two coverage workers. The setting accepts 1–16; without it the existing automatic count and 16-worker maximum remain. `COVERAGE_CLOVER` optionally names a fresh Clover output file. These settings apply to `composer test` as well as `composer test:coverage` and do not alter suite selection or the 100% minimum.
+
 Coverage-only test directories are explicitly grouped as `coverage-only`. They are excluded from normal fast behavioral feedback but remain part of `test:coverage`.
 
 ### Full gate
@@ -174,10 +179,11 @@ Current sequence:
 
 1. `test:lint`
 2. `test:docs`
-3. `test:architecture`
-4. `test:types`
-5. `test:type-coverage`
-6. `test:coverage`
+3. `test:guide`
+4. `test:architecture`
+5. `test:types`
+6. `test:type-coverage`
+7. `test:coverage`
 
 The coverage command executes the complete suite, including coverage-only tests, so the local full gate does not redundantly run `test:fast` first.
 
@@ -224,6 +230,11 @@ The old focused CRM acceptance job was removed because its static and regression
 Normal tests use in-memory SQLite, synchronous queues, and fake Employee transcription.
 
 Passing SQLite tests does **not** prove database-concurrency semantics.
+
+MySQL acceptance must use disposable schemas and credentials restricted to those schemas. A broad local database account is unsuitable on a shared server. Cleanup must validate the selected test schema before mutation, explicitly scope table enumeration to that schema, and reject qualified identifiers returned unexpectedly. In Laravel 13, `getTableListing()` without a schema lists all visible non-system schemas; use `getTableListing($connection->getDatabaseName(), false)` when resetting one dedicated database.
+
+These rules are enforced in code, not only documented. `IERP_DISPOSABLE_DATABASES` lists the exact schemas that may be mutated. Destructive Artisan commands, `Tests\TestCase` (for any non-SQLite default connection, before `RefreshDatabase` runs), and `Tests\Support\DisposableMySqlSchema` refuse anything else. Concurrency cleanup additionally requires an `ierp_<label>_testing` name and an account whose only grants are on that schema, with escaped underscores. CI creates such an `ierp_race` account. Regressions: `tests/Feature/Database/`.
+
 
 Changes to locking, races, inventory balances, reservations, or other engine-sensitive behavior must run the dedicated MySQL acceptance tests, including the applicable tests under:
 

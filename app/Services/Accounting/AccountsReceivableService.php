@@ -6,6 +6,7 @@ namespace App\Services\Accounting;
 
 use App\Enums\CreditNoteStatus;
 use App\Enums\InvoiceStatus;
+use App\Enums\RefundStatus;
 use App\Enums\WriteOffStatus;
 use App\Models\ChartAccount;
 use App\Models\CreditNote;
@@ -16,6 +17,7 @@ use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\ReceivableWriteOff;
+use App\Models\Refund;
 use App\Models\SalesSetting;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -41,6 +43,8 @@ use LogicException;
  *     credited_minor: int,
  *     paid_minor: int,
  *     written_off_minor: int,
+ *     credit_balance_minor: int,
+ *     net_receivable_minor: int,
  *     outstanding_minor: int
  * }
  * @phpstan-type AgingBuckets array{current: int, '1_30': int, '31_60': int, '61_90': int, over_90: int}
@@ -52,6 +56,8 @@ use LogicException;
  *     credited_minor: int,
  *     paid_minor: int,
  *     written_off_minor: int,
+ *     credit_balance_minor: int,
+ *     net_receivable_minor: int,
  *     outstanding_minor: int,
  *     buckets: AgingBuckets
  * }
@@ -65,6 +71,8 @@ use LogicException;
  *     credited_minor: int,
  *     paid_minor: int,
  *     written_off_minor: int,
+ *     credit_balance_minor: int,
+ *     net_receivable_minor: int,
  *     outstanding_minor: int,
  *     days_overdue: int
  * }
@@ -76,6 +84,8 @@ use LogicException;
  *     credited_minor: int,
  *     paid_minor: int,
  *     written_off_minor: int,
+ *     credit_balance_minor: int,
+ *     net_receivable_minor: int,
  *     outstanding_minor: int,
  *     buckets: AgingBuckets,
  *     documents: list<CustomerDocument>
@@ -83,10 +93,13 @@ use LogicException;
  * @phpstan-type AgingSummary array{
  *     as_of: string,
  *     customers: list<CustomerSummary>,
+ *     credit_customers: list<CustomerSummary>,
  *     billed_minor: int,
  *     credited_minor: int,
  *     paid_minor: int,
  *     written_off_minor: int,
+ *     credit_balance_minor: int,
+ *     net_receivable_minor: int,
  *     outstanding_minor: int,
  *     control_account_minor: int,
  *     tie_out_difference_minor: int,
@@ -116,11 +129,16 @@ final readonly class AccountsReceivableService
     {
         $date = $this->asOfDate($asOf);
         $invoices = $this->invoiceRows($date);
+        $creditAdjustments = $this->creditAdjustments($date);
         /** @var array<int, list<InvoiceRow>> $grouped */
         $grouped = [];
 
         foreach ($invoices as $invoice) {
             $grouped[(int) $invoice['customer_id']][] = $invoice;
+        }
+
+        foreach (array_keys($creditAdjustments) as $customerId) {
+            $grouped[$customerId] ??= [];
         }
 
         $customerProfiles = CustomerProfile::withTrashed()
@@ -130,38 +148,47 @@ final readonly class AccountsReceivableService
 
         /** @var list<CustomerSummary> $customers */
         $customers = [];
+        $creditCustomers = [];
         $billedMinor = 0;
         $creditedMinor = 0;
         $paidMinor = 0;
         $writtenOffMinor = 0;
+        $creditBalanceMinor = 0;
 
         foreach ($grouped as $customerId => $customerInvoices) {
-            $row = $this->customerSummary($customerId, $customerInvoices, $date, $customerProfiles);
+            $row = $this->customerSummary($customerId, $customerInvoices, $date, $customerProfiles, $creditAdjustments[$customerId] ?? 0);
             $billedMinor += $row['billed_minor'];
             $creditedMinor += $row['credited_minor'];
             $paidMinor += $row['paid_minor'];
             $writtenOffMinor += $row['written_off_minor'];
+            $creditBalanceMinor += $row['credit_balance_minor'];
 
             if ($row['outstanding_minor'] > 0) {
                 $customers[] = $row;
+            } elseif ($row['credit_balance_minor'] > 0) {
+                $creditCustomers[] = $row;
             }
         }
 
         usort($customers, static fn (array $left, array $right): int => $right['outstanding_minor'] <=> $left['outstanding_minor']);
         $outstandingMinor = array_sum(array_column($customers, 'outstanding_minor'));
+        $netReceivableMinor = $outstandingMinor - $creditBalanceMinor;
         $controlMinor = $this->receivableControlAccountMinor($date);
 
         return [
             'as_of' => $date->toDateString(),
             'customers' => $customers,
+            'credit_customers' => $creditCustomers,
             'billed_minor' => $billedMinor,
             'credited_minor' => $creditedMinor,
             'paid_minor' => $paidMinor,
             'written_off_minor' => $writtenOffMinor,
             'outstanding_minor' => $outstandingMinor,
+            'credit_balance_minor' => $creditBalanceMinor,
+            'net_receivable_minor' => $netReceivableMinor,
             'control_account_minor' => $controlMinor,
-            'tie_out_difference_minor' => $outstandingMinor - $controlMinor,
-            'is_reconciled' => $outstandingMinor === $controlMinor,
+            'tie_out_difference_minor' => $netReceivableMinor - $controlMinor,
+            'is_reconciled' => $netReceivableMinor === $controlMinor,
         ];
     }
 
@@ -174,7 +201,7 @@ final readonly class AccountsReceivableService
             static fn (array $row): bool => (int) $row['customer_id'] === (int) $customer->id,
         ));
 
-        $summary = $this->customerSummary((int) $customer->id, $documents, $date);
+        $summary = $this->customerSummary((int) $customer->id, $documents, $date, creditAdjustmentMinor: $this->creditAdjustments($date)[(int) $customer->id] ?? 0);
         $summary['documents'] = array_map(function (array $document) use ($date): array {
             $document['days_overdue'] = $this->daysOverdue((string) $document['due_date'], $date);
 
@@ -194,8 +221,8 @@ final readonly class AccountsReceivableService
         $stream = fopen('php://temp', 'w+');
 
         fputcsv($stream, ['As of', $summary['as_of']], escape: '\\');
-        fputcsv($stream, ['Customer', 'Billed', 'Credits', 'Paid', 'Written off', 'Outstanding', 'Current', '1-30', '31-60', '61-90', 'Over 90'], escape: '\\');
-        foreach ($summary['customers'] as $customer) {
+        fputcsv($stream, ['Customer', 'Billed', 'Credits', 'Paid', 'Written off', 'Outstanding', 'Credit balance', 'Net receivable', 'Current', '1-30', '31-60', '61-90', 'Over 90'], escape: '\\');
+        foreach ([...$summary['customers'], ...$summary['credit_customers']] as $customer) {
             fputcsv($stream, [
                 $customer['customer_name'],
                 $this->formatMinor((int) $customer['billed_minor']),
@@ -203,6 +230,8 @@ final readonly class AccountsReceivableService
                 $this->formatMinor((int) $customer['paid_minor']),
                 $this->formatMinor((int) $customer['written_off_minor']),
                 $this->formatMinor((int) $customer['outstanding_minor']),
+                $this->formatMinor((int) $customer['credit_balance_minor']),
+                $this->formatMinor((int) $customer['net_receivable_minor']),
                 $this->formatMinor((int) $customer['buckets']['current']),
                 $this->formatMinor((int) $customer['buckets']['1_30']),
                 $this->formatMinor((int) $customer['buckets']['31_60']),
@@ -213,6 +242,8 @@ final readonly class AccountsReceivableService
 
         fputcsv($stream, [], escape: '\\');
         fputcsv($stream, ['Subledger outstanding', $this->formatMinor((int) $summary['outstanding_minor'])], escape: '\\');
+        fputcsv($stream, ['Customer credit balance', $this->formatMinor((int) $summary['credit_balance_minor'])], escape: '\\');
+        fputcsv($stream, ['Net receivable subledger', $this->formatMinor((int) $summary['net_receivable_minor'])], escape: '\\');
         fputcsv($stream, ['Receivable control account', $this->formatMinor((int) $summary['control_account_minor'])], escape: '\\');
         fputcsv($stream, ['Tie-out difference', $this->formatMinor((int) $summary['tie_out_difference_minor'])], escape: '\\');
 
@@ -247,7 +278,7 @@ final readonly class AccountsReceivableService
     }
 
     /**
-     * @param  array{as_of: string, tie_out_difference_minor: int, outstanding_minor: int, control_account_minor: int}|null  $agingSummary
+     * @param  array{as_of: string, tie_out_difference_minor: int, net_receivable_minor: int, control_account_minor: int}|null  $agingSummary
      * @return array{as_of: string, subledger_minor: int, control_account_minor: int, difference_minor: int, is_reconciled: bool, candidate_causes: list<array{code: string, count: int, message: string}>}
      */
     public function reconciliation(?CarbonInterface $asOf = null, ?array $agingSummary = null): array
@@ -257,7 +288,7 @@ final readonly class AccountsReceivableService
 
         return [
             'as_of' => $summary['as_of'],
-            'subledger_minor' => (int) $summary['outstanding_minor'],
+            'subledger_minor' => (int) $summary['net_receivable_minor'],
             'control_account_minor' => (int) $summary['control_account_minor'],
             'difference_minor' => $difference,
             'is_reconciled' => $difference === 0,
@@ -315,6 +346,7 @@ final readonly class AccountsReceivableService
             $paidMinor = $this->allocatedPaymentsMinor($invoice, $asOf);
             $writtenOffMinor = $this->writtenOffMinor($invoice, $asOf);
             $outstandingMinor = max(0, $totalMinor - $creditedMinor - $paidMinor - $writtenOffMinor);
+            $creditBalanceMinor = max(0, $creditedMinor + $paidMinor + $writtenOffMinor - $totalMinor);
 
             $rows[] = [
                 'invoice_id' => (int) $invoice->id,
@@ -327,6 +359,8 @@ final readonly class AccountsReceivableService
                 'paid_minor' => $paidMinor,
                 'written_off_minor' => $writtenOffMinor,
                 'outstanding_minor' => $outstandingMinor,
+                'credit_balance_minor' => $creditBalanceMinor,
+                'net_receivable_minor' => $outstandingMinor - $creditBalanceMinor,
             ];
         }
 
@@ -336,7 +370,7 @@ final readonly class AccountsReceivableService
     private function creditedMinor(Invoice $invoice, CarbonImmutable $asOf): int
     {
         return $invoice->creditNotes
-            ->filter(static fn (CreditNote $credit): bool => $credit->status === CreditNoteStatus::Confirmed
+            ->filter(static fn (CreditNote $credit): bool => in_array($credit->status, [CreditNoteStatus::Confirmed, CreditNoteStatus::Reversed], true)
                 && $credit->confirmed_at !== null
                 && $credit->confirmed_at->lessThanOrEqualTo($asOf)
                 && ($credit->reversed_at === null || $credit->reversed_at->greaterThan($asOf)))
@@ -366,6 +400,38 @@ final readonly class AccountsReceivableService
             ->sum(static fn (ReceivableWriteOff $writeOff): int => $writeOff->amount_minor);
     }
 
+    /** @return array<int, int> */
+    private function creditAdjustments(CarbonImmutable $asOf): array
+    {
+        $adjustments = [];
+        $credits = CreditNote::withTrashed()
+            ->whereNull('invoice_id')
+            ->whereNotNull('confirmed_at')
+            ->where('confirmed_at', '<=', $asOf)
+            ->where(fn (Builder $query): Builder => $query->whereNull('reversed_at')->orWhere('reversed_at', '>', $asOf))
+            ->get();
+
+        foreach ($credits as $credit) {
+            $adjustments[$credit->customer_id] = ($adjustments[$credit->customer_id] ?? 0)
+                + JournalEntryLine::toMinorUnits($credit->grand_total);
+        }
+
+        $refunds = Refund::withTrashed()
+            ->where('status', RefundStatus::Paid->value)
+            ->whereHas('journalEntry', fn (Builder $query): Builder => $query
+                ->where('status', 'posted')
+                ->whereDate('entry_date', '<=', $asOf->toDateString()))
+            ->get();
+
+        foreach ($refunds as $refund) {
+            $receivableMinor = JournalEntryLine::toMinorUnits($refund->amount)
+                - JournalEntryLine::toMinorUnits($refund->customer_deposit_amount);
+            $adjustments[$refund->customer_id] = ($adjustments[$refund->customer_id] ?? 0) - $receivableMinor;
+        }
+
+        return $adjustments;
+    }
+
     /**
      * @param  list<InvoiceRow>  $documents
      * @param  Collection<int, CustomerProfile>|null  $customerProfiles
@@ -376,6 +442,7 @@ final readonly class AccountsReceivableService
         array $documents,
         CarbonImmutable $asOf,
         ?Collection $customerProfiles = null,
+        int $creditAdjustmentMinor = 0,
     ): array {
         $customer = $customerProfiles?->get($customerId) ?? CustomerProfile::withTrashed()->find($customerId);
         $buckets = ['current' => 0, '1_30' => 0, '31_60' => 0, '61_90' => 0, 'over_90' => 0];
@@ -384,6 +451,7 @@ final readonly class AccountsReceivableService
         $paidMinor = 0;
         $writtenOffMinor = 0;
         $outstandingMinor = 0;
+        $creditBalanceMinor = $creditAdjustmentMinor;
 
         foreach ($documents as $document) {
             $billedMinor += (int) $document['total_minor'];
@@ -392,6 +460,7 @@ final readonly class AccountsReceivableService
             $writtenOffMinor += (int) $document['written_off_minor'];
             $remaining = (int) $document['outstanding_minor'];
             $outstandingMinor += $remaining;
+            $creditBalanceMinor += $document['credit_balance_minor'];
             if ($remaining <= 0) {
                 continue;
             }
@@ -416,6 +485,8 @@ final readonly class AccountsReceivableService
             'paid_minor' => $paidMinor,
             'written_off_minor' => $writtenOffMinor,
             'outstanding_minor' => $outstandingMinor,
+            'credit_balance_minor' => $creditBalanceMinor,
+            'net_receivable_minor' => $outstandingMinor - $creditBalanceMinor,
             'buckets' => $buckets,
         ];
     }
@@ -466,9 +537,9 @@ final readonly class AccountsReceivableService
     private function customerOutstandingAt(CustomerProfile $customer, CarbonImmutable $asOf): int
     {
         return array_sum(array_map(
-            static fn (array $row): int => (int) $row['outstanding_minor'],
+            static fn (array $row): int => (int) $row['net_receivable_minor'],
             array_filter($this->invoiceRows($asOf), static fn (array $row): bool => (int) $row['customer_id'] === (int) $customer->id),
-        ));
+        )) - ($this->creditAdjustments($asOf)[(int) $customer->id] ?? 0);
     }
 
     /** @return list<StatementEntry> */
@@ -502,12 +573,32 @@ final readonly class AccountsReceivableService
                 $entries[] = ['date' => $postedAt->toDateString(), 'type' => 'payment', 'reference' => $payment->payment_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($allocation->amount)];
             });
 
-        CreditNote::query()->where('customer_id', $customer->id)->where('status', CreditNoteStatus::Confirmed->value)
+        CreditNote::query()->where('customer_id', $customer->id)->whereNotNull('confirmed_at')
             ->whereBetween('confirmed_at', [$from, $to])->get()->each(function (CreditNote $credit) use (&$entries): void {
                 /** @var CarbonInterface $confirmedAt */
                 $confirmedAt = $credit->confirmed_at;
 
                 $entries[] = ['date' => $confirmedAt->toDateString(), 'type' => 'credit_note', 'reference' => $credit->credit_note_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total)];
+            });
+
+        CreditNote::query()->where('customer_id', $customer->id)->whereBetween('reversed_at', [$from, $to])->get()
+            ->each(function (CreditNote $credit) use (&$entries): void {
+                $entries[] = ['date' => CarbonImmutable::parse($credit->reversed_at)->toDateString(), 'type' => 'credit_note_reversal', 'reference' => $credit->credit_note_number, 'debit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total), 'credit_minor' => 0];
+            });
+
+        Refund::query()->with('journalEntry')->where('customer_id', $customer->id)->where('status', RefundStatus::Paid->value)
+            ->whereHas('journalEntry', fn (Builder $query): Builder => $query->where('status', 'posted')
+                ->whereDate('entry_date', '>=', $from->toDateString())
+                ->whereDate('entry_date', '<=', $to->toDateString()))
+            ->get()->each(function (Refund $refund) use (&$entries): void {
+                $receivableMinor = JournalEntryLine::toMinorUnits($refund->amount) - JournalEntryLine::toMinorUnits($refund->customer_deposit_amount);
+                if ($receivableMinor === 0) {
+                    return;
+                }
+
+                $journal = $refund->journalEntry ?? throw new LogicException('A posted receivable refund must have a journal entry.');
+
+                $entries[] = ['date' => $journal->entry_date->toDateString(), 'type' => 'refund', 'reference' => $refund->refund_number, 'debit_minor' => $receivableMinor, 'credit_minor' => 0];
             });
 
         ReceivableWriteOff::query()->where('customer_id', $customer->id)->where('status', WriteOffStatus::Approved->value)

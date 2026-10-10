@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
+use App\Enums\InventoryReturnStatus;
 use App\Enums\SalesPermission;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\Returns\Pages\ManageReturns;
@@ -52,6 +53,18 @@ it('uses the canonical return document instead of redirecting to stock movements
         ->not->toContain('StockMovementResource')
         ->not->toContain('redirect(')
         ->toContain('InventoryReturnService::class');
+});
+
+it('renders translated return status labels in Arabic', function (): void {
+    app()->setLocale('ar');
+
+    $user = returnLifecycleUser();
+    $posted = InventoryReturn::factory()->posted()->create();
+
+    Livewire::actingAs($user)
+        ->test(ManageReturns::class)
+        ->assertCanSeeTableRecords([$posted])
+        ->assertSee(InventoryReturnStatus::Posted->label());
 });
 
 it('denies return creation to a read-only return viewer', function (): void {

@@ -1,0 +1,652 @@
+{
+  "global-dashboard-shell": {
+    "en": "/images/en/getting-started/global-dashboard-shell.jpg",
+    "ar": "/images/ar/getting-started/global-dashboard-shell.jpg"
+  },
+  "global-module-switcher": {
+    "en": "/images/en/getting-started/global-module-switcher.jpg",
+    "ar": "/images/ar/getting-started/global-module-switcher.jpg"
+  },
+  "global-search": {
+    "en": "/images/en/getting-started/global-search.jpg",
+    "ar": "/images/ar/getting-started/global-search.jpg"
+  },
+  "global-sidebar": {
+    "en": "/images/en/getting-started/global-sidebar.jpg",
+    "ar": "/images/ar/getting-started/global-sidebar.jpg"
+  },
+  "global-status-actions": {
+    "en": "/images/en/getting-started/global-status-actions.jpg"
+  },
+  "global-user-menu": {
+    "en": "/images/en/getting-started/global-user-menu.jpg"
+  },
+  "sales-credit-note-create": {
+    "en": "/images/en/sales/sales-credit-note-create.png",
+    "ar": "/images/ar/sales/sales-credit-note-create.png"
+  },
+  "sales-credit-note-edit": {
+    "en": "/images/en/sales/sales-credit-note-edit.png",
+    "ar": "/images/ar/sales/sales-credit-note-edit.png"
+  },
+  "sales-credit-note-index": {
+    "en": "/images/en/sales/sales-credit-note-index.png",
+    "ar": "/images/ar/sales/sales-credit-note-index.png"
+  },
+  "sales-credit-note-view": {
+    "en": "/images/en/sales/sales-credit-note-view.png",
+    "ar": "/images/ar/sales/sales-credit-note-view.png"
+  },
+  "sales-dashboard-overview": {
+    "en": "/images/en/sales/sales-dashboard-overview.png",
+    "ar": "/images/ar/sales/sales-dashboard-overview.png"
+  },
+  "sales-delivery-note-index": {
+    "en": "/images/en/sales/sales-delivery-note-index.png",
+    "ar": "/images/ar/sales/sales-delivery-note-index.png"
+  },
+  "sales-delivery-note-view": {
+    "en": "/images/en/sales/sales-delivery-note-view.png",
+    "ar": "/images/ar/sales/sales-delivery-note-view.png"
+  },
+  "sales-invoice-create": {
+    "en": "/images/en/sales/sales-invoice-create.png",
+    "ar": "/images/ar/sales/sales-invoice-create.png"
+  },
+  "sales-invoice-edit": {
+    "en": "/images/en/sales/sales-invoice-edit.png",
+    "ar": "/images/ar/sales/sales-invoice-edit.png"
+  },
+  "sales-invoice-index": {
+    "en": "/images/en/sales/sales-invoice-index.png",
+    "ar": "/images/ar/sales/sales-invoice-index.png"
+  },
+  "sales-invoice-view": {
+    "en": "/images/en/sales/sales-invoice-view.png",
+    "ar": "/images/ar/sales/sales-invoice-view.png"
+  },
+  "sales-order-create": {
+    "en": "/images/en/sales/sales-order-create.png",
+    "ar": "/images/ar/sales/sales-order-create.png"
+  },
+  "sales-order-edit": {
+    "en": "/images/en/sales/sales-order-edit.png",
+    "ar": "/images/ar/sales/sales-order-edit.png"
+  },
+  "sales-order-index": {
+    "en": "/images/en/sales/sales-order-index.png",
+    "ar": "/images/ar/sales/sales-order-index.png"
+  },
+  "sales-order-view": {
+    "en": "/images/en/sales/sales-order-view.png",
+    "ar": "/images/ar/sales/sales-order-view.png"
+  },
+  "sales-payment-create": {
+    "en": "/images/en/sales/sales-payment-create.png",
+    "ar": "/images/ar/sales/sales-payment-create.png"
+  },
+  "sales-payment-edit": {
+    "en": "/images/en/sales/sales-payment-edit.png",
+    "ar": "/images/ar/sales/sales-payment-edit.png"
+  },
+  "sales-payment-index": {
+    "en": "/images/en/sales/sales-payment-index.png",
+    "ar": "/images/ar/sales/sales-payment-index.png"
+  },
+  "sales-payment-transaction-index": {
+    "en": "/images/en/sales/sales-payment-transaction-index.png",
+    "ar": "/images/ar/sales/sales-payment-transaction-index.png"
+  },
+  "sales-payment-transaction-view": {
+    "en": "/images/en/sales/sales-payment-transaction-view.png",
+    "ar": "/images/ar/sales/sales-payment-transaction-view.png"
+  },
+  "sales-payment-view": {
+    "en": "/images/en/sales/sales-payment-view.png",
+    "ar": "/images/ar/sales/sales-payment-view.png"
+  },
+  "sales-quotation-create": {
+    "en": "/images/en/sales/sales-quotation-create.png",
+    "ar": "/images/ar/sales/sales-quotation-create.png"
+  },
+  "sales-quotation-edit": {
+    "en": "/images/en/sales/sales-quotation-edit.png",
+    "ar": "/images/ar/sales/sales-quotation-edit.png"
+  },
+  "sales-quotation-index": {
+    "en": "/images/en/sales/sales-quotation-index.png",
+    "ar": "/images/ar/sales/sales-quotation-index.png"
+  },
+  "sales-quotation-view": {
+    "en": "/images/en/sales/sales-quotation-view.png",
+    "ar": "/images/ar/sales/sales-quotation-view.png"
+  },
+  "sales-sales-report-index": {
+    "en": "/images/en/sales/sales-sales-report-index.png",
+    "ar": "/images/ar/sales/sales-sales-report-index.png"
+  },
+  "inventory-stock-level-index": {
+    "en": "/images/en/inventory/inventory-stock-level-index.jpg",
+    "ar": "/images/ar/inventory/inventory-stock-level-index.jpg"
+  },
+  "inventory-stock-level-view": {
+    "en": "/images/en/inventory/inventory-stock-level-view.png",
+    "ar": "/images/ar/inventory/inventory-stock-level-view.png"
+  },
+  "inventory-stock-movement-index": {
+    "en": "/images/en/inventory/inventory-stock-movement-index.jpg",
+    "ar": "/images/ar/inventory/inventory-stock-movement-index.jpg"
+  },
+  "inventory-stock-movement-view": {
+    "en": "/images/en/inventory/inventory-stock-movement-view.png",
+    "ar": "/images/ar/inventory/inventory-stock-movement-view.png"
+  },
+  "inventory-inventory-operation-index": {
+    "en": "/images/en/inventory/inventory-inventory-operation-index.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-operation-index.jpg"
+  },
+  "inventory-inventory-operation-receipts": {
+    "en": "/images/en/inventory/inventory-inventory-operation-receipts.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-operation-receipts.jpg"
+  },
+  "inventory-inventory-operation-deliveries": {
+    "en": "/images/en/inventory/inventory-inventory-operation-deliveries.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-operation-deliveries.jpg"
+  },
+  "inventory-inventory-operation-transfers": {
+    "en": "/images/en/inventory/inventory-inventory-operation-transfers.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-operation-transfers.jpg"
+  },
+  "inventory-inventory-operation-create": {
+    "en": "/images/en/inventory/inventory-inventory-operation-create.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-operation-create.jpg"
+  },
+  "inventory-inventory-operation-view": {
+    "en": "/images/en/inventory/inventory-inventory-operation-view.png",
+    "ar": "/images/ar/inventory/inventory-inventory-operation-view.png"
+  },
+  "inventory-inventory-operation-edit": {
+    "en": "/images/en/inventory/inventory-inventory-operation-edit.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-operation-edit.jpg"
+  },
+  "inventory-inventory-count-create": {
+    "en": "/images/en/inventory/inventory-inventory-count-create.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-count-create.jpg"
+  },
+  "inventory-adjustment-index": {
+    "en": "/images/en/inventory/inventory-adjustment-index.jpg",
+    "ar": "/images/ar/inventory/inventory-adjustment-index.jpg"
+  },
+  "inventory-adjustment-create": {
+    "en": "/images/en/inventory/inventory-adjustment-create.jpg",
+    "ar": "/images/ar/inventory/inventory-adjustment-create.jpg"
+  },
+  "inventory-inventory-correction-index": {
+    "en": "/images/en/inventory/inventory-inventory-correction-index.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-correction-index.jpg"
+  },
+  "inventory-inventory-condition-change-index": {
+    "en": "/images/en/inventory/inventory-inventory-condition-change-index.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-condition-change-index.jpg"
+  },
+  "inventory-inventory-condition-change-create": {
+    "en": "/images/en/inventory/inventory-inventory-condition-change-create.jpg",
+    "ar": "/images/ar/inventory/inventory-inventory-condition-change-create.jpg"
+  },
+  "inventory-inventory-condition-change-view": {
+    "en": "/images/en/inventory/inventory-inventory-condition-change-view.png",
+    "ar": "/images/ar/inventory/inventory-inventory-condition-change-view.png"
+  },
+  "inventory-inventory-count-index": {
+    "ar": "/images/ar/inventory/inventory-inventory-count-index.jpg",
+    "en": "/images/en/inventory/inventory-inventory-count-index.png"
+  },
+  "accounting-dashboard-overview": {
+    "en": "/images/en/accounting/accounting-dashboard-overview.png",
+    "ar": "/images/ar/accounting/accounting-dashboard-overview.png"
+  },
+  "accounting-journal-entry-index": {
+    "en": "/images/en/accounting/accounting-journal-entry-index.png",
+    "ar": "/images/ar/accounting/accounting-journal-entry-index.png"
+  },
+  "accounting-bill-index": {
+    "en": "/images/en/accounting/accounting-bill-index.png",
+    "ar": "/images/ar/accounting/accounting-bill-index.png"
+  },
+  "accounting-bill-view": {
+    "en": "/images/en/accounting/accounting-bill-view.png",
+    "ar": "/images/ar/accounting/accounting-bill-view.png"
+  },
+  "accounting-supplier-payment-index": {
+    "en": "/images/en/accounting/accounting-supplier-payment-index.png",
+    "ar": "/images/ar/accounting/accounting-supplier-payment-index.png"
+  },
+  "vendors-dashboard-overview": {
+    "en": "/images/en/vendors/vendors-dashboard-overview.png",
+    "ar": "/images/ar/vendors/vendors-dashboard-overview.png"
+  },
+  "vendors-purchase-order-index": {
+    "en": "/images/en/vendors/vendors-purchase-order-index.png",
+    "ar": "/images/ar/vendors/vendors-purchase-order-index.png"
+  },
+  "vendors-purchase-order-create": {
+    "en": "/images/en/vendors/vendors-purchase-order-create.png",
+    "ar": "/images/ar/vendors/vendors-purchase-order-create.png"
+  },
+  "vendors-purchase-order-view": {
+    "en": "/images/en/vendors/vendors-purchase-order-view.png",
+    "ar": "/images/ar/vendors/vendors-purchase-order-view.png"
+  },
+  "vendors-supplier-confirmation-index": {
+    "en": "/images/en/vendors/vendors-supplier-confirmation-index.png",
+    "ar": "/images/ar/vendors/vendors-supplier-confirmation-index.png"
+  },
+  "reports-reports-center-overview": {
+    "en": "/images/en/reports/reports-reports-center-overview.png",
+    "ar": "/images/ar/reports/reports-reports-center-overview.png"
+  },
+  "reports-audit-log-index": {
+    "en": "/images/en/reports/reports-audit-log-index.png",
+    "ar": "/images/ar/reports/reports-audit-log-index.png"
+  },
+  "reports-audit-log-view": {
+    "en": "/images/en/reports/reports-audit-log-view.png",
+    "ar": "/images/ar/reports/reports-audit-log-view.png"
+  },
+  "system-dashboard-user-index": {
+    "en": "/images/en/system/system-dashboard-user-index.png",
+    "ar": "/images/ar/system/system-dashboard-user-index.png"
+  },
+  "system-dashboard-user-edit": {
+    "en": "/images/en/system/system-dashboard-user-edit.png",
+    "ar": "/images/ar/system/system-dashboard-user-edit.png"
+  },
+  "system-document-template-index": {
+    "en": "/images/en/system/system-document-template-index.png",
+    "ar": "/images/ar/system/system-document-template-index.png"
+  },
+  "system-document-template-edit": {
+    "en": "/images/en/system/system-document-template-edit.png",
+    "ar": "/images/ar/system/system-document-template-edit.png"
+  },
+  "system-notification-template-index": {
+    "en": "/images/en/system/system-notification-template-index.png",
+    "ar": "/images/ar/system/system-notification-template-index.png"
+  },
+  "system-notification-template-edit": {
+    "en": "/images/en/system/system-notification-template-edit.png",
+    "ar": "/images/ar/system/system-notification-template-edit.png"
+  },
+  "system-custom-field-definition-index": {
+    "en": "/images/en/system/system-custom-field-definition-index.png",
+    "ar": "/images/ar/system/system-custom-field-definition-index.png"
+  },
+  "accounting-chart-of-account-index": {
+    "en": "/images/en/accounting/accounting-chart-of-account-index.png",
+    "ar": "/images/ar/accounting/accounting-chart-of-account-index.png"
+  },
+  "accounting-journal-entry-create": {
+    "en": "/images/en/accounting/accounting-journal-entry-create.png",
+    "ar": "/images/ar/accounting/accounting-journal-entry-create.png"
+  },
+  "accounting-fiscal-period-index": {
+    "en": "/images/en/accounting/accounting-fiscal-period-index.png",
+    "ar": "/images/ar/accounting/accounting-fiscal-period-index.png"
+  },
+  "accounting-tax-register": {
+    "en": "/images/en/accounting/accounting-tax-register.png",
+    "ar": "/images/ar/accounting/accounting-tax-register.png"
+  },
+  "accounting-financial-report-index": {
+    "en": "/images/en/accounting/accounting-financial-report-index.png",
+    "ar": "/images/ar/accounting/accounting-financial-report-index.png"
+  },
+  "accounting-journal-entry-view": {
+    "en": "/images/en/accounting/accounting-journal-entry-view.png",
+    "ar": "/images/ar/accounting/accounting-journal-entry-view.png"
+  },
+  "accounting-accounts-receivable-index": {
+    "en": "/images/en/accounting/accounting-accounts-receivable-index.png",
+    "ar": "/images/ar/accounting/accounting-accounts-receivable-index.png"
+  },
+  "accounting-accounts-payable-index": {
+    "en": "/images/en/accounting/accounting-accounts-payable-index.png",
+    "ar": "/images/ar/accounting/accounting-accounts-payable-index.png"
+  },
+  "accounting-refund-index": {
+    "en": "/images/en/accounting/accounting-refund-index.png",
+    "ar": "/images/ar/accounting/accounting-refund-index.png"
+  },
+  "inventory-purchase-inbound-index": {
+    "en": "/images/en/inventory/inventory-purchase-inbound-index.png",
+    "ar": "/images/ar/inventory/inventory-purchase-inbound-index.png"
+  },
+  "inventory-outbound-fulfillment-index": {
+    "en": "/images/en/inventory/inventory-outbound-fulfillment-index.png"
+  },
+  "inventory-shipment-index": {
+    "en": "/images/en/inventory/inventory-shipment-index.png",
+    "ar": "/images/ar/inventory/inventory-shipment-index.png"
+  },
+  "inventory-return-index": {
+    "en": "/images/en/inventory/inventory-return-index.png",
+    "ar": "/images/ar/inventory/inventory-return-index.png"
+  },
+  "inventory-return-view": {
+    "en": "/images/en/inventory/inventory-return-view.png",
+    "ar": "/images/ar/inventory/inventory-return-view.png"
+  },
+  "crm-customer-quotation-request-index": {
+    "en": "/images/en/crm/crm-customer-quotation-request-index.png"
+  },
+  "crm-customer-quotation-request-create": {
+    "en": "/images/en/crm/crm-customer-quotation-request-create.png",
+    "ar": "/images/ar/crm/crm-customer-quotation-request-create.png"
+  },
+  "crm-customer-return-request-create": {
+    "en": "/images/en/crm/crm-customer-return-request-create.png",
+    "ar": "/images/ar/crm/crm-customer-return-request-create.png"
+  },
+  "crm-lead-index": {
+    "en": "/images/en/crm/crm-lead-index.png",
+    "ar": "/images/ar/crm/crm-lead-index.png"
+  },
+  "crm-lead-create": {
+    "en": "/images/en/crm/crm-lead-create.png",
+    "ar": "/images/ar/crm/crm-lead-create.png"
+  },
+  "crm-lead-edit": {
+    "en": "/images/en/crm/crm-lead-edit.png"
+  },
+  "crm-sales-opportunity-create": {
+    "en": "/images/en/crm/crm-sales-opportunity-create.png",
+    "ar": "/images/ar/crm/crm-sales-opportunity-create.png"
+  },
+  "support-ticket-create": {
+    "en": "/images/en/support/support-ticket-create.png",
+    "ar": "/images/ar/support/support-ticket-create.png"
+  },
+  "support-ticket-view": {
+    "en": "/images/en/support/support-ticket-view.png",
+    "ar": "/images/ar/support/support-ticket-view.png"
+  },
+  "support-ticket-edit": {
+    "en": "/images/en/support/support-ticket-edit.png",
+    "ar": "/images/ar/support/support-ticket-edit.png"
+  },
+  "support-maintenance-request-create": {
+    "ar": "/images/ar/support/support-maintenance-request-create.png"
+  },
+  "support-service-record-index": {
+    "en": "/images/en/support/support-service-record-index.png"
+  },
+  "support-support-equipment-view": {
+    "en": "/images/en/support/support-support-equipment-view.png"
+  },
+  "support-support-report-index": {
+    "en": "/images/en/support/support-support-report-index.png"
+  },
+  "employees-monthly-plan-create": {
+    "en": "/images/en/employees/employees-monthly-plan-create.png",
+    "ar": "/images/ar/employees/employees-monthly-plan-create.png"
+  },
+  "employees-task-edit": {
+    "en": "/images/en/employees/employees-task-edit.png",
+    "ar": "/images/ar/employees/employees-task-edit.png"
+  },
+  "employees-visit-create": {
+    "en": "/images/en/employees/employees-visit-create.png"
+  },
+  "accounting-bank-statement-create": {
+    "en": "/images/en/accounting/accounting-bank-statement-create.png",
+    "ar": "/images/ar/accounting/accounting-bank-statement-create.png"
+  },
+  "accounting-fiscal-period-create": {
+    "en": "/images/en/accounting/accounting-fiscal-period-create.png",
+    "ar": "/images/ar/accounting/accounting-fiscal-period-create.png"
+  },
+  "accounting-fiscal-period-edit": {
+    "en": "/images/en/accounting/accounting-fiscal-period-edit.png",
+    "ar": "/images/ar/accounting/accounting-fiscal-period-edit.png"
+  },
+  "accounting-receivable-write-off-create": {
+    "en": "/images/en/accounting/accounting-receivable-write-off-create.png",
+    "ar": "/images/ar/accounting/accounting-receivable-write-off-create.png"
+  },
+  "accounting-receivable-write-off-view": {
+    "en": "/images/en/accounting/accounting-receivable-write-off-view.png",
+    "ar": "/images/ar/accounting/accounting-receivable-write-off-view.png"
+  },
+  "accounting-chart-of-account-create": {
+    "en": "/images/en/accounting/accounting-chart-of-account-create.png",
+    "ar": "/images/ar/accounting/accounting-chart-of-account-create.png"
+  },
+  "accounting-chart-of-account-view": {
+    "en": "/images/en/accounting/accounting-chart-of-account-view.png",
+    "ar": "/images/ar/accounting/accounting-chart-of-account-view.png"
+  },
+  "accounting-chart-of-account-edit": {
+    "en": "/images/en/accounting/accounting-chart-of-account-edit.png",
+    "ar": "/images/ar/accounting/accounting-chart-of-account-edit.png"
+  },
+  "accounting-currency-index": {
+    "en": "/images/en/accounting/accounting-currency-index.png",
+    "ar": "/images/ar/accounting/accounting-currency-index.png"
+  },
+  "accounting-payment-term-index": {
+    "en": "/images/en/accounting/accounting-payment-term-index.png",
+    "ar": "/images/ar/accounting/accounting-payment-term-index.png"
+  },
+  "accounting-payment-term-create": {
+    "en": "/images/en/accounting/accounting-payment-term-create.png",
+    "ar": "/images/ar/accounting/accounting-payment-term-create.png"
+  },
+  "accounting-payment-term-edit": {
+    "en": "/images/en/accounting/accounting-payment-term-edit.png",
+    "ar": "/images/ar/accounting/accounting-payment-term-edit.png"
+  },
+  "accounting-payment-method-create": {
+    "en": "/images/en/accounting/accounting-payment-method-create.png",
+    "ar": "/images/ar/accounting/accounting-payment-method-create.png"
+  },
+  "accounting-payment-method-edit": {
+    "en": "/images/en/accounting/accounting-payment-method-edit.png",
+    "ar": "/images/ar/accounting/accounting-payment-method-edit.png"
+  },
+  "accounting-supplier-payment-edit": {
+    "en": "/images/en/accounting/accounting-supplier-payment-edit.png",
+    "ar": "/images/ar/accounting/accounting-supplier-payment-edit.png"
+  },
+  "support-maintenance-schedule-create": {
+    "en": "/images/en/support/support-maintenance-schedule-create.png",
+    "ar": "/images/ar/support/support-maintenance-schedule-create.png"
+  },
+  "support-maintenance-schedule-view": {
+    "en": "/images/en/support/support-maintenance-schedule-view.png"
+  },
+  "support-maintenance-schedule-edit": {
+    "en": "/images/en/support/support-maintenance-schedule-edit.png"
+  },
+  "support-sla-policy-create": {
+    "en": "/images/en/support/support-sla-policy-create.png",
+    "ar": "/images/ar/support/support-sla-policy-create.png"
+  },
+  "support-sla-policy-edit": {
+    "en": "/images/en/support/support-sla-policy-edit.png",
+    "ar": "/images/ar/support/support-sla-policy-edit.png"
+  },
+  "support-sla-calendar-index": {
+    "en": "/images/en/support/support-sla-calendar-index.png",
+    "ar": "/images/ar/support/support-sla-calendar-index.png"
+  },
+  "support-sla-calendar-create": {
+    "en": "/images/en/support/support-sla-calendar-create.png",
+    "ar": "/images/ar/support/support-sla-calendar-create.png"
+  },
+  "support-sla-calendar-edit": {
+    "en": "/images/en/support/support-sla-calendar-edit.png",
+    "ar": "/images/ar/support/support-sla-calendar-edit.png"
+  },
+  "support-support-service-level-index": {
+    "en": "/images/en/support/support-support-service-level-index.png"
+  },
+  "support-support-service-level-create": {
+    "en": "/images/en/support/support-support-service-level-create.png",
+    "ar": "/images/ar/support/support-support-service-level-create.png"
+  },
+  "support-support-service-level-edit": {
+    "en": "/images/en/support/support-support-service-level-edit.png",
+    "ar": "/images/ar/support/support-support-service-level-edit.png"
+  },
+  "support-support-entitlement-index": {
+    "ar": "/images/ar/support/support-support-entitlement-index.png"
+  },
+  "support-support-entitlement-create": {
+    "en": "/images/en/support/support-support-entitlement-create.png",
+    "ar": "/images/ar/support/support-support-entitlement-create.png"
+  },
+  "support-support-entitlement-edit": {
+    "en": "/images/en/support/support-support-entitlement-edit.png",
+    "ar": "/images/ar/support/support-support-entitlement-edit.png"
+  },
+  "support-warranty-policy-create": {
+    "en": "/images/en/support/support-warranty-policy-create.png"
+  },
+  "support-warranty-policy-view": {
+    "en": "/images/en/support/support-warranty-policy-view.png"
+  },
+  "support-warranty-policy-edit": {
+    "en": "/images/en/support/support-warranty-policy-edit.png"
+  },
+  "accounting-journal-entry-edit": {
+    "en": "/images/en/accounting/accounting-journal-entry-edit.png",
+    "ar": "/images/ar/accounting/accounting-journal-entry-edit.png"
+  },
+  "accounting-fiscal-period-view": {
+    "en": "/images/en/accounting/accounting-fiscal-period-view.png",
+    "ar": "/images/ar/accounting/accounting-fiscal-period-view.png"
+  },
+  "employees-dashboard-overview": {
+    "en": "/images/en/employees/employees-dashboard-overview.png",
+    "ar": "/images/ar/employees/employees-dashboard-overview.png"
+  },
+  "support-dashboard-overview": {
+    "en": "/images/en/support/support-dashboard-overview.png",
+    "ar": "/images/ar/support/support-dashboard-overview.png"
+  },
+  "accounting-bank-statement-index": {
+    "en": "/images/en/accounting/accounting-bank-statement-index.png",
+    "ar": "/images/ar/accounting/accounting-bank-statement-index.png"
+  },
+  "accounting-expense-index": {
+    "en": "/images/en/accounting/accounting-expense-index.png",
+    "ar": "/images/ar/accounting/accounting-expense-index.png"
+  },
+  "employees-performance-view": {
+    "en": "/images/en/employees/employees-performance-view.png",
+    "ar": "/images/ar/employees/employees-performance-view.png"
+  },
+  "employees-monthly-plan-edit": {
+    "en": "/images/en/employees/employees-monthly-plan-edit.png",
+    "ar": "/images/ar/employees/employees-monthly-plan-edit.png"
+  },
+  "accounting-bank-statement-view": {
+    "en": "/images/en/accounting/accounting-bank-statement-view.png",
+    "ar": "/images/ar/accounting/accounting-bank-statement-view.png"
+  },
+  "accounting-expense-edit": {
+    "en": "/images/en/accounting/accounting-expense-edit.png",
+    "ar": "/images/ar/accounting/accounting-expense-edit.png"
+  },
+  "accounting-expense-view": {
+    "en": "/images/en/accounting/accounting-expense-view.png",
+    "ar": "/images/ar/accounting/accounting-expense-view.png"
+  },
+  "accounting-payment-method-index": {
+    "en": "/images/en/accounting/accounting-payment-method-index.png",
+    "ar": "/images/ar/accounting/accounting-payment-method-index.png"
+  },
+  "accounting-payment-method-view": {
+    "en": "/images/en/accounting/accounting-payment-method-view.png",
+    "ar": "/images/ar/accounting/accounting-payment-method-view.png"
+  },
+  "accounting-sales-setting-index": {
+    "en": "/images/en/accounting/accounting-sales-setting-index.png",
+    "ar": "/images/ar/accounting/accounting-sales-setting-index.png"
+  },
+  "accounting-tax-index": {
+    "en": "/images/en/accounting/accounting-tax-index.png",
+    "ar": "/images/ar/accounting/accounting-tax-index.png"
+  },
+  "support-ticket-index": {
+    "en": "/images/en/support/support-ticket-index.png",
+    "ar": "/images/ar/support/support-ticket-index.png"
+  },
+  "accounting-bill-edit": {
+    "en": "/images/en/accounting/accounting-bill-edit.png",
+    "ar": "/images/ar/accounting/accounting-bill-edit.png"
+  },
+  "accounting-receivable-write-off-index": {
+    "ar": "/images/ar/accounting/accounting-receivable-write-off-index.png"
+  },
+  "inventory-warehouse-view": {
+    "en": "/images/en/inventory/inventory-warehouse-view.png",
+    "ar": "/images/ar/inventory/inventory-warehouse-view.png"
+  },
+  "inventory-inventory-lot-view": {
+    "en": "/images/en/inventory/inventory-inventory-lot-view.png",
+    "ar": "/images/ar/inventory/inventory-inventory-lot-view.png"
+  },
+  "inventory-serialized-inventory-unit-view": {
+    "en": "/images/en/inventory/inventory-serialized-inventory-unit-view.png",
+    "ar": "/images/ar/inventory/inventory-serialized-inventory-unit-view.png"
+  },
+  "inventory-adjustment-view": {
+    "en": "/images/en/inventory/inventory-adjustment-view.png",
+    "ar": "/images/ar/inventory/inventory-adjustment-view.png"
+  },
+  "inventory-inventory-alert-view": {
+    "en": "/images/en/inventory/inventory-inventory-alert-view.png",
+    "ar": "/images/ar/inventory/inventory-inventory-alert-view.png"
+  },
+  "inventory-inventory-correction-view": {
+    "en": "/images/en/inventory/inventory-inventory-correction-view.png",
+    "ar": "/images/ar/inventory/inventory-inventory-correction-view.png"
+  },
+  "inventory-inventory-count-view": {
+    "en": "/images/en/inventory/inventory-inventory-count-view.png",
+    "ar": "/images/ar/inventory/inventory-inventory-count-view.png"
+  },
+  "inventory-inventory-reservation-view": {
+    "en": "/images/en/inventory/inventory-inventory-reservation-view.png",
+    "ar": "/images/ar/inventory/inventory-inventory-reservation-view.png"
+  },
+  "inventory-outbound-fulfillment-view": {
+    "en": "/images/en/inventory/inventory-outbound-fulfillment-view.png",
+    "ar": "/images/ar/inventory/inventory-outbound-fulfillment-view.png"
+  },
+  "inventory-package-type-view": {
+    "en": "/images/en/inventory/inventory-package-type-view.png",
+    "ar": "/images/ar/inventory/inventory-package-type-view.png"
+  },
+  "inventory-product-variant-view": {
+    "en": "/images/en/inventory/inventory-product-variant-view.png",
+    "ar": "/images/ar/inventory/inventory-product-variant-view.png"
+  },
+  "inventory-product-view": {
+    "en": "/images/en/inventory/inventory-product-view.png",
+    "ar": "/images/ar/inventory/inventory-product-view.png"
+  },
+  "inventory-purchase-inbound-view": {
+    "en": "/images/en/inventory/inventory-purchase-inbound-view.png",
+    "ar": "/images/ar/inventory/inventory-purchase-inbound-view.png"
+  },
+  "inventory-shipment-view": {
+    "en": "/images/en/inventory/inventory-shipment-view.png",
+    "ar": "/images/ar/inventory/inventory-shipment-view.png"
+  },
+  "inventory-package-view": {
+    "en": "/images/en/inventory/inventory-package-view.png",
+    "ar": "/images/ar/inventory/inventory-package-view.png"
+  }
+}

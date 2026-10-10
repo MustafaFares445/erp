@@ -79,7 +79,7 @@ final readonly class MaintenanceRecordSource implements TimelineSource
                 $subject = match (true) {
                     $record->productVariant instanceof ProductVariant => $record->productVariant->sku,
                     is_string($record->serial_number) && $record->serial_number !== '' => $record->serial_number,
-                    default => 'unlinked equipment',
+                    default => __('unlinked equipment'),
                 };
 
                 return [$record->id => new TimelineEvent(
@@ -87,8 +87,8 @@ final readonly class MaintenanceRecordSource implements TimelineSource
                     id: $record->id,
                     occurredAt: $record->created_at ?? Carbon::now(),
                     occurredAtIsDateOnly: false,
-                    title: "Maintenance #{$record->id} — {$subject}",
-                    detail: str($record->billing_type->value)->headline()->toString().' — '.str($record->warranty_status->value)->headline()->toString().' warranty',
+                    title: __('Maintenance #:id — :subject', ['id' => $record->id, 'subject' => $subject]),
+                    detail: $record->billing_type->label().' — '.__('Warranty: :status', ['status' => $record->warranty_status->label()]),
                     statusLabel: $record->status->label(),
                     statusColor: $record->status->color(),
                     icon: Heroicon::OutlinedWrenchScrewdriver,

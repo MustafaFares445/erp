@@ -10,6 +10,7 @@ use App\Models\Quotation;
 use App\Models\QuotationLine;
 use App\Models\QuotationResponse;
 use App\Support\QuantityFormatter;
+use Filament\Actions\Action;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -21,6 +22,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class QuotationInfolist
 {
@@ -37,8 +39,43 @@ final class QuotationInfolist
                 self::commercialSummarySection(),
             ]),
             self::linesSection(),
+            self::documentSection(),
             self::responseHistorySection(),
         ]);
+    }
+
+    private static function documentSection(): Section
+    {
+        return Section::make(__('Document'))
+            ->schema([
+                TextEntry::make('quotation_pdf')
+                    ->label(__('Quotation PDF'))
+                    ->state(fn (Quotation $record): string => $record->getFirstMedia('quotation-pdf') instanceof Media
+                        ? __('Preview PDF')
+                        : __('Not generated yet'))
+                    ->url(fn (Quotation $record): ?string => self::pdfRoute($record, 'preview'))
+                    ->openUrlInNewTab()
+                    ->suffixAction(self::downloadPdfAction()),
+            ]);
+    }
+
+    private static function downloadPdfAction(): Action
+    {
+        return Action::make('download_quotation_pdf')
+            ->label(__('Download'))
+            ->icon(Heroicon::ArrowDownTray)
+            ->url(fn (Quotation $record): ?string => self::pdfRoute($record, 'download'))
+            ->openUrlInNewTab()
+            ->visible(fn (Quotation $record): bool => $record->getFirstMedia('quotation-pdf') instanceof Media);
+    }
+
+    private static function pdfRoute(Quotation $record, string $action): ?string
+    {
+        $media = $record->getMedia('quotation-pdf')->last();
+
+        return $media instanceof Media
+            ? route('admin.quotations.media.'.$action, ['quotation' => $record, 'media' => $media])
+            : null;
     }
 
     private static function heroSection(): Grid
@@ -61,8 +98,8 @@ final class QuotationInfolist
                     TextEntry::make('status')
                         ->hiddenLabel()
                         ->badge()
-                        ->formatStateUsing(static fn (QuotationStatus $state): string => $state->label())
-                        ->color(static fn (QuotationStatus $state): string => $state->color())
+                        ->formatStateUsing(static fn (QuotationStatus $state, Quotation $record): string => $state === QuotationStatus::Sent && $record->isExpired() ? QuotationStatus::Expired->label() : $state->label())
+                        ->color(static fn (QuotationStatus $state, Quotation $record): string => $state === QuotationStatus::Sent && $record->isExpired() ? QuotationStatus::Expired->color() : $state->color())
                         ->belowContent(static fn (Quotation $record): string => self::statusHelp($record)),
                     TextEntry::make('grand_total')
                         ->hiddenLabel()
@@ -180,7 +217,7 @@ final class QuotationInfolist
             ->schema([
                 TextEntry::make('decision_status')
                     ->label(__('Decision'))
-                    ->state(static fn (Quotation $record): QuotationStatus => $record->status)
+                    ->state(static fn (Quotation $record): QuotationStatus => $record->converted_order_id !== null ? QuotationStatus::Accepted : $record->status)
                     ->badge()
                     ->formatStateUsing(static fn (QuotationStatus $state): string => $state->label())
                     ->color(static fn (QuotationStatus $state): string => $state->color()),
@@ -197,12 +234,13 @@ final class QuotationInfolist
         return Section::make(__('admin.sales.fields.lines'))
             ->schema([
                 RepeatableEntry::make('lines')
-                    ->label('')
+                    ->hiddenLabel()
                     ->columns(12)
                     ->schema([
                         ImageEntry::make('productVariant.main_image')
-                            ->label('')
+                            ->hiddenLabel()
                             ->getStateUsing(static fn (QuotationLine $record): ?string => $record->productVariant?->mainImageUrl())
+                            ->placeholder(__('No image'))
                             ->circular()
                             ->imageSize(48)
                             ->columnSpan(1),
@@ -217,6 +255,7 @@ final class QuotationInfolist
                             ->columnSpan(1),
                         TextEntry::make('unit.name')
                             ->label(__('admin.sales.fields.unit'))
+                            ->state(static fn (QuotationLine $record): ?string => $record->unit?->localizedName())
                             ->placeholder(__('—'))
                             ->columnSpan(1),
                         TextEntry::make('unit_price')->label(__('admin.sales.fields.unit_price'))->money()->columnSpan(2),

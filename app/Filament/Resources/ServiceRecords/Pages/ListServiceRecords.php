@@ -19,6 +19,12 @@ final class ListServiceRecords extends ListRecords
 
     protected static string $resource = ServiceRecordResource::class;
 
+    #[\Override]
+    public function getTitle(): string
+    {
+        return __('admin.resources.service_records');
+    }
+
     protected function savedTableViewPageKey(): string
     {
         return 'support.service-records';

@@ -6,7 +6,10 @@ namespace App\Filament\Resources\ReceivableWriteOffs\Tables;
 
 use App\Enums\WriteOffStatus;
 use App\Filament\Resources\ReceivableWriteOffs\Actions\ReceivableWriteOffActions;
+use App\Filament\Tables\TableFit;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -15,11 +18,11 @@ final class ReceivableWriteOffsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('write_off_number')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->wrap(),
                 TextColumn::make('invoice.invoice_number')->label(__('Invoice'))->searchable(),
                 TextColumn::make('amount_minor')
                     ->label(__('Amount'))
@@ -34,8 +37,8 @@ final class ReceivableWriteOffsTable
                     ->formatStateUsing(fn (WriteOffStatus $state): string => $state->label())
                     ->color(fn (WriteOffStatus $state): string => $state->color())
                     ->sortable(),
-                TextColumn::make('recordedBy.name')->label(__('Recorded by')),
-                TextColumn::make('approvedBy.name')->label(__('Approved by'))->placeholder(__('—')),
+                TextColumn::make('recordedBy.name')->label(__('Recorded by'))->wrap(),
+                TextColumn::make('approvedBy.name')->label(__('Approved by'))->placeholder(__('—'))->wrap(),
             ])
             ->filters([
                 SelectFilter::make('status')->options(
@@ -44,10 +47,12 @@ final class ReceivableWriteOffsTable
                         ->all(),
                 ),
             ])
-            ->recordActions([
-                ViewAction::make(),
+            ->recordActions(TableFit::rowActions([
                 ReceivableWriteOffActions::approve(),
-                ReceivableWriteOffActions::cancel(),
-            ]);
+                ActionGroup::make([
+                    ViewAction::make(),
+                    ReceivableWriteOffActions::cancel(),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]));
     }
 }

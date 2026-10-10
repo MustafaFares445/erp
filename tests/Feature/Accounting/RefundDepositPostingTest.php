@@ -12,6 +12,7 @@ use App\Models\PaymentMethod;
 use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\User;
+use App\Services\Accounting\AccountsReceivableService;
 use App\Services\Accounting\RefundService;
 use App\Services\Payments\PaymentService;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -122,6 +123,44 @@ it('snapshots and debits customer deposits for an unapplied-deposit refund', fun
 
     expect((float) $lines->firstWhere('chart_account_id', $deposits->getKey())?->debit)->toBe(100.0)
         ->and($lines->firstWhere('chart_account_id', $receivable->getKey()))->toBeNull();
+
+    $proof = app(AccountsReceivableService::class)->reconciliation();
+    expect($proof['subledger_minor'])->toBe(0)
+        ->and($proof['control_account_minor'])->toBe(0)
+        ->and($proof['is_reconciled'])->toBeTrue();
+});
+
+it('keeps a fully deposit-funded paid refund off the receivable statement', function (): void {
+    $payments = app(PaymentService::class);
+    $draftPayment = $payments->createDraft($this->actor, [
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $this->method->getKey(),
+        'amount' => '100.00',
+        'currency' => 'AED',
+        'payment_date' => today()->toDateString(),
+    ]);
+    $payments->post($this->actor, $draftPayment, []);
+
+    $refund = Refund::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $this->method->getKey(),
+        'credit_note_id' => null,
+        'invoice_id' => null,
+        'amount' => '100.00',
+        'refund_date' => today(),
+        'status' => RefundStatus::Draft,
+    ]);
+    $refunds = app(RefundService::class);
+    $paid = $refunds->pay($this->actor, $refunds->approve($this->actor, $refund));
+
+    expect($paid->status)->toBe(RefundStatus::Paid)
+        ->and($paid->customer_deposit_amount)->toBe('100.00');
+
+    $statement = app(AccountsReceivableService::class)->statement($this->customer, today(), today());
+
+    expect($statement['entries'])->toBe([])
+        ->and($statement['brought_forward_minor'])->toBe(0)
+        ->and($statement['carried_forward_minor'])->toBe(0);
 });
 
 it('keeps no-source standalone credit refunds compatible and assigns no deposit portion', function (): void {

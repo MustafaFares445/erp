@@ -37,7 +37,11 @@ final class SalesOpportunityInfolist
             Section::make(__('Review decision'))
                 ->columns(3)
                 ->schema([
-                    TextEntry::make('reviewer.name')->label(__('Reviewed by'))->placeholder(__('Not reviewed')),
+                    TextEntry::make('reviewer.name')
+                        ->label(__('Reviewed by'))
+                        ->placeholder(static fn (SalesOpportunity $record): string => $record->isAiOriginated()
+                            ? __('Not reviewed')
+                            : __('Not required (human-created opportunity)')),
                     TextEntry::make('reviewed_at')->dateTime()->placeholder(__('—')),
                     TextEntry::make('rejection_reason')->label(__('Rejection reason'))->placeholder(__('—')),
                     TextEntry::make('review_notes')->label(__('Review notes'))->placeholder(__('—'))->columnSpanFull(),

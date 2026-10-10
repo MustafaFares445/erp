@@ -37,6 +37,7 @@ final class WarehouseForm
                     ->rules($rules['longitude'])
                     ->helperText(__('Used to calculate delivery distances.')),
                 Toggle::make('is_active')
+                    ->label(__('Active'))
                     ->default(true),
             ]);
     }

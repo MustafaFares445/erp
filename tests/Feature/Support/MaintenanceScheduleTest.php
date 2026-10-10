@@ -10,7 +10,10 @@ use App\Enums\OccurrenceStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\MaintenanceSchedules\Pages\CreateMaintenanceSchedule;
+use App\Filament\Resources\MaintenanceSchedules\Pages\ListMaintenanceSchedules;
+use App\Filament\Resources\MaintenanceSchedules\Pages\MaintenanceCalendar;
 use App\Filament\Resources\MaintenanceSchedules\Pages\ViewMaintenanceSchedule;
+use App\Filament\Resources\MaintenanceSchedules\RelationManagers\OccurrencesRelationManager;
 use App\Models\CustomerProfile;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceSchedule;
@@ -96,13 +99,72 @@ it('creates a schedule when numeric form values arrive as floats', function (): 
     expect(MaintenanceSchedule::query()->where('name', 'Quarterly printer service')->exists())->toBeTrue();
 });
 
-it('renders a schedule detail page with enum-cast occurrence statuses', function (): void {
+it('renders translated schedule recurrence and occurrence details in Arabic', function (): void {
+    $manager = makeScheduleManager();
+    $schedule = app(MaintenanceScheduleService::class)->create(
+        makeScheduleData(['intervalValue' => 12]),
+        $manager,
+    );
+    $record = MaintenanceRecord::factory()->create();
+    $schedule->occurrences()->firstOrFail()->forceFill([
+        'maintenance_record_id' => $record->getKey(),
+        'status' => OccurrenceStatus::Raised,
+    ])->save();
+    $originalLocale = app()->getLocale();
+
+    app()->setLocale('ar');
+
+    try {
+        Livewire::actingAs($manager)
+            ->test(ViewMaintenanceSchedule::class, ['record' => $schedule->getRouteKey()])
+            ->assertSuccessful()
+            ->assertSee(__('Active'));
+
+        Livewire::actingAs($manager)
+            ->test(OccurrencesRelationManager::class, [
+                'ownerRecord' => $schedule,
+                'pageClass' => ViewMaintenanceSchedule::class,
+            ])
+            ->assertSuccessful()
+            ->assertSee(__('Occurrences'))
+            ->assertSee('#'.$record->getKey());
+
+        Livewire::actingAs($manager)
+            ->test(ListMaintenanceSchedules::class)
+            ->assertSee(__('Every :count :unit', [
+                'count' => 12,
+                'unit' => $schedule->interval_type->label(),
+            ]));
+    } finally {
+        app()->setLocale($originalLocale);
+    }
+});
+
+// Release QA 2026-10-10: the maintenance calendar crashed with "Undefined variable $mode" after the shared calendar view gained week/day modes.
+it('renders the maintenance calendar in month, week and day modes with translated labels', function (): void {
     $manager = makeScheduleManager();
     $schedule = app(MaintenanceScheduleService::class)->create(makeScheduleData(), $manager);
+    $occurrence = $schedule->occurrences()->orderBy('due_on')->firstOrFail();
+    $dueOn = $occurrence->due_on->toDateString();
 
-    Livewire::actingAs($manager)
-        ->test(ViewMaintenanceSchedule::class, ['record' => $schedule->getRouteKey()])
-        ->assertSuccessful();
+    Livewire::withQueryParams(['date' => $dueOn])
+        ->actingAs($manager)
+        ->test(MaintenanceCalendar::class)
+        ->assertSuccessful()
+        ->assertSeeText([$schedule->name, OccurrenceStatus::Pending->label()])
+        ->set('mode', 'week')
+        ->assertSeeText($schedule->name)
+        ->set('mode', 'day')
+        ->set('date', $occurrence->due_on->copy()->subDay()->toDateString())
+        ->assertSeeText('No maintenance due on this day.');
+
+    app()->setLocale('ar');
+
+    Livewire::withQueryParams(['date' => $dueOn])
+        ->actingAs($manager)
+        ->test(MaintenanceCalendar::class)
+        ->assertSeeText(['تقويم الصيانة', 'السابق', 'أسبوع'])
+        ->assertDontSeeText(['Previous', 'Week', 'Mon']);
 });
 
 it('generates a bounded set of occurrences when a schedule is created', function (): void {

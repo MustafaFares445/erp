@@ -61,7 +61,7 @@ beforeEach(function (): void {
 
 function postMergeAction(ViewSerializedInventoryUnit $page, string $name): mixed
 {
-    $actions = (new ReflectionMethod(ViewSerializedInventoryUnit::class, 'getHeaderActions'))->invoke($page);
+    $actions = new ReflectionMethod(ViewSerializedInventoryUnit::class, 'getHeaderActions')->invoke($page);
 
     foreach ($actions as $action) {
         if ($action->getName() === $name) {
@@ -76,7 +76,7 @@ it('covers visit calendar day week and invalid-mode branches', function (): void
     Carbon::setTestNow('2026-10-06 12:00:00');
 
     try {
-        $page = (new ReflectionClass(VisitsCalendar::class))->newInstanceWithoutConstructor();
+        $page = new ReflectionClass(VisitsCalendar::class)->newInstanceWithoutConstructor();
         $page->mode = 'invalid';
         $page->date = null;
         $page->mount();
@@ -135,7 +135,7 @@ it('covers customer-owned equipment visit form options', function (): void {
 
     expect($field)->toBeInstanceOf(Select::class);
 
-    $options = (new ReflectionProperty($field, 'options'))->getValue($field);
+    $options = new ReflectionProperty($field, 'options')->getValue($field);
     expect($options)->toBeInstanceOf(Closure::class);
 
     $invalid = Mockery::mock(Get::class);
@@ -161,10 +161,10 @@ it('covers create-visit domain rejection notification path', function (): void {
     ]);
     $this->actingAs($employee->user)->withSession([]);
 
-    $page = (new ReflectionClass(CreateVisit::class))->newInstanceWithoutConstructor();
+    $page = new ReflectionClass(CreateVisit::class)->newInstanceWithoutConstructor();
     $method = new ReflectionMethod(CreateVisit::class, 'handleRecordCreation');
 
-    expect(fn () => $method->invoke($page, [
+    expect(fn (): mixed => $method->invoke($page, [
         'employee_id' => $employee->getKey(),
         'plan_task_id' => $task->getKey(),
         'customer_id' => $customer->getKey(),
@@ -319,6 +319,7 @@ it('covers inventory lot timeline operation return manual and counterparty branc
     $source = new ReflectionMethod(InventoryLotTimelineService::class, 'sourceLabel');
     $movement = new InventoryMovement;
     $movement->forceFill(['source_type' => null, 'source_id' => null]);
+
     expect($source->invoke($service, $movement, null, null))->toBe('Manual');
 });
 
@@ -330,7 +331,7 @@ it('covers replenishment purchase draft validation helpers', function (): void {
         ->toThrow(ValidationException::class, 'no longer active');
 
     $integerKey = new ReflectionMethod(ReplenishmentPurchaseOrderDraftService::class, 'integerModelKey');
-    expect(fn () => $integerKey->invoke(null, new ReplenishmentRequirement, 'replenishment requirement'))
+    expect(fn (): mixed => $integerKey->invoke(null, new ReplenishmentRequirement, 'replenishment requirement'))
         ->toThrow(ValidationException::class, 'integer identifier');
 
     $variant = ProductVariant::factory()->create();
@@ -340,13 +341,13 @@ it('covers replenishment purchase draft validation helpers', function (): void {
     ]);
     $purchaseConfiguration = new ReflectionMethod(ReplenishmentPurchaseOrderDraftService::class, 'purchaseConfiguration');
 
-    expect(fn () => $purchaseConfiguration->invoke($service, $variant, $reference))
+    expect(fn (): mixed => $purchaseConfiguration->invoke($service, $variant, $reference))
         ->toThrow(ValidationException::class, 'no longer active');
 
     $variant->variantUnits()->update(['is_purchase' => false]);
     $reference->purchase_unit_id = null;
 
-    expect(fn () => $purchaseConfiguration->invoke($service, $variant->refresh(), $reference))
+    expect(fn (): mixed => $purchaseConfiguration->invoke($service, $variant->refresh(), $reference))
         ->toThrow(ValidationException::class, 'no active purchase UoM');
 
     $rounded = new ReflectionMethod(ReplenishmentPurchaseOrderDraftService::class, 'roundedPurchaseQuantity');
@@ -356,7 +357,7 @@ it('covers replenishment purchase draft validation helpers', function (): void {
     ]);
     $invalidConfiguration->setRelation('unit', new Unit(['precision' => 2]));
 
-    expect(fn () => $rounded->invoke(
+    expect(fn (): mixed => $rounded->invoke(
         $service,
         '10.000000',
         $invalidConfiguration,
@@ -395,7 +396,7 @@ it('covers serialized warranty correction fill action and handled rejection', fu
     $correct = postMergeAction($page, 'correctWarrantyDates');
 
     $mount = $correct->getMountUsing();
-    $captured = (new ReflectionFunction($mount))->getStaticVariables();
+    $captured = new ReflectionFunction($mount)->getStaticVariables();
     $fill = $captured['data'] ?? null;
 
     expect($fill)->toBeInstanceOf(Closure::class);

@@ -70,7 +70,7 @@ final readonly class CalibrationProgressResolver
                 $this->step('measurements', $this->t('Measurements'), $total > 0 && ! $requiredPending ? ($outOfTolerance ? 'failed' : 'done') : 'current', $measured.' / '.$total),
                 $this->step('result', $this->t('Result'), $failed ? 'failed' : ($finished ? 'done' : (! $requiredPending && ! $outOfTolerance ? 'current' : 'upcoming')), $result?->label()),
                 $this->step('certificate', $this->t('Certificate'), $certified ? 'done' : ($finished && ! $failed ? 'current' : 'upcoming'), $calibration->certificate_number),
-                $this->step('next_due', $this->t('Next due'), $calibration->next_calibration_due_on !== null ? 'done' : 'upcoming', $calibration->next_calibration_due_on?->toFormattedDateString()),
+                $this->step('next_due', $this->t('Next due'), $calibration->next_calibration_due_on !== null ? 'done' : 'upcoming', $calibration->next_calibration_due_on?->translatedFormat('M j, Y')),
             ],
         ];
     }
@@ -100,9 +100,9 @@ final readonly class CalibrationProgressResolver
 
         return [
             'result' => $previous->result->label(),
-            'calibrated_at' => $previous->calibrated_at?->toFormattedDateString() ?? '—',
+            'calibrated_at' => $previous->calibrated_at?->translatedFormat('M j, Y') ?? '—',
             'certificate' => $previous->certificate_number,
-            'next_due' => $previous->next_calibration_due_on?->toFormattedDateString(),
+            'next_due' => $previous->next_calibration_due_on?->translatedFormat('M j, Y'),
         ];
     }
 

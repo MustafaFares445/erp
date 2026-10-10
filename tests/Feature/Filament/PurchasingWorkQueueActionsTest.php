@@ -13,7 +13,9 @@ use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\PurchaseInbounds\Pages\ListPurchaseInbounds;
+use App\Filament\Resources\PurchaseInbounds\Pages\ViewPurchaseInbound;
 use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
+use App\Filament\Resources\PurchaseInbounds\RelationManagers\PurchaseInboundLinesRelationManager;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseRfqs\Pages\ListPurchaseRfqs;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
@@ -41,6 +43,8 @@ use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\CurrencySeeder;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -434,4 +438,68 @@ it('hides bill workflow actions from users who may only view bills', function ()
     Livewire::test(ManageBills::class)
         ->assertTableActionHidden('approve', $draft)
         ->assertTableActionHidden('recordSupplierPayment', $approved);
+});
+
+it('localizes supplier communication promise and next action while retaining raw states', function (): void {
+    purchasingQueueUser(DashboardRole::PurchasingManager);
+    app()->setLocale('ar');
+    $order = PurchaseOrder::factory()->sent()->create();
+    $confirmation = SupplierConfirmation::factory()->confirmed()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $order->supplier_id,
+    ]);
+
+    Livewire::test(ManageSupplierConfirmations::class)
+        ->assertTableColumnStateSet('communication_state', 'Sent', $confirmation)
+        ->assertTableColumnFormattedStateSet('communication_state', 'مُرسل', $confirmation)
+        ->assertTableColumnStateSet('overdue', 'On track', $confirmation)
+        ->assertTableColumnFormattedStateSet('overdue', 'وفق الجدول', $confirmation)
+        ->assertTableColumnFormattedStateSet('next_action', 'متابعة الاستلام الوارد', $confirmation);
+});
+
+it('opens the inbound queue on awaiting allocation and hides inbounds whose supplier has not confirmed any quantity', function (): void {
+    $actor = purchasingQueueUser(DashboardRole::PurchasingManager);
+    $actor->givePermissionTo([InventoryPermission::InboundAllocate->value, InventoryPermission::ReceiptCreate->value]);
+    [$visible] = purchasingQueueInbound($actor);
+    $awaitingConfirmation = PurchaseInbound::factory()->create([
+        'purchase_order_id' => PurchaseOrder::factory()->accepted($actor)->create([
+            'supplier_id' => Supplier::factory()->create(['requires_confirmation' => true])->getKey(),
+        ])->getKey(),
+    ]);
+
+    Livewire::test(ListPurchaseInbounds::class)
+        ->assertSet('activeTab', 'awaiting_allocation')
+        ->assertCanSeeTableRecords([$visible])
+        ->assertCanNotSeeTableRecords([$awaitingConfirmation]);
+
+    expect($awaitingConfirmation->status)->toBe(PurchaseInboundStatus::AwaitingAllocation);
+});
+
+it('translates the inbound line next action into Arabic', function (): void {
+    $actor = purchasingQueueUser(DashboardRole::PurchasingManager);
+    $actor->givePermissionTo([InventoryPermission::InboundAllocate->value, InventoryPermission::ReceiptCreate->value]);
+    [$inbound, $line] = purchasingQueueInbound($actor);
+
+    app()->setLocale('ar');
+
+    Livewire::test(PurchaseInboundLinesRelationManager::class, ['ownerRecord' => $inbound, 'pageClass' => ViewPurchaseInbound::class])
+        ->assertTableColumnFormattedStateSet('next_action', 'تخصيص كمية', record: $line);
+
+    app()->setLocale('en');
+
+    Livewire::test(PurchaseInboundLinesRelationManager::class, ['ownerRecord' => $inbound, 'pageClass' => ViewPurchaseInbound::class])
+        ->assertTableColumnFormattedStateSet('next_action', 'Allocate quantity', record: $line);
+});
+
+it('keeps the inbound line allocation steps inline and tucks edit and remove into the overflow menu', function (): void {
+    $actor = purchasingQueueUser(DashboardRole::PurchasingManager);
+    $actor->givePermissionTo([InventoryPermission::InboundAllocate->value, InventoryPermission::ReceiptCreate->value]);
+    [$inbound] = purchasingQueueInbound($actor);
+
+    $lines = Livewire::test(PurchaseInboundLinesRelationManager::class, ['ownerRecord' => $inbound, 'pageClass' => ViewPurchaseInbound::class])->instance();
+    $actions = collect($lines->getTable()->getRecordActions());
+
+    expect($actions->reject(static fn (mixed $action): bool => $action instanceof ActionGroup)->map(static fn (Action $action): string => (string) $action->getName())->values()->all())->toBe(['allocateQuantity', 'confirmAllocation'])
+        ->and(array_keys($actions->first(static fn (mixed $action): bool => $action instanceof ActionGroup)->getFlatActions()))->toBe(['editAllocation', 'removeUnusedAllocation'])
+        ->and($lines->isTableColumnToggledHidden('ordered'))->toBeTrue();
 });

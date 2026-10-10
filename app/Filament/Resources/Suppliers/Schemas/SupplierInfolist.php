@@ -9,6 +9,7 @@ use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Models\Bill;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -42,13 +43,16 @@ final class SupplierInfolist
                     TextEntry::make('code')->label(__('Code')),
                     TextEntry::make('is_active')
                         ->label(__('Status'))
-                        ->state(fn (Supplier $record): string => $record->is_active ? 'Active' : 'Inactive')
+                        ->state(fn (Supplier $record): string => $record->is_active ? __('Active') : __('Inactive'))
                         ->badge()
                         ->color(fn (Supplier $record): string => $record->is_active ? 'success' : 'gray'),
                     TextEntry::make('requires_confirmation')
                         ->label(__('Default confirmation policy'))
-                        ->state(fn (Supplier $record): string => $record->requires_confirmation ? 'Required' : 'Not required')
-                        ->badge(),
+                        ->state(fn (Supplier $record): string => $record->requires_confirmation
+                            ? __('Confirmation required')
+                            : __('Confirmation not required'))
+                        ->badge()
+                        ->color(fn (Supplier $record): string => $record->requires_confirmation ? 'warning' : 'gray'),
                     TextEntry::make('email')->label(__('Email'))->placeholder(__('—')),
                     TextEntry::make('phone')->label(__('Phone'))->placeholder(__('—')),
                     TextEntry::make('default_currency_code')->label(__('Default currency'))->placeholder(__('System default')),
@@ -60,16 +64,18 @@ final class SupplierInfolist
 
             Section::make(__('Supplier capabilities'))
                 ->description(__('Showing up to 10 active capabilities. Capability answers whether the supplier can provide an item; commercial terms remain in the Supplier Catalog.'))
+                ->columnSpanFull()
                 ->schema([
                     RepeatableEntry::make('activeProductSupportsPreview')
-                        ->label('')
-                        ->columns(4)
+                        ->label(__('Supplier capabilities'))
+                        ->hiddenLabel()
+                        ->columns(['default' => 2, 'lg' => 4])
                         ->schema([
                             TextEntry::make('scope')
                                 ->label(__('Scope'))
                                 ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
-                                    ? 'Product-wide'
-                                    : 'Variant-specific')
+                                    ? __('Product-wide')
+                                    : __('Variant-specific'))
                                 ->badge(),
                             TextEntry::make('product_name')
                                 ->label(__('Product'))
@@ -80,7 +86,7 @@ final class SupplierInfolist
                                 ->placeholder(__('All variants')),
                             TextEntry::make('is_active')
                                 ->label(__('Status'))
-                                ->state(fn (SupplierProductSupport $record): string => $record->is_active ? 'Active' : 'Inactive')
+                                ->state(fn (SupplierProductSupport $record): string => $record->is_active ? __('Active') : __('Inactive'))
                                 ->badge()
                                 ->color(fn (SupplierProductSupport $record): string => $record->is_active ? 'success' : 'gray'),
                         ]),
@@ -88,10 +94,12 @@ final class SupplierInfolist
 
             Section::make(__('Commercial catalog'))
                 ->description(__('Showing up to 10 active commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.'))
+                ->columnSpanFull()
                 ->schema([
                     RepeatableEntry::make('activeProductReferencesPreview')
-                        ->label('')
-                        ->columns(7)
+                        ->label(__('Commercial catalog'))
+                        ->hiddenLabel()
+                        ->columns(['default' => 2, 'md' => 4, 'xl' => 7])
                         ->schema([
                             ImageEntry::make('product_image')
                                 ->hiddenLabel()
@@ -109,17 +117,9 @@ final class SupplierInfolist
                             TextEntry::make('lead_time_days')->label(__('Lead time'))->suffix(__(' days'))->placeholder(__('—')),
                             TextEntry::make('availability_status')
                                 ->label(__('Availability'))
-                                ->formatStateUsing(static fn (string $state): string => match ($state) {
-                                    'temporarily_unavailable' => 'Temporarily unavailable',
-                                    'discontinued' => 'Discontinued',
-                                    default => 'Active',
-                                })
+                                ->formatStateUsing(static fn (string $state): string => SupplierProductReferenceResource::availabilityLabel($state))
                                 ->badge()
-                                ->color(static fn (string $state): string => match ($state) {
-                                    'active' => 'success',
-                                    'temporarily_unavailable' => 'warning',
-                                    default => 'gray',
-                                }),
+                                ->color(static fn (string $state): string => SupplierProductReferenceResource::availabilityColor($state)),
                         ]),
                 ]),
 
@@ -256,7 +256,7 @@ final class SupplierInfolist
                             TextEntry::make('supplier_reference')
                                 ->label(__('Supplier invoice reference'))
                                 ->formatStateUsing(static fn (mixed $state): string => is_string($state)
-                                    ? (str_starts_with($state, 'PO-AUTO:') ? 'Awaiting supplier invoice' : $state)
+                                    ? (str_starts_with($state, 'PO-AUTO:') ? __('Awaiting supplier invoice') : $state)
                                     : '—'),
                             TextEntry::make('grand_total')->label(__('Total'))->money(),
                             TextEntry::make('paid_amount')->label(__('Paid'))->money(),
@@ -297,7 +297,7 @@ final class SupplierInfolist
             ->get(['created_at', 'confirmed_at']);
 
         if ($confirmations->isEmpty()) {
-            return 'No responses recorded';
+            return __('No responses recorded');
         }
 
         $minutes = $confirmations
@@ -336,7 +336,7 @@ final class SupplierInfolist
         }
 
         if ($minutes === []) {
-            return 'No completed receipt history';
+            return __('No completed receipt history');
         }
 
         return self::durationSummary(array_sum($minutes) / count($minutes));
@@ -353,7 +353,7 @@ final class SupplierInfolist
             ->get();
 
         if ($totals->isEmpty()) {
-            return 'No sent Purchase Orders';
+            return __('No sent Purchase Orders');
         }
 
         return $totals
@@ -390,7 +390,7 @@ final class SupplierInfolist
     private static function capabilityVariantName(SupplierProductSupport $support): string
     {
         if ($support->product_variant_id === null) {
-            return 'All variants';
+            return __('All variants');
         }
 
         $variant = $support->productVariant;
@@ -403,7 +403,7 @@ final class SupplierInfolist
         $variant = $reference->productVariant;
 
         if ($variant === null) {
-            return 'Variant unavailable';
+            return __('Variant unavailable');
         }
 
         return mb_trim($variant->name.' · '.$variant->sku, ' ·');
@@ -412,14 +412,14 @@ final class SupplierInfolist
     private static function durationSummary(float $minutes): string
     {
         if ($minutes < 60) {
-            return sprintf('%.0f min', $minutes);
+            return __(':value min', ['value' => sprintf('%.0f', $minutes)]);
         }
 
         if ($minutes < 1440) {
-            return sprintf('%.1f hours', $minutes / 60);
+            return __(':value hours', ['value' => sprintf('%.1f', $minutes / 60)]);
         }
 
-        return sprintf('%.1f days', $minutes / 1440);
+        return __(':value days', ['value' => sprintf('%.1f', $minutes / 1440)]);
     }
 
     private static function onTimeReceiptSummary(Supplier $supplier): string
@@ -453,7 +453,7 @@ final class SupplierInfolist
         }
 
         return $eligible === 0
-            ? 'No completed POs with expected dates'
-            : sprintf('%d / %d on time', $onTime, $eligible);
+            ? __('No completed POs with expected dates')
+            : __(':on_time / :eligible on time', ['on_time' => $onTime, 'eligible' => $eligible]);
     }
 }

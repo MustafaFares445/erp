@@ -364,7 +364,7 @@ it('uses the expected record to build document page titles', function (string $p
 
     expect($page->getTitle())->toBe($title);
 })->with([
-    'bank statement' => [ViewBankStatement::class, BankStatement::class, 'statement_number', 'Bank Statement TITLE-117'],
+    'bank statement' => [ViewBankStatement::class, BankStatement::class, 'statement_number', 'Bank statement TITLE-117'],
     'purchase RFQ' => [ViewPurchaseRfq::class, PurchaseRfq::class, 'rfq_number', 'RFQ TITLE-117'],
 ]);
 

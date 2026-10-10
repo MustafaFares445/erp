@@ -212,10 +212,10 @@ final readonly class DashboardPeriod
     private function bucketLabel(CarbonImmutable $cursor): string
     {
         return match ($this->granularity) {
-            self::GRANULARITY_HOURLY => $cursor->format('g A'),
-            self::GRANULARITY_WEEKLY => __('dashboards.week_of', ['date' => $cursor->startOfWeek()->format('M j')]),
-            self::GRANULARITY_MONTHLY => $cursor->format('M Y'),
-            default => $cursor->format('M j'),
+            self::GRANULARITY_HOURLY => $cursor->translatedFormat('g A'),
+            self::GRANULARITY_WEEKLY => __('dashboards.week_of', ['date' => $cursor->startOfWeek()->translatedFormat('M j')]),
+            self::GRANULARITY_MONTHLY => $cursor->translatedFormat('M Y'),
+            default => $cursor->translatedFormat('M j'),
         };
     }
 

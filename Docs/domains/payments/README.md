@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: payments
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: app/Services/Payments, payment enums/policies, tests/Feature/Payments and payment-related Sales tests
 ---
 
@@ -27,9 +27,9 @@ Accounting owns journal truth; Sales owns invoice commercial state.
 
 ## Current HTTP/API Status
 
-These services exist, including Stripe integration abstractions, but the current runtime has no `api/*` routes. `StripeCheckoutService` explicitly documents that no HTTP/webhook adapter exists yet.
+These services exist, including Stripe integration abstractions. The rollout-gated Customer Support API exposes a scoped ticket payment-session/status adapter, but there is no general invoice/order Stripe Checkout route and no public Stripe webhook route.
 
-Do not describe Stripe checkout as a currently exposed customer endpoint until routes/controllers exist.
+Do not describe the scoped Support payment adapter as a complete customer payment API; broader payment exposure still requires explicit routes/controllers and provider reconciliation entry points.
 
 ## Related Decisions
 

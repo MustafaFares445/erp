@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Adjustments\RelationManagers;
 
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryLot;
@@ -13,6 +14,7 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Services\Inventory\InventoryAdjustmentService;
+use App\Support\QuantityFormatter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -46,6 +48,12 @@ final class AdjustmentItemsRelationManager extends RelationManager
     protected static string $relationship = 'items';
 
     #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('inventory_phase4.adjustment.items_title');
+    }
+
+    #[\Override]
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -57,7 +65,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->preload()
                     ->required()
                     ->live()
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the variant whose recorded stock needs correction.')
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_phase4.adjustment.variant_help'))
                     ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
                         $set('inventory_lot_id', null);
                         $set('serialized_inventory_unit_id', null);
@@ -124,7 +132,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->minValue(0)
                     ->required()
                     ->live(onBlur: true)
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Enter the physical quantity counted. The difference is calculated against the live on-hand quantity.')
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_phase4.adjustment.quantity_help'))
                     ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
                         $set('difference', $this->toFloat($state) - $this->liveCount($get, $get('product_variant_id')));
                     }),
@@ -133,7 +141,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->numeric()
                     ->disabled()
                     ->dehydrated(false)
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'This is calculated automatically as the new quantity minus the current on-hand quantity.')
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_phase4.adjustment.difference_help'))
                     ->formatStateUsing(fn (Get $get): float => $this->toFloat($get('new_quantity')) - $this->liveCount($get, $get('product_variant_id'))),
             ])
             ->disabled(fn (): bool => ! $this->adjustment()->isDraft());
@@ -141,12 +149,12 @@ final class AdjustmentItemsRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->recordTitleAttribute('id')
             ->columns([
                 TextColumn::make('productVariant.sku')
                     ->label(__('admin.inventory.stock.variant')),
-                TextColumn::make('productVariant.name')
+                TextColumn::make('productVariant.name')->wrap()
                     ->label(__('admin.inventory.stock.variant_name')),
                 TextColumn::make('stock_condition')
                     ->label(__('admin.inventory.adjustment.stock_condition'))
@@ -155,29 +163,33 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->label(__('admin.inventory.lot.fields.lot'))
                     ->placeholder(__('—')),
                 TextColumn::make('serializedUnit.serial_number')
-                    ->label(__('Serial'))
+                    ->label(__('inventory_phase4.adjustment.serial'))
                     ->placeholder(__('—')),
-                TextColumn::make('package.name')
+                TextColumn::make('package.name')->wrap()
                     ->label(__('admin.inventory.operation.fields.package')),
                 TextColumn::make('old_quantity')
                     ->label(__('admin.inventory.adjustment.old_quantity'))
-                    ->state(fn (InventoryAdjustmentItem $record): float => $this->displayOldQuantity($record)),
+                    ->state(fn (InventoryAdjustmentItem $record): float => $this->displayOldQuantity($record))
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                 TextColumn::make('new_quantity')
-                    ->label(__('admin.inventory.adjustment.new_quantity')),
+                    ->label(__('admin.inventory.adjustment.new_quantity'))
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                 TextColumn::make('difference')
                     ->label(__('admin.inventory.adjustment.difference'))
-                    ->state(fn (InventoryAdjustmentItem $record): float => (float) $record->new_quantity - $this->displayOldQuantity($record)),
+                    ->state(fn (InventoryAdjustmentItem $record): float => (float) $record->new_quantity - $this->displayOldQuantity($record))
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->label(__('inventory_phase4.adjustment.add_item'))
                     ->visible(fn (): bool => $this->adjustment()->isDraft()),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 EditAction::make()
                     ->visible(fn (): bool => $this->adjustment()->isDraft()),
                 DeleteAction::make()
                     ->visible(fn (): bool => $this->adjustment()->isDraft()),
-            ])
+            ]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

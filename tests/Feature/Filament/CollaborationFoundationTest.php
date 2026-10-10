@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
+use App\Filament\Resources\Customers\Pages\ViewCustomer;
 use App\Models\CustomerProfile;
 use App\Models\User;
 use App\Services\Collaboration\CollaborationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -57,4 +60,46 @@ it('completes collaboration activities without changing the subject domain state
 
     $service->unfollow($actor, $customer);
     expect($customer->collaborationFollowers()->where('user_id', $actor->id)->exists())->toBeFalse();
+});
+
+it('renders collaboration activity types with their Arabic labels', function (): void {
+    $actor = User::factory()->admin()->create();
+    $customer = CustomerProfile::factory()->create();
+    $entry = app(CollaborationService::class)->create($actor, $customer, [
+        'type' => 'activity',
+        'body' => 'Review the renewed contract.',
+    ]);
+    $originalLocale = app()->getLocale();
+
+    app()->setLocale('ar');
+
+    try {
+        Livewire::actingAs($actor)
+            ->test(CollaborationEntriesRelationManager::class, [
+                'ownerRecord' => $customer,
+                'pageClass' => ViewCustomer::class,
+            ])
+            ->assertSuccessful()
+            ->assertCanSeeTableRecords([$entry])
+            ->assertSee('نشاط');
+    } finally {
+        app()->setLocale($originalLocale);
+    }
+});
+
+it('labels comment and internal note entries in the collaboration table', function (): void {
+    $actor = User::factory()->admin()->create();
+    $customer = CustomerProfile::factory()->create();
+    $service = app(CollaborationService::class);
+    $comment = $service->create($actor, $customer, ['type' => 'comment', 'body' => 'Customer asked for a callback.']);
+    $note = $service->create($actor, $customer, ['type' => 'note', 'body' => 'Finance approved the discount.']);
+
+    Livewire::actingAs($actor)
+        ->test(CollaborationEntriesRelationManager::class, [
+            'ownerRecord' => $customer,
+            'pageClass' => ViewCustomer::class,
+        ])
+        ->assertSuccessful()
+        ->assertTableColumnFormattedStateSet('type', 'Comment', $comment)
+        ->assertTableColumnFormattedStateSet('type', 'Internal note', $note);
 });

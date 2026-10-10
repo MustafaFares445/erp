@@ -17,6 +17,7 @@ use App\Filament\Resources\InventoryCounts\Tables\InventoryCountsTable;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryCount;
 use App\Models\ProductCategory;
+use App\Models\ProductVariant;
 use App\Services\Inventory\InventoryCountService;
 use BackedEnum;
 use Filament\Forms\Components\CheckboxList;
@@ -106,6 +107,22 @@ final class InventoryCountResource extends Resource
                         ->preload()
                         ->visible(fn (Get $get): bool => $get('scope_type') === CountScope::Lot->value)
                         ->required(fn (Get $get): bool => $get('scope_type') === CountScope::Lot->value),
+                    Select::make('product_variant_ids')
+                        ->label(__('admin.inventory.count.fields.variants'))
+                        ->multiple()
+                        ->searchable()
+                        ->getSearchResultsUsing(fn (string $search): array => ProductVariant::query()
+                            ->where('sku', 'like', "%{$search}%")
+                            ->orderBy('sku')
+                            ->limit(50)
+                            ->pluck('sku', 'id')
+                            ->all())
+                        ->getOptionLabelsUsing(fn (array $values): array => ProductVariant::query()
+                            ->whereIn('id', $values)
+                            ->pluck('sku', 'id')
+                            ->all())
+                        ->visible(fn (Get $get): bool => $get('scope_type') === CountScope::VariantSet->value)
+                        ->required(fn (Get $get): bool => $get('scope_type') === CountScope::VariantSet->value),
                     CheckboxList::make('conditions')
                         ->label(__('admin.inventory.count.fields.conditions'))
                         ->options(collect(StockCondition::cases())

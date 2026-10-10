@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: engineering
-last_verified: 2026-10-04
-verified_against: .env.example, config/*.php and current service configuration
+last_verified: 2026-10-07
+verified_against: .env.example, config/*.php, user-guide VitePress configuration and current service configuration
 ---
 
 ## Source of Truth
@@ -22,6 +22,7 @@ This document groups important keys; it does not duplicate every Laravel default
 - `APP_KEY`
 - `APP_DEBUG`
 - `APP_URL`
+- `USER_GUIDE_URL` — target opened by the dashboard User Guide item; defaults to `/guide/` and may be an absolute documentation URL.
 - locale/fallback/faker locale
 - maintenance driver
 
@@ -41,6 +42,10 @@ Warehouse concurrency acceptance uses a second configured database:
 - `WAREHOUSE_CONCURRENCY_DB_DATABASE`
 - `WAREHOUSE_CONCURRENCY_DB_USERNAME`
 - `WAREHOUSE_CONCURRENCY_DB_PASSWORD`
+
+Destructive-operation guard:
+- `IERP_DISPOSABLE_DATABASES` (`database.disposable_databases`): comma-separated exact MySQL/MariaDB schema names. `db:wipe`, `migrate:fresh`, `migrate:refresh` and `migrate:reset` (via `App\Listeners\GuardDestructiveDatabaseCommand`), any test run whose default connection is not SQLite (`Tests\TestCase`), and concurrency-test cleanup (`Tests\Support\DisposableMySqlSchema`) refuse an unlisted schema, or one the connection has not actually selected, before any SQL runs. SQLite is not restricted. A developer who resets a local MySQL schema must list that schema explicitly.
+- The warehouse concurrency schema must also be named `ierp_<label>_testing`, and its account may hold only `USAGE ON *.*` plus grants on that exact schema written with escaped underscores (`` `ierp\_race\_testing`.* ``). An unescaped `_` is a wildcard that can match other schemas. Root/global, role and other-schema grants are refused.
 
 ## Queue / Cache / Session
 
@@ -118,6 +123,8 @@ Disabled staged features are blocked at the resource/HTTP boundary, not only hid
 ## Frontend
 
 - `VITE_APP_NAME`
+
+The user-facing documentation site has its own package in `user-guide/`. Its VitePress base is `/guide/`, development port is `5174`, and `npm run docs:build` writes generated output to `public/guide`.
 
 ## Configuration Safety
 

@@ -460,7 +460,7 @@ final readonly class SendBusinessNotification
 
         // Templates reject undeclared variables, so each milestone passes only its own set.
         if ($key === NotificationEventKey::InstallationScheduled) {
-            $variables['scheduled_at'] = (string) ($event->appointment?->scheduled_start_at?->toDayDateTimeString() ?? '—');
+            $variables['scheduled_at'] = (string) ($event->appointment?->scheduled_start_at?->format('Y-m-d H:i') ?? '—');
         }
 
         if (in_array($key, [NotificationEventKey::CommissioningFailed, NotificationEventKey::CustomerAcceptanceRecorded], true)) {
@@ -586,7 +586,7 @@ final readonly class SendBusinessNotification
                 'serial_number' => $serial,
                 'customer_name' => (string) ($record->customer->company_name ?? '—'),
                 'loaner_serial' => (string) ($loan->loanerUnit->serial_number ?? '—'),
-                'expected_return_at' => (string) ($loan->expected_return_at?->toDayDateTimeString() ?? '—'),
+                'expected_return_at' => (string) ($loan->expected_return_at?->format('Y-m-d H:i') ?? '—'),
             ];
             $recipients = [$record->customer->user ?? $record->customer, ...$this->usersWithPermission(SupportPermission::LoanManage->value)->all()];
         } else {

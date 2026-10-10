@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SupplierProductSupports;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SupplierProductSupports\Pages\ManageSupplierProductSupports;
+use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\SupplierProductSupport;
 use BackedEnum;
@@ -23,6 +24,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 /**
@@ -52,6 +54,12 @@ final class SupplierProductSupportResource extends Resource
     public static function getModelLabel(): string
     {
         return __('Supplier Capability');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('Supplier Capabilities');
     }
 
     #[\Override]
@@ -107,14 +115,20 @@ final class SupplierProductSupportResource extends Resource
                 TextColumn::make('scope')
                     ->label(__('Capability scope'))
                     ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
-                        ? 'Product-wide'
-                        : 'Variant-specific')
+                        ? __('Product-wide')
+                        : __('Variant-specific'))
                     ->badge()
                     ->color(fn (SupplierProductSupport $record): string => $record->product_variant_id === null ? 'info' : 'primary'),
-                TextColumn::make('product.name')
+                TextColumn::make('product_name')
                     ->label(__('Product'))
-                    ->placeholder(__('Derived from variant'))
-                    ->searchable(),
+                    ->state(fn (SupplierProductSupport $record): ?string => self::productName($record))
+                    ->placeholder(__('—'))
+                    ->wrap()
+                    ->searchable(query: static fn (Builder $query, string $search): Builder => $query->where(
+                        static fn (Builder $matches): Builder => $matches
+                            ->whereHas('product', static fn (Builder $product): Builder => $product->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('productVariant.product', static fn (Builder $product): Builder => $product->where('name', 'like', "%{$search}%")),
+                    )),
                 TextColumn::make('productVariant.product.name')
                     ->label(__('Variant product'))
                     ->placeholder(__('—'))
@@ -141,8 +155,28 @@ final class SupplierProductSupportResource extends Resource
     }
 
     #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['supplier', 'product', 'productVariant.product']);
+    }
+
+    #[\Override]
     public static function getPages(): array
     {
         return ['index' => ManageSupplierProductSupports::route('/')];
+    }
+
+    /** A variant-specific capability has no product_id of its own; its product comes from the variant. */
+    private static function productName(SupplierProductSupport $support): ?string
+    {
+        $product = $support->product;
+
+        if ($product instanceof Product) {
+            return $product->name;
+        }
+
+        $variantProduct = $support->productVariant?->product;
+
+        return $variantProduct instanceof Product ? $variantProduct->name : null;
     }
 }

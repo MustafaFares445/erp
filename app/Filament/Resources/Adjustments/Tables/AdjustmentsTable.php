@@ -8,12 +8,14 @@ use App\Enums\AdjustmentStatus;
 use App\Enums\StockCondition;
 use App\Filament\Resources\Adjustments\Actions\AdjustmentActions;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryAdjustment;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -26,7 +28,7 @@ final class AdjustmentsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('adjustment_number')
@@ -34,27 +36,27 @@ final class AdjustmentsTable
                     ->placeholder(__('admin.inventory.adjustment.number_pending'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('correctsAdjustment.adjustment_number')
+                TextColumn::make('correctsAdjustment.adjustment_number')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.adjustment.corrects_adjustment'))
                     ->placeholder(__('—'))
                     ->url(fn (InventoryAdjustment $record): ?string => $record->corrects_adjustment_id === null
                         ? null
                         : AdjustmentResource::getUrl('view', ['record' => $record->corrects_adjustment_id])),
-                TextColumn::make('warehouse.code')
+                TextColumn::make('warehouse.code')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('warehouse.name')
+                TextColumn::make('warehouse.name')->wrap()
                     ->label(__('admin.inventory.stock.warehouse_name'))
                     ->searchable(),
                 TextColumn::make('reason_category')
                     ->label(__('admin.inventory.adjustment.reason_category'))
                     ->badge()
                     ->placeholder(__('—')),
-                TextColumn::make('reason')
+                TextColumn::make('reason')->wrap()
                     ->label(__('admin.inventory.adjustment.reason'))
                     ->limit(50),
-                TextColumn::make('conditions')
+                TextColumn::make('conditions')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.adjustment.stock_condition'))
                     ->state(fn (InventoryAdjustment $record): string => $record->items()
                         ->pluck('stock_condition')
@@ -72,10 +74,10 @@ final class AdjustmentsTable
                         AdjustmentStatus::Draft => 'warning',
                         AdjustmentStatus::Confirmed => 'success',
                     }),
-                TextColumn::make('items_count')
+                TextColumn::make('items_count')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.adjustment.items_count'))
                     ->counts('items'),
-                TextColumn::make('createdBy.name')
+                TextColumn::make('createdBy.name')->toggleable(isToggledHiddenByDefault: true)->wrap()
                     ->label(__('admin.inventory.movement.creator'))
                     ->default(__('admin.inventory.movement.system')),
                 TextColumn::make('created_at')
@@ -141,17 +143,17 @@ final class AdjustmentsTable
                     }),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 AdjustmentActions::confirm()
                     ->button(),
-                ViewAction::make(),
-                EditAction::make()
-                    ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()),
-                DeleteAction::make()
-                    ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()),
                 ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make()
+                        ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()),
+                    DeleteAction::make()
+                        ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()),
                     AdjustmentActions::createCorrection(),
-                ]),
-            ]);
+                ])->icon(Heroicon::EllipsisVertical),
+            ]));
     }
 }

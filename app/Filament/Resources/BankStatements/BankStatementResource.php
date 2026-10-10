@@ -15,6 +15,7 @@ use App\Filament\Support\CurrencySelect;
 use App\Models\BankStatement;
 use App\Models\PaymentMethod;
 use BackedEnum;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -30,6 +31,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 final class BankStatementResource extends Resource
@@ -48,6 +50,18 @@ final class BankStatementResource extends Resource
     public static function getNavigationLabel(): string
     {
         return __('Bank reconciliation');
+    }
+
+    #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('Bank statement');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('Bank statements');
     }
 
     #[\Override]
@@ -87,19 +101,20 @@ final class BankStatementResource extends Resource
                         ->pluck('name', 'id')
                         ->all()),
                 CurrencySelect::make('currency_code')->required(),
-                DatePicker::make('period_start')->required(),
-                DatePicker::make('period_end')->required()->afterOrEqual('period_start'),
+                DatePicker::make('period_start')->label(__('Period start'))->required(),
+                DatePicker::make('period_end')->label(__('Period end'))->required()->afterOrEqual('period_start'),
                 TextInput::make('opening_balance')->numeric()->required()->default(0),
                 TextInput::make('closing_balance')->numeric()->required(),
             ])->columns(2),
             Section::make(__('Statement transactions'))->schema([
                 Repeater::make('rows')
-                    ->label('')
+                    ->label(__('Statement transactions'))
+                    ->addActionLabel(__('Add transaction'))
                     ->minItems(1)
                     ->defaultItems(1)
                     ->reorderable(false)
                     ->schema([
-                        DatePicker::make('transaction_date')->required(),
+                        DatePicker::make('transaction_date')->label(__('Transaction date'))->required(),
                         TextInput::make('amount')
                             ->label(__('Amount (+ deposit / - withdrawal)'))
                             ->numeric()
@@ -119,7 +134,9 @@ final class BankStatementResource extends Resource
         return $schema->components([
             Section::make(__('Statement summary'))->columns(3)->schema([
                 TextEntry::make('statement_number')->label(__('Statement')),
-                TextEntry::make('status')->badge(),
+                TextEntry::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (string $state): string => __(ucfirst($state))),
                 TextEntry::make('paymentMethod.name')->label(__('Payment method')),
                 TextEntry::make('currency_code')->label(__('Currency')),
                 TextEntry::make('period_start')->date(),
@@ -128,9 +145,9 @@ final class BankStatementResource extends Resource
                 TextEntry::make('closing_balance')->money(fn (BankStatement $record): string => $record->currency_code),
                 TextEntry::make('reconciliation_progress')
                     ->label(__('Reconciliation progress'))
-                    ->state(fn (BankStatement $record): string => self::progressLabel($record)),
-                TextEntry::make('imported_at')->dateTime()->placeholder('—'),
-                TextEntry::make('reconciled_at')->dateTime()->placeholder('—'),
+                    ->state(fn (BankStatement $record): HtmlString => self::progressLabel($record)),
+                TextEntry::make('imported_at')->label(__('Imported at'))->dateTime()->placeholder('—'),
+                TextEntry::make('reconciled_at')->label(__('Reconciled at'))->dateTime()->placeholder('—'),
             ]),
         ]);
     }
@@ -143,14 +160,17 @@ final class BankStatementResource extends Resource
             ->columns([
                 TextColumn::make('statement_number')->label(__('Statement'))->searchable()->sortable(),
                 TextColumn::make('paymentMethod.name')->label(__('Bank / method'))->searchable()->sortable(),
-                TextColumn::make('period_start')->date()->sortable(),
-                TextColumn::make('period_end')->date()->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('period_start')->label(__('Period start'))->date()->sortable(),
+                TextColumn::make('period_end')->label(__('Period end'))->date()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (string $state): string => __(ucfirst($state)))
+                    ->sortable(),
                 TextColumn::make('reconciliation_progress')
                     ->label(__('Progress'))
-                    ->state(fn (BankStatement $record): string => self::progressLabel($record)),
+                    ->state(fn (BankStatement $record): HtmlString => self::progressLabel($record)),
                 TextColumn::make('closing_balance')->money(fn (BankStatement $record): string => $record->currency_code)->sortable(),
-                TextColumn::make('imported_at')->dateTime()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('imported_at')->label(__('Imported at'))->dateTime()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')->options([
@@ -160,9 +180,11 @@ final class BankStatementResource extends Resource
                 SelectFilter::make('payment_method_id')->relationship('paymentMethod', 'name')->searchable()->preload(),
             ])
             ->recordActions([
-                BankStatementActions::continueReconciliation(),
                 BankStatementActions::closeFromList(),
-                ViewAction::make(),
+                ActionGroup::make([
+                    BankStatementActions::continueReconciliation(),
+                    ViewAction::make(),
+                ]),
             ]);
     }
 
@@ -200,13 +222,13 @@ final class BankStatementResource extends Resource
             ]);
     }
 
-    private static function progressLabel(BankStatement $record): string
+    private static function progressLabel(BankStatement $record): HtmlString
     {
         $totalState = $record->getAttribute('lines_count');
         $matchedState = $record->getAttribute('matched_lines_count');
         $total = is_numeric($totalState) ? (int) $totalState : $record->lines()->count();
         $matched = is_numeric($matchedState) ? (int) $matchedState : $record->lines()->where('status', 'matched')->count();
 
-        return $total === 0 ? '0 / 0' : "{$matched} / {$total}";
+        return new HtmlString("<bdi dir=\"ltr\">{$matched} / {$total}</bdi>");
     }
 }

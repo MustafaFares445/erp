@@ -8,13 +8,16 @@ use App\Enums\PaymentProvider;
 use App\Enums\PaymentTransactionStatus;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\PaymentTransactions\Actions\PaymentTransactionActions;
+use App\Filament\Tables\TableFit;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentTransaction;
 use App\Models\TicketPaymentLink;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -25,7 +28,7 @@ final class PaymentTransactionsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('checkout_session_id')
@@ -33,15 +36,15 @@ final class PaymentTransactionsTable
                     ->state(fn (PaymentTransaction $record): ?string => $record->checkout_session_id ?? $record->payment_intent_id)
                     ->limit(20)
                     ->placeholder(__('—')),
-                TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
-                TextColumn::make('purpose_type')
+                TextColumn::make('customer.company_name')->wrap()->label(__('admin.sales.fields.customer'))->searchable(),
+                TextColumn::make('purpose_type')->wrap()
                     ->label(__('admin.payments.transaction_ui.purpose'))
                     ->state(fn (PaymentTransaction $record): string => $record->purposeLabel()),
                 TextColumn::make('amount')->label(__('admin.payments.transaction_ui.amount'))->state(fn (PaymentTransaction $record): float => $record->amount())->money(fn (PaymentTransaction $record): string => $record->currency),
-                TextColumn::make('provider')
+                TextColumn::make('provider')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.payments.transaction_ui.provider'))
                     ->formatStateUsing(fn (?PaymentProvider $state): string => $state?->label() ?? '—'),
-                TextColumn::make('status')
+                TextColumn::make('status')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.payments.transaction_ui.provider_status'))
                     ->badge()
                     ->formatStateUsing(fn (PaymentTransactionStatus $state): string => $state->label())
@@ -52,7 +55,7 @@ final class PaymentTransactionsTable
                     ->badge()
                     ->color(fn (PaymentTransaction $record): string => $record->settlementState()->color())
                     ->description(fn (PaymentTransaction $record): string => $record->settlementDescription()),
-                TextColumn::make('payment.payment_number')
+                TextColumn::make('payment.payment_number')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.payments.transaction_ui.erp_payment'))
                     ->placeholder(fn (PaymentTransaction $record): string => $record->purpose instanceof TicketPaymentLink
                         ? $record->settlementDescription()
@@ -62,7 +65,7 @@ final class PaymentTransactionsTable
                     ->url(fn (PaymentTransaction $record): ?string => $record->payment instanceof Payment
                         ? PaymentResource::getUrl('view', ['record' => $record->payment_id])
                         : null),
-                TextColumn::make('created_at')->label(__('admin.payments.transaction_ui.created_at'))->dateTime(),
+                TextColumn::make('created_at')->toggleable(isToggledHiddenByDefault: true)->label(__('admin.payments.transaction_ui.created_at'))->dateTime(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -92,11 +95,13 @@ final class PaymentTransactionsTable
                         PaymentTransaction::query()->requiresSettlementAttention()->select('payment_transactions.id'),
                     )),
             ])
-            ->recordActions([
-                ViewAction::make(),
-                PaymentTransactionActions::refreshStatus(),
+            ->recordActions(TableFit::rowActions([
                 PaymentTransactionActions::retrySettlement(),
-            ])
+                ActionGroup::make([
+                    ViewAction::make(),
+                    PaymentTransactionActions::refreshStatus(),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]))
             ->toolbarActions([]);
     }
 }

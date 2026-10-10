@@ -120,8 +120,10 @@ use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
 use App\Filament\Search\IerpGlobalSearchProvider;
 use App\Filament\Support\IerpColors;
+use App\Filament\Support\UserGuideArticleResolver;
 use App\Filament\Support\WorkspaceNavigation;
 use App\Http\Middleware\SetAdminLocale;
+use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -134,6 +136,7 @@ use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -164,7 +167,26 @@ final class AdminPanelServiceProvider extends PanelProvider
             );
         }
 
+        $this->registerUserGuideHooks($panel);
+
         return $panel;
+    }
+
+    private function registerUserGuideHooks(Panel $panel): void
+    {
+        foreach (UserGuideArticleResolver::pageScopes() as $pageClass => $scope) {
+            $panel->renderHook(
+                PanelsRenderHook::PAGE_HEADER_ACTIONS_AFTER,
+                fn (): View => view('filament.partials.user-guide-help', [
+                    'url' => UserGuideArticleResolver::forClass(
+                        $scope['group'],
+                        $scope['article_class'],
+                        app()->getLocale(),
+                    ),
+                ]),
+                scopes: $pageClass,
+            );
+        }
     }
 
     private function configure(Panel $panel): Panel
@@ -315,6 +337,13 @@ final class AdminPanelServiceProvider extends PanelProvider
                 Css::make('customer-location-picker', resource_path('css/filament/customer-location-picker.css')),
             ])
             ->navigation($this->navigation(...))
+            ->userMenuItems([
+                Action::make('user-guide')
+                    ->label(fn (): string => __('User Guide'))
+                    ->icon(Heroicon::OutlinedBookOpen)
+                    ->url(fn (): string => UserGuideArticleResolver::homeUrl(app()->getLocale()))
+                    ->openUrlInNewTab(),
+            ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): HtmlString => Vite::fonts('noto-sans-arabic'),

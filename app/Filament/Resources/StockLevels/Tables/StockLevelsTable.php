@@ -8,19 +8,23 @@ use App\Enums\InventoryPermission;
 use App\Enums\ProductType;
 use App\Enums\StockCondition;
 use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
+use App\Filament\Resources\Products\Pages\ManageProductQuantities;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryStock;
 use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\StockAvailabilityExplainer;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\NumberConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -33,14 +37,14 @@ final class StockLevelsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('productVariant.sku')
                     ->label(__('admin.inventory.stock.variant'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('productVariant.name')
+                TextColumn::make('productVariant.name')->wrap()
                     ->label(__('admin.inventory.stock.variant_name'))
                     ->searchable()
                     ->sortable(),
@@ -49,7 +53,7 @@ final class StockLevelsTable
                     ->searchable()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('warehouse.name')
+                TextColumn::make('warehouse.name')->wrap()
                     ->label(__('admin.inventory.stock.warehouse_name'))
                     ->searchable()
                     ->sortable(),
@@ -81,6 +85,7 @@ final class StockLevelsTable
                     ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('in_transit_quantity')
+                    ->toggleable(isToggledHiddenByDefault: $table->getLivewire() instanceof ManageProductQuantities)
                     ->label(__('admin.inventory.stock.in_transit_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->inTransitQuantity())
                     ->numeric(decimalPlaces: 3),
@@ -146,40 +151,42 @@ final class StockLevelsTable
                     ->label(__('admin.resources.reservations'))
                     ->query(fn (Builder $query): Builder => $query->where('reserved_quantity', '>', 0)),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
-                Action::make('availability_breakdown')
-                    ->label(__('admin.inventory.stock.availability_breakdown'))
-                    ->icon('heroicon-o-question-mark-circle')
-                    ->modalHeading(__('admin.inventory.stock.availability_breakdown'))
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel(__('admin.inventory.stock.actions.close'))
-                    ->modalContent(fn (InventoryStock $record): View => view(
-                        'filament.inventory.stock-availability-breakdown',
-                        ['explanation' => app(StockAvailabilityExplainer::class)->explainStock($record)],
-                    )),
-                Action::make('package_movements')
-                    ->label(__('admin.resources.packages'))
-                    ->url(fn (InventoryStock $record): string => self::packageMovementsUrl($record)),
-                Action::make('disposition_quarantine')
-                    ->label(__('admin.inventory.condition_change.disposition_quarantine'))
-                    ->icon('heroicon-o-arrows-right-left')
-                    ->visible(fn (InventoryStock $record): bool => $record->conditionOnHandQuantity(StockCondition::Quarantine) > 0
-                        && (auth()->user()?->can(InventoryPermission::ConditionChangeCreate->value) ?? false))
-                    ->url(fn (InventoryStock $record): string => InventoryConditionChangeResource::getUrl('create', [
-                        'product_variant_id' => $record->product_variant_id,
-                        'warehouse_id' => $record->warehouse_id,
-                        'base_quantity' => number_format(
-                            $record->conditionOnHandQuantity(StockCondition::Quarantine),
-                            6,
-                            '.',
-                            '',
-                        ),
-                    ])),
-                StockDamageActions::damage(),
-                StockDamageActions::recover(),
-                StockDamageActions::dispose(),
-            ]);
+                ActionGroup::make([
+                    Action::make('availability_breakdown')
+                        ->label(__('admin.inventory.stock.availability_breakdown'))
+                        ->icon('heroicon-o-question-mark-circle')
+                        ->modalHeading(__('admin.inventory.stock.availability_breakdown'))
+                        ->modalSubmitAction(false)
+                        ->modalCancelActionLabel(__('admin.inventory.stock.actions.close'))
+                        ->modalContent(fn (InventoryStock $record): View => view(
+                            'filament.inventory.stock-availability-breakdown',
+                            ['explanation' => app(StockAvailabilityExplainer::class)->explainStock($record)],
+                        )),
+                    Action::make('package_movements')
+                        ->label(__('admin.resources.packages'))
+                        ->url(fn (InventoryStock $record): string => self::packageMovementsUrl($record)),
+                    Action::make('disposition_quarantine')
+                        ->label(__('admin.inventory.condition_change.disposition_quarantine'))
+                        ->icon('heroicon-o-arrows-right-left')
+                        ->visible(fn (InventoryStock $record): bool => $record->conditionOnHandQuantity(StockCondition::Quarantine) > 0
+                            && (auth()->user()?->can(InventoryPermission::ConditionChangeCreate->value) ?? false))
+                        ->url(fn (InventoryStock $record): string => InventoryConditionChangeResource::getUrl('create', [
+                            'product_variant_id' => $record->product_variant_id,
+                            'warehouse_id' => $record->warehouse_id,
+                            'base_quantity' => number_format(
+                                $record->conditionOnHandQuantity(StockCondition::Quarantine),
+                                6,
+                                '.',
+                                '',
+                            ),
+                        ])),
+                    StockDamageActions::damage(),
+                    StockDamageActions::recover(),
+                    StockDamageActions::dispose(),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]));
     }
 
     private static function isLowStock(InventoryStock $stock): bool

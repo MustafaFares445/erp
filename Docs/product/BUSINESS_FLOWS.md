@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: product
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: current domain services, event/listener wiring, lifecycle enums and cross-module feature tests
 ---
 
@@ -187,7 +187,7 @@ A Credit Note explicitly records its stock consequence. Financial credit does no
 
 The backend/domain workflow exists and is tested.
 
-The active Employee Visit/AI API plan describes future mobile API exposure. The current runtime has no `api/*` routes, so this flow must **not** be documented as a currently exposed employee-mobile API.
+The active Employee Visit/AI API plan describes future mobile API exposure. The current runtime has no `/api/employee` routes, so this flow must **not** be documented as a currently exposed employee-mobile API.
 
 ---
 
@@ -486,9 +486,9 @@ A customer must be approved and explicitly allowed for direct ordering.
 
 ## Exposure status
 
-The current runtime has no customer `api/*` route surface. Therefore the legacy â€œcustomer self-service direct orderâ€ is **not an implemented end-to-end customer API flow yet**.
+The current runtime has `/api/customer` authentication and Support/Maintenance routes, but it has no customer direct-order endpoints. Therefore the legacy â€œcustomer self-service direct orderâ€ is **not an implemented end-to-end customer API flow yet**.
 
-Document it as backend capability/future app integration until the customer API exists.
+Document it as backend capability/future Customer App integration until ordering routes are implemented.
 
 ---
 
@@ -562,4 +562,4 @@ A user's permission in one domain must not leak into another. Cross-module permi
 
 ## Current API boundary
 
-As of 2026-10-02, the route table exposes no `api/*` routes. Employee/customer mobile/API plans and service capabilities must remain clearly marked planned/not-exposed until implemented.
+The route table now exposes customer authentication and rollout-gated Support/Maintenance routes under `/api/customer`. There is still no general-purpose ERP API and no `/api/employee` surface. Customer/employee mobile plans and service capabilities outside the registered routes must remain clearly marked planned/not-exposed until implemented.

@@ -22,6 +22,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use LogicException;
 
 final class BonusSuggestionsRelationManager extends RelationManager
@@ -59,6 +60,7 @@ final class BonusSuggestionsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->modelLabel(Str::lower(__('Bonus suggestion')))
             ->recordTitleAttribute('reason')
             ->columns([
                 TextColumn::make('amount')->money(),

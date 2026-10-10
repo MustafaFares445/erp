@@ -60,21 +60,25 @@ it('covers all customer visit persistence invariants', function (): void {
     $checkoutBefore = $base->replicate();
     $checkoutBefore->checked_in_at = now();
     $checkoutBefore->checked_out_at = now()->subMinute();
+
     expect(fn () => $checkoutBefore->save())->toThrow(DomainException::class, 'Check-out cannot occur before check-in');
 
     $completed = $base->replicate();
     $completed->status = VisitStatus::Completed;
     $completed->outcome_code = null;
+
     expect(fn () => $completed->save())->toThrow(DomainException::class, 'completed visit requires');
 
     $followUp = $base->replicate();
     $followUp->follow_up_required = true;
     $followUp->follow_up_date = null;
+
     expect(fn () => $followUp->save())->toThrow(DomainException::class, 'follow-up date is required');
 
     $override = $base->replicate();
     $override->schedule_overridden_at = now();
     $override->schedule_override_reason = '   ';
+
     expect(fn () => $override->save())->toThrow(DomainException::class, 'override reason is required');
 });
 
@@ -135,7 +139,7 @@ it('rejects a lot allocation for a variant that does not track lots', function (
     $warehouse = Warehouse::factory()->create();
     $method = new ReflectionMethod(InventoryReservationService::class, 'validatedLotAllocation');
 
-    expect(fn () => $method->invoke(
+    expect(fn (): mixed => $method->invoke(
         app(InventoryReservationService::class),
         1,
         (int) $variant->getKey(),
@@ -180,10 +184,10 @@ it('covers price-list skip branches for inactive mismatched and itemless lists',
 it('covers invalid optional UOM string validation', function (): void {
     $method = new ReflectionMethod(ProductVariantUomService::class, 'optionalString');
 
-    expect(fn () => $method->invoke(app(ProductVariantUomService::class), 123, 'barcode', 10))
+    expect(fn (): mixed => $method->invoke(app(ProductVariantUomService::class), 123, 'barcode', 10))
         ->toThrow(ValidationException::class);
 
-    expect(fn () => $method->invoke(app(ProductVariantUomService::class), str_repeat('x', 11), 'barcode', 10))
+    expect(fn (): mixed => $method->invoke(app(ProductVariantUomService::class), str_repeat('x', 11), 'barcode', 10))
         ->toThrow(ValidationException::class);
 });
 
@@ -223,11 +227,11 @@ it('validates FEFO override reason type and length in fulfillment assignments', 
         ]],
     ]];
 
-    expect(fn () => $method->invoke($service, $base))
+    expect(fn (): mixed => $method->invoke($service, $base))
         ->toThrow(ValidationException::class, 'must be text');
 
     $base[0]['assignments'][0]['fefo_override_reason'] = str_repeat('x', 256);
-    expect(fn () => $method->invoke($service, $base))
+    expect(fn (): mixed => $method->invoke($service, $base))
         ->toThrow(ValidationException::class, 'may not exceed');
 });
 
@@ -239,7 +243,7 @@ it('rejects nonnumeric supplier MOQ quantity input', function (): void {
     ]);
     $method = new ReflectionMethod(PurchaseOrderService::class, 'assertSupplierReferenceTerms');
 
-    expect(fn () => $method->invoke(
+    expect(fn (): mixed => $method->invoke(
         app(PurchaseOrderService::class),
         $reference,
         $variant,

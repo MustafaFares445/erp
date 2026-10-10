@@ -12,6 +12,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 final class MonthlyPlanForm
 {
@@ -23,8 +24,12 @@ final class MonthlyPlanForm
                     ->schema([
                         Select::make('employee_id')
                             ->label(__('Employee'))
-                            ->relationship('employee', 'job_title')
-                            ->getOptionLabelFromRecordUsing(static fn (EmployeeProfile $record): string => sprintf('%s — %s', $record->employee_code, $record->job_title))
+                            ->relationship(
+                                'employee',
+                                'employee_code',
+                                modifyQueryUsing: static fn (Builder $query): Builder => $query->with('user:id,name'),
+                            )
+                            ->getOptionLabelFromRecordUsing(static fn (EmployeeProfile $record): string => sprintf('%s — %s', $record->user->name ?? $record->employee_code, $record->employee_code))
                             ->searchable()
                             ->required()
                             ->disabledOn('edit'),
@@ -44,13 +49,13 @@ final class MonthlyPlanForm
                     ])
                     ->columns(2),
                 Section::make(__('Weights'))
-                    ->description(__('The configured performance weights must sum to exactly 100 before the plan can be published.'))
+                    ->description(__('employees.weights_must_sum'))
                     ->schema([
                         TextInput::make('task_weight')->numeric()->live()->required(),
                         TextInput::make('visit_weight')->numeric()->live()->required(),
                         TextInput::make('schedule_weight')->numeric()->live()->required(),
                         TextInput::make('work_time_weight')->numeric()->live()->required(),
-                        TextInput::make('opportunity_weight')->label(__('Sales opportunity weight'))->numeric()->live()->required()->default(0),
+                        TextInput::make('opportunity_weight')->label(__('employees.sales_opportunity_weight'))->numeric()->live()->required()->default(0),
                         Placeholder::make('weight_sum')
                             ->label(__('Current sum'))
                             ->content(static function (Get $get): string {

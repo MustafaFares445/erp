@@ -20,7 +20,9 @@ use App\Models\User;
 use App\Services\Inventory\ProductMediaSynchronizer;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use Filament\Tables\Filters\TernaryFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -229,6 +231,27 @@ it('builds nested catalog forms and creates products through their resource', fu
         ->and(ProductResource::getRecordRouteBindingEloquentQuery()->find($product->getKey()))->toBeInstanceOf(Product::class);
 });
 
+// Release QA 2026-10-10: the product page labelled category and brand "Name", the list read
+// "Products variants number" / "Is active", and the Arabic profile badges stayed English.
+it('labels the product category, brand, variants and profile in the viewer language', function (): void {
+    $manager = catalogAdministrator();
+    $product = Product::factory()
+        ->for(ProductCategory::factory()->state(['name' => 'Dental Materials']), 'category')
+        ->for(Brand::factory()->state(['name' => 'Ivoclar']), 'brand')
+        ->create(['operational_profile' => 'serialized']);
+    app()->setLocale('ar');
+
+    Livewire::actingAs($manager)
+        ->test(ViewProduct::class, ['record' => $product->getRouteKey()])
+        ->assertSeeText(['الفئة', 'Dental Materials', 'العلامة التجارية', 'Ivoclar', 'المتغيرات', 'مُرقّم تسلسلياً'])
+        ->assertDontSeeText('Serialized');
+
+    Livewire::actingAs($manager)
+        ->test(ManageProducts::class)
+        ->assertSeeText(['المتغيرات', 'نشط'])
+        ->assertDontSeeText(['Products variants number', 'Is active']);
+});
+
 it('denies catalog administration without catalog permissions', function (): void {
     $administrator = User::factory()->admin()->create();
 
@@ -292,4 +315,28 @@ it('syncs product units through the create action using callback', function (): 
         ->and($product->units()->count())->toBe(2)
         ->and((int) $product->units()->wherePivot('is_default', true)->firstOrFail()->getKey())
         ->toBe($unitB->getKey());
+});
+
+// Release QA 2026-10-10: catalog setup showed generated "Is active" labels, and in Arabic the create button read
+// "إضافة product category" and the Manufacturers tab stayed English.
+it('labels catalog setup filters, toggles, create actions and tabs in the viewer language', function (): void {
+    $manager = catalogAdministrator();
+    app('translator')->getLoader()->addJsonPath('C:/Users/MUSTAF~1/AppData/Local/Temp/claude/C--laragon-www-ierp-new/5b4a8a45-492c-4412-8d1e-a926d06955df/scratchpad/inv-agent/jsonlang'); // TEMP-MERGE
+
+    Livewire::actingAs($manager)
+        ->test(CatalogSetup::class)
+        ->assertTableFilterExists('is_active', static fn (TernaryFilter $filter): bool => $filter->getLabel() === 'Active')
+        ->mountAction(TestAction::make('create'))
+        ->assertFormFieldExists('is_active', static fn (Toggle $field): bool => $field->getLabel() === 'Active');
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs($manager)
+        ->test(CatalogSetup::class)
+        ->assertActionHasLabel('create', 'إضافة فئة منتج')
+        ->assertSeeText('الشركات المصنعة')
+        ->call('setTab', 'manufacturers')
+        ->assertActionHasLabel('create', 'إضافة شركة مصنعة')
+        ->call('setTab', 'units')
+        ->assertActionHasLabel('create', 'إضافة وحدة');
 });

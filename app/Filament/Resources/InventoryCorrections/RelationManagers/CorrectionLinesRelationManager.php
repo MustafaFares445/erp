@@ -10,6 +10,7 @@ use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
 use App\Services\Inventory\InventoryCorrectionService;
+use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -25,6 +26,12 @@ final class CorrectionLinesRelationManager extends RelationManager
 
     protected static string $relationship = 'lines';
 
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('inventory_phase4.correction.lines_title');
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -33,10 +40,12 @@ final class CorrectionLinesRelationManager extends RelationManager
                     ->label(__('admin.inventory.stock.variant')),
                 TextColumn::make('transaction_quantity')
                     ->label(__('admin.inventory.correction.quantity'))
-                    ->numeric(decimalPlaces: 6),
+                    ->numeric()
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                 TextColumn::make('base_quantity')
                     ->label(__('admin.inventory.correction.base_quantity'))
-                    ->numeric(decimalPlaces: 6),
+                    ->numeric()
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                 TextColumn::make('lot.lot_number')
                     ->label(__('admin.inventory.lot.fields.lot'))
                     ->placeholder(__('—')),

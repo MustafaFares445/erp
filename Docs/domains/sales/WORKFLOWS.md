@@ -3,15 +3,15 @@
 ---
 status: canonical
 owner: sales
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: Sales services and current lifecycle enums
 ---
 
 ## Quotation to Order
 
-`Draft Quotation -> Sent -> Accepted -> Convert -> Confirmed Sales Order`
+`Draft Quotation -> Sent -> Accepted -> Convert -> Converted to Order + Confirmed Sales Order`
 
-Rejected/expired/cancelled/changes-requested paths do not create an order. Conversion is one-time.
+Rejected/expired/cancelled/changes-requested paths do not create an order. Conversion is one-time and never skips the Sales Order to create a delivery directly.
 
 ## Direct Order
 

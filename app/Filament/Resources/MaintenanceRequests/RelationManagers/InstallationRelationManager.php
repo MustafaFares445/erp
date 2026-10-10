@@ -78,13 +78,13 @@ final class InstallationRelationManager extends RelationManager
                     ->badge()
                     ->description(static fn (EquipmentInstallation $record): ?string => $record->commissioning_status === CommissioningStatus::Failed
                         ? $record->commissioning_failure_reason
-                        : $record->commissioned_at?->toDayDateTimeString()),
+                        : $record->commissioned_at?->translatedFormat('M j, Y H:i')),
                 TextColumn::make('customer_acceptance_status')
                     ->label(__('Customer acceptance'))
                     ->badge()
                     ->description(static fn (EquipmentInstallation $record): ?string => match ($record->customer_acceptance_status) {
-                        CustomerAcceptanceStatus::Accepted => mb_trim(($record->customer_signatory_name ?? '').' · '.($record->customer_accepted_at?->toDayDateTimeString() ?? ''), ' ·'),
-                        CustomerAcceptanceStatus::Rejected => mb_trim(($record->customer_rejection_reason ?? '').' · '.($record->customer_rejected_at?->toDayDateTimeString() ?? ''), ' ·'),
+                        CustomerAcceptanceStatus::Accepted => mb_trim(($record->customer_signatory_name ?? '').' · '.($record->customer_accepted_at?->translatedFormat('M j, Y H:i') ?? ''), ' ·'),
+                        CustomerAcceptanceStatus::Rejected => mb_trim(($record->customer_rejection_reason ?? '').' · '.($record->customer_rejected_at?->translatedFormat('M j, Y H:i') ?? ''), ' ·'),
                         CustomerAcceptanceStatus::Pending => null,
                     }),
                 TextColumn::make('evidence_count')

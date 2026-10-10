@@ -48,6 +48,23 @@ it('defaults the create task dates to the plan month bounds', function (): void 
         ]);
 });
 
+it('renders the create task action in Arabic with the translated model label', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create();
+    app()->setLocale('ar');
+    $expectedLabel = __('filament-actions::create.single.label', ['label' => __('Plan task')]);
+
+    Livewire::actingAs($admin)
+        ->test(TasksRelationManager::class, [
+            'ownerRecord' => $plan,
+            'pageClass' => EditMonthlyPlan::class,
+        ])
+        ->assertSuccessful()
+        ->assertActionHasLabel(TestAction::make('create')->table(), $expectedLabel)
+        ->assertSeeHtml($expectedLabel)
+        ->assertDontSeeHtml('إضافة plan task');
+});
+
 it('filters plan tasks by status, overdue, and due soon', function (): void {
     $admin = User::factory()->admin()->create();
     $plan = SalesPlan::factory()->create();

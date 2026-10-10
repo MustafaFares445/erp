@@ -73,7 +73,7 @@ final readonly class InvoiceSource implements TimelineSource
                     id: $invoice->id,
                     occurredAt: $invoice->invoice_date,
                     occurredAtIsDateOnly: true,
-                    title: "Invoice {$invoice->invoice_number}",
+                    title: __('Invoice :number', ['number' => $invoice->invoice_number]),
                     detail: $this->detail($invoice),
                     statusLabel: $invoice->status->label(),
                     statusColor: $invoice->status->color(),
@@ -94,10 +94,10 @@ final readonly class InvoiceSource implements TimelineSource
             return null;
         }
 
-        $daysOverdue = $invoice->isOverdue() ? now()->diffInDays($invoice->due_date) : null;
+        $daysOverdue = $invoice->isOverdue() ? (int) $invoice->due_date->diffInDays(now()) : null;
 
         return $daysOverdue !== null
-            ? "Due {$invoice->due_date->toDateString()} — {$daysOverdue} days overdue"
-            : "Due {$invoice->due_date->toDateString()}";
+            ? __('Due :date — :days days overdue', ['date' => $invoice->due_date->toDateString(), 'days' => $daysOverdue])
+            : __('Due :date', ['date' => $invoice->due_date->toDateString()]);
     }
 }

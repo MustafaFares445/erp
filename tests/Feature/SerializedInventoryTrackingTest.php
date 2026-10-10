@@ -143,10 +143,13 @@ it('tracks one device through canonical receipt transfer and adjustment movement
         ->and(app(SerializedInventoryTimelineService::class)->receiptSource($unit->refresh()))
         ->toBe('inventory_operation #'.$receipt->getKey());
 
+    // Release QA 2026-10-10: the unit page showed "inventory_operation #7", the custody type and "1.000000".
     Livewire::actingAs(serializedUnitViewer())
         ->test(ViewSerializedInventoryUnit::class, ['record' => $unit->getKey()])
-        ->assertSee('inventory_operation #'.$receipt->getKey())
-        ->assertSee('1.000000');
+        ->assertSeeText('Inventory operation '.$receipt->operation_number)
+        ->assertSeeText($destination->name)
+        ->assertDontSeeText('inventory_operation #')
+        ->assertDontSeeText('1.000000');
 });
 
 it('adjusts one serialized unit independently from the warehouse aggregate count', function (): void {

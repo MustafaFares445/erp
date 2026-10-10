@@ -169,6 +169,7 @@ it('covers return-request options and invalid resolution fallback in the complai
     $manager = new ProductContextsRelationManager;
     $manager->ownerRecord = $ticket;
     $manager->pageClass = ViewTicket::class;
+
     $table = $manager->table(Table::make($manager));
     $action = collect($table->getHeaderActions())
         ->first(static fn (mixed $candidate): bool => method_exists($candidate, 'getName')

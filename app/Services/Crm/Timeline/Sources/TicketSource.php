@@ -64,7 +64,7 @@ final readonly class TicketSource implements TimelineSource
                 id: $ticket->id,
                 occurredAt: $ticket->created_at ?? Carbon::now(),
                 occurredAtIsDateOnly: false,
-                title: "Ticket {$ticket->ticket_number} — {$ticket->title}",
+                title: __('Ticket :number — :title', ['number' => $ticket->ticket_number, 'title' => $ticket->title]),
                 detail: $this->detail($ticket),
                 statusLabel: $ticket->status->label(),
                 statusColor: $ticket->status->color(),
@@ -80,16 +80,16 @@ final readonly class TicketSource implements TimelineSource
     private function detail(Ticket $ticket): string
     {
         $parts = [
-            str($ticket->priority->value)->headline()->toString().' priority',
-            str($ticket->type->value)->headline()->toString(),
+            __(':priority priority', ['priority' => $ticket->priority->label()]),
+            $ticket->type->label(),
         ];
 
         if ($ticket->isResponseBreached()) {
-            $parts[] = 'Response SLA breached';
+            $parts[] = __('Response SLA breached');
         }
 
         if ($ticket->isResolutionBreached()) {
-            $parts[] = 'Resolution SLA breached';
+            $parts[] = __('Resolution SLA breached');
         }
 
         return implode(' — ', $parts);

@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: engineering
-last_verified: 2026-10-02
-verified_against: composer.json, current app/services/resources/routes and canonical domain docs
+last_verified: 2026-10-07
+verified_against: composer.json, current app/services/resources/routes, customer API surface, user-guide integration and canonical domain docs
 ---
 
 ## Runtime Shape
@@ -17,10 +17,12 @@ The application keeps business logic in domain services/models/policies and uses
 
 ### UI / Delivery
 
-- Filament dashboard/resources/pages/actions.
+- Filament dashboard/resources/pages/actions for the ERP administration UI.
+- Standalone VitePress user documentation under `user-guide/`, built separately from Filament and served at `/guide/` by default or another host through `USER_GUIDE_URL`.
 - Web controllers for explicitly exposed web/media behavior.
 - Console commands/jobs.
-- Future Customer/Employee mobile API adapters.
+- Customer authentication and rollout-gated Support/Maintenance API adapters under `/api/customer`.
+- Future Employee mobile API adapters and remaining Customer App API surfaces.
 
 ### Module dashboards
 
@@ -96,11 +98,11 @@ See [Integrations](INTEGRATIONS.md) and [Canonical Business Flows](../product/BU
 
 ## Current Route Boundary
 
-The current route files are `routes/web.php` and `routes/console.php`.
+The current route files are `routes/web.php`, `routes/api.php`, and `routes/console.php`.
 
-At the 2026-10-02 audit, the runtime has no `api/*` routes.
+`routes/api.php` currently exposes customer login/logout plus a rollout-gated Support/Maintenance surface under `/api/customer`, including support tickets, messages, customer-visible attachments, support payment-session/status, equipment, maintenance, knowledge, and satisfaction endpoints.
 
-Service-level capabilities such as Stripe checkout or Employee AI therefore do not imply a currently exposed mobile API.
+There is still no general-purpose ERP REST API and no `/api/employee` route surface. Service-level capabilities such as broader Stripe checkout or Employee AI therefore do not imply an exposed mobile API unless a matching route/controller contract exists.
 
 ## Domain Boundaries
 

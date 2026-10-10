@@ -6,8 +6,10 @@ namespace App\Filament\Resources\ShipmentAttachments\Schemas;
 
 use App\Enums\ShipmentConfirmationSource;
 use App\Enums\ShipmentStatus;
+use App\Filament\Components\InventoryViewDiagnostics;
 use App\Models\Shipment;
 use App\Models\ShipmentArrivalConfirmation;
+use App\Services\Inventory\Diagnostics\ShipmentDiagnoser;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -19,7 +21,11 @@ final class ShipmentAttachmentInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->columns(2)->schema([
+            InventoryViewDiagnostics::section(),
+            InventoryViewDiagnostics::metrics(
+                static fn (Shipment $record): array => app(ShipmentDiagnoser::class)->keyFigures($record),
+            ),
+            Section::make(__('inventory_view_ux.ui.shipment_details'))->columns(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                 TextEntry::make('tracking_number')->label(__('admin.shipment.fields.tracking_number')),
                 TextEntry::make('order.customer.company_name')->label(__('admin.shipment.fields.customer')),
                 TextEntry::make('warehouse.name')->label(__('admin.shipment.fields.warehouse')),
@@ -40,7 +46,9 @@ final class ShipmentAttachmentInfolist
                         ->label(__('admin.shipment.fields.confirmed_by'))
                         ->formatStateUsing(fn (?ShipmentConfirmationSource $state): string => $state?->label() ?? '—'),
                     TextEntry::make('arrivalConfirmation.confirmed_at')->label(__('admin.shipment.fields.confirmed_at'))->dateTime(),
-                    TextEntry::make('arrivalConfirmation.source_channel')->label(__('admin.shipment.fields.source_channel')),
+                    TextEntry::make('arrivalConfirmation.source_channel')
+                        ->label(__('admin.shipment.fields.source_channel'))
+                        ->formatStateUsing(static fn (?string $state): string => self::sourceChannelLabel($state)),
                     TextEntry::make('arrivalConfirmation.note')->label(__('admin.shipment.fields.note'))->placeholder(__('—')),
                     RepeatableEntry::make('arrivalConfirmation.deliveryPhotos')
                         ->label(__('admin.shipment.fields.delivery_photos'))
@@ -88,6 +96,14 @@ final class ShipmentAttachmentInfolist
                     ->placeholder(__('admin.inventory.operation.attachments_empty')),
             ]),
         ]);
+    }
+
+    private static function sourceChannelLabel(?string $channel): string
+    {
+        $key = 'admin.shipment.source_channels.'.$channel;
+        $label = __($key);
+
+        return $label === $key ? str((string) $channel)->headline()->toString() : $label;
     }
 
     /** @return list<array{file_name: string, preview_url: string, download_url: string}> */

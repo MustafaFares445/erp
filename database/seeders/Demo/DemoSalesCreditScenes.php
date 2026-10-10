@@ -11,6 +11,7 @@ use App\Enums\InventoryReturnDisposition;
 use App\Enums\RefundStatus;
 use App\Enums\WriteOffReason;
 use App\Models\CreditNote;
+use App\Models\CustomerProfile;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturnLine;
 use App\Models\Invoice;
@@ -18,6 +19,7 @@ use App\Models\InvoiceLine;
 use App\Models\Refund;
 use App\Services\Accounting\ReceivableWriteOffService;
 use App\Services\Accounting\RefundService;
+use App\Services\Crm\CustomerReturnRequestService;
 use App\Services\Inventory\InventoryReturnService;
 use App\Services\Payments\StripeRefundService;
 use App\Services\Sales\CreditNoteService;
@@ -166,11 +168,55 @@ final readonly class DemoSalesCreditScenes
     private function draftReturn(string $code): void
     {
         $definition = self::Returns[$code];
+        $delivery = $this->kit->deliveries[$definition['delivery']][0]->refresh();
+        $warehouse = $delivery->sourceWarehouse ?? throw new LogicException("Delivery for return {$code} has no source warehouse.");
+
+        // RT2 starts at the CRM/customer-return intake boundary before Inventory takes
+        // custody. This keeps the demo representative of F-03 instead of only seeding
+        // the downstream warehouse return document.
+        if ($code === 'RT2') {
+            $customer = CustomerProfile::query()->findOrFail($delivery->customer_id);
+            $requestLines = [];
+
+            foreach ($definition['lines'] as $key => $quantity) {
+                $variant = $this->kit->variant($key);
+                /** @var InventoryOperationLine $deliveryLine */
+                $deliveryLine = $delivery->lines()->where('product_variant_id', $variant->getKey())->orderBy('id')->firstOrFail();
+                $requestLines[] = [
+                    'original_inventory_operation_line_id' => DemoContext::keyOf($deliveryLine),
+                    'requested_quantity' => number_format((float) $quantity, 6, '.', ''),
+                    'customer_note' => 'Customer reported an over-order and requested a return.',
+                ];
+            }
+
+            $requests = app(CustomerReturnRequestService::class);
+            $request = $requests->submit(
+                customer: $customer,
+                delivery: $delivery,
+                lines: $requestLines,
+                reason: $definition['reason'],
+                sourceChannel: 'dashboard',
+            );
+            $request = $requests->startReview($this->kit->context->as('crm_manager'), $request);
+            $request = $requests->approve(
+                $this->kit->context->as('crm_manager'),
+                $request,
+                'Approved after checking the original completed delivery and returnable quantities.',
+            );
+
+            $this->kit->returns[$code] = $requests->convertToInventoryReturn(
+                $this->kit->context->as('operations'),
+                $request,
+                $warehouse,
+                "[DEMO-SALES] {$code}",
+            )->refresh();
+
+            return;
+        }
+
         $operations = $this->kit->context->as('operations');
         $service = app(InventoryReturnService::class);
-        $delivery = $this->kit->deliveries[$definition['delivery']][0]->refresh();
-
-        $return = $service->createCustomerReturn($operations, $delivery, $delivery->sourceWarehouse ?? throw new LogicException("Delivery for return {$code} has no source warehouse."), $definition['reason'], "[DEMO-SALES] {$code}");
+        $return = $service->createCustomerReturn($operations, $delivery, $warehouse, $definition['reason'], "[DEMO-SALES] {$code}");
 
         foreach ($definition['lines'] as $key => $quantity) {
             $variant = $this->kit->variant($key);

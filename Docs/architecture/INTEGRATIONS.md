@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: engineering
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: current service/provider interfaces and event/listener wiring
 ---
 
@@ -24,7 +24,7 @@ Current code includes:
 - PaymentTransaction persistence.
 
 Important boundary:
-the current runtime exposes no `api/*` routes and the checkout service comments explicitly describe HTTP/webhook adapters as future work.
+the rollout-gated Customer Support API exposes a ticket payment-session/status adapter under `/api/customer`, but there is no general invoice/order Stripe Checkout API and no public Stripe webhook route. Provider service classes therefore do not imply a broader public payment API.
 
 Stripe success is never accepted from a mobile success screen as ERP accounting truth.
 

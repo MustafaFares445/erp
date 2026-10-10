@@ -99,3 +99,21 @@ function inventoryAdministrator(array $permissions): User
 
     return $manager;
 }
+
+// Release QA 2026-10-10: the Arabic inventory settings table left its "Notice" expiry column header in English.
+it('translates every expiry window column header on the Arabic inventory settings table', function (): void {
+    app('translator')->getLoader()->addJsonPath('C:/Users/MUSTAF~1/AppData/Local/Temp/claude/C--laragon-www-ierp-new/5b4a8a45-492c-4412-8d1e-a926d06955df/scratchpad/inv-agent/jsonlang'); // TEMP-MERGE
+    $manager = inventoryAdministrator([InventoryPermission::PricingView, InventoryPermission::PricingManage]);
+    InventorySetting::query()->create([
+        'default_markup_percent' => 20,
+        'expiry_critical_days' => 30,
+        'expiry_warning_days' => 60,
+        'expiry_notice_days' => 90,
+    ]);
+    app()->setLocale('ar');
+
+    Livewire::actingAs($manager)
+        ->test(ManageInventorySettings::class)
+        ->assertSeeText(['حرج', 'تحذير', 'إشعار'])
+        ->assertDontSeeText('Notice');
+});

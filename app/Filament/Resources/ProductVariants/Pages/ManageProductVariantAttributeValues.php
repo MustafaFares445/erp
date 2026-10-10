@@ -16,12 +16,21 @@ final class ManageProductVariantAttributeValues extends ManageRelatedRecords
     protected static string $relationship = 'attributeAssignments';
 
     #[\Override]
+    public static function getRelationshipTitle(): string
+    {
+        return __('Attribute assignments');
+    }
+
+    #[\Override]
     public function table(Table $table): Table
     {
-        return $table->columns([
-            TextColumn::make('attributeValue.attribute.name')->label(__('Attribute'))->sortable(),
-            TextColumn::make('attributeValue.value')->label(__('Value'))->searchable()->sortable(),
-            TextColumn::make('variant.sku')->label(__('Variant'))->searchable(),
-        ]);
+        return $table
+            ->modelLabel(__('attribute assignment'))
+            ->pluralModelLabel(__('attribute assignments'))
+            ->columns([
+                TextColumn::make('attributeValue.attribute.name')->label(__('Attribute'))->sortable(),
+                TextColumn::make('attributeValue.value')->label(__('Value'))->searchable()->sortable(),
+                TextColumn::make('variant.sku')->label(__('Variant'))->searchable(),
+            ]);
     }
 }

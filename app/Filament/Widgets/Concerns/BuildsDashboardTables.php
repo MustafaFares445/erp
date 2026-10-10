@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets\Concerns;
 
+use App\Filament\Tables\TableFit;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -16,7 +17,7 @@ trait BuildsDashboardTables
 {
     protected function dashboardTable(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->paginated([5, 10])
             ->defaultPaginationPageOption(5)
             ->emptyStateHeading(__('dashboards.empty'))

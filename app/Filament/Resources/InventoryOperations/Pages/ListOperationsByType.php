@@ -7,10 +7,10 @@ namespace App\Filament\Resources\InventoryOperations\Pages;
 use App\Enums\OperationType;
 use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
+use App\Filament\Resources\InventoryOperations\Actions\InventoryOperationActions;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryOperations\Tables\InventoryOperationsTable;
 use App\Models\InventoryOperation;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +23,11 @@ abstract class ListOperationsByType extends ListRecords
     protected static string $resource = InventoryOperationResource::class;
 
     abstract protected static function operationType(): OperationType;
+
+    public function getOperationType(): OperationType
+    {
+        return static::operationType();
+    }
 
     #[\Override]
     public static function canAccess(array $parameters = []): bool
@@ -46,12 +51,7 @@ abstract class ListOperationsByType extends ListRecords
         }
 
         return [
-            CreateAction::make()
-                ->label(__('admin.inventory.operation.actions.create_internal_transfer'))
-                ->visible(fn (): bool => InventoryOperationResource::canCreateOperationType(OperationType::InternalTransfer))
-                ->url(InventoryOperationResource::getUrl('create', [
-                    'operation_type' => OperationType::InternalTransfer->value,
-                ])),
+            InventoryOperationActions::createTransfer(),
         ];
     }
 

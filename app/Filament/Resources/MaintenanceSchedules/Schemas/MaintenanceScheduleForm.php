@@ -85,7 +85,7 @@ final class MaintenanceScheduleForm
                             ->minValue(1)
                             ->required(),
                         TextInput::make('lead_time_days')
-                            ->label(__('Lead time (days)'))
+                            ->label(__('Advance notice (days)'))
                             ->helperText(__('How many days in advance a due request is raised.'))
                             ->numeric()
                             ->minValue(0)

@@ -7,10 +7,12 @@ namespace App\Filament\Resources\InventoryOperations\Actions;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Jobs\GeneratePackingListDocument;
 use App\Models\InventoryOperation;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -22,6 +24,16 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  */
 final class InventoryOperationActions
 {
+    public static function createTransfer(): CreateAction
+    {
+        return CreateAction::make()
+            ->label(__('admin.inventory.operation.actions.create_internal_transfer'))
+            ->visible(fn (): bool => InventoryOperationResource::canCreateOperationType(OperationType::InternalTransfer))
+            ->url(InventoryOperationResource::getUrl('create', [
+                'operation_type' => OperationType::InternalTransfer->value,
+            ]));
+    }
+
     public static function generatePackingList(): Action
     {
         return Action::make('generate_packing_list')

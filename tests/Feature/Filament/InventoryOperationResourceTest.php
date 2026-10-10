@@ -151,6 +151,29 @@ it('renders an inventory operation view with an enum stage', function (): void {
         ->assertSee($operation->stage->label());
 });
 
+// Release QA 2026-10-10: the receipt view showed line demand as "60.000000".
+it('shows operation line quantities without trailing zero decimals', function (): void {
+    $role = Role::firstOrCreate(['name' => 'inventory-operation-viewer', 'guard_name' => 'web']);
+    $role->givePermissionTo(InventoryPermission::ReceiptView->value);
+
+    $user = User::factory()->create();
+    $user->assignRole($role);
+
+    $operation = InventoryOperation::factory()->receipt()->create();
+    $variant = ProductVariant::factory()->create();
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1250.500000',
+        'unit_id' => $variant->unit_id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(InventoryOperationResource::getUrl('view', ['record' => $operation]))
+        ->assertOk()
+        ->assertSee('1,250.5')
+        ->assertDontSee('1250.500000');
+});
+
 it('filters operation line variants by the selected active product', function (): void {
     $product = Product::factory()->create();
     $matchingVariant = ProductVariant::factory()->for($product)->create(['sku' => 'MATCHING-SKU']);
@@ -749,6 +772,15 @@ it('returns a 404 when opening the generic create route without a forced operati
         ->get(InventoryOperationResource::getUrl('create'))
         ->assertNotFound();
 });
+
+it('renders submit controls on the non-wizard internal transfer form', function (string $locale): void {
+    app()->setLocale($locale);
+
+    $this->actingAs(inventoryOperationPreparer())
+        ->get(InventoryOperationResource::getUrl('create', ['operation_type' => 'internal_transfer']))
+        ->assertSeeHtml('type="submit"')
+        ->assertSee(__('filament-panels::resources/pages/create-record.form.actions.create_another.label'));
+})->with(['en', 'ar']);
 
 it('does not add shipment tracking data to a delivery operation', function (): void {
     $delivery = InventoryOperation::factory()->delivery()->create();

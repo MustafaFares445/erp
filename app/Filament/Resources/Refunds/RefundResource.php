@@ -13,6 +13,7 @@ use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Accounting\RefundService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -94,9 +95,11 @@ final class RefundResource extends Resource
             ->recordActions([
                 self::approveAction(),
                 self::payAction(),
-                self::cancelAction(),
-                EditAction::make(),
-                DeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make(),
+                    self::cancelAction(),
+                    DeleteAction::make(),
+                ])->icon(Heroicon::EllipsisVertical),
             ]);
     }
 

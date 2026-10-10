@@ -7,6 +7,7 @@ namespace App\Filament\Resources\PriceHistories\Tables;
 use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
 use App\Enums\PriceChangeRequestStatus;
+use App\Filament\Tables\TableFit;
 use App\Models\PriceHistory;
 use App\Models\User;
 use App\Services\Inventory\ProductPricingService;
@@ -23,14 +24,14 @@ final class PriceHistoriesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('productVariant.sku')
                     ->label(__('SKU'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('productVariant.name')
+                TextColumn::make('productVariant.name')->wrap()
                     ->label(__('Variant'))
                     ->searchable(),
                 TextColumn::make('cost_price')->money()->sortable(),
@@ -45,7 +46,7 @@ final class PriceHistoriesTable
                         PriceChangeRequestStatus::Rejected => 'danger',
                     })
                     ->sortable(),
-                TextColumn::make('changedBy.name')->label(__('Requested by'))->sortable(),
+                TextColumn::make('changedBy.name')->toggleable(isToggledHiddenByDefault: true)->wrap()->label(__('Requested by'))->sortable(),
                 TextColumn::make('created_at')->label(__('Requested at'))->dateTime()->sortable(),
                 TextColumn::make('reviewedBy.name')->label(__('Reviewed by'))->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reviewed_at')->label(__('Reviewed at'))->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
@@ -63,7 +64,7 @@ final class PriceHistoriesTable
                         PriceChangeRequestStatus::Rejected->value => PriceChangeRequestStatus::Rejected->label(),
                     ]),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 Action::make('approve')
                     ->label(__('admin.inventory.pricing.requests.approve'))
@@ -124,7 +125,7 @@ final class PriceHistoriesTable
                             ->success()
                             ->send();
                     }),
-            ]);
+            ]));
     }
 
     private static function canReview(PriceHistory $record): bool

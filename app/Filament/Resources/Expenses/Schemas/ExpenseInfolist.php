@@ -16,6 +16,7 @@ final class ExpenseInfolist
     {
         return $schema->components([
             Section::make(__('Expense details'))
+                ->columnSpanFull()
                 ->columns(3)
                 ->schema([
                     TextEntry::make('expense_number')->label(__('Expense number')),
@@ -26,7 +27,7 @@ final class ExpenseInfolist
                         ->color(fn (ExpenseStatus $state): string => $state->color()),
                     TextEntry::make('supplier.name')->label(__('Supplier'))->placeholder(__('Not linked')),
                     TextEntry::make('merchant_name')->label(__('Merchant'))->placeholder(__('Not provided')),
-                    TextEntry::make('requestedBy.employee_code')->label(__('Requested by'))->placeholder(__('Not provided')),
+                    TextEntry::make('requestedBy.user.name')->label(__('Requested by'))->placeholder(__('Not provided')),
                     TextEntry::make('expenseAccount.name')->label(__('Expense account')),
                     TextEntry::make('paymentMethod.name')->label(__('Payment method')),
                     TextEntry::make('expense_date')->label(__('Expense date'))->date(),

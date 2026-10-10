@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: engineering
-last_verified: 2026-10-02
-verified_against: current repository structure, agent guidance, quality tooling
+last_verified: 2026-10-07
+verified_against: current repository structure, canonical documentation index, agent guidance and quality tooling
 ---
 
 ## Purpose
@@ -21,7 +21,7 @@ Read:
 
 1. Root `README.md`.
 2. `Docs/README.md`.
-3. `Docs/DOCUMENTATION_AUTHORITY_MAP.md` while the documentation migration is active.
+3. The canonical product/architecture/domain pages linked from `Docs/README.md` for the behavior being changed.
 
 ### 2. Identify the owning domain
 
@@ -49,7 +49,7 @@ When canonical domain docs exist, read in this order:
 4. Relevant `DATA_MODEL.md`, `UI.md`, `API.md`, or `TESTING.md`.
 5. Linked ADRs.
 
-If canonical domain docs have not yet been migrated, use the authority map to locate the temporary source and verify it against code/tests.
+If a required detail is not covered by the canonical domain docs, verify the current code/tests and relevant non-superseded ADRs rather than reviving removed migration/authority-map documents.
 
 ### 4. Inspect implementation before proposing changes
 

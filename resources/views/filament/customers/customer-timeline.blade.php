@@ -1,13 +1,14 @@
 @php
+    use App\Services\Crm\CustomerTimelineService;
     use App\Support\MoneyFormatter;
 
     $aging = $summary['outstanding']['buckets'] ?? [];
     $agingTotal = max(1, array_sum($aging));
     $groupedEvents = collect($timeline->items())->groupBy(function (\App\Data\Crm\TimelineEvent $event): string {
         return match (true) {
-            $event->occurredAt->isToday() => 'Today',
-            $event->occurredAt->isYesterday() => 'Yesterday',
-            default => $event->occurredAt->format('D j M Y'),
+            $event->occurredAt->isToday() => __('Today'),
+            $event->occurredAt->isYesterday() => __('Yesterday'),
+            default => $event->occurredAt->translatedFormat('D j M Y'),
         };
     });
 @endphp
@@ -15,37 +16,37 @@
 <x-filament-panels::page>
     <div class="app-customer-timeline space-y-6">
         <x-filament::section>
-            <x-slot name="heading">Summary</x-slot>
-            <x-slot name="description">Lifetime value, outstanding position, and activity at a glance (CR-05).</x-slot>
+            <x-slot name="heading">{{ __('Summary') }}</x-slot>
+            <x-slot name="description">{{ __('Lifetime value, outstanding position, and activity at a glance.') }}</x-slot>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Lifetime invoiced</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('Lifetime invoiced') }}</p>
                     <p class="text-xl font-semibold">{{ MoneyFormatter::format($summary['lifetime_invoiced_minor']) }}</p>
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Lifetime collected</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('Lifetime collected') }}</p>
                     <p class="text-xl font-semibold">{{ MoneyFormatter::format($summary['lifetime_collected_minor']) }}</p>
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Outstanding</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('Outstanding') }}</p>
                     <p class="text-xl font-semibold">{{ MoneyFormatter::format($summary['outstanding']['outstanding_minor']) }}</p>
                     @if ($summary['overdue_documents_count'] > 0)
-                        <p class="text-xs text-gray-400">{{ $summary['overdue_documents_count'] }} overdue</p>
+                        <p class="text-xs text-gray-400">{{ __(':count overdue', ['count' => $summary['overdue_documents_count']]) }}</p>
                     @endif
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">In flight</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('In flight') }}</p>
                     <p class="text-xl font-semibold">{{ MoneyFormatter::format($summary['open_quotations_value_minor'] + $summary['open_orders_value_minor']) }}</p>
-                    <p class="text-xs text-gray-400">Open quotations &amp; orders</p>
+                    <p class="text-xs text-gray-400">{{ __('Open quotations & orders') }}</p>
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Open tickets</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('Open tickets') }}</p>
                     <p class="text-xl font-semibold">{{ $summary['open_tickets'] }}</p>
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Last interaction</p>
-                    <p class="text-xl font-semibold" title="{{ $summary['last_interaction_at']?->toDayDateTimeString() }}">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('Last interaction') }}</p>
+                    <p class="text-xl font-semibold" title="{{ $summary['last_interaction_at']?->translatedFormat('D, M j, Y g:i A') }}">
                         {{ $summary['last_interaction_at']?->diffForHumans() ?? '—' }}
                     </p>
                 </div>
@@ -61,50 +62,50 @@
                         <div class="bg-danger-600" style="width: {{ ($aging['over_90'] ?? 0) / $agingTotal * 100 }}%"></div>
                     </div>
                     <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                        <span>Current: {{ MoneyFormatter::format($aging['current'] ?? 0) }}</span>
-                        <span>1-30: {{ MoneyFormatter::format($aging['1_30'] ?? 0) }}</span>
-                        <span>31-60: {{ MoneyFormatter::format($aging['31_60'] ?? 0) }}</span>
-                        <span>61-90: {{ MoneyFormatter::format($aging['61_90'] ?? 0) }}</span>
-                        <span>90+: {{ MoneyFormatter::format($aging['over_90'] ?? 0) }}</span>
+                        <span>{{ __('Current') }}: {{ MoneyFormatter::format($aging['current'] ?? 0) }}</span>
+                        <span>{{ __('1-30') }}: {{ MoneyFormatter::format($aging['1_30'] ?? 0) }}</span>
+                        <span>{{ __('31-60') }}: {{ MoneyFormatter::format($aging['31_60'] ?? 0) }}</span>
+                        <span>{{ __('61-90') }}: {{ MoneyFormatter::format($aging['61_90'] ?? 0) }}</span>
+                        <span>{{ __('90+') }}: {{ MoneyFormatter::format($aging['over_90'] ?? 0) }}</span>
                     </div>
                 </div>
             @endif
         </x-filament::section>
 
         <x-filament::section>
-            <x-slot name="heading">Filters</x-slot>
+            <x-slot name="heading">{{ __('Filters') }}</x-slot>
 
             <div class="flex flex-wrap items-end gap-4">
-                <x-filament::input.wrapper label="Range">
+                <x-filament::input.wrapper :label="__('Range')">
                     <x-filament::input.select wire:model.live="range">
-                        <option value="all">All time</option>
-                        <option value="30d">Last 30 days</option>
-                        <option value="90d">Last 90 days</option>
-                        <option value="ytd">Year to date</option>
-                        <option value="custom">Custom</option>
+                        <option value="all">{{ __('All time') }}</option>
+                        <option value="30d">{{ __('Last 30 days') }}</option>
+                        <option value="90d">{{ __('Last 90 days') }}</option>
+                        <option value="ytd">{{ __('Year to date') }}</option>
+                        <option value="custom">{{ __('Custom range') }}</option>
                     </x-filament::input.select>
                 </x-filament::input.wrapper>
 
                 @if ($range === 'custom')
-                    <x-filament::input.wrapper label="From">
+                    <x-filament::input.wrapper :label="__('From')">
                         <x-filament::input type="date" wire:model.live="from" />
                     </x-filament::input.wrapper>
-                    <x-filament::input.wrapper label="Until">
+                    <x-filament::input.wrapper :label="__('Until')">
                         <x-filament::input type="date" wire:model.live="until" />
                     </x-filament::input.wrapper>
                 @endif
 
-                <x-filament::input.wrapper label="Search" class="min-w-[12rem] flex-1">
-                    <x-filament::input type="search" wire:model.live.debounce.400ms="search" placeholder="Reference number…" />
+                <x-filament::input.wrapper :label="__('Search')" class="min-w-[12rem] flex-1">
+                    <x-filament::input type="search" wire:model.live.debounce.400ms="search" :placeholder="__('Reference number…')" />
                 </x-filament::input.wrapper>
 
                 <label class="flex items-center gap-2 pb-2 text-sm">
                     <x-filament::input.checkbox wire:model.live="showActivity" />
-                    Status changes
+                    {{ __('Status changes') }}
                 </label>
 
                 <x-filament::button color="gray" size="sm" wire:click="clearFilters">
-                    Clear filters
+                    {{ __('Clear filters') }}
                 </x-filament::button>
             </div>
 
@@ -116,15 +117,15 @@
                         'border-gray-200 text-gray-500 dark:border-white/10 dark:text-gray-400' => $types !== [] && ! in_array($type, $types, true),
                     ])>
                         <input type="checkbox" class="sr-only" wire:model.live="types" value="{{ $type }}" />
-                        {{ str($type)->replace('_', ' ')->headline() }}
+                        {{ CustomerTimelineService::typeLabel($type) }}
                     </label>
                 @endforeach
             </div>
         </x-filament::section>
 
         <x-filament::section>
-            <x-slot name="heading">Stream</x-slot>
-            <x-slot name="description">Reverse-chronological across every source this account manager may see.</x-slot>
+            <x-slot name="heading">{{ __('Stream') }}</x-slot>
+            <x-slot name="description">{{ __('Reverse-chronological across every source this account manager may see.') }}</x-slot>
 
             @forelse ($groupedEvents as $dateLabel => $events)
                 <div class="mb-4">
@@ -135,7 +136,7 @@
                     @endforeach
                 </div>
             @empty
-                <div class="ierp-empty">Nothing to show in this range.</div>
+                <div class="ierp-empty">{{ __('Nothing to show in this range.') }}</div>
             @endforelse
 
             <div class="mt-4">

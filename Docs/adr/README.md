@@ -32,6 +32,7 @@ They do not replace canonical domain documentation, which states **what the syst
 | 0013 Warehouse-Level Stock Identity and Putaway Gate | Accepted | Current; location/bin/putaway features remain gated until Inventory custody is redesigned below warehouse level. |
 | 0014 Standard List-Table Experience | Accepted | Current; global table defaults apply to all lists, and main document lists adopt the view tab bar, favorites and rule filters incrementally. |
 | 0015 Support Service-Management Expansion | Accepted | Current; preserves the Ticket → Maintenance Request → Service Record boundary while adding SLA v2, routing, automation, field service, Equipment 360, customer Support API, knowledge, CSAT and staged rollout. |
+| 0016 List Table Fit | Accepted | Shared fit policy for list tables (`TableFit`): default columns fit a 1440px desktop, row buttons collapse below `xl`, stacked cards on phones; rolled out list by list. |
 
 ## Reading Rule
 

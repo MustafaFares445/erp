@@ -135,7 +135,7 @@ it('covers the purchase inbound blocker translation branch', function (): void {
         }
     });
 
-    $message = (new ReflectionMethod(PurchaseInboundsTable::class, 'blockerMessage'))
+    $message = new ReflectionMethod(PurchaseInboundsTable::class, 'blockerMessage')
         ->invoke(null, $inbound);
 
     expect($message)->toBe((string) __('admin.logistics.inbound.blocker_messages.awaiting_supplier_confirmation'));

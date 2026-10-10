@@ -24,7 +24,7 @@ final class ViewPurchaseAgreement extends ViewRecord
     #[\Override]
     public function getTitle(): string
     {
-        return 'Agreement '.$this->agreement()->agreement_number;
+        return __('Agreement :number', ['number' => $this->agreement()->agreement_number]);
     }
 
     #[\Override]

@@ -9,6 +9,7 @@ use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\Bills\Schemas\BillInfolist;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\Bill;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -30,7 +31,7 @@ final class BillsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('bill_date', 'desc')
             ->columns([
                 FavoriteColumn::make(),
@@ -38,22 +39,22 @@ final class BillsTable
                     ->searchable()
                     ->sortable()
                     ->description(fn (Bill $record): ?string => $record->isDraft() ? BillInfolist::blocker($record) : null),
-                TextColumn::make('resolvedSupplier.name')->label(__('Supplier'))->searchable()->sortable(),
-                TextColumn::make('supplier_reference')
+                TextColumn::make('resolvedSupplier.name')->wrap()->label(__('Supplier'))->searchable()->sortable(),
+                TextColumn::make('supplier_reference')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Supplier reference'))
                     ->searchable(),
-                TextColumn::make('supplier_reference_source')
+                TextColumn::make('supplier_reference_source')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Reference evidence'))
                     ->state(fn (Bill $record): string => $record->supplier_reference_backfilled_at === null
-                        ? 'Supplier provided'
-                        : 'Backfilled reference')
+                        ? __('Supplier provided')
+                        : __('Backfilled reference'))
                     ->badge()
-                    ->color(fn (string $state): string => $state === 'Backfilled reference' ? 'warning' : 'success'),
-                TextColumn::make('purchaseOrder.purchase_order_number')->label(__('Purchase order'))->searchable(),
-                TextColumn::make('description')->searchable()->limit(40),
+                    ->color(fn (Bill $record): string => $record->supplier_reference_backfilled_at !== null ? 'warning' : 'success'),
+                TextColumn::make('purchaseOrder.purchase_order_number')->toggleable(isToggledHiddenByDefault: true)->label(__('Purchase order'))->searchable(),
+                TextColumn::make('description')->toggleable(isToggledHiddenByDefault: true)->wrap()->searchable()->limit(40),
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->money()->sortable(),
-                TextColumn::make('amount_paid')->money()->sortable(),
+                TextColumn::make('amount_paid')->toggleable(isToggledHiddenByDefault: true)->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (BillStatus $state): string => $state->label())
@@ -88,7 +89,7 @@ final class BillsTable
                     DateConstraint::make('due_date')->label(__('Due date')),
                 ]),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 BillResource::approveAction()
                     ->label(__('Approve bill'))
                     ->icon(Heroicon::CheckCircle)
@@ -111,7 +112,7 @@ final class BillsTable
                     BillResource::cancelAction(),
                     DeleteAction::make(),
                 ])->icon(Heroicon::EllipsisVertical),
-            ]);
+            ]));
     }
 
     /** @return array<string, string> */

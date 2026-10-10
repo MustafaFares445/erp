@@ -7,6 +7,7 @@ namespace App\Filament\Resources\SupplierProductReferences;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
 use App\Filament\Support\CurrencySelect;
+use App\Filament\Tables\TableFit;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
@@ -14,6 +15,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Services\Purchasing\SupplierCostWritebackService;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -114,11 +116,7 @@ final class SupplierProductReferenceResource extends Resource
                 ->helperText(__('Optional commercial pack size. Inventory conversion still follows the variant UoM configuration.')),
             Select::make('availability_status')
                 ->label(__('Availability'))
-                ->options([
-                    'active' => 'Active',
-                    'temporarily_unavailable' => 'Temporarily unavailable',
-                    'discontinued' => 'Discontinued',
-                ])
+                ->options(self::availabilityOptions())
                 ->default('active')
                 ->required(),
             Toggle::make('is_preferred')
@@ -158,7 +156,7 @@ final class SupplierProductReferenceResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->searchPlaceholder(__('Product, SKU, supplier…'))
             ->defaultSort('is_preferred', 'desc')
             ->columns([
@@ -173,7 +171,7 @@ final class SupplierProductReferenceResource extends Resource
                     ->circular()
                     ->imageHeight(36)
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('productVariant.product.name')
+                TextColumn::make('productVariant.product.name')->wrap()
                     ->label(__('Product'))
                     ->description(static fn (SupplierProductReference $record): string => self::referenceVariantDescription($record))
                     ->searchable(query: static fn (Builder $query, string $search): Builder => $query
@@ -185,7 +183,7 @@ final class SupplierProductReferenceResource extends Resource
                             ->orWhereHas('product', static fn (Builder $product): Builder => $product
                                 ->where('name', 'like', "%{$search}%"))))
                     ->sortable(),
-                TextColumn::make('supplier.name')
+                TextColumn::make('supplier.name')->wrap()
                     ->label(__('Supplier'))
                     ->description(static fn (SupplierProductReference $record): ?string => $record->supplier_item_number ?: $record->supplier_name)
                     ->searchable()
@@ -193,16 +191,8 @@ final class SupplierProductReferenceResource extends Resource
                 TextColumn::make('availability_status')
                     ->label(__('Availability'))
                     ->badge()
-                    ->formatStateUsing(static fn (string $state): string => match ($state) {
-                        'temporarily_unavailable' => 'Temporarily unavailable',
-                        'discontinued' => 'Discontinued',
-                        default => 'Active',
-                    })
-                    ->color(static fn (string $state): string => match ($state) {
-                        'active' => 'success',
-                        'temporarily_unavailable' => 'warning',
-                        default => 'gray',
-                    }),
+                    ->formatStateUsing(static fn (string $state): string => self::availabilityLabel($state))
+                    ->color(static fn (string $state): string => self::availabilityColor($state)),
                 TextColumn::make('purchase_cost')
                     ->label(__('Reference cost'))
                     ->money(static fn (SupplierProductReference $record): string => $record->currency_code)
@@ -214,7 +204,7 @@ final class SupplierProductReferenceResource extends Resource
                     ->toggleable(),
                 TextColumn::make('pack_size')
                     ->label(__('Pack size'))
-                    ->numeric(decimalPlaces: 6)
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
                     ->placeholder(__('—'))
                     ->toggleable(),
                 TextColumn::make('lead_time_days')
@@ -238,11 +228,7 @@ final class SupplierProductReferenceResource extends Resource
                     ->preload(),
                 SelectFilter::make('availability_status')
                     ->label(__('Availability'))
-                    ->options([
-                        'active' => 'Active',
-                        'temporarily_unavailable' => 'Temporarily unavailable',
-                        'discontinued' => 'Discontinued',
-                    ]),
+                    ->options(self::availabilityOptions()),
                 TernaryFilter::make('is_preferred')->label(__('Preferred supplier')),
                 SelectFilter::make('currency_code')->label(__('Currency'))->options(fn (): array => SupplierProductReference::query()
                     ->whereNotNull('currency_code')
@@ -252,13 +238,13 @@ final class SupplierProductReferenceResource extends Resource
                     ->all()),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ActionGroup::make([
                     EditAction::make(),
                     DeleteAction::make(),
                     RestoreAction::make(),
                 ]),
-            ]);
+            ]));
     }
 
     #[\Override]
@@ -271,6 +257,34 @@ final class SupplierProductReferenceResource extends Resource
             'productVariant.product.brand',
             'purchaseUnit',
         ]);
+    }
+
+    /** @return array<string, string> */
+    public static function availabilityOptions(): array
+    {
+        return [
+            'active' => self::availabilityLabel('active'),
+            'temporarily_unavailable' => self::availabilityLabel('temporarily_unavailable'),
+            'discontinued' => self::availabilityLabel('discontinued'),
+        ];
+    }
+
+    public static function availabilityLabel(string $status): string
+    {
+        return match ($status) {
+            'temporarily_unavailable' => __('Temporarily unavailable'),
+            'discontinued' => __('Discontinued'),
+            default => __('Active'),
+        };
+    }
+
+    public static function availabilityColor(string $status): string
+    {
+        return match ($status) {
+            'active' => 'success',
+            'temporarily_unavailable' => 'warning',
+            default => 'gray',
+        };
     }
 
     /** @return array<int, string> */
@@ -296,7 +310,7 @@ final class SupplierProductReferenceResource extends Resource
     private static function variantLabel(ProductVariant $variant): string
     {
         $product = $variant->product;
-        $productName = $product instanceof Product ? $product->name : 'Product';
+        $productName = $product instanceof Product ? $product->name : __('Product');
 
         return mb_trim($productName.' · '.$variant->name.' · '.$variant->sku, ' ·');
     }
@@ -306,7 +320,7 @@ final class SupplierProductReferenceResource extends Resource
         $variant = $reference->productVariant;
 
         if (! $variant instanceof ProductVariant) {
-            return 'Variant unavailable';
+            return __('Variant unavailable');
         }
 
         return mb_trim($variant->name.' · '.$variant->sku, ' ·');

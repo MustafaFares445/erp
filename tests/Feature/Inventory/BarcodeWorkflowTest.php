@@ -37,6 +37,16 @@ it('rejects a valid scan that does not belong to the selected physical count', f
     expect($count->lines()->count())->toBe(0);
 });
 
+// Release QA 2026-10-10: the Arabic workbench stayed English and named an internal service class.
+it('shows the workbench in the viewer language without internal class names', function (): void {
+    Gate::before(static fn (): bool => true);
+    app()->setLocale('ar');
+
+    Livewire::actingAs(User::factory()->create())->test(BarcodeWorkbench::class)
+        ->assertSeeText(['امسح الباركود أو رمز الصنف أو الرقم التسلسلي', 'حدود الأمان:', 'اختر عملية مفتوحة'])
+        ->assertDontSeeText(['Scan barcode, SKU, or serial', 'InventoryCountService']);
+});
+
 it('resolves serial barcode and sku identifiers deterministically', function (): void {
     $variant = ProductVariant::factory()->create([
         'sku' => 'SKU-SCAN-001',

@@ -38,7 +38,9 @@ final class PurchaseOrderForm
     {
         return $schema->components([
             Section::make(__('admin.resources.purchase_orders'))
-                ->description(__('admin.purchasing.hints.po_commercial_only'))
+                ->description(fn (): string => app()->getLocale() === 'ar'
+                    ? 'أمر الشراء يوثق الالتزام التجاري مع المورد. يتم تنفيذ الاستلام الفعلي من وحدة المخزون، بينما تتولى المحاسبة فواتير الموردين وذممهم.'
+                    : 'Purchase Orders record supplier commercial commitments. Inventory owns physical receiving; Accounting owns supplier bills and payables.')
                 ->schema([
                     TextInput::make('purchase_order_number')
                         ->label(__('admin.purchasing.fields.purchase_order_number'))
@@ -87,11 +89,11 @@ final class PurchaseOrderForm
                         ->required()
                         ->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && $record->lines()->exists()),
                     Select::make('payment_term_id')
-                        ->label(__('Payment terms'))
+                        ->label(fn (): string => app()->getLocale() === 'ar' ? 'شروط الدفع' : 'Payment terms')
                         ->options(fn (): array => PaymentTerm::query()->orderByDesc('is_default')->orderBy('name')->pluck('name', 'id')->all())
                         ->searchable()
                         ->preload()
-                        ->placeholder(__('Supplier / system default')),
+                        ->placeholder(fn (): string => app()->getLocale() === 'ar' ? 'إعداد المورد أو النظام الافتراضي' : 'Supplier / system default'),
                     DatePicker::make('ordered_at')
                         ->label(__('admin.purchasing.fields.ordered_at'))
                         ->required()

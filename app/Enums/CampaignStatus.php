@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Enums;
 
 use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
-enum CampaignStatus: string implements HasLabel
+enum CampaignStatus: string implements HasColor, HasLabel
 {
     use HasTranslatedLabel;
 
@@ -31,5 +32,15 @@ enum CampaignStatus: string implements HasLabel
     public function isTerminal(): bool
     {
         return in_array($this, [self::Completed, self::Failed, self::Cancelled], true);
+    }
+
+    public function getColor(): string
+    {
+        return match ($this) {
+            self::Draft => 'gray',
+            self::Scheduled, self::Sending => 'info',
+            self::Completed => 'success',
+            self::Failed, self::Cancelled => 'danger',
+        };
     }
 }

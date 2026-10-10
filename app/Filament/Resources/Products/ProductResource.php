@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Products;
 
 use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductType;
+use App\Filament\Components\InventoryViewDiagnostics;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Products\Pages\EditProduct;
@@ -16,6 +17,7 @@ use App\Filament\Resources\Products\Pages\ManageProductVariants;
 use App\Filament\Resources\Products\Pages\ManageProductVendors;
 use App\Filament\Resources\Products\Pages\ViewProduct;
 use App\Filament\Resources\Products\Schemas\ProductForm;
+use App\Filament\Resources\Products\Schemas\ProductStockSummary;
 use App\Filament\Resources\Products\Tables\ProductsTable;
 use App\Models\Product;
 use App\Services\Inventory\CountryNameResolver;
@@ -60,12 +62,14 @@ final class ProductResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->columns(2)->schema([
+            InventoryViewDiagnostics::section(),
+            InventoryViewDiagnostics::metrics(static fn (Product $record): array => ProductStockSummary::metrics($record)),
+            Section::make(__('inventory_view_ux.ui.product_identity'))->columns(['default' => 1, 'md' => 2])->schema([
                 TextEntry::make('name'),
                 TextEntry::make('name_ar')->label(__('Arabic name')),
-                TextEntry::make('category.name'),
+                TextEntry::make('category.name')->label(__('Category')),
                 TextEntry::make('manufacturer.name')->label(__('Manufacturer'))->placeholder(__('—')),
-                TextEntry::make('brand.name'),
+                TextEntry::make('brand.name')->label(__('Brand'))->placeholder(__('—')),
                 TextEntry::make('operational_profile')
                     ->label(__('Operational profile'))
                     ->badge()
@@ -78,6 +82,7 @@ final class ProductResource extends Resource
                     ->color(static fn (ProductType $state): string => $state->color())
                     ->helperText(static fn (ProductType $state): string => $state->description()),
                 TextEntry::make('variants_count')
+                    ->label(__('Variants'))
                     ->state(fn (Product $record): int => $record->variants()->count()),
                 TextEntry::make('description')->columnSpanFull(),
                 ImageEntry::make('images')
@@ -86,8 +91,10 @@ final class ProductResource extends Resource
                         ->all())
                     ->imageHeight(120)
                     ->stacked(false)
+                    ->placeholder(__('—'))
                     ->columnSpanFull(),
             ]),
+            ProductStockSummary::variantsSection(),
         ]);
     }
 

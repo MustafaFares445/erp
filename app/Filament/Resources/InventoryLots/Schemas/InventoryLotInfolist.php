@@ -7,16 +7,19 @@ namespace App\Filament\Resources\InventoryLots\Schemas;
 use App\Enums\StockCondition;
 use App\Enums\SupportPermission;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Components\InventoryViewDiagnostics;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Services\Inventory\InventoryLotTimelineService;
 use App\Services\Support\LotQualitySignalService;
 use App\Services\Support\TicketProductContextService;
+use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Lang;
 
 final class InventoryLotInfolist
 {
@@ -24,6 +27,7 @@ final class InventoryLotInfolist
     {
         return $schema
             ->components([
+                InventoryViewDiagnostics::section(),
                 Section::make(__('admin.inventory.lot.sections.identity'))->columns(2)->schema([
                     TextEntry::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->placeholder(__('—')),
                     TextEntry::make('normalized_lot_number')->label(__('admin.inventory.lot.fields.normalized'))->placeholder(__('—')),
@@ -41,17 +45,15 @@ final class InventoryLotInfolist
                     TextEntry::make('expiry_state')
                         ->label(__('admin.inventory.lot.fields.expiry_state'))
                         ->state(fn (InventoryLot $record): string => $record->expiryState())
+                        ->formatStateUsing(static fn (string $state): string => self::localizedState('expiry_states', $state))
                         ->badge(),
                     TextEntry::make('expiry_bucket')
-                        ->label(__('Expiry window'))
-                        ->state(fn (InventoryLot $record): string => match ($record->expiryBucket()) {
-                            'expired' => __('Expired'),
-                            'critical' => __('0–30 days'),
-                            'warning' => __('31–60 days'),
-                            'notice' => __('61–90 days'),
-                            'healthy' => __('Beyond alert window'),
-                            default => __('No expiry'),
-                        })
+                        ->label(__('inventory-other.lot.expiry_window'))
+                        ->state(fn (InventoryLot $record): string => self::localizedState(
+                            'buckets',
+                            in_array($record->expiryBucket(), ['expired', 'critical', 'warning', 'notice', 'healthy'], true)
+                                ? $record->expiryBucket() : 'none',
+                        ))
                         ->badge(),
                 ]),
                 Section::make(__('admin.inventory.lot.sections.balances'))->columns(3)->schema([
@@ -82,26 +84,35 @@ final class InventoryLotInfolist
                         ->label(__('admin.inventory.lot.fields.warehouses'))
                         ->state(fn (InventoryLot $record): int => $record->warehouseCount()),
                 ]),
-                Section::make(__('Lot traceability'))
-                    ->description(__('Immutable warehouse movement history for backward and forward lot tracing.'))
+                Section::make(__('inventory-other.lot.traceability'))
+                    ->description(__('inventory-other.lot.traceability_description'))
                     ->schema([
                         RepeatableEntry::make('traceability_timeline')
-                            ->label(__('Movement history'))
+                            ->label(__('inventory-other.lot.movement_history'))
                             ->state(fn (InventoryLot $record): array => app(InventoryLotTimelineService::class)->events($record))
                             ->schema([
-                                TextEntry::make('occurred_at')->label(__('Date'))->dateTime(),
-                                TextEntry::make('movement')->label(__('Movement'))->badge(),
-                                TextEntry::make('warehouse')->label(__('Warehouse')),
-                                TextEntry::make('transaction_quantity')->label(__('Transaction quantity'))->placeholder(__('—')),
-                                TextEntry::make('transaction_unit')->label(__('Unit'))->placeholder(__('—')),
-                                TextEntry::make('base_quantity_delta')->label(__('Base delta'))->numeric(decimalPlaces: 6),
-                                TextEntry::make('condition_from')->label(__('From condition'))->badge()->placeholder(__('—')),
-                                TextEntry::make('condition_to')->label(__('To condition'))->badge()->placeholder(__('—')),
-                                TextEntry::make('serial')->label(__('Serial'))->placeholder(__('—')),
-                                TextEntry::make('source')->label(__('Source document')),
-                                TextEntry::make('counterparty')->label(__('Supplier / customer'))->placeholder(__('—')),
-                                TextEntry::make('invoice')->label(__('Invoice'))->placeholder(__('—')),
-                                TextEntry::make('notes')->label(__('Notes'))->placeholder(__('—'))->columnSpanFull(),
+                                TextEntry::make('occurred_at')->label(__('inventory-other.lot.fields.date'))->dateTime(),
+                                TextEntry::make('movement')
+                                    ->label(__('inventory-other.lot.fields.movement'))
+                                    ->formatStateUsing(static fn (?string $state): ?string => self::localizedState('movements', $state))
+                                    ->badge(),
+                                TextEntry::make('warehouse')->label(__('inventory-other.lot.fields.warehouse')),
+                                TextEntry::make('transaction_quantity')->label(__('inventory-other.lot.fields.transaction_quantity'))->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))->placeholder(__('—')),
+                                TextEntry::make('transaction_unit')->label(__('inventory-other.lot.fields.unit'))->placeholder(__('—')),
+                                TextEntry::make('base_quantity_delta')->label(__('inventory-other.lot.fields.base_delta'))->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
+                                TextEntry::make('condition_from')
+                                    ->label(__('inventory-other.lot.fields.from_condition'))
+                                    ->formatStateUsing(static fn (?string $state): ?string => self::localizedState('conditions', $state))
+                                    ->badge()->placeholder(__('—')),
+                                TextEntry::make('condition_to')
+                                    ->label(__('inventory-other.lot.fields.to_condition'))
+                                    ->formatStateUsing(static fn (?string $state): ?string => self::localizedState('conditions', $state))
+                                    ->badge()->placeholder(__('—')),
+                                TextEntry::make('serial')->label(__('inventory-other.lot.fields.serial'))->placeholder(__('—')),
+                                TextEntry::make('source')->label(__('inventory-other.lot.fields.source')),
+                                TextEntry::make('counterparty')->label(__('inventory-other.lot.fields.counterparty'))->placeholder(__('—')),
+                                TextEntry::make('invoice')->label(__('inventory-other.lot.fields.invoice'))->placeholder(__('—')),
+                                TextEntry::make('notes')->label(__('inventory-other.lot.fields.notes'))->placeholder(__('—'))->columnSpanFull(),
                             ])
                             ->columns(3),
                     ]),
@@ -135,13 +146,25 @@ final class InventoryLotInfolist
 
                                 return $alert === null
                                     ? (string) __('No alert')
-                                    : (string) __('Raised :date — Inventory decides on quarantine', ['date' => $alert->raised_at->toFormattedDateString()]);
+                                    : (string) __('Raised :date — Inventory decides on quarantine', ['date' => $alert->raised_at->translatedFormat('M j, Y')]);
                             })
                             ->badge()
                             ->color(static fn (InventoryLot $record): string => app(LotQualitySignalService::class)->summary($record)['alert'] === null ? 'gray' : 'warning')
                             ->columnSpan(2),
                     ]),
             ]);
+    }
+
+    /** @return ($state is null ? null : string) */
+    private static function localizedState(string $group, ?string $state): ?string
+    {
+        if ($state === null || $state === '') {
+            return $state;
+        }
+
+        $key = 'inventory-other.lot.'.$group.'.'.$state;
+
+        return Lang::has($key) ? (string) __($key) : $state;
     }
 
     private static function originReference(InventoryLot $lot): string

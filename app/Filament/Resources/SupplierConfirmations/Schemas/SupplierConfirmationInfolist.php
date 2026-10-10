@@ -18,6 +18,7 @@ final class SupplierConfirmationInfolist
         return $schema->components([
             Section::make(__('Supplier commitment'))
                 ->description(__('Append-only supplier evidence for the outstanding Purchase Order quantity.'))
+                ->columnSpanFull()
                 ->columns(4)
                 ->schema([
                     TextEntry::make('purchaseOrder.purchase_order_number')->label(__('Purchase Order')),
@@ -39,10 +40,12 @@ final class SupplierConfirmationInfolist
                     TextEntry::make('notes')->label(__('Response note'))->columnSpanFull()->placeholder(__('—'))->wrap(),
                 ]),
             Section::make(__('Line commitments'))
+                ->columnSpanFull()
                 ->schema([
                     RepeatableEntry::make('items')
-                        ->label('')
-                        ->columns(8)
+                        ->label(__('Line commitments'))
+                        ->hiddenLabel()
+                        ->columns(['default' => 2, 'md' => 4, 'xl' => 8])
                         ->schema([
                             TextEntry::make('productVariant.product.name')->label(__('Product')),
                             TextEntry::make('productVariant.sku')->label(__('SKU')),

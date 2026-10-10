@@ -22,6 +22,12 @@ final class ListMaintenanceRequests extends ListRecords
     protected static string $resource = MaintenanceRequestResource::class;
 
     #[\Override]
+    public function getTitle(): string
+    {
+        return __('admin.resources.maintenance_requests');
+    }
+
+    #[\Override]
     public function getHeaderActions(): array
     {
         return [CreateAction::make()];

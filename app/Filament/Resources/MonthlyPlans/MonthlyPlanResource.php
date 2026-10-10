@@ -81,7 +81,12 @@ final class MonthlyPlanResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['employee:id,employee_code,job_title', 'createdBy:id,name', 'performanceScore'])
+            ->with([
+                'employee:id,user_id,employee_code,job_title',
+                'employee.user:id,name',
+                'createdBy:id,name',
+                'performanceScore',
+            ])
             ->withCount('tasks')
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }

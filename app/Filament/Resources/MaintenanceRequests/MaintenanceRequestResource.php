@@ -47,6 +47,18 @@ final class MaintenanceRequestResource extends Resource
     }
 
     #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('Maintenance Request');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.resources.maintenance_requests');
+    }
+
+    #[\Override]
     public static function form(Schema $schema): Schema
     {
         return MaintenanceRequestForm::configure($schema);

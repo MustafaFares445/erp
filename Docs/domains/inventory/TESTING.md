@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: inventory
-last_verified: 2026-10-02
+last_verified: 2026-10-08
 verified_against: tests/Feature/Inventory
 ---
 
@@ -19,7 +19,8 @@ The suite covers:
 - reservation creation/release/expiry;
 - canonical posting and allocation;
 - concurrency around balances and operations;
-- lots, expiry and serialized inventory;
+- lots, FEFO/expiry buckets and serialized inventory;
+- Sales Order reservation provenance and tracked-identity assignment;
 - physical counts and variance handling;
 - returns, corrections and condition changes;
 - purchase inbound receiving integration;
@@ -28,6 +29,8 @@ The suite covers:
 - UOM normalization/product types;
 - permissions and workspace navigation (`InventoryNavigationTest`: seven-destination sidebar, deep links, permission-aware tabs);
 - reports/exports/reconciliation;
+- typed-list columns after Livewire view changes and the permission-aware transfer creation link (`ListTableExperienceInventoryTest`);
+- submit controls on the non-wizard transfer form in English/Arabic, alongside existing creation/state guards (`InventoryOperationResourceTest`);
 - legacy inventory removal guards.
 
 Representative tests include `OperationLifecycleTest`, `OperationStockEffectTest`, `InventoryPostingServiceTest`, `InventoryOperationConcurrencyTest`, `PhysicalCountFlowTest`, `InventoryReturnServiceTest`, `InventoryCorrectionServiceTest`, and `PurchaseMultiWarehouseInboundEndToEndTest`.

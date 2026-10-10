@@ -19,13 +19,13 @@
                     @include('filament.support.installation-progress', ['progress' => $installationProgress])
                     @if($installation)
                         <dl class="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-                            <div><dt class="text-gray-500">{{ __('Installed') }}</dt><dd class="mt-1">{{ $installation->installed_at?->toDayDateTimeString() ?? '—' }}</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Installed') }}</dt><dd class="mt-1">{{ $installation->installed_at?->format('Y-m-d H:i') ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Installed by') }}</dt><dd class="mt-1">{{ $installation->installedBy?->user?->name ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Shipment') }}</dt><dd class="mt-1">{{ $installation->shipment?->tracking_number ?? '—' }}</dd></div>
-                            <div><dt class="text-gray-500">{{ __('Commissioning') }}</dt><dd class="mt-1">{{ $installation->commissioning_status->label() }}@if($installation->commissioned_at) · {{ $installation->commissioned_at->toDayDateTimeString() }}@endif</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Commissioning') }}</dt><dd class="mt-1">{{ $installation->commissioning_status->label() }}@if($installation->commissioned_at) · {{ $installation->commissioned_at->format('Y-m-d H:i') }}@endif</dd></div>
                             <div><dt class="text-gray-500">{{ __('Commissioned by') }}</dt><dd class="mt-1">{{ $installation->commissionedBy?->user?->name ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Commissioning failure reason') }}</dt><dd class="mt-1">{{ $installation->commissioning_failure_reason ?? '—' }}</dd></div>
-                            <div><dt class="text-gray-500">{{ __('Customer acceptance') }}</dt><dd class="mt-1">{{ $installation->customer_acceptance_status->label() }}@if($installation->customer_accepted_at) · {{ $installation->customer_accepted_at->toDayDateTimeString() }}@endif</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Customer acceptance') }}</dt><dd class="mt-1">{{ $installation->customer_acceptance_status->label() }}@if($installation->customer_accepted_at) · {{ $installation->customer_accepted_at->format('Y-m-d H:i') }}@endif</dd></div>
                             <div><dt class="text-gray-500">{{ __('Signatory') }}</dt><dd class="mt-1">{{ $installation->customer_signatory_name ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Rejection reason') }}</dt><dd class="mt-1">{{ $installation->customer_rejection_reason ?? '—' }}</dd></div>
                         </dl>
@@ -51,10 +51,10 @@
                     <x-slot name="heading">{{ __('Calibration') }}</x-slot>
                     @if($lastCalibration)
                         <dl class="grid grid-cols-1 gap-3 text-sm md:grid-cols-3" data-testid="equipment-last-calibration">
-                            <div><dt class="text-gray-500">{{ __('Last calibration') }}</dt><dd class="mt-1">{{ $lastCalibration->calibrated_at?->toDayDateTimeString() ?? '—' }}</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Last calibration') }}</dt><dd class="mt-1">{{ $lastCalibration->calibrated_at?->format('Y-m-d H:i') ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Result') }}</dt><dd class="mt-1"><x-filament::badge :color="$lastCalibration->result->getColor()">{{ $lastCalibration->result->label() }}</x-filament::badge></dd></div>
-                            <div><dt class="text-gray-500">{{ __('Certificate') }}</dt><dd class="mt-1">{{ $lastCalibration->certificate_number ?? '—' }}@if($lastCalibration->certificate_expires_on) · {{ __('Expires :date', ['date' => $lastCalibration->certificate_expires_on->toFormattedDateString()]) }}@endif</dd></div>
-                            <div><dt class="text-gray-500">{{ __('Next calibration due') }}</dt><dd class="mt-1">{{ $lastCalibration->next_calibration_due_on?->toFormattedDateString() ?? '—' }}</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Certificate') }}</dt><dd class="mt-1">{{ $lastCalibration->certificate_number ?? '—' }}@if($lastCalibration->certificate_expires_on) · {{ __('Expires :date', ['date' => $lastCalibration->certificate_expires_on->locale(app()->getLocale())->translatedFormat('M j, Y')]) }}@endif</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Next calibration due') }}</dt><dd class="mt-1">{{ $lastCalibration->next_calibration_due_on?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Technician') }}</dt><dd class="mt-1">{{ $lastCalibration->performedBy?->user?->name ?? $lastCalibration->externalProvider?->name ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Failure reason') }}</dt><dd class="mt-1">{{ $lastCalibration->failure_reason ?? '—' }}</dd></div>
                         </dl>
@@ -86,8 +86,8 @@
                         <dl class="grid grid-cols-1 gap-3 text-sm md:grid-cols-4" data-testid="equipment-loan-as-original">
                             <div><dt class="text-gray-500">{{ __('Loaner serial') }}</dt><dd class="mt-1">{{ $loan->loanerUnit?->serial_number ?? '—' }}</dd></div>
                             <div><dt class="text-gray-500">{{ __('Status') }}</dt><dd class="mt-1"><x-filament::badge :color="$loan->status->getColor()">{{ $loan->status->label() }}</x-filament::badge></dd></div>
-                            <div><dt class="text-gray-500">{{ __('Issued') }}</dt><dd class="mt-1">{{ $loan->issued_at?->toDayDateTimeString() ?? '—' }}</dd></div>
-                            <div><dt class="text-gray-500">{{ __('Returned') }}</dt><dd class="mt-1">{{ $loan->returned_at?->toDayDateTimeString() ?? ($loan->expected_return_at ? __('Expected :date', ['date' => $loan->expected_return_at->toDayDateTimeString()]) : '—') }}</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Issued') }}</dt><dd class="mt-1">{{ $loan->issued_at?->format('Y-m-d H:i') ?? '—' }}</dd></div>
+                            <div><dt class="text-gray-500">{{ __('Returned') }}</dt><dd class="mt-1">{{ $loan->returned_at?->format('Y-m-d H:i') ?? ($loan->expected_return_at ? __('Expected :date', ['date' => $loan->expected_return_at->format('Y-m-d H:i')]) : '—') }}</dd></div>
                         </dl>
                     @endforeach
                     @if($loansAsLoaner->isNotEmpty())
@@ -99,8 +99,8 @@
                                 <tr>
                                     <td>{{ $loan->customer?->company_name ?? '—' }}</td>
                                     <td><a class="text-primary-600" href="{{ $maintenanceUrl($loan->maintenanceRecord) }}">#{{ $loan->maintenance_record_id }}</a></td>
-                                    <td>{{ $loan->issued_at?->toDateString() ?? '—' }}</td>
-                                    <td>{{ $loan->returned_at?->toDateString() ?? '—' }}</td>
+                                    <td>{{ $loan->issued_at?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</td>
+                                    <td>{{ $loan->returned_at?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</td>
                                     <td>{{ $loan->status->label() }}</td>
                                 </tr>
                             @endforeach
@@ -194,20 +194,20 @@
             <x-filament::section>
                 <x-slot name="heading">{{ __('Warranty & service') }}</x-slot>
                 <dl class="space-y-3 text-sm">
-                    <div><dt class="text-gray-500">{{ __('Warranty expires') }}</dt><dd class="mt-1 font-medium">{{ $unit->warranty_expires_on?->toDateString() ?? '—' }}</dd></div>
+                    <div><dt class="text-gray-500">{{ __('Warranty expires') }}</dt><dd class="mt-1 font-medium">{{ $unit->warranty_expires_on?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</dd></div>
                     <div>
                         <dt class="text-gray-500">{{ __('Support entitlement') }}</dt>
                         <dd class="mt-1">
                             @if($supportEntitlement)
-                                <span class="font-medium">{{ $supportEntitlement->serviceLevel->name }}</span>
-                                <span class="text-gray-500">· {{ __('Valid until') }} {{ $supportEntitlement->ends_on?->toDateString() ?? '—' }}</span>
+                                <span class="font-medium">{{ $supportEntitlement->serviceLevel->code === 'PRIORITY' ? __('Priority') : $supportEntitlement->serviceLevel->name }}</span>
+                                <span class="text-gray-500">· {{ __('Valid until') }} {{ $supportEntitlement->ends_on?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</span>
                             @else
                                 {{ __('No active support entitlement') }}
                             @endif
                         </dd>
                     </div>
-                    <div><dt class="text-gray-500">{{ __('Last service') }}</dt><dd class="mt-1">{{ $metrics->lastServiceAt ?? '—' }}</dd></div>
-                    <div><dt class="text-gray-500">{{ __('Next preventive due') }}</dt><dd class="mt-1">{{ $metrics->nextPreventiveDueOn ?? '—' }}</dd></div>
+                    <div><dt class="text-gray-500">{{ __('Last service') }}</dt><dd class="mt-1">{{ $metrics->lastServiceAt !== null ? \Illuminate\Support\Carbon::parse($metrics->lastServiceAt)->format('Y-m-d H:i') : '—' }}</dd></div>
+                    <div><dt class="text-gray-500">{{ __('Next preventive due') }}</dt><dd class="mt-1">{{ $metrics->nextPreventiveDueOn !== null ? \Illuminate\Support\Carbon::parse($metrics->nextPreventiveDueOn)->locale(app()->getLocale())->translatedFormat('M j, Y') : '—' }}</dd></div>
                 </dl>
             </x-filament::section>
 
@@ -227,15 +227,15 @@
             <x-filament::section>
                 <x-slot name="heading">{{ __('Preventive maintenance') }}</x-slot>
                 <dl class="mb-4 space-y-1 text-sm" data-testid="equipment-next-due">
-                    <div class="flex justify-between"><dt class="text-gray-500">{{ __('Next preventive maintenance') }}</dt><dd>{{ $nextDueByKind->get('preventive')?->toFormattedDateString() ?? '—' }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-gray-500">{{ __('Next inspection') }}</dt><dd>{{ $nextDueByKind->get('inspection')?->toFormattedDateString() ?? '—' }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-gray-500">{{ __('Next calibration') }}</dt><dd>{{ $nextDueByKind->get('calibration')?->toFormattedDateString() ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">{{ __('Next preventive maintenance') }}</dt><dd>{{ $nextDueByKind->get('preventive')?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">{{ __('Next inspection') }}</dt><dd>{{ $nextDueByKind->get('inspection')?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">{{ __('Next calibration') }}</dt><dd>{{ $nextDueByKind->get('calibration')?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? '—' }}</dd></div>
                 </dl>
                 <div class="space-y-3 text-sm">
                     @forelse($schedules as $schedule)
                         <div class="ierp-tile">
                             <div class="font-medium">{{ $schedule->name }}</div>
-                            <div class="mt-1 text-gray-500">{{ $schedule->schedule_number }} · {{ $schedule->next_due_on?->toDateString() ?? __('No next due date') }}</div>
+                            <div class="mt-1 text-gray-500">{{ $schedule->schedule_number }} · {{ $schedule->next_due_on?->locale(app()->getLocale())->translatedFormat('M j, Y') ?? __('No next due date') }}</div>
                         </div>
                     @empty
                         <p class="text-gray-500">{{ __('No preventive schedule configured.') }}</p>

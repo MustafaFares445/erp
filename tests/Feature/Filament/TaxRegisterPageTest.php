@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
+use App\Filament\AdminModuleRegistry;
+use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Filament\Resources\Taxes\Pages\ListTaxes;
 use App\Filament\Resources\Taxes\Pages\ViewTaxRegister;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Models\Bill;
@@ -202,4 +205,70 @@ it('reloads the tax register when date boundaries change', function (): void {
     expect($component->instance()->getTitle())->toContain(__('admin.resources.taxes'))
         ->and($component->get('from'))->toBe(CarbonImmutable::today()->subDay()->toDateString())
         ->and($component->get('to'))->toBe(CarbonImmutable::today()->addDay()->toDateString());
+});
+
+it('names the source document of a register entry in the admin locale', function (): void {
+    $entry = TaxRecognitionEntry::factory()->create(['source_type' => Invoice::class]);
+    app()->setLocale('ar');
+
+    Livewire::actingAs($this->chief)
+        ->test(ViewTaxRegister::class)
+        ->assertSee('الفاتورة #'.$entry->source_id)
+        ->assertDontSee('Invoice #'.$entry->source_id);
+});
+
+it('renders the raw tax list with translated direction and a linked source document', function (): void {
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+    ]);
+
+    TaxRecognitionEntry::factory()->create([
+        'direction' => 'deferred_output',
+        'tax_type' => 'sales_tax',
+        'source_type' => Invoice::class,
+        'source_id' => $invoice->getKey(),
+    ]);
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs($this->chief)
+        ->test(ListTaxes::class)
+        ->assertSuccessful()
+        ->assertSee('الضرائب')
+        ->assertSee('ضريبة المخرجات المؤجلة')
+        ->assertSee('ضريبة المبيعات')
+        ->assertDontSeeText('sales_tax')
+        ->assertSee('فاتورة '.$invoice->invoice_number)
+        ->assertDontSee(Invoice::class)
+        ->assertSeeHtml('href="'.e(AdminModuleRegistry::resolveResourceRecordLink(InvoiceResource::class, (int) $invoice->getKey())).'"');
+});
+
+it('falls back to the translated document type and id when the raw tax source record is missing', function (): void {
+    $entry = TaxRecognitionEntry::factory()->create([
+        'source_type' => Invoice::class,
+        'source_id' => 987654,
+    ]);
+
+    expect($entry->source)->toBeNull();
+
+    Livewire::actingAs($this->chief)
+        ->test(ListTaxes::class)
+        ->assertSuccessful()
+        ->assertTableColumnFormattedStateSet('source_type', 'Invoice #987654', $entry);
+});
+
+it('falls back to the bare record id when the source document has no title or number', function (): void {
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_number' => '',
+    ]);
+    $entry = TaxRecognitionEntry::factory()->create([
+        'source_type' => Invoice::class,
+        'source_id' => $invoice->getKey(),
+    ]);
+
+    Livewire::actingAs($this->chief)
+        ->test(ListTaxes::class)
+        ->assertSuccessful()
+        ->assertTableColumnFormattedStateSet('source_type', 'Invoice #'.$invoice->getKey(), $entry);
 });

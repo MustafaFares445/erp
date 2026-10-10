@@ -25,7 +25,7 @@ final class MonthlyPlanInfolist
                             Section::make(__('General'))
                                 ->schema([
                                     TextEntry::make('name'),
-                                    TextEntry::make('employee.job_title')->label(__('Employee')),
+                                    TextEntry::make('employee.user.name')->label(__('Employee')),
                                     TextEntry::make('month')->date('F Y'),
                                 ])
                                 ->columns(3),
@@ -48,11 +48,11 @@ final class MonthlyPlanInfolist
                                             return is_scalar($default) ? (string) $default : '';
                                         }),
                                     TextEntry::make('active_month')
-                                        ->label(__('In-progress month'))
+                                        ->label(__('employees.in_progress_month'))
                                         ->date('F Y')
                                         ->placeholder(__('—')),
                                     TextEntry::make('published_at')->label(__('Published at'))->dateTime()->placeholder(__('Not published')),
-                                    TextEntry::make('publishedBy.name')->label(__('Published by'))->placeholder(__('—')),
+                                    TextEntry::make('publishedBy.name')->label(__('employees.published_by'))->placeholder(__('—')),
                                 ])
                                 ->columns(2),
                             Section::make(__('Performance'))
@@ -73,7 +73,7 @@ final class MonthlyPlanInfolist
                                     TextEntry::make('visit_weight'),
                                     TextEntry::make('schedule_weight'),
                                     TextEntry::make('work_time_weight'),
-                                    TextEntry::make('opportunity_weight')->label(__('Sales opportunity weight')),
+                                    TextEntry::make('opportunity_weight')->label(__('employees.sales_opportunity_weight')),
                                 ])
                                 ->columns(2),
                         ])->columnSpan(['lg' => 1]),

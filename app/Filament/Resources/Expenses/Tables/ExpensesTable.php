@@ -9,6 +9,7 @@ use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
 use App\Models\Expense;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -18,6 +19,7 @@ use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -31,17 +33,17 @@ final class ExpensesTable
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('expense_number')->searchable()->sortable(),
-                TextColumn::make('merchant_name')->label(__('Merchant'))->searchable(),
-                TextColumn::make('supplier.name')->searchable(),
-                TextColumn::make('description')->searchable()->limit(40),
-                TextColumn::make('total_amount')->money()->sortable(),
-                TextColumn::make('amount_paid')->money()->sortable(),
-                TextColumn::make('payment_date')->date()->sortable()->toggleable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (ExpenseStatus $state): string => $state->label())
                     ->color(fn (ExpenseStatus $state): string => $state->color())
                     ->sortable(),
+                TextColumn::make('merchant_name')->label(__('Merchant'))->searchable(),
+                TextColumn::make('supplier.name')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('description')->searchable()->limit(40)->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_amount')->money()->sortable(),
+                TextColumn::make('amount_paid')->money()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('payment_date')->date()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->groups([
                 Group::make('status')
@@ -69,12 +71,14 @@ final class ExpensesTable
                 ]),
             ])
             ->recordActions([
-                ViewAction::make(),
-                ExpenseResource::approveAction(),
-                ExpenseResource::payAction(),
-                ExpenseResource::cancelAction(),
-                EditAction::make(),
-                DeleteAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    ExpenseResource::approveAction(),
+                    ExpenseResource::payAction(),
+                    ExpenseResource::cancelAction(),
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ])->icon(Heroicon::EllipsisVertical),
             ]);
     }
 

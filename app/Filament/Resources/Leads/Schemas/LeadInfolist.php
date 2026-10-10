@@ -27,7 +27,8 @@ final class LeadInfolist
                     TextEntry::make('job_title')->placeholder(__('—')),
                     TextEntry::make('email')->placeholder(__('—')),
                     TextEntry::make('phone')->placeholder(__('—')),
-                    TextEntry::make('preferred_language')->label(__('Language')),
+                    TextEntry::make('preferred_language')->label(__('Language'))
+                        ->formatStateUsing(static fn (?string $state): string => LeadForm::languageOptions()[(string) $state] ?? (string) $state),
                     TextEntry::make('assignee.name')->label(__('Assigned to'))->placeholder(__('Unassigned')),
                     TextEntry::make('last_interaction_at')->dateTime()->placeholder(__('Never')),
                     TextEntry::make('created_at')->dateTime(),

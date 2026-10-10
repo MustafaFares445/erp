@@ -16,7 +16,7 @@ final class DashboardUsersTable
             ->columns([
                 TextColumn::make('name')->searchable(),
                 TextColumn::make('email')->searchable(),
-                TextColumn::make('roles.name')->label(__('admin.crm.fields.dashboard_role'))->badge(),
+                TextColumn::make('roles.name')->label(__('admin.crm.fields.dashboard_role'))->formatStateUsing(static fn (string $state): string => __($state))->badge(),
             ])
             ->recordActions([EditAction::make()]);
     }

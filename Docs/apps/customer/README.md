@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: customer-app
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: adopted customer V1 decisions, current backend services, current route table, design/customer-app-v1.pen
 ---
 
@@ -29,7 +29,7 @@ Use [Design Handoff](DESIGN_HANDOFF.md) for the contract between visual design a
 
 The backend already contains many required domain capabilities: customer onboarding/approval/change requests, quote requests, return requests, pricing, Sales documents, shipment arrival confirmation, Stripe/payment transaction services, deposits/refunds, Support/warranty/maintenance and Notifications.
 
-However, the current runtime exposes no `api/*` routes. Customer mobile API authentication, ownership-scoped controllers/resources and provider/mobile adapters are therefore not yet an implemented public app channel.
+The runtime now exposes Sanctum customer login/logout plus a rollout-gated Support/Maintenance slice under `/api/customer`, including tickets, messages, customer-visible attachments, support payment session/status, equipment, maintenance, knowledge and satisfaction. The rest of the Customer App API — catalog, quotation/order, shipment, invoice/payment, returns, notifications and account workflows — is still incomplete and must not be inferred from the Pen design or backend services.
 
 See [Backend Dependencies](BACKEND_DEPENDENCIES.md).
 

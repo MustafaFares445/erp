@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: support
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: Support services/enums/permissions/tests
 ---
 
@@ -82,6 +82,8 @@ Service-record parts are consumed/reversed through `ServiceRecordPartService`, w
 Warranty status resolution is explicit. Entitlements use Pending Activation, Active, Ended or Cancelled states.
 
 Warranty activation is linked to shipment fulfillment. Customer returns/replacements can end or replace entitlement through explicit services.
+
+Authorized warranty-date correction requires the dedicated permission and a reason, synchronizes the serialized equipment warranty snapshot, and records activity history rather than silently rewriting service history. Maintenance should prefer known serialized equipment already associated with the customer when available, while external/unlinked serials remain supported where the workflow allows them.
 
 Entitlements whose policy start trigger is Installation or Commissioning stay Pending Activation after delivery. They start (and the serialized-unit warranty cache is refreshed) only when the owning installation is completed, or when commissioning passes, respectively; a failed commissioning never activates, and activation is idempotent. `WarrantyEntitlement` stays authoritative.
 

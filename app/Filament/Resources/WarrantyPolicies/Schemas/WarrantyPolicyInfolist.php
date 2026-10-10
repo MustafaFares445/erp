@@ -45,7 +45,12 @@ final class WarrantyPolicyInfolist
                 ->schema([
                     TextEntry::make('replacement_rule')
                         ->label(__('Replacement rule'))
-                        ->formatStateUsing(static fn (string $state): string => str($state)->replace('_', ' ')->title()->toString()),
+                        ->formatStateUsing(static fn (string $state): string => match ($state) {
+                            'remaining_original_term' => __('Keep remaining original term'),
+                            'restart_full_term' => __('Restart full policy term'),
+                            'manual_review' => __('Manual review'),
+                            default => $state,
+                        }),
                     TextEntry::make('exclusions')->placeholder(__('No additional exclusions recorded'))->columnSpanFull(),
                 ]),
         ]);

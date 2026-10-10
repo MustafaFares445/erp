@@ -6,9 +6,11 @@ use App\Enums\UserType;
 use App\Filament\Resources\Employees\Pages\CreateEmployee;
 use App\Filament\Resources\Employees\Pages\EditEmployee;
 use App\Filament\Resources\Employees\Pages\ViewEmployee;
+use App\Models\CustomerVisit;
 use App\Models\EmployeeProfile;
 use App\Models\User;
 use Database\Seeders\EmployeePermissionSeeder;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -96,6 +98,29 @@ it('renders the employee infolist with the record data', function (): void {
         ->assertSee($employee->employee_code)
         ->assertSee('Territory Manager')
         ->assertSee($employee->user->name);
+});
+
+it('shows overview visit times in the panel date-time format and highlights only real location warnings', function (): void {
+    // Release QA 2026-10-10: "Last completed visit" showed a raw ISO timestamp and a zero warning count as a coloured badge.
+    $admin = User::factory()->admin()->create();
+    $admin->assignRole('System Admin');
+
+    $employee = EmployeeProfile::factory()->create();
+    CustomerVisit::factory()->completed()->create([
+        'employee_id' => $employee->getKey(),
+        'checked_in_at' => '2026-09-24 14:15:00',
+        'checked_out_at' => '2026-09-24 15:01:00',
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test(ViewEmployee::class, ['record' => $employee->getKey()])
+        ->assertSeeText('Sep 24, 2026 15:01:00')
+        ->assertDontSeeText('2026-09-24 15:01')
+        ->assertSchemaComponentExists(
+            'overview_location_warnings',
+            'infolist',
+            static fn (TextEntry $entry): bool => $entry->getColor(0) === 'gray' && $entry->getColor(2) === 'warning',
+        );
 });
 
 it('updates an employee through the edit form', function (): void {

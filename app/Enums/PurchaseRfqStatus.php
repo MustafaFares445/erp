@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Enums;
 
 use App\Enums\Concerns\HasTranslatedLabel;
+use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
-enum PurchaseRfqStatus: string implements HasLabel
+enum PurchaseRfqStatus: string implements HasColor, HasLabel
 {
     use HasTranslatedLabel;
 
@@ -44,5 +45,16 @@ enum PurchaseRfqStatus: string implements HasLabel
     public function canClose(): bool
     {
         return $this === self::Awarded;
+    }
+
+    public function getColor(): string
+    {
+        return match ($this) {
+            self::Draft, self::Expired => 'gray',
+            self::Sent, self::AwaitingResponses => 'info',
+            self::PartiallyResponded, self::Evaluating => 'warning',
+            self::Awarded, self::Closed => 'success',
+            self::Cancelled => 'danger',
+        };
     }
 }

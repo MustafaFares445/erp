@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\Testing\TestAction;
 use Filament\Actions\ViewAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -143,8 +144,10 @@ it('exposes no stock write actions', function (): void {
 
     $actions = $component->instance()->getTable()->getActions();
 
-    expect($actions)->toHaveCount(7)
+    expect($actions)->toHaveCount(2)
         ->and($actions[0])->toBeInstanceOf(ViewAction::class)
+        ->and($actions[1])->toBeInstanceOf(ActionGroup::class)
+        ->and($actions[1]->getFlatActions())->toHaveCount(6)
         ->and($component->instance()->getTable()->getHeaderActions())->toBeEmpty()
         ->and($component->instance()->getTable()->getBulkActions())->toBeEmpty();
 

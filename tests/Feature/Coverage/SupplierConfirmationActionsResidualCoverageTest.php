@@ -74,7 +74,7 @@ it('renders the linked supplier commercial reference in confirmation defaults', 
         'confirmation_status' => SupplierConfirmationStatus::Pending,
     ]);
 
-    $defaults = (new ReflectionMethod(SupplierConfirmationActions::class, 'commitmentDefaults'))
+    $defaults = new ReflectionMethod(SupplierConfirmationActions::class, 'commitmentDefaults')
         ->invoke(null, $confirmation->refresh());
 
     expect($defaults)->toHaveCount(1)

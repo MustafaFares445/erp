@@ -65,7 +65,7 @@ final readonly class VisitSource implements TimelineSource
                     id: $visit->id,
                     occurredAt: $visit->planned_at ?? $visit->created_at ?? Carbon::now(),
                     occurredAtIsDateOnly: false,
-                    title: 'Visit — '.($employeeName ?? 'Unassigned'),
+                    title: __('Visit — :employee', ['employee' => $employeeName ?? __('Unassigned')]),
                     detail: $this->detail($visit),
                     statusLabel: $visit->status->label(),
                     statusColor: $visit->status->color(),
@@ -84,11 +84,11 @@ final readonly class VisitSource implements TimelineSource
         $parts = [];
 
         if ($visit->checked_in_at instanceof Carbon) {
-            $parts[] = "Checked in {$visit->checked_in_at->toDateTimeString()}";
+            $parts[] = __('Checked in :datetime', ['datetime' => $visit->checked_in_at->toDateTimeString()]);
         }
 
         if ($visit->checked_out_at instanceof Carbon) {
-            $parts[] = "Checked out {$visit->checked_out_at->toDateTimeString()}";
+            $parts[] = __('Checked out :datetime', ['datetime' => $visit->checked_out_at->toDateTimeString()]);
         }
 
         if (is_string($visit->outcome) && $visit->outcome !== '') {

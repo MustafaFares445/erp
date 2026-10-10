@@ -29,7 +29,7 @@ final class CreateInventoryCount extends CreateRecord
             scopeType: CountScope::from($this->stringValue($data, 'scope_type')),
             productCategoryId: $this->optionalInt($data, 'product_category_id'),
             inventoryLotId: $this->optionalInt($data, 'inventory_lot_id'),
-            productVariantIds: null,
+            productVariantIds: $this->productVariantIds($data),
             conditions: is_array($conditions) ? array_values(array_filter($conditions, is_string(...))) : [],
             materialityThresholdMinor: $this->optionalInt($data, 'materiality_threshold_minor'),
         ), $this->actor());
@@ -61,6 +61,26 @@ final class CreateInventoryCount extends CreateRecord
         $value = $data[$key] ?? null;
 
         return is_string($value) ? $value : '';
+    }
+
+    /** @param array<string, mixed> $data
+     * @return list<int>|null
+     */
+    private function productVariantIds(array $data): ?array
+    {
+        $variantIds = $data['product_variant_ids'] ?? null;
+
+        if (! is_array($variantIds)) {
+            return null;
+        }
+
+        return array_values(array_map(static function (mixed $variantId): int {
+            if (! is_numeric($variantId)) {
+                throw new LogicException('Product variant identifiers must be numbers.');
+            }
+
+            return (int) $variantId;
+        }, $variantIds));
     }
 
     private function actor(): User

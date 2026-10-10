@@ -3,17 +3,22 @@
 declare(strict_types=1);
 
 use App\Enums\SerializedCustodyType;
+use App\Enums\SupportEntitlementStatus;
 use App\Enums\WarrantyStartTrigger;
 use App\Filament\Resources\SupportEquipment\Pages\ViewSupportEquipment;
 use App\Models\CustomerProfile;
 use App\Models\EquipmentInstallation;
 use App\Models\SerializedInventoryUnit;
+use App\Models\SupportEntitlement;
+use App\Models\SupportServiceLevel;
 use App\Models\User;
 use App\Services\Support\EquipmentInstallationEvidenceService;
 use App\Services\Support\EquipmentInstallationService;
 use Database\Seeders\SupportPermissionSeeder;
+use Database\Seeders\SupportServiceLevelSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Support\InstallationFixtures;
@@ -71,7 +76,53 @@ it('shows a completed installation with the technician and date', function (): v
 
     equipment360(InstallationFixtures::manager(), $unit)
         ->assertSee('Installation completed')
-        ->assertSee($installation->installed_at->toDayDateTimeString());
+        ->assertSee($installation->installed_at->format('Y-m-d H:i'));
+});
+
+it('renders priority support and equipment dates without weekday literals in Arabic', function (): void {
+    [$customer, $unit, $record] = InstallationFixtures::scenario();
+    $installation = InstallationFixtures::installation($record, InstallationFixtures::manager(), 2);
+    (new SupportServiceLevelSeeder)->run();
+    $priority = SupportServiceLevel::query()->where('code', 'PRIORITY')->firstOrFail();
+    $entitlement = SupportEntitlement::query()->create([
+        'customer_id' => $customer->getKey(),
+        'support_service_level_id' => $priority->getKey(),
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'starts_on' => today()->subDay(),
+        'ends_on' => today()->addMonth(),
+        'status' => SupportEntitlementStatus::Active,
+    ]);
+    $originalLocale = app()->getLocale();
+    app()->setLocale('ar');
+
+    try {
+        equipment360(InstallationFixtures::manager(), $unit)
+            ->assertSuccessful()
+            ->assertSee(__('Priority'))
+            ->assertSee($installation->installed_at->format('Y-m-d H:i'))
+            ->assertSee($entitlement->ends_on->locale('ar')->translatedFormat('M j, Y'))
+            ->assertDontSee('Sat,');
+    } finally {
+        app()->setLocale($originalLocale);
+    }
+});
+
+// 2026-10-10 release QA: the Arabic installation steps showed "Sat, Oct 10, 2026 12:03 AM" (Carbon toDayDateTimeString).
+it('renders the installation step dates in the viewer language', function (): void {
+    $this->travelTo(Carbon::parse('2026-10-10 09:30'));
+    [, $unit, $record] = InstallationFixtures::scenario();
+    $installation = InstallationFixtures::installation($record, InstallationFixtures::manager(), 3);
+    $originalLocale = app()->getLocale();
+    app()->setLocale('ar');
+
+    try {
+        equipment360(InstallationFixtures::manager(), $unit)
+            ->assertSee($installation->installed_at->locale('ar')->translatedFormat('M j, Y H:i'))
+            ->assertSee($installation->commissioned_at->locale('ar')->translatedFormat('M j, Y H:i'))
+            ->assertDontSee('Oct 10, 2026');
+    } finally {
+        app()->setLocale($originalLocale);
+    }
 });
 
 it('shows a failed commissioning clearly with its reason', function (): void {

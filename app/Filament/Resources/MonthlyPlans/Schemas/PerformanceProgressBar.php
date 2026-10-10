@@ -31,7 +31,7 @@ final class PerformanceProgressBar
                 $summary = $record->performanceSummary();
 
                 if ($summary === null) {
-                    return new HtmlString('<p style="font-size: 0.875rem; color: var(--gray-500);">No performance score calculated yet.</p>');
+                    return new HtmlString('<p style="font-size: 0.875rem; color: var(--gray-500);">'.e(__('employees.no_performance_score')).'</p>');
                 }
 
                 return new HtmlString(self::styles().self::markup($summary));
@@ -51,29 +51,35 @@ final class PerformanceProgressBar
             <<<'HTML'
                 <div class="performance-progress-bar">
                     <div class="performance-progress-bar-header">
-                        <span>Performance</span>
+                        <span>%s</span>
                         <span>%s%%</span>
                     </div>
                     <div class="performance-progress-bar-track">
                         <div class="%s" style="width: %s%%;"></div>
                     </div>
                     <div class="performance-progress-bar-details">
-                        <span>Task score: %s</span>
-                        <span>Visit score: %s</span>
-                        <span>Schedule score: %s</span>
-                        <span>Work time score: %s</span>
-                        <span>Calculated: %s</span>
+                        <span>%s: %s</span>
+                        <span>%s: %s</span>
+                        <span>%s: %s</span>
+                        <span>%s: %s</span>
+                        <span>%s: %s</span>
                     </div>
                 </div>
                 HTML,
+            e(__('employees.performance')),
             number_format($percent, 2),
             $fillClass,
             number_format($percent, 2),
+            e(__('employees.task_score')),
             number_format($summary['task_score'], 2),
+            e(__('employees.visit_score')),
             number_format($summary['visit_score'], 2),
+            e(__('employees.schedule_score')),
             number_format($summary['schedule_score'], 2),
+            e(__('employees.work_time_score')),
             number_format($summary['work_time_score'], 2),
-            $summary['calculated_at']->format('M j, Y H:i:s'),
+            e(__('employees.calculated')),
+            $summary['calculated_at']->translatedFormat('M j, Y H:i:s'),
         );
     }
 

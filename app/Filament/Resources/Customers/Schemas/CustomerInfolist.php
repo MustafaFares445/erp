@@ -12,6 +12,7 @@ use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Locale;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class CustomerInfolist
@@ -35,14 +36,14 @@ final class CustomerInfolist
                         TextEntry::make('customer_type')
                             ->label(__('Customer Type'))
                             ->badge()
-                            ->formatStateUsing(static fn (mixed $state): string => $state instanceof CustomerType ? $state->label() : '?'),
-                        TextEntry::make('customerGroup.name')->label(__('Customer Group'))->placeholder(__('?')),
-                        TextEntry::make('default_currency_code')->label(__('Default Currency'))->placeholder(__('?')),
-                        TextEntry::make('defaultPriceList.name')->label(__('Default Price List'))->placeholder(__('?')),
-                        TextEntry::make('defaultPaymentTerm.name')->label(__('Default Payment Terms'))->placeholder(__('?')),
-                        TextEntry::make('assignedSalesEmployee.name')->label(__('Assigned Sales Employee'))->placeholder(__('?')),
-                        TextEntry::make('tax_registration_number')->label(__('Tax Registration Number'))->placeholder(__('?')),
-                        TextEntry::make('billing_address')->label(__('Billing Address'))->placeholder(__('?'))->columnSpanFull(),
+                            ->formatStateUsing(static fn (mixed $state): string => $state instanceof CustomerType ? __($state->label()) : __('—')),
+                        TextEntry::make('customerGroup.name')->label(__('Customer Group'))->placeholder(__('—')),
+                        TextEntry::make('default_currency_code')->label(__('Default Currency'))->placeholder(__('—')),
+                        TextEntry::make('defaultPriceList.name')->label(__('Default Price List'))->placeholder(__('—')),
+                        TextEntry::make('defaultPaymentTerm.name')->label(__('Default Payment Terms'))->placeholder(__('—')),
+                        TextEntry::make('assignedSalesEmployee.name')->label(__('Assigned Sales Employee'))->placeholder(__('—')),
+                        TextEntry::make('tax_registration_number')->label(__('Tax Registration Number'))->placeholder(__('—')),
+                        TextEntry::make('billing_address')->label(__('Billing Address'))->placeholder(__('—'))->columnSpanFull(),
                     ])
                     ->columns(4),
                 Section::make(__('Review & commercial capability'))
@@ -52,7 +53,11 @@ final class CustomerInfolist
                             ->badge()
                             ->formatStateUsing(fn (CustomerApprovalStatus $state): string => $state->label())
                             ->color(fn (CustomerApprovalStatus $state): string => $state->color()),
-                        TextEntry::make('reviewedBy.name')->label(__('Reviewed by'))->placeholder(__('Not reviewed yet')),
+                        TextEntry::make('reviewedBy.name')
+                            ->label(__('Reviewed by'))
+                            ->placeholder(static fn (CustomerProfile $record): string => $record->approval_status === CustomerApprovalStatus::Approved
+                                ? __('Approved when the account was created')
+                                : __('Not reviewed yet')),
                         TextEntry::make('reviewed_at')->label(__('Reviewed at'))->dateTime()->placeholder(__('—')),
                         TextEntry::make('review_note')->label(__('Review note'))->placeholder(__('—'))->columnSpanFull(),
                         IconEntry::make('allow_direct_orders')->label(__('Direct orders allowed'))->boolean(),
@@ -66,7 +71,9 @@ final class CustomerInfolist
                     ->schema([
                         TextEntry::make('email')->label(__('Company email'))->placeholder(__('Not provided')),
                         TextEntry::make('phone')->placeholder(__('Not provided')),
-                        TextEntry::make('country')->placeholder(__('Not provided')),
+                        TextEntry::make('country')
+                            ->formatStateUsing(static fn (string $state): string => self::countryName($state))
+                            ->placeholder(__('Not provided')),
                         TextEntry::make('city')->placeholder(__('Not provided')),
                         TextEntry::make('address')->label(__('Address details'))->placeholder(__('Not provided'))->columnSpanFull(),
                     ])
@@ -123,5 +130,21 @@ final class CustomerInfolist
                     ])
                     ->columns(3),
             ]);
+    }
+
+    /**
+     * The free-text country field often holds an ISO 3166-1 alpha-2 code ("AE"); show the
+     * country's name in the viewer's locale for codes and keep any other text as entered.
+     */
+    private static function countryName(string $country): string
+    {
+        if (preg_match('/^[A-Za-z]{2}$/', $country) !== 1) {
+            return $country;
+        }
+
+        $code = mb_strtoupper($country);
+        $name = Locale::getDisplayRegion('-'.$code, app()->getLocale());
+
+        return is_string($name) && $name !== '' && $name !== $code ? $name : $country;
     }
 }

@@ -70,8 +70,29 @@ final class ViewTicket extends ViewRecord
     #[\Override]
     public function getHeaderActions(): array
     {
-        return array_values(array_filter([
-            $this->primaryAction(),
+        return [
+            // Register every primary stage action once and evaluate visibility against
+            // the refreshed ticket. Filament caches registered actions at mount, so
+            // conditionally registering only the initial action leaves a stale header.
+            TriageTicketAction::make()
+                ->label(__('Triage ticket'))
+                ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::Pending),
+            $this->makeSettlePaymentAction(),
+            $this->makeAssignAction(),
+            $this->transitionAction('startProgress', 'Start Work', TicketStatus::InProgress)
+                ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::Assigned),
+            $this->transitionAction('resumeWork', 'Resume Work', TicketStatus::InProgress)
+                ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::WaitingCustomer),
+            $this->transitionAction('resolve', 'Resolve Ticket', TicketStatus::Resolved)
+                ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::InProgress
+                    && app(TicketWorkspaceStateResolver::class)->resolve($this->getTicket())->blocker !== TicketBlocker::MaintenanceAction),
+            $this->transitionAction('close', 'Close Ticket', TicketStatus::Closed)
+                ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::Resolved),
+            $this->raiseMaintenanceAction('raiseMaintenanceJob')
+                ->label(__('Raise maintenance job'))
+                ->visible(fn (): bool => app(TicketWorkspaceStateResolver::class)->resolve($this->getTicket())->blocker === TicketBlocker::MaintenanceAction
+                    && in_array($this->getTicket()->service_path, [TicketServicePath::Maintenance, TicketServicePath::OnSiteVisit], true)
+                    && in_array($this->getTicket()->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true)),
             ActionGroup::make([
                 $this->transitionAction('waitForCustomer', 'Wait for Customer', TicketStatus::WaitingCustomer)
                     ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::InProgress),
@@ -117,7 +138,7 @@ final class ViewTicket extends ViewRecord
                         ],
                     ])),
             ])->label(__('More actions'))->icon(Heroicon::OutlinedEllipsisVertical),
-        ]));
+        ];
     }
 
     public function postMessage(): void
@@ -196,30 +217,9 @@ final class ViewTicket extends ViewRecord
             ->send();
     }
 
-    private function primaryAction(): ?Action
+    private function raiseMaintenanceAction(string $name = 'raiseMaintenanceRequest'): Action
     {
-        $ticket = $this->getTicket();
-        $blocker = app(TicketWorkspaceStateResolver::class)->resolve($ticket)->blocker;
-
-        if ($blocker === TicketBlocker::MaintenanceAction) {
-            return $this->raiseMaintenanceAction()->label(__('Raise maintenance job'));
-        }
-
-        return match ($ticket->status) {
-            TicketStatus::Pending => TriageTicketAction::make()->label(__('Triage ticket')),
-            TicketStatus::PendingPayment => $this->makeSettlePaymentAction(),
-            TicketStatus::Live => $this->makeAssignAction(),
-            TicketStatus::Assigned => $this->transitionAction('startProgress', 'Start Work', TicketStatus::InProgress),
-            TicketStatus::WaitingCustomer => $this->transitionAction('resumeWork', 'Resume Work', TicketStatus::InProgress),
-            TicketStatus::InProgress => $this->transitionAction('resolve', 'Resolve Ticket', TicketStatus::Resolved),
-            TicketStatus::Resolved => $this->transitionAction('close', 'Close Ticket', TicketStatus::Closed),
-            TicketStatus::Closed, TicketStatus::Cancelled => null,
-        };
-    }
-
-    private function raiseMaintenanceAction(): Action
-    {
-        return Action::make('raiseMaintenanceRequest')
+        return Action::make($name)
             ->label(__('Raise Maintenance Request'))
             ->icon(Heroicon::OutlinedWrench)
             ->authorize('create', MaintenanceRecord::class)
@@ -350,6 +350,7 @@ final class ViewTicket extends ViewRecord
                     );
                     $this->getTicket()->refresh();
                     Notification::make()->success()->title(__('Ticket updated'))->send();
+                    // Visibility now follows the refreshed ticket without a page reload.
                 } catch (ValidationException|DomainException $exception) {
                     Notification::make()->danger()->title(__('Unable to change the ticket status'))->body(__($exception->getMessage()))->send();
                 }

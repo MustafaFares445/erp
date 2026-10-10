@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Products\Pages;
 use App\Enums\InventoryPermission;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Support\CurrencySelect;
+use App\Filament\Tables\TableFit;
 use App\Models\SupplierProductReference;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -23,6 +24,12 @@ final class ManageProductVendors extends ManageRelatedRecords
     protected static string $resource = ProductResource::class;
 
     protected static string $relationship = 'supplierProductReferences';
+
+    #[\Override]
+    public static function getRelationshipTitle(): string
+    {
+        return __('admin.resources.supplier_product_references');
+    }
 
     #[\Override]
     public static function canAccess(array $parameters = []): bool
@@ -64,17 +71,17 @@ final class ManageProductVendors extends ManageRelatedRecords
     #[\Override]
     public function table(Table $table): Table
     {
-        return $table->columns([
-            TextColumn::make('supplier.name')->searchable()->sortable(),
-            TextColumn::make('supplier_name')->label(__('Supplier product name'))->searchable(),
+        return TableFit::apply($table)->columns([
+            TextColumn::make('supplier.name')->wrap()->searchable()->sortable(),
+            TextColumn::make('supplier_name')->wrap()->label(__('Supplier product name'))->searchable(),
             TextColumn::make('supplier_item_number')->label(__('Supplier product number'))->searchable(),
-            TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder(__('—')),
-            TextColumn::make('country_code')->label(__('Country')),
+            TextColumn::make('productVariant.product.brand.name')->toggleable(isToggledHiddenByDefault: true)->label(__('admin.purchasing.fields.brand'))->placeholder(__('—')),
+            TextColumn::make('country_code')->toggleable(isToggledHiddenByDefault: true)->label(__('Country')),
             TextColumn::make('purchase_cost')->money()->visible(fn (): bool => self::canViewCommercialReference()),
-            TextColumn::make('currency_code')->visible(fn (): bool => self::canViewCommercialReference()),
-        ])->recordActions([
+            TextColumn::make('currency_code')->toggleable(isToggledHiddenByDefault: true)->visible(fn (): bool => self::canViewCommercialReference()),
+        ])->recordActions(TableFit::rowActions([
             EditAction::make()->visible(fn (): bool => self::canManageCommercialReference()),
-        ]);
+        ]));
     }
 
     private static function canViewCommercialReference(): bool

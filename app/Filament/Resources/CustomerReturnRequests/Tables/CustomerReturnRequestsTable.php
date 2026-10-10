@@ -9,7 +9,9 @@ use App\Filament\Resources\CustomerReturnRequests\Actions\CustomerReturnRequestA
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Models\CustomerReturnRequest;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -55,10 +57,12 @@ final class CustomerReturnRequestsTable
             ])
             ->recordActions([
                 ViewAction::make(),
-                CustomerReturnRequestActions::startReview(),
-                CustomerReturnRequestActions::approveAndConvert(),
-                CustomerReturnRequestActions::retryConvert(),
-                CustomerReturnRequestActions::reject(),
+                ActionGroup::make([
+                    CustomerReturnRequestActions::startReview(),
+                    CustomerReturnRequestActions::approveAndConvert(),
+                    CustomerReturnRequestActions::retryConvert(),
+                    CustomerReturnRequestActions::reject(),
+                ])->icon(Heroicon::EllipsisVertical),
             ])
             ->toolbarActions([]);
     }

@@ -73,7 +73,7 @@ final readonly class QuotationSource implements TimelineSource
                     id: $quotation->id,
                     occurredAt: $quotation->issue_date,
                     occurredAtIsDateOnly: true,
-                    title: "Quotation {$quotation->quotation_number}",
+                    title: __('Quotation :number', ['number' => $quotation->quotation_number]),
                     detail: $this->detail($quotation),
                     statusLabel: $quotation->status->label(),
                     statusColor: $quotation->status->color(),
@@ -97,7 +97,7 @@ final readonly class QuotationSource implements TimelineSource
         $parts = [];
 
         if ($quotation->expires_at instanceof Carbon) {
-            $parts[] = "Valid until {$quotation->expires_at->toDateString()}";
+            $parts[] = __('Valid until :date', ['date' => $quotation->expires_at->toDateString()]);
         }
 
         if (is_string($quotation->decision_note) && $quotation->decision_note !== '') {

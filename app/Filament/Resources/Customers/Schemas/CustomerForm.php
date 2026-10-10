@@ -95,6 +95,7 @@ final class CustomerForm
                         TextInput::make('company_name')
                             ->maxLength(255),
                         Toggle::make('is_active')
+                            ->label(__('Active'))
                             ->default(true),
                     ]),
                 Section::make(__('Commercial profile'))
@@ -102,7 +103,7 @@ final class CustomerForm
                     ->schema([
                         Select::make('customer_type')
                             ->label(__('Customer Type'))
-                            ->options(CustomerType::options())
+                            ->options(array_map(static fn (string $label): string => __($label), CustomerType::options()))
                             ->default(CustomerType::Other->value)
                             ->required(),
                         Select::make('customer_group_id')
@@ -223,8 +224,8 @@ final class CustomerForm
                                 TextInput::make('longitude')->numeric()->minValue(-180)->maxValue(180)->required(),
                                 TextInput::make('contact_name')->maxLength(255),
                                 TextInput::make('contact_phone')->maxLength(50),
-                                Toggle::make('is_active')->default(true),
-                                Toggle::make('is_default')->default(false),
+                                Toggle::make('is_active')->label(__('Active'))->default(true),
+                                Toggle::make('is_default')->label(__('Default'))->default(false),
                             ])
                             ->columns(2)
                             ->columnSpanFull(),
@@ -288,7 +289,7 @@ final class CustomerForm
     private static function documentUpload(string $collection, string $label): FileUpload
     {
         return FileUpload::make($collection)
-            ->label($label)
+            ->label(__($label))
             ->disk('local')
             ->directory('customer-documents/'.$collection)
             ->visibility('private')

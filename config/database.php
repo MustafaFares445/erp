@@ -23,6 +23,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Disposable Databases
+    |--------------------------------------------------------------------------
+    |
+    | Exact names of MySQL/MariaDB schemas that destructive commands (db:wipe,
+    | migrate:fresh/refresh/reset) and test cleanup may mutate. Anything not
+    | listed is refused. SQLite connections are not restricted by this list.
+    |
+    */
+
+    'disposable_databases' => array_values(array_filter(
+        array_map(trim(...), explode(',', (string) env('IERP_DISPOSABLE_DATABASES', ''))),
+        static fn (string $database): bool => $database !== '',
+    )),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

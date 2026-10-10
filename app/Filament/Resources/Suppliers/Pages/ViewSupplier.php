@@ -34,12 +34,11 @@ final class ViewSupplier extends ViewRecord
         /** @var Supplier $record */
         $record = $this->getRecord();
 
-        return sprintf(
-            '%s · %s · Confirmation %s',
+        return implode(' · ', [
             $record->code,
-            $record->is_active ? 'Active' : 'Inactive',
-            $record->requires_confirmation ? 'required' : 'not required',
-        );
+            $record->is_active ? __('Active') : __('Inactive'),
+            $record->requires_confirmation ? __('Confirmation required') : __('Confirmation not required'),
+        ]);
     }
 
     #[\Override]

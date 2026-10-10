@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: project
-last_verified: 2026-10-02
-verified_against: current repository, code/tests, CI/deploy configuration and documentation convergence audit
+last_verified: 2026-10-07
+verified_against: current repository, code/tests, runtime route table, active plans, CI/deploy configuration and standalone VitePress user-guide integration
 ---
 
 ## Start Here
@@ -27,6 +27,7 @@ For setup and contribution workflow:
 - [Local Setup](onboarding/LOCAL_SETUP.md)
 - [Development Workflow](onboarding/DEVELOPMENT_WORKFLOW.md)
 - [Testing & Quality](onboarding/TESTING_AND_QUALITY.md)
+- [User Guide Maintenance](onboarding/USER_GUIDE_MAINTENANCE.md)
 - [Agent Workflow](onboarding/AGENT_WORKFLOW.md)
 
 ## Source of Truth
@@ -123,8 +124,10 @@ ADRs are historical decision records. Current domain docs explain what is true n
 
 Current active plans:
 
+- [Support & Maintenance Service-Management Implementation Plan](plans/SUPPORT_MAINTENANCE_SERVICE_MANAGEMENT_IMPLEMENTATION_PLAN.md) — implementation is in final hardening/release validation.
+- [Test Suite Optimization, Agent Test Selection, and Toolchain Upgrade Implementation Plan](plans/TEST_SUITE_OPTIMIZATION_AND_TOOLCHAIN_UPGRADE_IMPLEMENTATION_PLAN.md)
 - [Employee Visit / AI API Implementation Plan](plans/EMPLOYEE_VISIT_AI_API_IMPLEMENTATION_PLAN.md)
-- [IERP Non-Technical User Guide Implementation Plan](plans/USER_GUIDE_VITEPRESS_IMPLEMENTATION_PLAN.md)
+- [IERP Non-Technical User Guide Implementation Plan](plans/USER_GUIDE_VITEPRESS_IMPLEMENTATION_PLAN.md) — comprehensive bilingual dashboard/workflow coverage, registry validation and screenshot planning are implemented; actual screenshot capture and contextual deep links remain active work.
 
 Once a plan is implemented and its durable rules are merged into canonical docs/ADRs, remove it from the working tree. Git history is the archive.
 
@@ -138,9 +141,19 @@ See [`specs/README.md`](../specs/README.md).
 
 ## Current API Reality
 
-As of 2026-10-02, the runtime route table contains no `api/*` routes.
+The runtime exposes customer authentication plus a rollout-gated Support/Maintenance surface under `/api/customer`. It does **not** yet expose a general-purpose ERP REST API or an Employee mobile API.
 
-Older endpoint descriptions and current mobile designs must not be reported as implemented HTTP contracts. See [API Reference](reference/API.md).
+Service-level capabilities, older endpoint descriptions, and mobile designs outside the registered route surface must not be reported as implemented HTTP contracts. See [API Reference](reference/API.md).
+
+## User Guide
+
+The non-technical **IERP User Guide** is a standalone VitePress web application under `user-guide/`, separate from the Filament dashboard and separate from the internal engineering documentation in `Docs/`.
+
+The guide is bilingual (English/Arabic), supports RTL, local full-text search, module sidebars, page outlines and task-oriented workflows. Its visual system mirrors the dashboard's blue/slate/graphite tokens, status semantics, cards, tables, stepper vocabulary and Noto Sans Arabic treatment. Its default build target is `public/guide`, which exposes the documentation at `/guide/` when served by the same web host. `USER_GUIDE_URL` can point the dashboard link to a dedicated documentation domain instead.
+
+Coverage is derived from `AdminModuleRegistry` plus each registered Filament Resource page. `user-guide/content/admin-manifest.json`, `coverage.json` and `screenshots.manifest.json` track the current surface. The generated guide currently contains 111 bilingual screen/surface articles, covers 264 unique registered Resource pages, plans 282 screenshot positions, and documents 21 bilingual cross-module workflows. Verified locale-specific images are embedded after browser QA; remaining positions retain their placeholders. `composer test:guide` fails when the registry manifest or generated coverage becomes stale.
+
+The Filament user menu contains only a link to this standalone guide; there is no Filament User Guide page.
 
 ## Documentation Change Rule
 

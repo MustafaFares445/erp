@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Tasks\Tables;
 
 use App\Enums\PlanTaskStatus;
+use App\Filament\Tables\TableFit;
 use App\Models\PlanTask;
 use App\Services\Employees\PlanTaskService;
 use DomainException;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
@@ -24,11 +26,11 @@ final class TasksTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('due_at')
             ->columns([
-                TextColumn::make('salesPlan.name')->label(__('Plan'))->searchable(),
-                TextColumn::make('title')->searchable(),
+                TextColumn::make('salesPlan.name')->wrap()->label(__('Plan'))->searchable(),
+                TextColumn::make('title')->wrap()->searchable(),
                 TextColumn::make('due_at')->date()->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('completed_at')->dateTime()->placeholder(__('—')),
@@ -44,20 +46,22 @@ final class TasksTable
                     ->label(__('Completed'))
                     ->query(static fn (Builder $query): Builder => $query->where('status', PlanTaskStatus::Completed->value)),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
-                EditAction::make(),
-                self::transitionAction('startProgress', 'Start progress', PlanTaskStatus::InProgress)
-                    ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Pending),
-                self::transitionAction('complete', 'Complete', PlanTaskStatus::Completed)
-                    ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
-                self::transitionAction('cancel', 'Cancel', PlanTaskStatus::Cancelled)
-                    ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
-                self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
-                    ->modalHeading(__('Reopen this task?'))
-                    ->modalDescription(new HtmlString("Reopening clears the completion date and marks the plan's performance score stale."))
-                    ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
-            ]);
+                ActionGroup::make([
+                    EditAction::make(),
+                    self::transitionAction('startProgress', 'Start progress', PlanTaskStatus::InProgress)
+                        ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Pending),
+                    self::transitionAction('complete', 'Complete', PlanTaskStatus::Completed)
+                        ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
+                    self::transitionAction('cancel', 'Cancel', PlanTaskStatus::Cancelled)
+                        ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
+                    self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
+                        ->modalHeading(__('Reopen this task?'))
+                        ->modalDescription(new HtmlString("Reopening clears the completion date and marks the plan's performance score stale."))
+                        ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]));
     }
 
     private static function transitionAction(string $name, string $label, PlanTaskStatus $to): Action

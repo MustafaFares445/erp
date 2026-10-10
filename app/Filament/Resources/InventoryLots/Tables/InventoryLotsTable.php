@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryLots\Tables;
 
 use App\Enums\StockCondition;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryLot;
 use App\Models\InventorySetting;
 use App\Models\Product;
@@ -20,14 +21,14 @@ final class InventoryLotsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->searchable()->sortable()->placeholder(__('—')),
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.lot.fields.sku'))->searchable()->sortable(),
-                TextColumn::make('productVariant.product.name')->label(__('admin.inventory.lot.fields.product'))->searchable()->sortable(),
+                TextColumn::make('productVariant.product.name')->wrap()->label(__('admin.inventory.lot.fields.product'))->searchable()->sortable(),
                 TextColumn::make('expires_at')->date()->sortable()->placeholder(__('—')),
-                TextColumn::make('days_remaining')
+                TextColumn::make('days_remaining')->toggleable(isToggledHiddenByDefault: true)
                     ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),
                 TextColumn::make('total_physical')
                     ->label(__('admin.inventory.stock.on_hand_quantity'))
@@ -41,20 +42,20 @@ final class InventoryLotsTable
                     ->label(__('admin.inventory.stock.quarantine_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Quarantine))
                     ->numeric(decimalPlaces: 3)
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('damaged_quantity')
                     ->label(__('admin.inventory.stock.damaged_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Damaged))
                     ->numeric(decimalPlaces: 3)
-                    ->toggleable(),
-                TextColumn::make('reserved_quantity')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('reserved_quantity')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.stock.reserved_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalConditionReservedQuantity(StockCondition::Saleable))
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('available_quantity')
                     ->state(fn (InventoryLot $record): float => $record->totalAvailableQuantity())
                     ->numeric(decimalPlaces: 3),
-                TextColumn::make('warehouse_count')
+                TextColumn::make('warehouse_count')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.lot.fields.warehouses'))
                     ->state(fn (InventoryLot $record): int => $record->warehouseCount()),
                 TextColumn::make('expiry_bucket')
@@ -140,8 +141,8 @@ final class InventoryLotsTable
                         return $query->whereDate('expires_at', '>', today()->addDays($windows['notice']));
                     }),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
-            ]);
+            ]));
     }
 }

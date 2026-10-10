@@ -29,11 +29,91 @@ use WeakMap;
 
 final class PurchaseOrderInfolist
 {
+    public static function display(?string $text): string
+    {
+        if ($text === null || app()->getLocale() !== 'ar') {
+            return $text ?? '';
+        }
+
+        return match ($text) {
+            'Purchase Order' => 'أمر الشراء',
+            'Expected' => 'المتوقع',
+            'Not specified' => 'غير محدد',
+            'Created' => 'إنشاء',
+            'Approval' => 'اعتماد',
+            'Sent' => 'إرسال',
+            'Supplier' => 'المورد',
+            'Receiving' => 'استلام',
+            'Accounting' => 'المحاسبة',
+            'Complete', 'Completed' => 'مكتمل',
+            'Cancelled' => 'ملغى',
+            'Closed', 'Short closed' => 'إغلاق المتبقي',
+            'Purchasing' => 'المشتريات',
+            'Purchasing Manager' => 'مدير المشتريات',
+            'Inventory' => 'المخزون',
+            'None' => 'لا يوجد',
+            'Draft' => 'مسودة',
+            'Approval required' => 'بانتظار الاعتماد',
+            'Accounting review' => 'مراجعة محاسبية',
+            'Accounting exception' => 'مشكلة محاسبية',
+            'Payment pending' => 'بانتظار الدفع',
+            'Procurement complete' => 'اكتمل الشراء',
+            'Ready to send' => 'جاهز للإرسال',
+            'Awaiting supplier confirmation' => 'بانتظار تأكيد المورد',
+            'Supplier exception' => 'مشكلة مع المورد',
+            'Supplier commitment unavailable' => 'لا يوجد التزام مورد مؤكد',
+            'Awaiting warehouse allocation' => 'بانتظار التخصيص للمستودع',
+            'Receipt in progress' => 'الاستلام قيد التنفيذ',
+            'Backorder follow-up' => 'متابعة الكمية المتأخرة',
+            'Accounting follow-up' => 'متابعة محاسبية',
+            'Accepted' => 'معتمد',
+            'No blocker' => 'لا يوجد عائق',
+            'Returned for revision' => 'أعيد للمراجعة',
+            'Waiting for approval' => 'بانتظار الموافقة',
+            'No Accounting Bill exists for this received Purchase Order' => 'لا توجد فاتورة مورد مرتبطة بأمر الشراء المستلم',
+            'Supplier Bill is still a draft' => 'فاتورة المورد لا تزال مسودة',
+            'Supplier payable remains open' => 'ذمة المورد لا تزال غير مسددة',
+            'Purchase Order has not been sent to the supplier' => 'لم يتم إرسال أمر الشراء إلى المورد',
+            'Supplier response required' => 'يلزم تسجيل رد المورد',
+            'Supplier rejected requested quantity' => 'رفض المورد جزءاً من الكمية المطلوبة',
+            'No confirmed quantity available' => 'لا توجد كمية مؤكدة من المورد',
+            'Confirmed quantity is not fully allocated' => 'الكمية المؤكدة لم تخصص بالكامل',
+            'Inventory receipt is still open' => 'لا تزال عملية الاستلام المخزني مفتوحة',
+            'Confirmed quantity remains to be received' => 'تبقت كمية مؤكدة للاستلام',
+            'Supplier backorder remains' => 'لا تزال كمية متأخرة لدى المورد',
+            'Complete commercial details and submit' => 'أكمل البيانات التجارية وقدّم الطلب',
+            'Approve or return for revision' => 'اعتمد أو أعد للمراجعة',
+            'No further purchasing action' => 'لا توجد إجراءات شراء إضافية',
+            'Outstanding commitment was abandoned' => 'أُغلق الالتزام المتبقي',
+            'Create or reconcile the supplier bill' => 'أنشئ فاتورة المورد أو طابقها',
+            'Review and approve supplier bill' => 'راجع فاتورة المورد واعتمدها',
+            'Settle the outstanding supplier payable' => 'سدّد ذمة المورد المتبقية',
+            'Send Purchase Order to supplier' => 'أرسل أمر الشراء إلى المورد',
+            'Record supplier response' => 'سجّل رد المورد',
+            'Resolve rejection or source another supplier' => 'عالج الرفض أو اختر مورداً آخر',
+            'Review supplier commitment' => 'راجع التزام المورد',
+            'Allocate destination warehouse quantities' => 'وزّع الكميات على المستودعات المستهدفة',
+            'Complete the open receipt' => 'أكمل عملية الاستلام المفتوحة',
+            'Receive allocated goods' => 'استلم البضاعة المخصصة',
+            'Request the next supplier commitment' => 'اطلب التزام المورد التالي',
+            'Review supplier bill and payment' => 'راجع فاتورة المورد والدفعة',
+            'Review purchase order' => 'راجع أمر الشراء',
+            'No action is currently required for this Purchase Order.' => 'لا يلزم أي إجراء حالي لأمر الشراء هذا.',
+            'What needs to happen next and who owns it.' => 'ما الإجراء التالي والجهة المسؤولة عنه.',
+            'Follow the Purchase Order from creation through supplier, receiving, accounting, and completion.' => 'تابع أمر الشراء من إنشائه مروراً بالمورد والاستلام والمحاسبة حتى الإكمال.',
+            'Supplier promises, backorders, and delivery dates for this Purchase Order.' => 'التزامات المورد والكميات المتأخرة ومواعيد التوريد لهذا الأمر.',
+            'Supplier confirmation is not required for this Purchase Order.' => 'لا يتطلب أمر الشراء هذا تأكيداً من المورد.',
+            'Required' => 'مطلوب',
+            'Not required' => 'غير مطلوب',
+            default => $text,
+        };
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
             Section::make(__('Workflow'))
-                ->description(__('Follow the Purchase Order from creation through supplier, receiving, accounting, and completion.'))
+                ->description(self::display('Follow the Purchase Order from creation through supplier, receiving, accounting, and completion.'))
                 ->schema([
                     ViewEntry::make('workflow_stepper')
                         ->hiddenLabel()
@@ -46,34 +126,36 @@ final class PurchaseOrderInfolist
 
             Section::make(__('Action required'))
                 ->description(fn (PurchaseOrder $record): string => self::projection($record)->nextOwner === 'None'
-                    ? 'No action is currently required for this Purchase Order.'
-                    : 'What needs to happen next and who owns it.')
+                    ? self::display('No action is currently required for this Purchase Order.')
+                    : self::display('What needs to happen next and who owns it.'))
                 ->columns(2)
                 ->schema([
                     TextEntry::make('workflow_state')
                         ->label(__('Current stage'))
-                        ->state(fn (PurchaseOrder $record): string => self::projection($record)->businessState)
+                        ->state(fn (PurchaseOrder $record): string => self::display(self::projection($record)->businessState))
                         ->badge()
                         ->color(fn (PurchaseOrder $record): string => self::projection($record)->blocker === null ? 'info' : 'warning'),
                     TextEntry::make('workflow_owner')
                         ->label(__('Next owner'))
-                        ->state(fn (PurchaseOrder $record): string => self::projection($record)->nextOwner)
+                        ->state(fn (PurchaseOrder $record): string => self::display(self::projection($record)->nextOwner))
                         ->badge(),
                     TextEntry::make('workflow_blocker')
                         ->label(__('Attention'))
-                        ->state(fn (PurchaseOrder $record): string => self::projection($record)->blocker === null ? 'No blocker' : self::projection($record)->nextOwner.' attention required')
-                        ->helperText(fn (PurchaseOrder $record): ?string => self::projection($record)->blocker)
+                        ->state(fn (PurchaseOrder $record): string => self::projection($record)->blocker === null
+                            ? self::display('No blocker')
+                            : self::display(self::projection($record)->nextOwner).' '.(app()->getLocale() === 'ar' ? 'بحاجة إلى إجراء' : 'attention required'))
+                        ->helperText(fn (PurchaseOrder $record): ?string => self::projection($record)->blocker === null ? null : self::display(self::projection($record)->blocker))
                         ->badge()
                         ->color(fn (PurchaseOrder $record): string => self::projection($record)->blocker === null ? 'success' : 'warning')
                         ->columnSpanFull(),
                     TextEntry::make('workflow_action')
                         ->label(__('Next action'))
-                        ->state(fn (PurchaseOrder $record): string => self::projection($record)->nextAction)
+                        ->state(fn (PurchaseOrder $record): string => self::display(self::projection($record)->nextAction))
                         ->weight(FontWeight::Bold)
                         ->columnSpanFull(),
                 ]),
 
-            Section::make(__('Order summary'))
+            Section::make(fn (): string => app()->getLocale() === 'ar' ? 'ملخص أمر الشراء' : __('Order summary'))
                 ->columns(4)
                 ->schema([
                     ImageEntry::make('supplier.logo_path')->hiddenLabel()->disk('public')->circular()->height(52),
@@ -87,9 +169,11 @@ final class PurchaseOrderInfolist
                     TextEntry::make('total_amount')
                         ->label(__('Total'))
                         ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
-                    TextEntry::make('ordered_at')->label(__('Ordered'))->date(),
+                    TextEntry::make('ordered_at')->label(fn (): string => app()->getLocale() === 'ar' ? 'تاريخ الطلب' : __('Ordered'))->date(),
                     TextEntry::make('expected_at')->label(__('Expected'))->date()->placeholder(__('Not specified')),
-                    TextEntry::make('paymentTerm.name')->label(__('Payment terms'))->placeholder(__('Not specified')),
+                    TextEntry::make('paymentTerm.name')
+                        ->label(fn (): string => app()->getLocale() === 'ar' ? 'شروط الدفع' : __('Payment terms'))
+                        ->placeholder(__('Not specified')),
                     TextEntry::make('sent_at')->label(__('Last sent'))->dateTime()->placeholder(__('Not sent')),
                     TextEntry::make('purchase_order_number')->label(__('PO number')),
                     TextEntry::make('rejection_reason')
@@ -172,12 +256,12 @@ final class PurchaseOrderInfolist
 
             Section::make(__('Supplier response'))
                 ->description(fn (PurchaseOrder $record): string => self::confirmationRequired($record)
-                    ? 'Supplier promises, backorders, and delivery dates for this Purchase Order.'
-                    : 'Supplier confirmation is not required for this Purchase Order.')
+                    ? self::display('Supplier promises, backorders, and delivery dates for this Purchase Order.')
+                    : self::display('Supplier confirmation is not required for this Purchase Order.'))
                 ->schema([
                     TextEntry::make('confirmation_policy')
                         ->label(__('Confirmation'))
-                        ->state(fn (PurchaseOrder $record): string => self::confirmationRequired($record) ? 'Required' : 'Not required')
+                        ->state(fn (PurchaseOrder $record): string => self::display(self::confirmationRequired($record) ? 'Required' : 'Not required'))
                         ->badge()
                         ->color(fn (PurchaseOrder $record): string => self::confirmationRequired($record) ? 'warning' : 'gray'),
                     RepeatableEntry::make('confirmations')
@@ -335,7 +419,7 @@ final class PurchaseOrderInfolist
 
         foreach ($labels as $index => $label) {
             $steps[] = [
-                'label' => $label,
+                'label' => self::display($label),
                 'state' => $index < $currentIndex
                     ? 'done'
                     : ($index === $currentIndex ? 'current' : 'pending'),

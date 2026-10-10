@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Campaigns\Schemas;
 
 use App\Models\Campaign;
+use App\Services\Notifications\NotificationTemplateCatalog;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -21,7 +22,10 @@ final class CampaignInfolist
                     TextEntry::make('name'),
                     TextEntry::make('status')->badge(),
                     TextEntry::make('channel')->badge(),
-                    TextEntry::make('contentTemplate.key')->label(__('Content template'))->placeholder(__('—')),
+                    TextEntry::make('contentTemplate.key')
+                        ->label(__('Content template'))
+                        ->formatStateUsing(static fn (string $state): string => app(NotificationTemplateCatalog::class)->name($state))
+                        ->placeholder(__('—')),
                     TextEntry::make('creator.name')->label(__('Created by'))->placeholder(__('—')),
                     TextEntry::make('scheduled_at')->dateTime()->placeholder(__('Not scheduled')),
                     TextEntry::make('started_at')->dateTime()->placeholder(__('—')),

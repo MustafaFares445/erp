@@ -59,13 +59,14 @@ final class PurchasingAttentionQueue extends TableWidget
                     ->label(__('dashboards.purchasing.columns.reason'))
                     ->state(fn (PurchaseOrder $record): string => self::attentionReason($record))
                     ->badge()
+                    ->extraCellAttributes(['class' => 'ierp-ta-wrap-badge'])
                     ->color(fn (PurchaseOrder $record): string => self::attentionColor($record)),
-                TextColumn::make('expected_at')
+                TextColumn::make('expected_at')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('dashboards.purchasing.columns.expected'))
                     ->date()
                     ->placeholder(__('dashboards.purchasing.columns.not_specified'))
                     ->color(fn (PurchaseOrder $record): string => self::isOverdue($record) ? 'danger' : 'gray'),
-                TextColumn::make('action')
+                TextColumn::make('action')->wrap()
                     ->label(__('dashboards.purchasing.columns.next_action'))
                     ->state(fn (PurchaseOrder $record): string => (string) __(self::projection($record)->nextAction))
                     ->description(fn (PurchaseOrder $record): string => (string) __(self::projection($record)->nextOwner))

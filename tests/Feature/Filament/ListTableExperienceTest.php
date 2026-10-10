@@ -7,6 +7,7 @@ use App\Enums\PurchaseRfqStatus;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
 use App\Filament\Resources\PurchaseRfqs\Pages\ListPurchaseRfqs;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\PurchaseRfq;
 use App\Models\RecordFavorite;
 use App\Models\SavedTableView;
@@ -196,4 +197,20 @@ it('filters the RFQ list with presets and query-builder rules', function (): voi
         ])
         ->assertCanSeeTableRecords([$theirsSent])
         ->assertCanNotSeeTableRecords([$mineDraft, $mineClosed]);
+});
+
+it('localizes purchase order workflow cells without changing business state', function (): void {
+    app()->setLocale('ar');
+    $order = PurchaseOrder::factory()->create(['supplier_confirmation_required' => false]);
+    PurchaseOrderLine::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'quantity_ordered' => '2.000000',
+        'base_quantity' => '2.000000',
+    ]);
+
+    Livewire::test(ListPurchaseOrders::class)
+        ->assertTableColumnStateSet('workflow_stage', 'Draft', $order)
+        ->assertTableColumnFormattedStateSet('workflow_stage', 'مسودة', $order)
+        ->assertTableColumnHasDescription('receiving_progress', 'بانتظار الاستلام', $order)
+        ->assertSee('متابعة');
 });

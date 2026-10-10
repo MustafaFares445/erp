@@ -3,8 +3,14 @@
 declare(strict_types=1);
 
 use App\Enums\EmployeePermission;
+use App\Enums\OpportunityCloseReason;
+use App\Enums\OpportunityOrigin;
+use App\Enums\OpportunityStage;
 use App\Enums\SalesOpportunityStatus;
 use App\Filament\Resources\SalesOpportunities\Pages\ListSalesOpportunities;
+use App\Filament\Resources\SalesOpportunities\Pages\ViewSalesOpportunity;
+use App\Filament\Resources\SalesOpportunities\RelationManagers\StageHistoryRelationManager;
+use App\Models\OpportunityStageTransition;
 use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
@@ -71,3 +77,43 @@ it('records decisions from the sales opportunity table actions with a required r
     expect($approved->fresh()->status)->toBe(SalesOpportunityStatus::Approved)
         ->and($rejected->fresh()->status)->toBe(SalesOpportunityStatus::Rejected);
 });
+
+it('shows opportunity stage, origin and stage history as readable labels instead of raw values', function (): void {
+    $reviewer = User::factory()->admin()->create();
+    $opportunity = SalesOpportunity::factory()->manual()->create([
+        'stage' => OpportunityStage::NeedsAnalysis,
+        'origin' => OpportunityOrigin::ExistingCustomer,
+    ]);
+    $transition = OpportunityStageTransition::query()->create([
+        'sales_opportunity_id' => $opportunity->getKey(),
+        'from_stage' => OpportunityStage::Qualification,
+        'to_stage' => OpportunityStage::NeedsAnalysis,
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::actingAs($reviewer)
+        ->test(ListSalesOpportunities::class)
+        ->assertTableColumnFormattedStateSet('stage', 'Needs Analysis', record: $opportunity);
+
+    Livewire::actingAs($reviewer)
+        ->test(ViewSalesOpportunity::class, ['record' => $opportunity->getKey()])
+        ->assertSeeText('Needs Analysis')
+        ->assertSeeText('Existing Customer')
+        ->assertDontSeeText('needs_analysis')
+        ->assertDontSeeText('existing_customer');
+
+    Livewire::actingAs($reviewer)
+        ->test(StageHistoryRelationManager::class, ['ownerRecord' => $opportunity, 'pageClass' => ViewSalesOpportunity::class])
+        ->assertTableColumnFormattedStateSet('from_stage', 'Qualification', record: $transition)
+        ->assertTableColumnFormattedStateSet('to_stage', 'Needs Analysis', record: $transition);
+});
+
+it('translates every opportunity stage, origin and close reason label into Arabic', function (string $enum): void {
+    app()->setLocale('ar');
+
+    foreach ($enum::cases() as $case) {
+        $english = str($case->value)->replace('_', ' ')->headline()->toString();
+
+        expect($case->getLabel())->not->toBe($english, $case->name);
+    }
+})->with([OpportunityStage::class, OpportunityOrigin::class, OpportunityCloseReason::class]);

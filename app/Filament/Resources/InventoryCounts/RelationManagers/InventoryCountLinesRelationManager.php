@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryCounts\RelationManagers;
 
 use App\Enums\InventoryPermission;
+use App\Enums\StockCondition;
 use App\Filament\Concerns\InteractsWithInventoryServices;
 use App\Models\InventoryCountLine;
 use App\Models\User;
 use App\Services\Inventory\InventoryCountService;
+use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -48,10 +50,21 @@ final class InventoryCountLinesRelationManager extends RelationManager
                 TextColumn::make('productVariant.name')->label(__('admin.inventory.count_ui.fields.variant')),
                 TextColumn::make('lot.lot_number')->label(__('admin.inventory.count_ui.fields.lot'))->placeholder(__('—')),
                 TextColumn::make('serializedUnit.serial_number')->label(__('admin.inventory.count_ui.fields.serial'))->placeholder(__('—')),
-                TextColumn::make('stock_condition')->badge(),
-                TextColumn::make('system_base_quantity')->label(__('admin.inventory.count_ui.fields.system'))->numeric(decimalPlaces: 6),
-                TextColumn::make('counted_base_quantity')->label(__('admin.inventory.count_ui.fields.counted'))->numeric(decimalPlaces: 6)->placeholder(__('admin.inventory.count_ui.fields.uncounted')),
-                TextColumn::make('variance_base_quantity')->label(__('admin.inventory.count_ui.fields.variance'))->numeric(decimalPlaces: 6)->placeholder(__('—')),
+                TextColumn::make('stock_condition')->badge()
+                    ->formatStateUsing(fn (\App\Enums\StockCondition|string|null $state): string => $state instanceof StockCondition
+                        ? $state->label()
+                        : (StockCondition::tryFrom((string) $state)?->label() ?? __('—'))),
+                TextColumn::make('system_base_quantity')->label(__('admin.inventory.count_ui.fields.system'))
+                    ->numeric()
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
+                TextColumn::make('counted_base_quantity')->label(__('admin.inventory.count_ui.fields.counted'))
+                    ->numeric()
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
+                    ->placeholder(__('admin.inventory.count_ui.fields.uncounted')),
+                TextColumn::make('variance_base_quantity')->label(__('admin.inventory.count_ui.fields.variance'))
+                    ->numeric()
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
+                    ->placeholder(__('—')),
                 IconColumn::make('recount_requested')->label(__('admin.inventory.count_ui.fields.flagged'))->boolean(),
             ])
             ->filters([

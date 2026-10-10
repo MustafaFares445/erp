@@ -38,6 +38,8 @@ Periods with posted entries are not deletable by the ordinary delete path. Close
 
 AR/AP services are derived/read models over posted operational/accounting facts. They provide summaries, aging, details and reconciliation, not an alternate ledger write path.
 
+AR aging retains positive invoice debts and due-date buckets. Reconciliation compares the signed net receivable with the AR control account: outstanding debt minus customer credit balances. Confirmed credits raised after full collection and standalone customer credits remain visible even when no invoice is outstanding. Only the AR-funded portion of a Paid refund reduces that credit balance, using its posted journal's entry date for the report cutoff; deposit-funded refunds belong to the customer-deposit account. Draft and Approved refunds reserve credit but do not change posted AR. Customer statements and aging CSV expose the credit and refund effects without changing ledger history.
+
 ## Bills / Expenses / Supplier Payments
 
 Accounting owns these documents and their lifecycle/posting behavior.

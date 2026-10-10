@@ -33,8 +33,8 @@ final class VisitManagementActions
                 'override_reason' => null,
             ])
             ->schema([
-                DateTimePicker::make('scheduled_start_at')->label(__('Scheduled start'))->required()->seconds(false),
-                DateTimePicker::make('scheduled_end_at')->label(__('Scheduled end'))->required()->seconds(false),
+                DateTimePicker::make('scheduled_start_at')->label(__('Scheduled start'))->required()->native(false)->seconds(false),
+                DateTimePicker::make('scheduled_end_at')->label(__('Scheduled end'))->required()->native(false)->seconds(false),
                 Toggle::make('override_conflict')
                     ->label(__('Override scheduling conflict'))
                     ->helperText(__('Use only when the overlap is intentional and approved.'))

@@ -139,3 +139,13 @@ it('stores direct sales order and line traceability on delivery reservations', f
         ->and($reservation->salesOrderLine?->getKey())->toBe($orderLine->getKey())
         ->and($stock->refresh()->reserved_quantity)->toBe('4.000000');
 });
+
+it('translates every order availability label for Arabic list badges', function (OrderAvailabilityState $state): void {
+    app()->setLocale('ar');
+    $arabicLabel = $state->label();
+
+    app()->setLocale('en');
+
+    expect($arabicLabel)->not->toBe($state->label())
+        ->and($arabicLabel)->toMatch('/\p{Arabic}/u');
+})->with(OrderAvailabilityState::cases());

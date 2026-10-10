@@ -32,6 +32,7 @@ use App\Events\TicketClosed;
 use App\Events\TicketUpdated;
 use App\Events\VisitAssigned;
 use App\Events\VisitRescheduled;
+use App\Listeners\GuardDestructiveDatabaseCommand;
 use App\Listeners\MarkShipmentInTransitOnDeliveryCompleted;
 use App\Listeners\RefreshOrderCompletionWindowOnShipmentArrival;
 use App\Listeners\SendBusinessNotification;
@@ -86,6 +87,7 @@ use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\Widget;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -153,6 +155,7 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
         Gate::policy(Shipment::class, ShipmentPolicy::class);
 
+        Event::listen(CommandStarting::class, GuardDestructiveDatabaseCommand::class);
         Event::listen(InventoryOperationCompleted::class, MarkShipmentInTransitOnDeliveryCompleted::class);
         Event::listen(ShipmentArrived::class, RefreshOrderCompletionWindowOnShipmentArrival::class);
         Event::listen(SalesOrderReleased::class, SynchronizeSalesProcurementOnOrderReleased::class);

@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: sales
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: tests/Feature/Sales
 ---
 
@@ -15,8 +15,8 @@ verified_against: tests/Feature/Sales
 
 Tests cover:
 
-- quotation lifecycle, decisions, pricing/floor overrides, expiry/requote and no-stock-effect;
-- quotation-to-order conversion/aggregation;
+- quotation lifecycle, decisions, pricing/floor overrides, expiry/requote, `converted_to_order` transition and no-stock-effect;
+- quotation-to-order conversion/aggregation with UOM and pricing-provenance preservation;
 - direct order draft/confirm/release/cancel/close;
 - procurement and cross-module flow;
 - delivery-note and consolidated invoicing;

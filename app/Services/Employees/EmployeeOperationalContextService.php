@@ -48,7 +48,7 @@ final readonly class EmployeeOperationalContextService
         return [
             'current_plan' => $currentPlan?->name,
             'current_plan_status' => $currentPlan?->status->label(),
-            'current_month' => $currentPlan?->month?->format('F Y'),
+            'current_month' => $currentPlan?->month?->translatedFormat('F Y'),
             'current_performance' => $score !== null ? (float) $score->total_score : null,
             'current_salary_status' => $salary?->status->label(),
             'current_salary' => $salary !== null ? (float) $salary->final_salary : null,
@@ -78,7 +78,7 @@ final readonly class EmployeeOperationalContextService
             ->get()
             ->map(static fn (SalesPlan $plan): array => [
                 'name' => $plan->name,
-                'month' => $plan->month->format('F Y'),
+                'month' => $plan->month->translatedFormat('F Y'),
                 'status' => $plan->status->label(),
                 'tasks' => $plan->tasks_count,
                 'performance' => $plan->performanceSummary()['total_score'] ?? null,

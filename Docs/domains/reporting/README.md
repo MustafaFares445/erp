@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: reporting
-last_verified: 2026-10-02
-verified_against: app/Services/Reporting plus domain report services/resources/tests
+last_verified: 2026-10-07
+verified_against: app/Services/Reporting plus current domain report services/resources/tests
 ---
 
 ## Purpose
@@ -14,9 +14,9 @@ Reporting aggregates read models from business domains without taking ownership 
 Current reporting implementation is intentionally distributed:
 
 - Accounting: financial statements, AR/AP, tax.
-- Inventory: inventory/reconciliation/condition/count reports.
-- Purchasing: commitments/receiving/cost variance.
-- Sales: funnel, delivery/invoice/collection/tax/customer reports.
+- Inventory: Stock Levels, movement provenance including lot/serial, Expiry Lots, Devices, reconciliation/condition/count reporting.
+- Purchasing: Open Commitments, Receiving Performance, Cost Variance and supplier execution views.
+- Sales: funnel, delivery/invoice/collection/tax/customer reporting, including Customer Revenue and Returns Without Credit exception visibility.
 - CRM: funnel/pipeline/attribution.
 - Employees: employee reports/exports.
 - Support: workload/SLA/maintenance/margin/compliance.

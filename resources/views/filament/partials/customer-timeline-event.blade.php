@@ -42,8 +42,8 @@
                 <span>{{ $event->actorName }}</span>
             @endif
 
-            <span title="{{ $event->occurredAt->toDayDateTimeString() }}">
-                {{ $event->occurredAtIsDateOnly ? $event->occurredAt->toFormattedDateString() : $event->occurredAt->diffForHumans() }}
+            <span title="{{ $event->occurredAt->translatedFormat('D, M j, Y g:i A') }}">
+                {{ $event->occurredAtIsDateOnly ? $event->occurredAt->translatedFormat('M j, Y') : $event->occurredAt->diffForHumans() }}
             </span>
 
             @foreach ($event->relatedLinks as $relatedLink)

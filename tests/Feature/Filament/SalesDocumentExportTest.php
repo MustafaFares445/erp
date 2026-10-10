@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InvoiceStatus;
+use App\Enums\QuotationStatus;
 use App\Enums\SalesPermission;
 use App\Filament\Resources\CreditNotes\Pages\ListCreditNotes;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
@@ -11,6 +12,7 @@ use App\Filament\Resources\Payments\Pages\ListPayments;
 use App\Filament\Resources\Quotations\Pages\ListQuotations;
 use App\Models\AuditLog;
 use App\Models\Invoice;
+use App\Models\Quotation;
 use App\Models\User;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -104,6 +106,33 @@ it('records who exported, when, and which filters were active', function (): voi
     expect($log)->not->toBeNull()
         ->and($log->getProperty('filters'))->toHaveKey('queryBuilder')
         ->and($log->created_at)->not->toBeNull();
+});
+
+it('exports quotation CSV values and excludes quotations outside the selected view', function (): void {
+    $exporter = User::factory()->create();
+    $exporter->givePermissionTo([SalesPermission::QuotationView->value, SalesPermission::Export->value]);
+
+    $draft = Quotation::factory()->create([
+        'quotation_number' => 'QT-CSV-001',
+        'issue_date' => '2026-10-07',
+        'expires_at' => '2026-11-06',
+        'grand_total' => '346.50',
+    ]);
+    Quotation::factory()->accepted()->create(['quotation_number' => 'QT-CSV-EXCLUDED']);
+
+    $component = Livewire::actingAs($exporter)
+        ->test(ListQuotations::class)
+        ->set('activeTab', 'draft');
+    $response = new ReflectionMethod($component->instance(), 'exportSalesDocumentsCsv')
+        ->invoke($component->instance());
+    $csv = captureSalesExportCsv($response);
+    $rows = array_map(fn (string $line): array => str_getcsv($line, escape: '\\'), explode("\n", mb_trim($csv)));
+
+    expect($rows)->toBe([
+        ['quotation_number', 'customer', 'status', 'issue_date', 'expires_at', 'grand_total'],
+        ['QT-CSV-001', $draft->customer->company_name, QuotationStatus::Draft->value, '2026-10-07', '2026-11-06', '346.5'],
+    ]);
+    expect($response->headers->get('Content-Type'))->toBe('text/csv');
 });
 
 it('gates the payment, quotation, credit note, and order exports behind sales.export too', function (string $viewPermission, string $pageClass): void {

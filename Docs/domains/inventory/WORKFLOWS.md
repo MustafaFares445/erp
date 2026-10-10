@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: inventory
-last_verified: 2026-10-02
-verified_against: InventoryOperationService and related Inventory services
+last_verified: 2026-10-07
+verified_against: InventoryOperationService, return/correction posting services and related Inventory services
 ---
 
 ## Receipt
@@ -48,7 +48,10 @@ Confirmation uses explicit correction/posting behavior rather than silently edit
 ## Returns / Corrections
 
 - Customer and supplier returns are distinct.
-- Inspection/disposition precedes posting where required.
+- Customer returns preserve original delivery, lot, serial and movement provenance.
+- Inspection/disposition precedes posting where required. Customer-return dispositions include Saleable, Quarantine, Damaged and Supplier Return.
+- Supplier Return disposition receives customer-returned stock into quarantine; the canonical Supplier Return workflow performs the outbound vendor return and may consume eligible saleable/quarantine/damaged stock.
+- Inventory posting never fabricates Credit Notes or Refunds. Financial consequences remain with Sales/Payments/Accounting after the physical return is posted.
 - Posted receipt/delivery/transfer errors use correction documents.
 - Condition changes use draft/post/cancel workflow.
 

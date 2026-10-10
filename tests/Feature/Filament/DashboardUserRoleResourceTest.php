@@ -10,7 +10,9 @@ use App\Models\AuditLog;
 use App\Models\PricingTier;
 use App\Models\User;
 use App\Services\Identity\DashboardRoleAssignmentService;
+use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\CrmPermissionSeeder;
+use Filament\Forms\Components\Select;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -93,4 +95,26 @@ it('fails early when the dashboard-role edit handler receives invalid context', 
 
     expect(fn (): mixed => $method->invoke($page, new User, ['role_name' => 'Reviewer']))
         ->toThrow(LogicException::class, 'authenticated dashboard role administrator');
+});
+
+it('localizes dashboard role labels while saving the canonical role name', function (): void {
+    (new CrmPermissionSeeder)->run();
+    (new AccountingPermissionSeeder)->run();
+    $actor = User::factory()->admin()->create();
+    $actor->assignRole('System Admin');
+
+    $target = User::factory()->admin()->create();
+    $target->assignRole('Accountant');
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs($actor)->test(ListDashboardUsers::class)
+        ->assertSee('المحاسب');
+    Livewire::test(EditDashboardUser::class, ['record' => $target->id])
+        ->assertFormFieldExists('role_name', fn (Select $field): bool => $field->getOptions()['Accountant'] === 'المحاسب')
+        ->fillForm(['role_name' => 'Reviewer'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($target->refresh()->getRoleNames()->all())->toBe(['Reviewer']);
 });

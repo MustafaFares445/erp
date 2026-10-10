@@ -52,14 +52,16 @@ it('lists tasks with their plan name through the admin-scoped eloquent query', f
         ->assertSee('Visit key account');
 });
 
-it('shows the task detail page with an edit action available', function (): void {
+it('shows task status on its detail page with an edit action available', function (): void {
     $admin = User::factory()->admin()->create();
-    $task = PlanTask::factory()->create(['title' => 'Follow up with client']);
+    $task = PlanTask::factory()->completed()->create(['title' => 'Follow up with client']);
 
     Livewire::actingAs($admin)
         ->test(ViewTask::class, ['record' => $task->getKey()])
         ->assertSuccessful()
         ->assertFormSet(['title' => 'Follow up with client'])
+        ->assertSee('Status')
+        ->assertSee(PlanTaskStatus::Completed->label())
         ->assertActionExists('edit');
 });
 

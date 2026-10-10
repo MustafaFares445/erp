@@ -117,3 +117,21 @@ it('paginates the visits table once more records exist than fit on one page', fu
         ->assertCanSeeTableRecords($visits->slice(5, 5), inOrder: true)
         ->assertCanNotSeeTableRecords($visits->take(5));
 });
+
+it('labels the employee status badge in the admin locale', function (string $locale, string $active, string $inactive): void {
+    $admin = User::factory()->admin()->create();
+    $admin->assignRole('System Admin');
+
+    app()->setLocale($locale);
+
+    $activeEmployee = EmployeeProfile::factory()->create(['is_active' => true]);
+    $inactiveEmployee = EmployeeProfile::factory()->create(['is_active' => false]);
+
+    Livewire::actingAs($admin)
+        ->test(ListEmployees::class)
+        ->assertTableColumnFormattedStateSet('status_badge', $active, $activeEmployee)
+        ->assertTableColumnFormattedStateSet('status_badge', $inactive, $inactiveEmployee);
+})->with([
+    'english' => ['en', 'Active', 'Inactive'],
+    'arabic' => ['ar', 'نشط', 'غير نشط'],
+]);

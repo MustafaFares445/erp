@@ -9,10 +9,16 @@ use App\Filament\Resources\MaintenanceSchedules\Actions\MaintenanceScheduleActio
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 final class OccurrencesRelationManager extends RelationManager
 {
     protected static string $relationship = 'occurrences';
+
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Due occurrences');
+    }
 
     #[\Override]
     public function table(Table $table): Table
@@ -29,7 +35,9 @@ final class OccurrencesRelationManager extends RelationManager
                     OccurrenceStatus::Skipped => 'gray',
                     default => 'info',
                 }),
-                TextColumn::make('maintenanceRecord.id')->label(__('Job #'))->placeholder(__('—')),
+                TextColumn::make('maintenanceRecord.id')
+                    ->label(__('Job #'))
+                    ->formatStateUsing(static fn (?int $state): string => $state === null ? __('—') : '#'.$state),
                 TextColumn::make('raised_at')->dateTime()->placeholder(__('—')),
                 TextColumn::make('completed_at')->dateTime()->placeholder(__('—')),
                 TextColumn::make('skipped_reason')->label(__('Skip reason'))->placeholder(__('—'))->limit(40),

@@ -70,7 +70,7 @@ final class CustomerTimeline extends Page
     #[\Override]
     public function getTitle(): string
     {
-        return $this->customer()->company_name.' — Timeline';
+        return __(':customer — Timeline', ['customer' => $this->customer()->company_name]);
     }
 
     #[\Override]

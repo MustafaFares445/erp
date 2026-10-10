@@ -8,6 +8,7 @@ use App\Enums\CalibrationResult;
 use App\Enums\MaintenanceKind;
 use App\Enums\ServiceAppointmentStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Tables\TableFit;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\EmployeeProfile;
 use App\Models\EquipmentCalibration;
@@ -41,15 +42,15 @@ final class ServiceAppointmentsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('scheduled_start_at')
             ->columns([
                 TextColumn::make('id')->label(__('Visit #'))->formatStateUsing(static fn (int $state): string => '#'.$state),
                 TextColumn::make('scheduled_start_at')->label(__('Start'))->dateTime()->sortable(),
-                TextColumn::make('scheduled_end_at')->label(__('End'))->dateTime()->sortable(),
-                TextColumn::make('employee.user.name')->label(__('Technician'))->placeholder(__('Unassigned'))->searchable(),
-                TextColumn::make('serviceRecord.maintenanceRecord.customer.company_name')->label(__('Customer'))->searchable(),
-                TextColumn::make('serviceRecord.title')->label(__('Service record'))->limit(32),
+                TextColumn::make('scheduled_end_at')->label(__('End'))->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('employee.user.name')->wrap()->label(__('Technician'))->placeholder(__('Unassigned'))->searchable(),
+                TextColumn::make('serviceRecord.maintenanceRecord.customer.company_name')->wrap()->label(__('Customer'))->searchable(),
+                TextColumn::make('serviceRecord.title')->label(__('Service record'))->limit(32)->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('purpose')
                     ->label(__('Purpose'))
                     ->badge()
@@ -67,8 +68,9 @@ final class ServiceAppointmentsTable
                 TextColumn::make('address_snapshot')
                     ->label(__('Location'))
                     ->state(static fn (ServiceAppointment $record): string => self::addressLabel($record))
-                    ->wrap(),
-                TextColumn::make('updated_at')->since()->sortable(),
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')->since()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -86,7 +88,7 @@ final class ServiceAppointmentsTable
                         ])
                         ->all()),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 Action::make('installationContext')
                     ->label(__('Installation'))
                     ->icon('heroicon-o-wrench-screwdriver')
@@ -234,7 +236,7 @@ final class ServiceAppointmentsTable
                             __('Unable to cancel visit'),
                         )),
                 ]),
-            ]);
+            ]));
     }
 
     /** Compact installation progress for a dispatch row, from eager-loaded checks only. */

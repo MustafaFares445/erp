@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: payments
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: PaymentService, allocation/posting/tax/deposit/Stripe services
 ---
 
@@ -53,6 +53,10 @@ Reversal is blocked when later confirmed credits/refunds depend on the payment.
 
 A valid reversal reverses journals, deposit applications, tax recognition and allocations before marking the payment Reversed.
 
+## Refunds
+
+Refunds remain financial documents: they link to confirmed credit/payment workflows and do not create or mutate physical inventory. Provider execution may settle an approved ERP Refund, but the ERP Refund remains the business authority and its accounting effects follow the canonical posting path.
+
 ## Stripe Capability
 
 Stripe service-level checkout exists for invoice outstanding balance, order prepayment/deposit capped by order total, and pending ticket payment link amount.
@@ -63,4 +67,4 @@ An ERP Refund remains the business authority. Stripe execution is idempotent and
 
 ## Current Exposure
 
-Provider services do not imply an exposed API. There are currently no runtime `api/*` routes.
+Provider services do not imply broad API exposure. The current `/api/customer` Support surface exposes only scoped ticket payment-session/status operations; there is no general invoice/order Checkout API and no public Stripe webhook route.

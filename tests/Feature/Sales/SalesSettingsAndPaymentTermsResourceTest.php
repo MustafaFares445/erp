@@ -12,6 +12,7 @@ use App\Models\PaymentTerm;
 use App\Models\SalesSetting;
 use App\Models\User;
 use Database\Seeders\SalesPermissionSeeder;
+use Filament\Tables\Columns\Column;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -43,6 +44,7 @@ it('creates and edits sales settings through the singleton page', function (): v
 
     Livewire::actingAs($systemAdmin)
         ->test(ManageSalesSettings::class)
+        ->assertActionHasLabel('create', __('New Sales Setting'))
         ->callAction('create', [
             'default_tax_percent' => 5,
             'default_quotation_validity_days' => 15,
@@ -55,6 +57,24 @@ it('creates and edits sales settings through the singleton page', function (): v
     expect((float) $settings->default_tax_percent)->toBe(5.0)
         ->and($settings->default_quotation_validity_days)->toBe(15)
         ->and($settings->receivable_account_id)->toBe($receivable->getKey());
+});
+
+it('keeps the singleton sales settings list compact and exposes account mappings through its column chooser', function (): void {
+    $systemAdmin = User::factory()->admin()->create();
+    $settings = SalesSetting::factory()->create();
+
+    Livewire::actingAs($systemAdmin)
+        ->test(ManageSalesSettings::class)
+        ->assertCanSeeTableRecords([$settings])
+        ->assertActionHidden('create')
+        ->assertTableColumnVisible('default_tax_percent')
+        ->assertTableColumnVisible('default_quotation_validity_days')
+        ->assertTableColumnExists('receivableAccount.name', static fn (Column $column): bool => $column->isToggleable() && $column->isToggledHidden())
+        ->assertTableColumnExists('revenueAccount.name', static fn (Column $column): bool => $column->isToggleable() && $column->isToggledHidden())
+        ->assertTableColumnExists('deferredTaxAccount.name', static fn (Column $column): bool => $column->isToggleable() && $column->isToggledHidden())
+        ->assertTableColumnExists('taxPayableAccount.name', static fn (Column $column): bool => $column->isToggleable() && $column->isToggledHidden())
+        ->assertTableColumnExists('customerDepositsAccount.name', static fn (Column $column): bool => $column->isToggleable() && $column->isToggledHidden())
+        ->assertTableColumnExists('badDebtExpenseAccount.name', static fn (Column $column): bool => $column->isToggleable() && $column->isToggledHidden());
 });
 
 it('lists and creates payment terms, honouring the single-default invariant through the dashboard', function (): void {

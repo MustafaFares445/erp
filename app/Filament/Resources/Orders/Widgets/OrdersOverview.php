@@ -31,7 +31,7 @@ final class OrdersOverview extends StatsOverviewWidget
 
         return [
             Stat::make(__('Active orders'), $activeCount)
-                ->description(self::formatMoney($activeValue, $currency).' in progress')
+                ->description(__(':amount in progress', ['amount' => self::formatMoney($activeValue, $currency)]))
                 ->url(OrderResource::getUrl('index', ['tab' => 'active'])),
             Stat::make(__('Awaiting fulfillment'), $awaitingFulfillment)
                 ->description(__('Confirmed, not yet released'))

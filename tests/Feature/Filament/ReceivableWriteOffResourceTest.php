@@ -19,6 +19,8 @@ use App\Models\SalesSetting;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -154,4 +156,57 @@ it('cancels a draft through the view action without changing the invoice', funct
 it('registers the resource against the canonical model', function (): void {
     expect(ReceivableWriteOffResource::getModel())->toBe(ReceivableWriteOff::class)
         ->and(ReceivableWriteOffResource::getNavigationLabel())->toBe(__('admin.resources.receivable_write_offs'));
+});
+
+it('keeps the approve next step visible and groups view and cancel as secondary row actions', function (): void {
+    $draft = ReceivableWriteOff::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => filamentWriteOffInvoice($this->customer)->getKey(),
+        'status' => WriteOffStatus::Draft,
+        'recorded_by' => $this->recorder->getKey(),
+        'fiscal_period_id' => FiscalPeriod::query()->sole()->getKey(),
+    ]);
+
+    $list = Livewire::actingAs($this->approver)
+        ->test(ListReceivableWriteOffs::class)
+        ->assertCanSeeTableRecords([$draft])
+        ->assertTableColumnVisible('write_off_number')
+        ->assertTableColumnVisible('customer.company_name')
+        ->assertTableColumnVisible('invoice.invoice_number')
+        ->assertTableColumnVisible('amount_minor')
+        ->assertTableColumnVisible('status')
+        ->assertActionVisible(TestAction::make('approve_write_off')->table($draft))
+        ->assertActionVisible(TestAction::make('cancel_write_off')->table($draft))
+        ->assertActionVisible(TestAction::make('view')->table($draft));
+
+    $rowActions = array_values($list->instance()->getTable()->getRecordActions());
+    $topLevel = array_map(
+        fn (object $action): string => $action instanceof ActionGroup ? 'group' : $action->getName(),
+        $rowActions,
+    );
+    $grouped = collect($rowActions)
+        ->filter(fn (object $action): bool => $action instanceof ActionGroup)
+        ->flatMap(fn (ActionGroup $group): array => array_keys($group->getFlatActions()))
+        ->all();
+
+    expect($topLevel)->toBe(['approve_write_off', 'group'])
+        ->and($grouped)->toEqualCanonicalizing(['view', 'cancel_write_off']);
+});
+
+it('leaves only view in the row actions of an approved write-off', function (): void {
+    $approved = ReceivableWriteOff::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => filamentWriteOffInvoice($this->customer)->getKey(),
+        'status' => WriteOffStatus::Approved,
+        'recorded_by' => $this->recorder->getKey(),
+        'approved_by' => $this->approver->getKey(),
+        'fiscal_period_id' => FiscalPeriod::query()->sole()->getKey(),
+    ]);
+
+    Livewire::actingAs($this->approver)
+        ->test(ListReceivableWriteOffs::class)
+        ->assertCanSeeTableRecords([$approved])
+        ->assertActionHidden(TestAction::make('approve_write_off')->table($approved))
+        ->assertActionHidden(TestAction::make('cancel_write_off')->table($approved))
+        ->assertActionVisible(TestAction::make('view')->table($approved));
 });

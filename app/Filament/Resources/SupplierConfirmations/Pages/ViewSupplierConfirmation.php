@@ -20,14 +20,14 @@ final class ViewSupplierConfirmation extends ViewRecord
         $record = $this->getRecord();
 
         if (! $record instanceof SupplierConfirmation) {
-            return 'Supplier Confirmation';
+            return __('Supplier Confirmation');
         }
 
         $purchaseOrder = $record->purchaseOrder;
 
-        return 'Supplier Confirmation · '.($purchaseOrder instanceof PurchaseOrder
+        return __('Supplier Confirmation · :number', ['number' => $purchaseOrder instanceof PurchaseOrder
             ? $purchaseOrder->purchase_order_number
-            : 'Unknown PO');
+            : __('Unknown PO')]);
     }
 
     #[\Override]

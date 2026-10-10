@@ -71,7 +71,7 @@ final readonly class InteractionSource implements TimelineSource
 
                 if ($interaction->customerVisit instanceof CustomerVisit) {
                     $relatedLinks[] = [
-                        'label' => '→ Visit',
+                        'label' => '→ '.__('Visit'),
                         'url' => route('filament.admin.resources.visits.view', ['record' => $interaction->customerVisit->id]),
                     ];
                 }
@@ -81,7 +81,7 @@ final readonly class InteractionSource implements TimelineSource
                     id: $interaction->id,
                     occurredAt: $interaction->occurred_at,
                     occurredAtIsDateOnly: false,
-                    title: $interaction->type->label().' — '.str($interaction->direction->value)->headline(),
+                    title: $interaction->type->label().' — '.$interaction->direction->label(),
                     detail: $interaction->summary,
                     statusLabel: null,
                     statusColor: $interaction->type->color(),

@@ -6,7 +6,10 @@ namespace App\Filament\Resources\Campaigns\Tables;
 
 use App\Enums\CampaignStatus;
 use App\Filament\Resources\Campaigns\Actions\CampaignActions;
+use App\Filament\Tables\TableFit;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -15,9 +18,9 @@ final class CampaignsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table->defaultSort('created_at', 'desc')->columns([
+        return TableFit::apply($table)->defaultSort('created_at', 'desc')->columns([
             TextColumn::make('campaign_number')->searchable()->sortable(),
-            TextColumn::make('name')->searchable(),
+            TextColumn::make('name')->wrap()->searchable(),
             TextColumn::make('channel')->badge(),
             TextColumn::make('status')->badge(),
             TextColumn::make('recipients_count')->counts('recipients')->label(__('Recipients')),
@@ -25,13 +28,15 @@ final class CampaignsTable
             TextColumn::make('completed_at')->dateTime()->placeholder(__('—'))->sortable(),
         ])->filters([
             SelectFilter::make('status')->options(collect(CampaignStatus::cases())->mapWithKeys(fn (CampaignStatus $status): array => [$status->value => $status->label()])->all()),
-        ])->recordActions([
-            ViewAction::make(),
-            CampaignActions::buildRecipients(),
-            CampaignActions::schedule(),
+        ])->recordActions(TableFit::rowActions([
             CampaignActions::send(),
-            CampaignActions::cancel(),
-            CampaignActions::downloadSendLog(),
-        ]);
+            ActionGroup::make([
+                ViewAction::make(),
+                CampaignActions::buildRecipients(),
+                CampaignActions::schedule(),
+                CampaignActions::cancel(),
+                CampaignActions::downloadSendLog(),
+            ])->icon(Heroicon::EllipsisVertical),
+        ]));
     }
 }

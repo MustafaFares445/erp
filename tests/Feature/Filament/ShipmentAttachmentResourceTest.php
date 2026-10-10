@@ -8,6 +8,7 @@ use App\Filament\Resources\Shipments\Pages\ListShipments;
 use App\Filament\Resources\Shipments\Pages\ViewShipment;
 use App\Filament\Resources\Shipments\ShipmentResource;
 use App\Models\Shipment;
+use App\Models\ShipmentArrivalConfirmation;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Schemas\Schema;
@@ -90,4 +91,34 @@ it('confirms an in-transit shipment from its view page', function (): void {
         ->assertHasNoActionErrors();
 
     expect($shipment->fresh()->status)->toBe(ShipmentStatus::Arrived);
+});
+
+it('shows the arrival confirmation source channel as a readable label', function (string $channel, string $expected): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo(InventoryPermission::ShipmentView->value);
+
+    $shipment = Shipment::factory()->arrived()->create();
+    ShipmentArrivalConfirmation::factory()->create([
+        'shipment_id' => $shipment->getKey(),
+        'source_channel' => $channel,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(ViewShipment::class, ['record' => $shipment->getKey()])
+        ->assertSeeText($expected)
+        ->assertDontSeeText($channel);
+})->with([
+    'known channel' => ['dashboard', 'Dashboard'],
+    'unknown channel falls back to a headline' => ['field_app', 'Field App'],
+]);
+
+it('shows the shipment status label on the shipment view page', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo(InventoryPermission::ShipmentView->value);
+
+    $shipment = Shipment::factory()->arrived()->create();
+
+    Livewire::actingAs($user)
+        ->test(ViewShipment::class, ['record' => $shipment->getKey()])
+        ->assertSeeText(ShipmentStatus::Arrived->label());
 });

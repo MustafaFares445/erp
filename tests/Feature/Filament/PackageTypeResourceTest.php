@@ -200,3 +200,21 @@ it('reaches a soft-deleted package type through the edit route binding', functio
         ->get(PackageTypeResource::getUrl('edit', ['record' => $trashedType]))
         ->assertOk();
 });
+
+// Release QA 2026-10-10: the Arabic package-type list capture showed only the toolbar; the table must render its rows in Arabic.
+it('renders the package type table rows for an Arabic administrator', function (): void {
+    $admin = createPackageManager();
+    $admin->forceFill(['locale' => 'ar'])->save();
+    $packageType = PackageType::factory()->create(['name' => 'Pallet', 'code' => 'PLT-AR']);
+
+    $this->actingAs($admin)
+        ->get(PackageTypeResource::getUrl('index'))
+        ->assertOk()
+        ->assertSeeText(['أنواع الطرود', 'Pallet', 'PLT-AR']);
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs($admin)
+        ->test(ListPackageTypes::class)
+        ->assertCanSeeTableRecords([$packageType]);
+});

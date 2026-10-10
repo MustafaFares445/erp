@@ -30,6 +30,6 @@ enum SalesReportType: string
 
     public function label(): string
     {
-        return str($this->value)->replace('_', ' ')->headline()->toString();
+        return __(str($this->value)->replace('_', ' ')->headline()->toString());
     }
 }

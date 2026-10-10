@@ -131,7 +131,7 @@
             <x-filament::icon icon="heroicon-m-information-circle" class="ierp-alert-icon" />
             <div>
                 <strong>{{ __('Safety boundary:') }}</strong>
-                {{ __('Scanning never writes stock directly. Receipt, delivery, and transfer custody changes stay on the original inventory operation and run through Inventory services. Physical counts are recorded through InventoryCountService.') }}
+                {{ __('Scanning never writes stock directly. Receipts, deliveries and transfers are completed on their own inventory operation, and physical counts on their inventory count.') }}
             </div>
         </div>
     </div>

@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -81,9 +82,11 @@ final class SupplierPaymentResource extends Resource
             ])
             ->recordActions([
                 self::payAction(),
-                self::cancelAction(),
-                EditAction::make(),
-                DeleteAction::make(),
+                ActionGroup::make([
+                    self::cancelAction(),
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ])->icon(Heroicon::EllipsisVertical),
             ]);
     }
 

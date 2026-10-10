@@ -82,6 +82,13 @@ return new class extends Migration
             $table->foreignId('source_visit_id')->nullable()->unique()->constrained('customer_visits')->nullOnDelete();
         });
 
+        // MySQL may use the original composite unique index to satisfy the
+        // sales_plan_id foreign key. Create its non-unique replacement first,
+        // in a separate ALTER, before dropping the unique constraint.
+        Schema::table('employee_performance_scores', function (Blueprint $table): void {
+            $table->index(['sales_plan_id', 'employee_id'], 'employee_performance_scores_plan_employee_index');
+        });
+
         Schema::table('employee_performance_scores', function (Blueprint $table): void {
             $table->dropUnique(['sales_plan_id', 'employee_id']);
             $table->decimal('opportunity_score', 5, 2)->default(0);
@@ -90,7 +97,6 @@ return new class extends Migration
             $table->json('factor_weights')->nullable();
             $table->json('raw_values')->nullable();
             $table->json('weighted_values')->nullable();
-            $table->index(['sales_plan_id', 'employee_id'], 'employee_performance_scores_plan_employee_index');
         });
 
         Schema::table('employee_salary_calculations', function (Blueprint $table): void {
@@ -133,6 +139,12 @@ return new class extends Migration
                 'salary_calculation_mode_snapshot',
                 'calculation_explanation',
             ]);
+        });
+
+        // Restore the original uniqueness before removing the replacement
+        // index, so the foreign key always has a supporting index on MySQL.
+        Schema::table('employee_performance_scores', function (Blueprint $table): void {
+            $table->unique(['sales_plan_id', 'employee_id']);
         });
 
         Schema::table('employee_performance_scores', function (Blueprint $table): void {

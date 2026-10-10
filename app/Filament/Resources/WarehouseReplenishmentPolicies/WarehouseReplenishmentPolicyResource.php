@@ -39,7 +39,7 @@ final class WarehouseReplenishmentPolicyResource extends Resource
     #[\Override]
     public static function getModelLabel(): string
     {
-        return __('admin.resources.replenishment_policies');
+        return __('admin.resources.replenishment_policy');
     }
 
     #[\Override]

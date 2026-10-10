@@ -82,14 +82,14 @@ final class VisitScheduleForm
                         ->label(__('Visit type'))
                         ->maxLength(80)
                         ->live(onBlur: true)
-                        ->placeholder(__('Customer meeting, demo, follow-up…')),
+                        ->placeholder(__('Meeting, demo, follow-up…')),
                 ]),
             Section::make(__('Schedule'))
                 ->description(__('Overlapping visits for the same employee are blocked unless an explicit override reason is recorded.'))
                 ->columns(2)
                 ->schema([
-                    DateTimePicker::make('scheduled_start_at')->label(__('Scheduled start'))->required()->seconds(false),
-                    DateTimePicker::make('scheduled_end_at')->label(__('Scheduled end'))->required()->seconds(false),
+                    DateTimePicker::make('scheduled_start_at')->label(__('Scheduled start'))->required()->native(false)->seconds(false),
+                    DateTimePicker::make('scheduled_end_at')->label(__('Scheduled end'))->required()->native(false)->seconds(false),
                     Toggle::make('override_conflict')
                         ->label(__('Override scheduling conflict'))
                         ->helperText(__('Use only when the employee must intentionally have overlapping visits.'))

@@ -128,11 +128,12 @@ it('notifies the customer and the assigned technician when an installation visit
     $technicianProfile = EmployeeProfile::factory()->create();
     $task = MaintenanceTask::factory()->create(['maintenance_record_id' => $record->getKey()]);
 
+    $startsAt = now()->addDay()->startOfHour();
     app(ServiceAppointmentService::class)->createScheduled(
         $task,
         $technicianProfile,
-        now()->addDay()->startOfHour(),
-        now()->addDay()->startOfHour()->addHours(2),
+        $startsAt,
+        $startsAt->copy()->addHours(2),
         null,
         $manager,
     );
@@ -142,7 +143,8 @@ it('notifies the customer and the assigned technician when an installation visit
     expect($rows)->toContain('User:'.$customerUser->id.':mail')
         ->and($rows)->toContain('User:'.$technicianProfile->user_id.':mail')
         ->and($rows)->not->toContain('User:'.$manager->id.':mail')
-        ->and(NotificationDelivery::query()->where('template_key', 'installation.scheduled')->first()->variables)->toHaveKey('scheduled_at');
+        // Locale-neutral like the other visit notifications: an English "Sat, Oct 10, 2026 9:00 AM" reached Arabic templates.
+        ->and(NotificationDelivery::query()->where('template_key', 'installation.scheduled')->first()->variables['scheduled_at'] ?? null)->toBe($startsAt->format('Y-m-d H:i'));
 });
 
 it('does not notify for scheduling a non-installation visit', function (): void {

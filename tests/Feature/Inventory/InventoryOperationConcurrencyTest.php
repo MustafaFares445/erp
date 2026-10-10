@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\SkippedWithMessageException;
 use Symfony\Component\Process\Process;
+use Tests\Support\DisposableMySqlSchema;
 
 function canonicalWarehouseConcurrencyConnection(): string
 {
@@ -31,7 +32,7 @@ function canonicalWarehouseConcurrencyConnection(): string
         );
     }
 
-    expect($database)->toMatch('/(?:_test|_testing)(?:_\d+)?$/')
+    expect(DisposableMySqlSchema::isDisposableName($database))->toBeTrue('The warehouse concurrency database must be named ierp_<label>_testing.')
         ->and(DB::connection($connection)->getDriverName())->toBe('mysql');
 
     foreach ([
@@ -49,24 +50,12 @@ function canonicalWarehouseConcurrencyConnection(): string
     return $connection;
 }
 
+/**
+ * Truncate the dedicated warehouse concurrency schema; fails closed before any mutation (see DisposableMySqlSchema).
+ */
 function resetCanonicalWarehouseConcurrencyDatabase(string $connection): void
 {
-    $database = DB::connection($connection);
-    $schema = Schema::connection($connection);
-
-    $database->statement('SET FOREIGN_KEY_CHECKS=0');
-
-    try {
-        foreach ($schema->getTableListing() as $table) {
-            if ($table === 'migrations') {
-                continue;
-            }
-
-            $database->table($table)->truncate();
-        }
-    } finally {
-        $database->statement('SET FOREIGN_KEY_CHECKS=1');
-    }
+    DisposableMySqlSchema::truncate(DB::connection($connection));
 }
 
 /** @return array{0: Process, 1: Process} */

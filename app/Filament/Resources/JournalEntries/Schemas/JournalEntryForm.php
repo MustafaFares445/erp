@@ -18,6 +18,7 @@ final class JournalEntryForm
         return $schema
             ->components([
                 Section::make(__('admin.resources.journal_entries'))
+                    ->columnSpanFull()
                     ->schema([
                         TextInput::make('entry_number')
                             ->label(__('admin.accounting.fields.entry_number'))
@@ -38,6 +39,7 @@ final class JournalEntryForm
                     ])
                     ->columns(2),
                 Section::make(__('admin.accounting.fields.lines'))
+                    ->columnSpanFull()
                     ->description(fn (?JournalEntry $record): string => $record?->isPosted() === true
                         ? __('admin.accounting.hints.posted_readonly')
                         : __('admin.accounting.hints.draft_unbalanced'))

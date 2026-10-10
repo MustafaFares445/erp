@@ -18,7 +18,10 @@ final class DashboardUserRoleForm
             TextInput::make('email')->email()->disabled(),
             Select::make('role_name')
                 ->label(__('admin.crm.fields.dashboard_role'))
-                ->options(array_combine(DashboardRole::fixedRoleNames(), DashboardRole::fixedRoleNames()))
+                ->options(array_combine(
+                    DashboardRole::fixedRoleNames(),
+                    array_map(static fn (string $role): string => __($role), DashboardRole::fixedRoleNames()),
+                ))
                 ->required(),
         ]);
     }

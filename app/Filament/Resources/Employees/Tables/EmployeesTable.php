@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Employees\Tables;
 
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\EmployeeProfile;
 use App\Services\Employees\EmployeeAccessService;
 use Filament\Actions\Action;
@@ -34,7 +35,7 @@ final class EmployeesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->contentGrid([
                 'sm' => 1,
@@ -51,12 +52,12 @@ final class EmployeesTable
                         ->color(static fn (bool $state): string => $state ? 'primary' : 'gray')
                         ->grow(false),
                     Stack::make([
-                        TextColumn::make('user.name')
+                        TextColumn::make('user.name')->wrap()
                             ->label(__('Account name'))
                             ->searchable()
                             ->sortable()
                             ->weight(FontWeight::Bold),
-                        TextColumn::make('job_title')
+                        TextColumn::make('job_title')->wrap()
                             ->label('')
                             ->searchable()
                             ->sortable()
@@ -67,6 +68,8 @@ final class EmployeesTable
                 TextColumn::make('email')
                     ->label('')
                     ->icon(Heroicon::OutlinedEnvelope)
+                    ->wrap()
+                    ->extraAttributes(['class' => 'wrap-anywhere'])
                     ->searchable(),
                 TextColumn::make('phone')
                     ->label('')
@@ -87,7 +90,7 @@ final class EmployeesTable
                     TextColumn::make('status_badge')
                         ->label(__('Status'))
                         ->getStateUsing(static fn (EmployeeProfile $record): bool => $record->is_active)
-                        ->formatStateUsing(static fn (bool $state): string => $state ? 'Active' : 'Inactive')
+                        ->formatStateUsing(static fn (bool $state): string => $state ? __('Active') : __('Inactive'))
                         ->badge()
                         ->color(static fn (bool $state): string => $state ? 'success' : 'danger'),
                 ])->extraAttributes(['class' => 'flex flex-wrap gap-1']),
@@ -96,7 +99,7 @@ final class EmployeesTable
                 Group::make('job_title')->label(__('Job title')),
                 Group::make('is_active')
                     ->label(__('Status'))
-                    ->getTitleFromRecordUsing(static fn (EmployeeProfile $record): string => $record->is_active ? 'Active' : 'Inactive'),
+                    ->getTitleFromRecordUsing(static fn (EmployeeProfile $record): string => $record->is_active ? __('Active') : __('Inactive')),
             ])
             ->filters([
                 TableQueryBuilder::make([
@@ -119,7 +122,7 @@ final class EmployeesTable
                 TernaryFilter::make('is_active')->label(__('Active')),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 EditAction::make(),
                 ActionGroup::make([
@@ -153,7 +156,7 @@ final class EmployeesTable
                         ->visible(static fn (EmployeeProfile $record): bool => $record->trashed())
                         ->action(static fn (EmployeeProfile $record) => app(EmployeeAccessService::class)->restore($record)),
                 ]),
-            ])
+            ]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('archive')

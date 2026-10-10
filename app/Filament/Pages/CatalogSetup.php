@@ -119,26 +119,31 @@ final class CatalogSetup extends Page implements HasTable
             'manufacturers' => [
                 CreateAction::make()
                     ->model(Manufacturer::class)
+                    ->modelLabel(__('manufacturer'))
                     ->schema(fn (Schema $schema): Schema => $this->manufacturerForm($schema)),
             ],
             'brands' => [
                 CreateAction::make()
                     ->model(Brand::class)
+                    ->modelLabel(__('brand'))
                     ->schema(fn (Schema $schema): Schema => $this->brandForm($schema)),
             ],
             'attributes' => [
                 CreateAction::make()
                     ->model(ProductAttribute::class)
+                    ->modelLabel(__('product attribute'))
                     ->schema(fn (Schema $schema): Schema => $this->attributeForm($schema)),
             ],
             'units' => [
                 CreateAction::make()
                     ->model(Unit::class)
+                    ->modelLabel(__('unit'))
                     ->schema(fn (Schema $schema): Schema => $this->unitForm($schema)),
             ],
             default => [
                 CreateAction::make()
                     ->model(ProductCategory::class)
+                    ->modelLabel(__('product category'))
                     ->schema(fn (Schema $schema): Schema => $this->categoryForm($schema)),
             ],
         };
@@ -159,14 +164,16 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(ProductCategory::query())
+            ->modelLabel(__('product category'))
+            ->pluralModelLabel(__('product categories'))
             ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
                 TextColumn::make('parent.name')->label(__('Parent'))->searchable()->sortable(),
-                ToggleColumn::make('is_active'),
+                ToggleColumn::make('is_active')->label(__('Active')),
             ])
-            ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
+            ->filters([TernaryFilter::make('is_active')->label(__('Active')), TrashedFilter::make()])
             ->recordActions([
                 EditAction::make()->schema(fn (Schema $schema): Schema => $this->categoryForm($schema)),
                 DeleteAction::make(),
@@ -178,11 +185,11 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $schema->components([
             Select::make('parent_id')->relationship('parent', 'name')->searchable()->preload()
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose a parent only when this category belongs under another category.'),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('Choose a parent only when this category belongs under another category.')),
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
-            Toggle::make('is_active')->default(true)
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'Inactive reference data remains in history but cannot be selected for new records.'),
+            Toggle::make('is_active')->label(__('Active'))->default(true)
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('Inactive reference data remains in history but cannot be selected for new records.')),
         ]);
     }
 
@@ -190,16 +197,18 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(Manufacturer::query())
-            ->emptyStateDescription('Add manufacturers so products can keep a reusable maker identity separate from commercial brands.')
+            ->modelLabel(__('manufacturer'))
+            ->pluralModelLabel(__('manufacturers'))
+            ->emptyStateDescription(__('Add manufacturers so products can keep a reusable maker identity separate from commercial brands.'))
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('country_code')->label(__('Country'))->searchable()->sortable(),
                 TextColumn::make('website')->url(static fn (?string $state): ?string => $state)->openUrlInNewTab()->limit(40),
                 TextColumn::make('brands_count')->counts('brands')->label(__('Brands')),
-                ToggleColumn::make('is_active'),
+                ToggleColumn::make('is_active')->label(__('Active')),
             ])
-            ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
+            ->filters([TernaryFilter::make('is_active')->label(__('Active')), TrashedFilter::make()])
             ->recordActions([
                 EditAction::make()->schema(fn (Schema $schema): Schema => $this->manufacturerForm($schema)),
                 DeleteAction::make(),
@@ -214,7 +223,7 @@ final class CatalogSetup extends Page implements HasTable
             TextInput::make('code')->required()->maxLength(80)->unique('manufacturers', 'code', ignoreRecord: true),
             TextInput::make('country_code')->label(__('Country code'))->maxLength(2),
             TextInput::make('website')->url()->maxLength(500),
-            Toggle::make('is_active')->default(true),
+            Toggle::make('is_active')->label(__('Active'))->default(true),
         ]);
     }
 
@@ -222,15 +231,17 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(Brand::query())
+            ->modelLabel(__('brand'))
+            ->pluralModelLabel(__('brands'))
             ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
                 TextColumn::make('manufacturer.name')->label(__('Manufacturer'))->searchable()->sortable(),
-                ToggleColumn::make('is_active'),
+                ToggleColumn::make('is_active')->label(__('Active')),
             ])
-            ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
+            ->filters([TernaryFilter::make('is_active')->label(__('Active')), TrashedFilter::make()])
             ->recordActions([
                 EditAction::make()->schema(fn (Schema $schema): Schema => $this->brandForm($schema)),
                 DeleteAction::make(),
@@ -248,7 +259,7 @@ final class CatalogSetup extends Page implements HasTable
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('code')->required()->maxLength(50)->unique('brands', 'code', ignoreRecord: true),
-            Toggle::make('is_active')->default(true),
+            Toggle::make('is_active')->label(__('Active'))->default(true),
         ]);
     }
 
@@ -256,13 +267,15 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(ProductAttribute::query())
+            ->modelLabel(__('product attribute'))
+            ->pluralModelLabel(__('product attributes'))
             ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('data_type')->badge(),
                 TextColumn::make('values_count')->counts('values'),
-                ToggleColumn::make('is_active'),
+                ToggleColumn::make('is_active')->label(__('Active')),
             ])
             ->filters([TrashedFilter::make()])
             ->recordActions([
@@ -279,14 +292,14 @@ final class CatalogSetup extends Page implements HasTable
             TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('code')->required()->maxLength(100)->unique('product_attributes', 'code', ignoreRecord: true),
             Select::make('data_type')->options(['select' => 'Select', 'text' => 'Text'])->default('select')->required()
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'Use Select when users should choose from predefined values; use Text for a free-form value.'),
-            Toggle::make('is_active')->default(true),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('Use Select when users should choose from predefined values; use Text for a free-form value.')),
+            Toggle::make('is_active')->label(__('Active'))->default(true),
             Repeater::make('values')
                 ->relationship()
                 ->schema([
                     TextInput::make('value')->required()->maxLength(255),
                     TextInput::make('value_ar')->label(__('Arabic value'))->maxLength(255),
-                    Toggle::make('is_active')->default(true),
+                    Toggle::make('is_active')->label(__('Active'))->default(true),
                 ])
                 ->columnSpanFull(),
         ]);
@@ -296,18 +309,20 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(Unit::query())
+            ->modelLabel(__('unit'))
+            ->pluralModelLabel(__('units'))
             ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
                 TextColumn::make('symbol')->searchable()->sortable(),
-                TextColumn::make('family')->badge()->sortable(),
-                TextColumn::make('precision')->numeric()->sortable(),
+                TextColumn::make('family')->label(__('Unit family'))->badge()->sortable(),
+                TextColumn::make('precision')->label(__('Precision'))->numeric()->sortable(),
                 IconColumn::make('allows_decimal')->boolean(),
-                ToggleColumn::make('is_active'),
+                ToggleColumn::make('is_active')->label(__('Active')),
             ])
-            ->filters([TernaryFilter::make('allows_decimal'), TernaryFilter::make('is_active'), TrashedFilter::make()])
+            ->filters([TernaryFilter::make('allows_decimal'), TernaryFilter::make('is_active')->label(__('Active')), TrashedFilter::make()])
             ->recordActions([
                 EditAction::make()->schema(fn (Schema $schema): Schema => $this->unitForm($schema)),
                 DeleteAction::make(),
@@ -319,26 +334,26 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $schema->components([
             TextInput::make('code')->maxLength(50)->unique('units', 'code', ignoreRecord: true)
-                ->helperText('Optional stable code for integrations and imports. Existing unit creation remains valid without one.'),
+                ->helperText(__('Optional stable code for integrations and imports. Existing unit creation remains valid without one.')),
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('symbol')->required()->maxLength(20)->unique('units', 'symbol', ignoreRecord: true),
-            TextInput::make('family')->required()->maxLength(50)->default('count'),
-            TextInput::make('precision')->numeric()->integer()->minValue(0)->maxValue(6)->default(0)->required(),
+            TextInput::make('family')->label(__('Unit family'))->required()->maxLength(50)->default('count'),
+            TextInput::make('precision')->label(__('Precision'))->numeric()->integer()->minValue(0)->maxValue(6)->default(0)->required(),
             Toggle::make('allows_decimal')
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this only when quantities in this unit may include fractions, such as 0.5.'),
-            Toggle::make('is_active')->default(true),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('Enable this only when quantities in this unit may include fractions, such as 0.5.')),
+            Toggle::make('is_active')->label(__('Active'))->default(true),
         ]);
     }
 
     private function emptyStateDescription(): string
     {
         return match ($this->tab) {
-            'manufacturers' => 'Add manufacturers so products and brands can share a reusable maker identity.',
-            'brands' => 'Add commercial brands and optionally link each one to its manufacturer.',
-            'attributes' => 'Add attributes so product variants can capture structured specifications.',
-            'units' => 'Add units so inventory quantities are recorded consistently.',
-            default => 'Add categories so products can be grouped for faster browsing and reporting.',
+            'manufacturers' => __('Add manufacturers so products and brands can share a reusable maker identity.'),
+            'brands' => __('Add commercial brands and optionally link each one to its manufacturer.'),
+            'attributes' => __('Add attributes so product variants can capture structured specifications.'),
+            'units' => __('Add units so inventory quantities are recorded consistently.'),
+            default => __('Add categories so products can be grouped for faster browsing and reporting.'),
         };
     }
 }

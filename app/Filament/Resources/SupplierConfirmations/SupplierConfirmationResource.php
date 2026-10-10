@@ -14,6 +14,7 @@ use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationAct
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
 use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierConfirmations\Schemas\SupplierConfirmationInfolist;
+use App\Filament\Tables\TableFit;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
@@ -109,7 +110,7 @@ final class SupplierConfirmationResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->searchPlaceholder(__('Search PO number, supplier, status, or notes…'))
             ->defaultSort('created_at', 'desc')
             ->columns([
@@ -117,22 +118,23 @@ final class SupplierConfirmationResource extends Resource
                     ->label(__('admin.purchasing.fields.purchase_order'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('supplier.name')
+                TextColumn::make('supplier.name')->wrap()
                     ->label(__('admin.purchasing.fields.supplier'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('communication_state')
+                TextColumn::make('communication_state')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('PO communication'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'Not sent' : 'Sent')
+                    ->formatStateUsing(static fn (string $state): string => __($state))
                     ->badge()
                     ->color(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'warning' : 'success'),
-                TextColumn::make('requested_total')
+                TextColumn::make('requested_total')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Requested'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('requested_base_quantity'))),
-                TextColumn::make('confirmed_total')
+                TextColumn::make('confirmed_total')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Confirmed'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('confirmed_base_quantity'))),
-                TextColumn::make('backordered_total')
+                TextColumn::make('backordered_total')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Backordered'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('backordered_base_quantity'))),
                 TextColumn::make('confirmation_status')
@@ -145,13 +147,14 @@ final class SupplierConfirmationResource extends Resource
                         SupplierConfirmationStatus::Confirmed => 'success',
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),
-                TextColumn::make('supplier_reference')->label(__('Supplier reference'))->searchable()->placeholder(__('—')),
+                TextColumn::make('supplier_reference')->toggleable(isToggledHiddenByDefault: true)->label(__('Supplier reference'))->searchable()->placeholder(__('—')),
                 TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder(__('—'))->sortable(),
                 TextColumn::make('overdue')
                     ->label(__('Promise'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => $record->promised_at === null || ! $record->isAnswered()
                         ? '—'
                         : (self::isOverdue($record) ? 'Overdue' : 'On track'))
+                    ->formatStateUsing(static fn (string $state): string => __($state))
                     ->badge()
                     ->color(static fn (string $state): string => match ($state) {
                         'Overdue' => 'danger',
@@ -161,9 +164,10 @@ final class SupplierConfirmationResource extends Resource
                 TextColumn::make('next_action')
                     ->label(__('Next action'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => self::nextAction($record))
+                    ->formatStateUsing(static fn (string $state): string => __($state))
                     ->wrap(),
-                TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->searchable()->limit(60)->wrap()->placeholder(__('—')),
-                TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
+                TextColumn::make('notes')->toggleable(isToggledHiddenByDefault: true)->label(__('admin.purchasing.fields.notes'))->searchable()->limit(60)->wrap()->placeholder(__('—')),
+                TextColumn::make('created_at')->toggleable(isToggledHiddenByDefault: true)->label(__('admin.common.created_at'))->dateTime()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('supplier_id')
@@ -191,7 +195,7 @@ final class SupplierConfirmationResource extends Resource
                             PurchaseOrderStatus::PartiallyReceived->value,
                         ]))),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 SupplierConfirmationActions::response()
                     ->label(__('Record supplier response'))
                     ->button(),
@@ -219,7 +223,7 @@ final class SupplierConfirmationResource extends Resource
                         ? PurchaseInboundResource::getUrl('view', ['record' => $record->purchaseOrder->purchaseInbound])
                         : null),
                 ViewAction::make(),
-            ]);
+            ]));
     }
 
     #[\Override]

@@ -8,7 +8,9 @@ use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryCorrections\Pages\ManageInventoryCorrections;
 use App\Filament\Resources\InventoryCorrections\Pages\ViewInventoryCorrection;
+use App\Filament\Resources\InventoryCorrections\RelationManagers\CorrectionLinesRelationManager;
 use App\Models\InventoryCorrection;
+use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryOperation;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
@@ -134,3 +136,20 @@ function correctionLifecycleUser(): User
 
     return $user;
 }
+
+it('shows correction line quantities without trailing zeroes', function (): void {
+    $correction = InventoryCorrection::factory()->create();
+    $line = InventoryCorrectionLine::factory()->create([
+        'inventory_correction_id' => $correction->getKey(),
+        'transaction_quantity' => '4.500000',
+        'base_quantity' => '4.500000',
+    ]);
+
+    Livewire::actingAs(correctionLifecycleUser())
+        ->test(CorrectionLinesRelationManager::class, [
+            'ownerRecord' => $correction,
+            'pageClass' => ViewInventoryCorrection::class,
+        ])
+        ->assertTableColumnFormattedStateSet('transaction_quantity', '4.5', record: $line)
+        ->assertTableColumnFormattedStateSet('base_quantity', '4.5', record: $line);
+});

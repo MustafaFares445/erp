@@ -56,6 +56,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'user_guide_url' => env('USER_GUIDE_URL', '/guide/'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

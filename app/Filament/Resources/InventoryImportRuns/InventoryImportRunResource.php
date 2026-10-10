@@ -7,6 +7,7 @@ namespace App\Filament\Resources\InventoryImportRuns;
 use App\Enums\InventoryImportRunStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryImportRuns\Pages\ManageInventoryImportRuns;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryImportRun;
 use App\Models\User;
 use App\Services\Inventory\CatalogImportService;
@@ -42,7 +43,7 @@ final class InventoryImportRunResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return TableFit::apply($table)->columns([
             TextColumn::make('id')->label(__('admin.inventory.import.ui.run'))->sortable(),
             TextColumn::make('status')->badge()->formatStateUsing(fn (InventoryImportRunStatus $state): string => __('admin.inventory.import.statuses.'.$state->value))->sortable(),
             TextColumn::make('total_rows')->label(__('admin.inventory.import.ui.total_rows'))->sortable(),
@@ -52,7 +53,7 @@ final class InventoryImportRunResource extends Resource
             TextColumn::make('updated_rows')->label(__('admin.inventory.import.ui.updated_rows'))->sortable(),
             TextColumn::make('applied_rows')->label(__('admin.inventory.import.ui.applied_rows'))->sortable(),
             TextColumn::make('rejected_rows')->label(__('admin.inventory.import.ui.rejected_rows'))->sortable(),
-            TextColumn::make('createdBy.name')->label(__('admin.inventory.import.ui.created_by'))->sortable(),
+            TextColumn::make('createdBy.name')->wrap()->label(__('admin.inventory.import.ui.created_by'))->sortable(),
             TextColumn::make('confirmed_at')->label(__('admin.inventory.import.ui.confirmed_at'))->dateTime()->sortable(),
             TextColumn::make('created_at')->label(__('admin.inventory.import.ui.created_at'))->dateTime()->sortable(),
         ])->filters([
@@ -67,7 +68,7 @@ final class InventoryImportRunResource extends Resource
                 InventoryImportRunStatus::ConfirmedWithErrors->value => __('admin.inventory.import.statuses.confirmed_with_errors'),
                 InventoryImportRunStatus::Failed->value => __('admin.inventory.import.statuses.failed'),
             ]),
-        ])->recordActions([
+        ])->recordActions(TableFit::rowActions([
             Action::make('preview')->label(__('admin.inventory.import.ui.preview'))
                 ->modalHeading(__('admin.inventory.import.ui.preview_heading'))
                 ->modalSubmitAction(false)
@@ -99,7 +100,7 @@ final class InventoryImportRunResource extends Resource
                     self::downloadPath($record->summary_path),
                     'catalog-import-'.self::recordId($record).'-summary.csv',
                 )),
-        ]);
+        ]));
     }
 
     #[\Override]

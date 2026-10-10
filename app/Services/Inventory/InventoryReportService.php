@@ -579,7 +579,8 @@ final readonly class InventoryReportService
         }
 
         if ($key === 'is_active' || $key === 'passed') {
-            return filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            // An empty boolean filter means "any"; filter_var() would read it as false.
+            return $value === null || $value === '' ? null : filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
         }
 
         if (! is_string($value)) {

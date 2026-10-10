@@ -9,6 +9,7 @@ use App\Enums\InventoryCountStatus;
 use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryCount;
 use Filament\QueryBuilder\Constraints\DateConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint;
@@ -23,17 +24,17 @@ final class InventoryCountsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('id', 'desc')
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('count_number')->label(__('admin.inventory.count.fields.count'))->searchable()->sortable(),
-                TextColumn::make('warehouse.name')->label(__('admin.inventory.count.fields.warehouse'))->searchable(),
+                TextColumn::make('warehouse.name')->wrap()->label(__('admin.inventory.count.fields.warehouse'))->searchable(),
                 TextColumn::make('scope_type')->label(__('admin.inventory.count.fields.scope'))->badge(),
                 TextColumn::make('status')->label(__('admin.inventory.count.fields.status'))->badge()->sortable(),
                 TextColumn::make('lines_count')->label(__('admin.inventory.count.fields.lines'))->counts('lines'),
-                TextColumn::make('counter.name')->label(__('admin.inventory.count.fields.counted_by'))->placeholder(__('—')),
-                TextColumn::make('confirmedBy.name')->label(__('admin.inventory.count.fields.confirmed_by'))->placeholder(__('—')),
+                TextColumn::make('counter.name')->wrap()->label(__('admin.inventory.count.fields.counted_by'))->placeholder(__('—')),
+                TextColumn::make('confirmedBy.name')->wrap()->label(__('admin.inventory.count.fields.confirmed_by'))->placeholder(__('—')),
                 TextColumn::make('opened_at')->dateTime()->sortable(),
             ])
             ->groups([

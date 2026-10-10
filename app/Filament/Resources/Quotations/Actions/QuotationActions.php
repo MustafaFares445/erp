@@ -87,7 +87,7 @@ final class QuotationActions
                         true,
                     )),
             ])
-            ->visible(fn (Quotation $record): bool => $record->status === QuotationStatus::Sent && self::canDecide())
+            ->visible(fn (Quotation $record): bool => $record->status === QuotationStatus::Sent && ! $record->isExpired() && self::canDecide())
             ->authorize(fn (): bool => self::canDecide())
             ->action(function (Quotation $record, array $data): void {
                 $actor = self::salesActor();
@@ -145,7 +145,7 @@ final class QuotationActions
                 ? __('admin.sales.actions.create_revised_quotation')
                 : __('admin.sales.actions.requote'))
             ->icon(Heroicon::ArrowPath)
-            ->color('warning')
+            ->color('primary')
             ->requiresConfirmation()
             ->modalDescription(__('admin.sales.actions.requote_confirm'))
             ->visible(fn (Quotation $record): bool => ($record->isExpired() || $record->status === QuotationStatus::ChangesRequested)
@@ -169,7 +169,7 @@ final class QuotationActions
     public static function generatePdf(): Action
     {
         return Action::make('generate_pdf')
-            ->label(fn (Quotation $record): string => $record->getFirstMedia('quotation-pdf') instanceof Media ? 'Regenerate PDF' : 'Generate PDF')
+            ->label(fn (Quotation $record): string => $record->getFirstMedia('quotation-pdf') instanceof Media ? __('Regenerate PDF') : __('Generate PDF'))
             ->icon(Heroicon::OutlinedDocumentArrowDown)
             ->color('gray')
             ->visible(fn (Quotation $record): bool => in_array($record->status, [QuotationStatus::Sent, QuotationStatus::Accepted], true) && self::canGeneratePdf($record))

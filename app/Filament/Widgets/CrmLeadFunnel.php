@@ -72,8 +72,15 @@ final class CrmLeadFunnel extends ChartWidget
     #[\Override]
     protected function getOptions(): array
     {
+        $isRightToLeft = __('filament-panels::layout.direction') === 'rtl';
+
         return [
-            'plugins' => ['legend' => ['position' => 'bottom']],
+            'plugins' => [
+                // Chart.js lays the legend out left-to-right unless told otherwise, which clips the
+                // start of Arabic status labels behind the next colour box.
+                'legend' => ['position' => 'bottom', 'rtl' => $isRightToLeft],
+                'tooltip' => ['rtl' => $isRightToLeft],
+            ],
             'scales' => [
                 'x' => ['display' => false],
                 'y' => ['display' => false],

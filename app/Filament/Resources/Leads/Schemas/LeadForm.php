@@ -25,7 +25,7 @@ final class LeadForm
             TextInput::make('email')->email()->maxLength(255),
             TextInput::make('phone')->tel()->maxLength(50),
             Select::make('preferred_language')
-                ->options(['en' => 'English', 'ar' => 'Arabic'])
+                ->options(self::languageOptions())
                 ->default('en')
                 ->required(),
             Select::make('assigned_to')
@@ -33,5 +33,13 @@ final class LeadForm
                 ->searchable()
                 ->preload(),
         ])->columns(2);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function languageOptions(): array
+    {
+        return ['en' => __('English'), 'ar' => __('Arabic')];
     }
 }

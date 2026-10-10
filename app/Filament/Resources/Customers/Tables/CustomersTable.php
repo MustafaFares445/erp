@@ -8,8 +8,10 @@ use App\Enums\CustomerApprovalStatus;
 use App\Filament\Resources\Customers\Actions\CustomerApprovalActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\CustomerProfile;
 use App\Services\Accounting\CustomerReceivablesSnapshot;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -23,6 +25,7 @@ use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\Filter;
@@ -35,16 +38,16 @@ final class CustomersTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('latestInteraction'))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('customer_code')->label(__('Customer code'))->searchable()->sortable(),
-                TextColumn::make('company_name')->label(__('Company name'))->searchable()->sortable(),
-                TextColumn::make('user.name')->label(__('Account name'))->searchable(),
+                TextColumn::make('company_name')->wrap()->label(__('Company name'))->searchable()->sortable(),
+                TextColumn::make('user.name')->toggleable(isToggledHiddenByDefault: true)->label(__('Account name'))->searchable(),
                 TextColumn::make('user.username')->label(__('Username'))->searchable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('user.email')->label(__('Account email'))->searchable(),
+                TextColumn::make('user.email')->toggleable(isToggledHiddenByDefault: true)->label(__('Account email'))->searchable(),
                 TextColumn::make('email')->label(__('Company email'))->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('city')->label(__('City'))->searchable()->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
@@ -63,7 +66,7 @@ final class CustomersTable
                 TextColumn::make('outstanding_balance')
                     ->label(__('Outstanding'))
                     ->state(fn (CustomerProfile $record): string => number_format(self::outstandingMinorFor($record) / 100, 2)),
-                TextColumn::make('latestInteraction.occurred_at')
+                TextColumn::make('latestInteraction.occurred_at')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Last interaction'))
                     ->dateTime()
                     ->placeholder(__('—')),
@@ -107,16 +110,18 @@ final class CustomersTable
                         ->whereDoesntHave('latestInteraction', fn (Builder $interactions): Builder => $interactions
                             ->where('occurred_at', '>=', now()->subDays(90)))),
             ])
-            ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+            ->recordActions(TableFit::rowActions([
                 CustomerApprovalActions::approve(),
-                CustomerApprovalActions::requestChanges(),
-                CustomerApprovalActions::reject(),
                 CustomerApprovalActions::reactivate(),
-                DeleteAction::make(),
                 RestoreAction::make(),
-            ])
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    CustomerApprovalActions::requestChanges(),
+                    CustomerApprovalActions::reject(),
+                    DeleteAction::make(),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

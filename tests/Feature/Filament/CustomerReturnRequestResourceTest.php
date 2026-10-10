@@ -155,7 +155,7 @@ it('ignores non-array dashboard return lines before service validation', functio
     $page = app(CreateCustomerReturnRequest::class);
     $create = new ReflectionMethod(CreateCustomerReturnRequest::class, 'handleRecordCreation');
 
-    expect(fn () => $create->invoke($page, [
+    expect(fn (): mixed => $create->invoke($page, [
         'customer_id' => $customer->getKey(),
         'original_inventory_operation_id' => $delivery->getKey(),
         'reason' => null,
@@ -164,4 +164,21 @@ it('ignores non-array dashboard return lines before service validation', functio
         InvalidCustomerReturnRequestTransition::class,
         'requires at least one line',
     );
+});
+
+it('shows requested line quantities without trailing zeroes on the view page', function (): void {
+    $admin = User::factory()->admin()->create();
+    $customer = CustomerProfile::factory()->create();
+    [$delivery, $lineId] = completedDeliveryForReturnRequestResourceTest($customer);
+
+    $request = app(CustomerReturnRequestService::class)->submit(
+        customer: $customer,
+        delivery: $delivery,
+        lines: [['original_inventory_operation_line_id' => $lineId, 'requested_quantity' => '2.500000']],
+    );
+
+    Livewire::actingAs($admin)
+        ->test(ViewCustomerReturnRequest::class, ['record' => $request->getKey()])
+        ->assertSeeText('2.5')
+        ->assertDontSeeText('2.500000');
 });

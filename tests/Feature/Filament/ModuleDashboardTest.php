@@ -107,6 +107,17 @@ it('describes the trend against the previous period', function (float|int $curre
     'nothing' => [0, 0, true, 'No activity in this period', 'gray'],
 ]);
 
+it('keeps numeric percentages left-to-right within Arabic trend descriptions', function (int $current, string $description): void {
+    app()->setLocale('ar');
+
+    $stat = (new ModuleDashboardTestTrendBuilder)->build($current, 100);
+
+    expect((string) $stat->getDescription())->toBe($description);
+})->with([
+    'increase' => [150, "زيادة \u{2066}50.0%\u{2069}"],
+    'decrease' => [50, "انخفاض \u{2066}50.0%\u{2069}"],
+]);
+
 it('adds a sparkline only when there is a series to draw', function (): void {
     $builder = new ModuleDashboardTestTrendBuilder;
 

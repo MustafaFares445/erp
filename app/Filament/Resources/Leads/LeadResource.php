@@ -62,9 +62,9 @@ final class LeadResource extends Resource
     public static function getRelations(): array
     {
         return [
-            CustomFieldsRelationManager::class,
             LeadInteractionsRelationManager::class,
             LeadStageHistoryRelationManager::class,
+            CustomFieldsRelationManager::class,
         ];
     }
 

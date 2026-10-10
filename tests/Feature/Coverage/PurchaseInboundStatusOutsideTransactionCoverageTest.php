@@ -5,10 +5,12 @@ declare(strict_types=1);
 use App\Enums\PurchaseInboundStatus;
 use App\Models\PurchaseInbound;
 use App\Services\Purchasing\PurchaseInboundStatusService;
+use App\Support\Database\DisposableDatabaseGuard;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
+    app(DisposableDatabaseGuard::class)->assertDisposable(DB::connection());
     Artisan::call('migrate:fresh', ['--force' => true]);
 });
 

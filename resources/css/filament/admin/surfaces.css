@@ -178,6 +178,121 @@
     gap: var(--ierp-space-2);
 }
 
+/*
+ * List table fit (App\Filament\Tables\TableFit). The table is `table-auto` at the card's full width, so columns keep
+ * their natural width while they fit; header labels wrap at word boundaries instead of setting the column width.
+ * Wrapping content keeps its natural width up to a cap and wraps beyond it: `width: max-content` stops the browser
+ * from squeezing it to one word per line when the table overflows. Identifiers, money, quantities, dates and
+ * status badges keep Filament's single line and are never truncated; what still does not fit scrolls sideways
+ * under the sticky row-actions cell.
+ */
+.ierp-table-fit {
+    /* Denser columns: 0.5rem either side of every value; the first and last column keep the card's edge inset. */
+    & .fi-ta-header-cell {
+        padding-inline: 0.5rem;
+        white-space: normal;
+        text-wrap: balance;
+
+        &:first-of-type {
+            padding-inline-start: 1.25rem;
+        }
+
+        &:last-of-type {
+            padding-inline-end: 1.25rem;
+        }
+    }
+
+    & :is(.fi-ta-text, .fi-ta-icon, .fi-ta-image, .fi-ta-color):not(.fi-inline) {
+        @variant sm {
+            padding-inline: 0.5rem;
+        }
+    }
+
+    & .fi-ta-text.fi-wrapped.fi-ta-text-item,
+    & .fi-ta-text.fi-wrapped > .fi-ta-text-item {
+        width: max-content;
+        max-width: 10rem;
+    }
+
+    & .fi-ta-text > .fi-ta-text-description {
+        width: max-content;
+        max-width: 11rem;
+        white-space: normal;
+    }
+
+    /*
+     * Neither the favorite column's header nor the "Summary" heading of a summarised table may set the width of
+     * the first column. The favorite header text stays in the accessibility tree and the column manager but is
+     * drawn as a star, and the summary heading as a sigma (the "This page" / "All ..." rows below keep their labels).
+     */
+    & .fi-ta-header-cell-is-favorited {
+        font-size: 0;
+        line-height: 0;
+
+        &::before {
+            content: '';
+            display: inline-block;
+            width: 1.25rem;
+            height: 1.25rem;
+            background-color: currentColor;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='black'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+            opacity: 0.6;
+        }
+    }
+
+    & .fi-ta-table:has(.fi-ta-header-cell-is-favorited) .fi-ta-summary-header-row > th:first-of-type {
+        font-size: 0;
+
+        &::before {
+            content: '\03A3';
+            font-size: var(--ierp-text-body, 0.875rem);
+        }
+    }
+
+    /*
+     * Below `sm` each row is a labelled card (Filament's `stackedOnMobile()`): label and value share a line, values
+     * lose the desktop row padding, a fixed column width (the favorite star's `width: 1%`) no longer collapses its
+     * cell, and the actions cell is a plain block whose buttons show their labels again.
+     */
+    & .fi-ta-table.fi-ta-table-stacked-on-mobile > tbody > .fi-ta-row {
+        @variant max-sm {
+            & > .fi-ta-cell:not(.fi-ta-selection-cell) {
+                width: auto !important;
+            }
+
+            & > .fi-ta-cell:not(.fi-ta-selection-cell, :has(> .fi-ta-actions)) {
+                display: grid;
+                grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+                column-gap: 0.75rem;
+                align-items: baseline;
+
+                & > .fi-ta-cell-label {
+                    padding-top: 0;
+                    text-align: start;
+                }
+
+                & :is(.fi-ta-text, .fi-ta-icon, .fi-ta-image, .fi-ta-color):not(.fi-inline) {
+                    padding-block: 0.25rem;
+                }
+            }
+
+            & > .fi-ta-cell:last-child:has(> .fi-ta-actions) {
+                position: static;
+                box-shadow: none;
+                background-color: transparent;
+
+                & .fi-icon-btn:has(+ .fi-btn[class*='fi-labeled-from-']) {
+                    display: none;
+                }
+
+                & .fi-btn[class*='fi-labeled-from-'] {
+                    display: inline-grid;
+                }
+            }
+        }
+    }
+}
+
 /* ---- Pagination ----------------------------------------------------------------------------- */
 
 .fi-pagination {
@@ -244,6 +359,12 @@
     & .fi-wi-stats-overview-stat-description {
         font-size: var(--ierp-text-caption);
         color: var(--ierp-text-muted);
+    }
+
+    /* The sparkline is absolutely positioned (1.5rem tall) at the card's bottom edge; reserve that
+       band below the description so the trend line never overlaps the text. */
+    &:has(.fi-wi-stats-overview-stat-chart) {
+        padding-bottom: calc(var(--ierp-space-6) + var(--ierp-space-4));
     }
 
     & .fi-wi-stats-overview-stat-chart {

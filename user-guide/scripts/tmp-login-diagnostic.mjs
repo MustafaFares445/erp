@@ -1,0 +1,20 @@
+import { chromium } from 'playwright-core'
+const base='http://127.0.0.1:8011'
+const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,args:['--disable-gpu']})
+const page=await browser.newPage({viewport:{width:1280,height:900}})
+const errors=[]
+page.on('console',m=>{if(m.type()==='error') errors.push(m.text())})
+page.on('pageerror',e=>errors.push(e.message))
+console.log('goto login')
+const r=await page.goto(base+'/admin/login',{waitUntil:'domcontentloaded',timeout:30000})
+console.log('login status',r?.status(),page.url())
+await page.locator('input[type=email]').fill('demo.admin@ierp.test')
+await page.locator('input[type=password]').fill('password')
+console.log('filled')
+await page.locator('button[type=submit]').click({timeout:10000})
+console.log('clicked')
+await page.waitForTimeout(7000)
+console.log('after',page.url())
+console.log('errors',JSON.stringify(errors))
+console.log('body',(await page.locator('body').innerText()).replace(/\s+/g,' ').slice(0,3000))
+await browser.close()

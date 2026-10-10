@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PaymentMethods\Tables;
 
+use App\Enums\PaymentMethodType;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -18,8 +19,10 @@ final class PaymentMethodsTable
         return $table
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('type')->badge(),
-                TextColumn::make('chartAccount.name')->label(__('Posting account')),
+                TextColumn::make('type')
+                    ->badge()
+                    ->formatStateUsing(static fn (PaymentMethodType $state): string => $state->label()),
+                TextColumn::make('chartAccount.name')->label(__('Collection account')),
                 IconColumn::make('is_active')->boolean(),
                 IconColumn::make('requires_proof')->boolean(),
             ])

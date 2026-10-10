@@ -23,9 +23,9 @@ final class FiscalPeriodInfolist
                 TextEntry::make('starts_at')->label(__('admin.accounting.fields.starts_at'))->date(),
                 TextEntry::make('ends_at')->label(__('admin.accounting.fields.ends_at'))->date(),
                 TextEntry::make('is_closed')
-                    ->label(__('admin.accounting.fields.is_closed'))
+                    ->label(__('Status'))
                     ->badge()
-                    ->formatStateUsing(static fn (bool $state): string => $state ? 'Closed' : 'Open')
+                    ->formatStateUsing(static fn (bool $state): string => $state ? __('Closed') : __('Open'))
                     ->color(static fn (bool $state): string => $state ? 'danger' : 'success'),
                 TextEntry::make('closedBy.name')->label(__('admin.accounting.fields.closed_by'))->placeholder(__('—')),
                 TextEntry::make('closed_at')->label(__('admin.accounting.fields.closed_at'))->dateTime()->placeholder(__('—')),
@@ -38,7 +38,7 @@ final class FiscalPeriodInfolist
             Section::make(__('admin.accounting.fields.close_checklist'))
                 ->schema([
                     RepeatableEntry::make('close_checklist_rows')
-                        ->label('')
+                        ->hiddenLabel()
                         ->columns(3)
                         ->state(fn (FiscalPeriod $record): array => self::checklistRows($record))
                         ->schema([
@@ -65,7 +65,7 @@ final class FiscalPeriodInfolist
             $label = $row['check']->label();
 
             if (! $row['mandatory']) {
-                $label .= ' (advisory)';
+                $label .= ' '.__('(advisory)');
             }
 
             return [

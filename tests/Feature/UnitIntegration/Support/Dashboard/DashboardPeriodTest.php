@@ -52,6 +52,18 @@ it('labels buckets by granularity', function (string $period, int $count, string
     'monthly' => [DashboardPeriod::PERIOD_THIS_YEAR, 9, 'Jan 2026'],
 ]);
 
+// Release QA 2026-10-10: Arabic dashboard charts showed English month names ("Sep 11").
+it('labels buckets in the viewer language', function (string $period, string $firstLabel): void {
+    app()->setLocale('ar');
+
+    expect(DashboardPeriod::fromPageFilters(['period' => $period])->labels()[0])->toBe($firstLabel);
+})->with([
+    'hourly' => [DashboardPeriod::PERIOD_TODAY, '12 ص'],
+    'daily' => [DashboardPeriod::PERIOD_LAST_7_DAYS, 'سبتمبر 24'],
+    'weekly' => [DashboardPeriod::PERIOD_THIS_QUARTER, 'أسبوع يونيو 27'],
+    'monthly' => [DashboardPeriod::PERIOD_THIS_YEAR, 'يناير 2026'],
+]);
+
 it('keeps a trailing partial week as its own bucket', function (): void {
     // Wednesday 2026-01-07 to Tuesday 2026-04-14 is weekly; the final Monday
     // (2026-04-13) must still get a bucket even though no Wednesday follows.

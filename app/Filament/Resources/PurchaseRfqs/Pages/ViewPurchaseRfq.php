@@ -16,7 +16,7 @@ final class ViewPurchaseRfq extends ViewRecord
     #[\Override]
     public function getTitle(): string
     {
-        return 'RFQ '.$this->rfq()->rfq_number;
+        return __('RFQ :number', ['number' => $this->rfq()->rfq_number]);
     }
 
     #[\Override]

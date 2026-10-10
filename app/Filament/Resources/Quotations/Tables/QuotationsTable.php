@@ -8,8 +8,10 @@ use App\Enums\QuotationStatus;
 use App\Filament\Resources\Quotations\Actions\QuotationActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\EmployeeProfile;
 use App\Models\Quotation;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
 use Filament\QueryBuilder\Constraints\NumberConstraint;
@@ -21,12 +23,13 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 final class QuotationsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->searchPlaceholder(__('Search by quotation number, customer name, or customer code'))
             ->searchDebounce('300ms')
@@ -35,13 +38,19 @@ final class QuotationsTable
                 TextColumn::make('quotation_number')->label(__('admin.sales.fields.quotation_number'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')
                     ->label(__('admin.sales.fields.customer'))
-                    ->searchable(['customer.company_name', 'customer.customer_code'])
-                    ->description(fn (Quotation $record): ?string => $record->customer?->customer_code),
+                    ->searchable(query: static fn (Builder $query, string $search): Builder => $query->orWhereHas(
+                        'customer',
+                        static fn (Builder $customer): Builder => $customer
+                            ->where('company_name', 'like', '%'.$search.'%')
+                            ->orWhere('customer_code', 'like', '%'.$search.'%'),
+                    ))
+                    ->description(fn (Quotation $record): ?string => $record->customer?->customer_code)
+                    ->wrap(),
                 TextColumn::make('status')
                     ->label(__('admin.sales.fields.status'))
                     ->badge()
-                    ->formatStateUsing(static fn (QuotationStatus $state): string => $state->label())
-                    ->color(static fn (QuotationStatus $state): string => $state->color()),
+                    ->formatStateUsing(static fn (QuotationStatus $state, Quotation $record): string => $state === QuotationStatus::Sent && $record->isExpired() ? QuotationStatus::Expired->label() : $state->label())
+                    ->color(static fn (QuotationStatus $state, Quotation $record): string => $state === QuotationStatus::Sent && $record->isExpired() ? QuotationStatus::Expired->color() : $state->color()),
                 TextColumn::make('reservation_coverage')
                     ->label(__('Stock coverage'))
                     ->state(fn (Quotation $record): string => match (true) {
@@ -49,12 +58,14 @@ final class QuotationsTable
                         $record->hasLapsedReservations() => 'Insufficient',
                         default => 'Available',
                     })
+                    ->formatStateUsing(static fn (string $state): string => __($state))
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Insufficient' => 'danger',
                         'Available' => 'success',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('issue_date')->label(__('admin.sales.fields.issue_date'))->date()->sortable(),
                 TextColumn::make('expires_at')->label(__('admin.sales.fields.expires_at'))->date()->sortable(),
                 TextColumn::make('grand_total')
@@ -98,12 +109,14 @@ final class QuotationsTable
                     DateConstraint::make('created_at')->label(__('Created at')),
                 ]),
             ])
-            ->recordActions([
-                ViewAction::make(),
-                QuotationActions::send(),
-                QuotationActions::recordDecision(),
-                QuotationActions::convert(),
-                QuotationActions::requote(),
-            ]);
+            ->recordActions(TableFit::rowActions([
+                QuotationActions::send()->button(),
+                QuotationActions::recordDecision()->button(),
+                QuotationActions::convert()->button(),
+                QuotationActions::requote()->button(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                ]),
+            ]));
     }
 }

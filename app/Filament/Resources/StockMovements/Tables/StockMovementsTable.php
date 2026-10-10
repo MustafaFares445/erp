@@ -17,7 +17,9 @@ use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryMovement;
+use App\Support\QuantityFormatter;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -33,7 +35,7 @@ final class StockMovementsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('created_at')
@@ -44,11 +46,11 @@ final class StockMovementsTable
                     ->label(__('admin.inventory.stock.variant'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('productVariant.name')
+                TextColumn::make('productVariant.name')->wrap()
                     ->label(__('admin.inventory.stock.variant_name'))
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('warehouse.code')
+                TextColumn::make('warehouse.code')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->searchable()
                     ->sortable(),
@@ -76,6 +78,7 @@ final class StockMovementsTable
                     ->formatStateUsing(fn (?string $state, InventoryMovement $record): string => self::formatSignedQuantity(
                         $state ?? (string) $record->quantity,
                     ))
+                    ->placeholder(__('—'))
                     ->color(fn (?string $state, InventoryMovement $record): string => Str::startsWith(
                         $state ?? (string) $record->quantity,
                         '-',
@@ -110,7 +113,7 @@ final class StockMovementsTable
                     ->url(fn (InventoryMovement $record): ?string => self::sourceLineUrl($record))
                     ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('source_reference')
+                TextColumn::make('source_reference')->wrap()
                     ->label(__('admin.inventory.movement.source'))
                     ->state(fn (InventoryMovement $record): string => self::sourceReference($record))
                     ->url(fn (InventoryMovement $record): ?string => self::sourceUrl($record)),
@@ -125,7 +128,7 @@ final class StockMovementsTable
                 TextColumn::make('status')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('createdBy.name')
+                TextColumn::make('createdBy.name')->toggleable(isToggledHiddenByDefault: true)->wrap()
                     ->label(__('admin.inventory.movement.creator'))
                     ->default(__('admin.inventory.movement.system')),
             ])
@@ -182,9 +185,9 @@ final class StockMovementsTable
                         ->pluck('source_type', 'source_type')
                         ->all()),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
-            ]);
+            ]));
     }
 
     private static function movementTypeColor(MovementType $movementType): string
@@ -199,7 +202,9 @@ final class StockMovementsTable
 
     private static function formatSignedQuantity(string $quantity): string
     {
-        return Str::startsWith($quantity, '-') ? $quantity : '+'.$quantity;
+        $displayed = QuantityFormatter::display($quantity);
+
+        return Str::startsWith($displayed, '-') ? $displayed : '+'.$displayed;
     }
 
     public static function sourceReference(InventoryMovement $movement): string
@@ -220,10 +225,10 @@ final class StockMovementsTable
         $source = $modelClass::query()->find($sourceId);
 
         if (! $source instanceof Model) {
-            return sprintf('%s #%s', $sourceResource::getModelLabel(), (string) $sourceId);
+            return sprintf('%s #%s', Str::ucfirst($sourceResource::getModelLabel()), (string) $sourceId);
         }
 
-        return $sourceResource::getModelLabel().' '.self::recordReference($source);
+        return Str::ucfirst($sourceResource::getModelLabel()).' '.self::recordReference($source);
     }
 
     private static function recordReference(Model $record): string

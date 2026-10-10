@@ -27,6 +27,8 @@ final class SupportNeedsAttention extends TableWidget
 {
     protected static bool $isLazy = false;
 
+    protected int|string|array $columnSpan = 'full';
+
     use BuildsDashboardTables;
     use ScopesSupportTickets;
 

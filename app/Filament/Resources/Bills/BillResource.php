@@ -17,6 +17,7 @@ use App\Models\PurchaseOrderLine;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -25,10 +26,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rules\Unique;
 use LogicException;
 use UnitEnum;
@@ -54,18 +57,38 @@ final class BillResource extends Resource
     {
         return $schema->components([
             TextInput::make('bill_number')->label(__('Bill number'))->disabled()->dehydrated(false),
-            Select::make('purchase_order_id')->relationship('purchaseOrder', 'purchase_order_number')->searchable()->preload()->live(),
+            Select::make('purchase_order_id')
+                ->relationship('purchaseOrder', 'purchase_order_number')
+                ->searchable()
+                ->preload()
+                ->live()
+                ->afterStateUpdated(static function (Set $set, mixed $state): void {
+                    $set('supplier_id', self::purchaseOrderSupplierId($state));
+                }),
             Select::make('supplier_id')
                 ->relationship('supplier', 'name')
                 ->searchable()
                 ->preload()
                 ->live()
+                // A purchase-order bill stores no supplier_id (the order owns it), so show
+                // the order's supplier read-only; it is never dehydrated while an order is linked.
+                ->afterStateHydrated(static function (Select $component, mixed $state, ?Model $record): void {
+                    if ($state === null && $record instanceof Bill) {
+                        $component->state(self::purchaseOrderSupplierId($record->purchase_order_id));
+                    }
+                })
                 ->required(fn (Get $get): bool => ! is_numeric($get('purchase_order_id')))
                 ->disabled(fn (Get $get): bool => is_numeric($get('purchase_order_id')))
                 ->dehydrated(fn (Get $get): bool => ! is_numeric($get('purchase_order_id')))
-                ->helperText(fn (Get $get): ?string => is_numeric($get('purchase_order_id'))
-                    ? 'Derived from the linked purchase order; this bill cannot also set its own supplier.'
-                    : null),
+                ->helperText(static function (Get $get): ?string {
+                    if (! is_numeric($get('purchase_order_id'))) {
+                        return null;
+                    }
+
+                    $hint = __('Derived from the linked purchase order; this bill cannot also set its own supplier.');
+
+                    return is_string($hint) ? $hint : null;
+                }),
             TextInput::make('supplier_reference')
                 ->label(__('Supplier invoice reference'))
                 ->required()
@@ -96,6 +119,7 @@ final class BillResource extends Resource
                         ->searchable()
                         ->live(),
                     Select::make('chart_account_id')
+                        ->label(__('Chart account'))
                         ->relationship('chartAccount', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query
                             ->where('is_postable', true)
                             ->where('is_active', true)
@@ -173,6 +197,17 @@ final class BillResource extends Resource
             ]));
     }
 
+    private static function purchaseOrderSupplierId(mixed $purchaseOrderId): ?int
+    {
+        if (! is_numeric($purchaseOrderId)) {
+            return null;
+        }
+
+        $supplierId = PurchaseOrder::query()->whereKey((int) $purchaseOrderId)->value('supplier_id');
+
+        return is_numeric($supplierId) ? (int) $supplierId : null;
+    }
+
     /**
      * The supplier the reference-uniqueness rule should scope to, mirroring
      * {@see Bill::resolveSupplierId()} for form state that has not been saved
@@ -207,12 +242,11 @@ final class BillResource extends Resource
             ->orderBy('id')
             ->get()
             ->mapWithKeys(static fn (PurchaseOrderLine $line): array => [
-                $line->id => sprintf(
-                    '%s — ordered %s %s',
-                    $line->productVariant->sku,
-                    $line->quantity_ordered,
-                    $line->unit->name,
-                ),
+                $line->id => __(':sku — ordered :quantity :unit', [
+                    'sku' => $line->productVariant->sku,
+                    'quantity' => QuantityFormatter::display($line->quantity_ordered),
+                    'unit' => __($line->unit->name),
+                ]),
             ])
             ->all();
     }

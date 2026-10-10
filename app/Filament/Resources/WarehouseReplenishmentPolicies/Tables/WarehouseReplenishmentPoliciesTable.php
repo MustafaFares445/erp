@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\WarehouseReplenishmentPolicies\Tables;
 
 use App\Data\Inventory\ReplenishmentRecommendation;
+use App\Filament\Tables\TableFit;
 use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\ReplenishmentRecommendationService;
 use Filament\Actions\DeleteAction;
@@ -18,10 +19,10 @@ final class WarehouseReplenishmentPoliciesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('warehouse_id')
             ->columns([
-                TextColumn::make('warehouse.name')
+                TextColumn::make('warehouse.name')->wrap()
                     ->label(__('admin.inventory.replenishment.fields.warehouse'))
                     ->searchable()
                     ->sortable(),
@@ -33,11 +34,11 @@ final class WarehouseReplenishmentPoliciesTable
                     ->label(__('Available'))
                     ->state(fn (WarehouseReplenishmentPolicy $record): float => self::recommendation($record)->available)
                     ->numeric(decimalPlaces: 3),
-                TextColumn::make('reserved')
+                TextColumn::make('reserved')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Reserved'))
                     ->state(fn (WarehouseReplenishmentPolicy $record): float => self::recommendation($record)->reserved)
                     ->numeric(decimalPlaces: 3),
-                TextColumn::make('incoming')
+                TextColumn::make('incoming')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Incoming'))
                     ->state(fn (WarehouseReplenishmentPolicy $record): float => self::recommendation($record)->incoming)
                     ->numeric(decimalPlaces: 3),
@@ -55,7 +56,7 @@ final class WarehouseReplenishmentPoliciesTable
                     ->numeric(decimalPlaces: 3)
                     ->badge()
                     ->color(fn (WarehouseReplenishmentPolicy $record): string => self::recommendation($record)->needsPurchase() ? 'warning' : 'success'),
-                TextColumn::make('supplier')
+                TextColumn::make('supplier')->wrap()
                     ->label(__('Supplier'))
                     ->state(fn (WarehouseReplenishmentPolicy $record): ?string => self::recommendation($record)->supplierName)
                     ->placeholder(__('No eligible supplier')),
@@ -75,10 +76,10 @@ final class WarehouseReplenishmentPoliciesTable
                     ->searchable()
                     ->preload(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 EditAction::make(),
                 DeleteAction::make(),
-            ]);
+            ]));
     }
 
     private static function recommendation(WarehouseReplenishmentPolicy $policy): ReplenishmentRecommendation

@@ -13,6 +13,9 @@ use Filament\Schemas\Schema;
 
 final class ServiceRecordInfolist
 {
+    /** Minute precision: seconds are noise for field-service times. */
+    private const string DATE_TIME_FORMAT = 'M j, Y H:i';
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -28,9 +31,9 @@ final class ServiceRecordInfolist
                         TextEntry::make('maintenanceRecord.serializedInventoryUnit.productVariant.name')->label(__('Equipment'))->placeholder(__('External / unlinked')),
                         TextEntry::make('maintenanceRecord.serial_number')->label(__('Serial'))->placeholder(__('—')),
                         TextEntry::make('employee.user.name')->label(__('Technician'))->placeholder(__('Unassigned')),
-                        TextEntry::make('due_at')->label(__('Due'))->dateTime()->placeholder(__('—')),
-                        TextEntry::make('started_at')->label(__('Started'))->dateTime()->placeholder(__('—')),
-                        TextEntry::make('completed_at')->label(__('Completed'))->dateTime()->placeholder(__('—')),
+                        TextEntry::make('due_at')->label(__('Due'))->dateTime(self::DATE_TIME_FORMAT)->placeholder(__('—')),
+                        TextEntry::make('started_at')->label(__('Started'))->dateTime(self::DATE_TIME_FORMAT)->placeholder(__('—')),
+                        TextEntry::make('completed_at')->label(__('Completed'))->dateTime(self::DATE_TIME_FORMAT)->placeholder(__('—')),
                         TextEntry::make('title')->label(__('Work'))->columnSpanFull(),
                         TextEntry::make('description')->columnSpanFull()->placeholder(__('—')),
                     ])
@@ -52,8 +55,8 @@ final class ServiceRecordInfolist
                         RepeatableEntry::make('serviceAppointments')
                             ->hiddenLabel()
                             ->schema([
-                                TextEntry::make('scheduled_start_at')->label(__('Start'))->dateTime(),
-                                TextEntry::make('scheduled_end_at')->label(__('End'))->dateTime(),
+                                TextEntry::make('scheduled_start_at')->label(__('Start'))->dateTime(self::DATE_TIME_FORMAT),
+                                TextEntry::make('scheduled_end_at')->label(__('End'))->dateTime(self::DATE_TIME_FORMAT),
                                 TextEntry::make('employee.user.name')->label(__('Technician'))->placeholder(__('Unassigned')),
                                 TextEntry::make('status')
                                     ->badge()
@@ -62,8 +65,8 @@ final class ServiceRecordInfolist
                                 TextEntry::make('customer_signature_name')
                                     ->label(__('Customer sign-off'))
                                     ->placeholder(__('Not completed')),
-                                TextEntry::make('checked_in_at')->label(__('Checked in'))->dateTime()->placeholder(__('—')),
-                                TextEntry::make('checked_out_at')->label(__('Checked out'))->dateTime()->placeholder(__('—')),
+                                TextEntry::make('checked_in_at')->label(__('Checked in'))->dateTime(self::DATE_TIME_FORMAT)->placeholder(__('—')),
+                                TextEntry::make('checked_out_at')->label(__('Checked out'))->dateTime(self::DATE_TIME_FORMAT)->placeholder(__('—')),
                             ])
                             ->columns(3)
                             ->placeholder(__('No field-service appointments scheduled')),

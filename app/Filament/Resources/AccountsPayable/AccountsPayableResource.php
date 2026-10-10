@@ -36,6 +36,12 @@ final class AccountsPayableResource extends Resource
     }
 
     #[\Override]
+    public static function getBreadcrumb(): string
+    {
+        return __('admin.resources.accounts_payable');
+    }
+
+    #[\Override]
     public static function canAccess(): bool
     {
         $user = auth()->user();

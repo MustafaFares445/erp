@@ -24,17 +24,25 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class ConsumedPartsRelationManager extends RelationManager
 {
     protected static string $relationship = 'parts';
 
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Parts');
+    }
+
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->recordTitleAttribute('id')
+            ->modelLabel(__('part'))
+            ->pluralModelLabel(__('parts'))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('productVariant.name')->label(__('Product variant')),

@@ -8,6 +8,7 @@ use App\Enums\VisitStatus;
 use App\Filament\Resources\Visits\Actions\VisitManagementActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\CustomerVisit;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
@@ -31,7 +32,7 @@ final class VisitsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('scheduled_start_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
@@ -40,11 +41,11 @@ final class VisitsTable
                     ->searchable()
                     ->sortable()
                     ->placeholder(__('Legacy visit')),
-                TextColumn::make('customer.company_name')
+                TextColumn::make('customer.company_name')->wrap()
                     ->label(__('Customer'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('employee.user.name')
+                TextColumn::make('employee.user.name')->wrap()
                     ->label(__('Employee'))
                     ->searchable()
                     ->sortable(),
@@ -56,7 +57,7 @@ final class VisitsTable
                     ->label(__('Scheduled start'))
                     ->dateTime()
                     ->sortable(),
-                TextColumn::make('scheduled_end_at')
+                TextColumn::make('scheduled_end_at')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Scheduled end'))
                     ->dateTime()
                     ->sortable(),
@@ -65,17 +66,17 @@ final class VisitsTable
                     ->formatStateUsing(static fn (VisitStatus $state): string => $state->label())
                     ->color(static fn (VisitStatus $state): string => $state->color())
                     ->sortable(),
-                TextColumn::make('duration')
+                TextColumn::make('duration')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Duration'))
                     ->state(static fn (CustomerVisit $record): ?string => $record->durationMinutes() !== null
                         ? $record->durationMinutes().' min'
                         : null)
                     ->placeholder(__('—')),
-                IconColumn::make('location_warning')
+                IconColumn::make('location_warning')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Location warning'))
                     ->boolean()
                     ->trueColor('warning'),
-                IconColumn::make('follow_up_required')
+                IconColumn::make('follow_up_required')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Follow-up'))
                     ->boolean()
                     ->trueColor('warning'),
@@ -142,12 +143,12 @@ final class VisitsTable
                 TernaryFilter::make('location_warning')->label(__('Location warning')),
                 TernaryFilter::make('follow_up_required')->label(__('Follow-up required')),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 ActionGroup::make([
                     VisitManagementActions::reschedule(),
                     VisitManagementActions::review(),
                 ]),
-            ]);
+            ]));
     }
 }

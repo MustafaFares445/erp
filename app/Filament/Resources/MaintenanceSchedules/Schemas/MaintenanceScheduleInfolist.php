@@ -22,11 +22,11 @@ final class MaintenanceScheduleInfolist
                     TextEntry::make('name'),
                     TextEntry::make('interval_type')->label(__('Recurrence unit'))->badge(),
                     TextEntry::make('interval_value')->label(__('Recurrence value')),
-                    TextEntry::make('lead_time_days')->label(__('Lead time (days)')),
+                    TextEntry::make('lead_time_days')->label(__('Advance notice (days)')),
                     TextEntry::make('first_due_on')->date(),
                     TextEntry::make('next_due_on')->date(),
                     TextEntry::make('last_completed_on')->date()->placeholder(__('—')),
-                    TextEntry::make('is_active')->label(__('Active'))->badge()->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive'),
+                    TextEntry::make('is_active')->label(__('Active'))->badge()->formatStateUsing(fn (bool $state): string => $state ? __('Active') : __('Inactive')),
                     TextEntry::make('billing_type')->label(__('Intended billing path'))->badge(),
                 ]),
             ]);

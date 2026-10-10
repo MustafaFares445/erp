@@ -50,18 +50,27 @@ it('evaluates alert origin, state, and context display values', function (): voi
         'type' => InventoryAlertType::DuplicateIdentity,
         'severity' => InventoryAlertSeverity::Warning,
         'context' => [
-            'duplicate' => true,
-            'count' => 2,
-            'missing' => null,
+            'on_hand_quantity' => 1250.5,
+            'min_quantity' => null,
+            'needs_review' => true,
             'values' => ['SER-1', 'SER-2'],
         ],
     ]);
     $schema = viewInfolist($viewer, ViewInventoryAlert::class, $alert);
 
+    // Release QA 2026-10-10: the context showed raw storage keys such as "on_hand_quantity: 0".
     expect(infolistState($schema, 'state'))->toBe(__('admin.inventory.alert.active'))
         ->and(infolistState($schema, 'context'))->toBe(
-            'duplicate: true; count: 2; missing: null; values: ["SER-1","SER-2"]',
+            'On hand: 1,250.5; Minimum: —; Needs Review: Yes; Values: SER-1, SER-2',
         );
+
+    app()->setLocale('ar');
+
+    expect(infolistState(viewInfolist($viewer, ViewInventoryAlert::class, $alert), 'context'))->toBe(
+        'الرصيد الفعلي: 1,250.5; الحد الأدنى: —; Needs Review: نعم; Values: SER-1, SER-2',
+    );
+
+    app()->setLocale('en');
 
     $alert->forceFill(['resolved_at' => now(), 'context' => null])->save();
     $resolvedSchema = viewInfolist($viewer, ViewInventoryAlert::class, $alert->fresh());

@@ -7,6 +7,7 @@ namespace App\Filament\Resources\ServiceRecords\Tables;
 use App\Enums\MaintenanceStatus;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\MaintenanceTask;
 use App\Models\User;
 use App\Services\Support\ServiceRecordService;
@@ -36,21 +37,21 @@ final class ServiceRecordsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('updated_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('maintenanceRecord.id')->label(__('Maintenance request #'))->searchable(),
-                TextColumn::make('maintenanceRecord.customer.company_name')->label(__('Customer'))->searchable(),
-                TextColumn::make('equipment')
+                TextColumn::make('maintenanceRecord.customer.company_name')->wrap()->label(__('Customer'))->searchable(),
+                TextColumn::make('equipment')->wrap()
                     ->label(__('Equipment'))
                     ->getStateUsing(static fn (MaintenanceTask $record): string => $record->maintenanceRecord?->serializedInventoryUnit?->productVariant->name
-                        ?? ($record->maintenanceRecord?->is_equipment_unlinked ? 'External / unlinked' : '—')),
-                TextColumn::make('maintenanceRecord.serial_number')->label(__('Serial'))->placeholder(__('—'))->searchable(),
-                TextColumn::make('employee.user.name')->label(__('Technician'))->placeholder(__('Unassigned')),
-                TextColumn::make('title')->label(__('Work'))->searchable()->limit(40),
-                TextColumn::make('started_at')->label(__('Started'))->dateTime()->placeholder(__('—'))->sortable(),
-                TextColumn::make('completed_at')->label(__('Completed'))->dateTime()->placeholder(__('—'))->sortable(),
+                        ?? ($record->maintenanceRecord?->is_equipment_unlinked ? __('External / unlinked') : '—')),
+                TextColumn::make('maintenanceRecord.serial_number')->toggleable(isToggledHiddenByDefault: true)->label(__('Serial'))->placeholder(__('—'))->searchable(),
+                TextColumn::make('employee.user.name')->wrap()->label(__('Technician'))->placeholder(__('Unassigned')),
+                TextColumn::make('title')->wrap()->label(__('Work'))->searchable()->limit(40),
+                TextColumn::make('started_at')->toggleable(isToggledHiddenByDefault: true)->label(__('Started'))->dateTime()->placeholder(__('—'))->sortable(),
+                TextColumn::make('completed_at')->toggleable(isToggledHiddenByDefault: true)->label(__('Completed'))->dateTime()->placeholder(__('—'))->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(static fn (MaintenanceStatus $state): string => $state->label())
@@ -94,7 +95,7 @@ final class ServiceRecordsTable
                 ]),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 EditAction::make()
                     ->visible(static fn (MaintenanceTask $record): bool => in_array($record->status, [MaintenanceStatus::Open, MaintenanceStatus::InProgress], true)),
@@ -120,7 +121,7 @@ final class ServiceRecordsTable
                         ->visible(static fn (MaintenanceTask $record): bool => $record->trashed())
                         ->action(static fn (MaintenanceTask $record) => $record->restore()),
                 ]),
-            ])
+            ]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('archive')

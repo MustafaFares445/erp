@@ -23,6 +23,8 @@ use App\Services\Orders\DeliveryTypeResolver;
 use App\Services\Orders\OrderFulfillmentService;
 use Filament\Forms\Components\Field;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\EmbeddedSchema;
+use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
@@ -389,6 +391,22 @@ it('covers contextual form title and mutation map branches', function (): void {
             '../../customer_id' => $customer->getKey(),
         ])))->toBeInstanceOf(DeliveryType::class);
 });
+it('renders the delivery wizard without the standard form wrapper and actions', function (): void {
+    $standardPage = cioPage();
+    $standardComponent = $standardPage->getFormContentComponent();
+
+    expect($standardComponent)->toBeInstanceOf(Form::class);
+
+    $deliveryPage = cioPage();
+    $deliveryPage->isContextualDelivery = true;
+    $deliveryPage->selectedOperationType = OperationType::Delivery;
+
+    $deliveryComponent = $deliveryPage->getFormContentComponent();
+
+    expect($deliveryPage->hasFormWrapper())->toBeFalse()
+        ->and($deliveryComponent)->toBeInstanceOf(EmbeddedSchema::class)
+        ->and($deliveryComponent)->not->toBeInstanceOf(Form::class);
+});
 it('covers remaining stock warning filtered variant and no expiry lot paths', function (): void {
     $page = cioPage();
     $warehouse = Warehouse::factory()->create();
@@ -559,12 +577,13 @@ it('shows the authorized FEFO override explanation in the delivery form', functi
     $page = cioPage();
     $page->isContextualDelivery = true;
     $page->selectedOperationType = OperationType::Delivery;
+
     $schema = $page->form(Schema::make($page)->model(new InventoryOperation));
     $field = cioFindComponent($schema->getFlatComponents(withHidden: true), 'fefo_override_reason');
 
     expect($field)->not->toBeNull();
 
-    $children = (new ReflectionProperty($field, 'childComponents'))->getValue($field);
+    $children = new ReflectionProperty($field, 'childComponents')->getValue($field);
     $helperFactory = $children[Field::BELOW_CONTENT_SCHEMA_KEY] ?? null;
 
     expect($helperFactory)->toBeInstanceOf(Closure::class)

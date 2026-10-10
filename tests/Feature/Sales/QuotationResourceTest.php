@@ -20,6 +20,7 @@ use Database\Seeders\PurchasePermissionSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -227,3 +228,29 @@ it('offers Generate PDF only on a sent or accepted quotation and queues the job'
 
     Queue::assertPushed(GenerateQuotationDocument::class);
 });
+
+it('offers the latest stored quotation PDF without discarding earlier versions', function (string $locale, string $previewLabel): void {
+    Storage::fake('local');
+    app()->setLocale($locale);
+    $officer = salesUser(DashboardRole::SalesOfficer);
+    $quotation = Quotation::factory()->sent()->create();
+
+    Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $quotation->getKey()])
+        ->assertDontSee($previewLabel);
+
+    $quotation->addMediaFromString('%PDF-1.4')
+        ->usingFileName('quotation-original.pdf')
+        ->toMediaCollection('quotation-pdf', 'local');
+    $media = $quotation->addMediaFromString('%PDF-1.4')
+        ->usingFileName('quotation-regenerated.pdf')
+        ->toMediaCollection('quotation-pdf', 'local');
+
+    Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $quotation->getKey()])
+        ->assertSee($previewLabel)
+        ->assertSeeHtml('href="'.route('admin.quotations.media.preview', ['quotation' => $quotation, 'media' => $media]).'"')
+        ->assertSeeHtml('href="'.route('admin.quotations.media.download', ['quotation' => $quotation, 'media' => $media]).'"');
+
+    expect($quotation->fresh()->getMedia('quotation-pdf'))->toHaveCount(2);
+})->with(['English' => ['en', 'Preview PDF'], 'Arabic' => ['ar', 'معاينة ملف PDF']]);

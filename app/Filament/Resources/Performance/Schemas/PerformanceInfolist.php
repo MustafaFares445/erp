@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Performance\Schemas;
 
 use App\Models\EmployeePerformanceScore;
 use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -21,32 +22,41 @@ final class PerformanceInfolist
     {
         return $schema->components([
             Section::make()
-                ->columns(3)
+                ->columnSpanFull()
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     TextEntry::make('employee.user.name')->label(__('Employee')),
                     TextEntry::make('salesPlan.name')->label(__('Plan')),
                     TextEntry::make('total_score')->label(__('Total score'))->suffix('%'),
                     TextEntry::make('task_completion_percent')->label(__('Task completion (statistic)'))->suffix('%'),
-                    TextEntry::make('period_start')->label(__('Period start'))->date(),
-                    TextEntry::make('period_end')->label(__('Period end'))->date(),
+                    TextEntry::make('period_start')->label(__('Score period start'))->date(),
+                    TextEntry::make('period_end')->label(__('Score period end'))->date(),
                     TextEntry::make('calculated_at')->dateTime(),
                 ]),
             Section::make(__('Factor breakdown'))
+                ->columnSpanFull()
                 ->schema([
                     RepeatableEntry::make('factors')
-                        ->label('')
+                        ->hiddenLabel()
                         ->state(static fn (EmployeePerformanceScore $record): array => self::factorRows($record))
+                        ->table([
+                            TableColumn::make(__('Factor')),
+                            TableColumn::make(__('Completed/on-time')),
+                            TableColumn::make(__('Total')),
+                            TableColumn::make(__('Ratio')),
+                            TableColumn::make(__('Weight')),
+                            TableColumn::make(__('Contribution')),
+                        ])
                         ->schema([
                             TextEntry::make('label')->label(__('Factor')),
                             TextEntry::make('numerator')->label(__('Completed/on-time')),
                             TextEntry::make('denominator')->label(__('Total'))->formatStateUsing(
-                                static fn (int $state): string => $state === 0 ? 'No data' : (string) $state,
+                                static fn (int $state): string => $state === 0 ? __('No data') : (string) $state,
                             ),
                             TextEntry::make('ratio')->label(__('Ratio')),
                             TextEntry::make('weight')->label(__('Weight')),
                             TextEntry::make('contribution')->label(__('Contribution')),
-                        ])
-                        ->columns(6),
+                        ]),
                 ]),
         ]);
     }
@@ -58,11 +68,11 @@ final class PerformanceInfolist
     {
         $breakdown = $record->calculation_breakdown;
         $labels = [
-            'task_completion' => 'Task completion',
-            'visit_completion' => 'Visit completion',
-            'schedule_adherence' => 'Schedule adherence',
-            'work_time_adherence' => 'Work-time adherence',
-            'potential_sales_opportunities' => 'Potential sales opportunities',
+            'task_completion' => __('Task completion'),
+            'visit_completion' => __('Visit completion'),
+            'schedule_adherence' => __('Schedule adherence'),
+            'work_time_adherence' => __('Work-time adherence'),
+            'potential_sales_opportunities' => __('Potential sales opportunities'),
         ];
 
         $rows = [];

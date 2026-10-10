@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: customer-app
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: CUSTOMER_APP_V1_ADOPTED_DECISIONS.md plus current backend-domain audit
 ---
 
@@ -127,7 +127,7 @@ Current backend Notification delivery does not by itself prove that a mobile pus
 
 ## Security / Ownership
 
-A future Customer API must derive the CustomerProfile from the authenticated principal.
+Customer-facing APIs must derive the CustomerProfile from the authenticated principal. The implemented Support API already follows this rule; every remaining Customer App endpoint must preserve it.
 
 The client must not be trusted to choose `customer_id` for ownership.
 

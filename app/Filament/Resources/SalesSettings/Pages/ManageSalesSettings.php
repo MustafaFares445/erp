@@ -15,6 +15,11 @@ final class ManageSalesSettings extends ManageRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            CreateAction::make()
+                ->label(__('New Sales Setting'))
+                ->visible(fn (): bool => SalesSettingResource::canCreate())
+                ->authorize(fn (): bool => SalesSettingResource::canCreate()),
+        ];
     }
 }

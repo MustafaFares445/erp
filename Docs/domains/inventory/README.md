@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: inventory
-last_verified: 2026-10-02
+last_verified: 2026-10-08
 verified_against: app/Services/Inventory, app/Enums inventory lifecycle enums, app/Filament/Resources inventory surfaces, tests/Feature/Inventory
 ---
 
@@ -48,8 +48,10 @@ Rules for this structure:
 - Inventory Reports live under Reports; Catalog Setup, Package Types and Inventory Settings live under System. Their URLs are unchanged.
 - Stock quantities are never editable from Stock Levels; stock changes go through the Operations workflows.
 - Operations lists (all, Receipts, Deliveries, Internal Transfers) and Stock Levels use the standard list-table experience ([ADR 0014](../../adr/0014-standard-list-table-experience.md)): a view tab bar, Group by and slide-over rule filters. Operations also have per-user favorites and a Starred tab; Stock Levels are a lookup list and have neither.
+- Typed Operations lists derive their columns, groups and filter choices from the owning page's operation type, so Livewire updates retain the Receipt/Delivery/Transfer layout.
+- Standalone operation creation is limited to Internal Transfers. Both the combined list and the transfer list link to the forced-transfer form; its non-wizard form includes normal submit/cancel controls. Purchase receipts and customer deliveries start from their source workflows. Purchase-linked Draft receipts retain inbound-controlled supplier, destination, product and demand fields.
 
-The Inventory dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards) and has a warehouse filter. It shows movements (inbound vs outbound) beside stock value by warehouse, then low stock beside the latest movements. Pending adjustments and transfers are counted in the "awaiting action" card. Open replenishment requirements, with their internal-transfer suggestions, appear here; the Purchasing dashboard shows only the residual external need.
+The Inventory dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards) and has a warehouse filter. It shows movements (inbound vs outbound) beside stock value by warehouse, low stock, an actionable Expiring Lots queue, and the latest movements. Inventory Lots exposes Expired / 0–30 / 31–60 / 61–90 expiry work views. Pending adjustments and transfers are counted in the "awaiting action" card. Open replenishment requirements, with their internal-transfer suggestions, appear here; the Purchasing dashboard shows only the residual external need.
 
 ## Boundary
 
@@ -65,3 +67,7 @@ See [Business Rules](BUSINESS_RULES.md), [Workflows](WORKFLOWS.md), and [Testing
 ## Canonical Cross-Domain Flows
 
 See [IERP Canonical Business Flows](../../product/BUSINESS_FLOWS.md) for end-to-end interactions with other domains.
+
+## Operational diagnostics in View pages
+
+The Inventory View pages for warehouse, operation, count, alert, adjustment, reservation, return, receipt correction, condition change and shipment start with a bilingual read-only guidance panel provided by InventoryViewDiagnostics and InventoryViewDiagnosticsService. The panel highlights verified issues in warehouse availability, open logistics operations and count completion; other pages show state-specific next actions. These hints never mutate stock, bypass policies or replace canonical operation actions. The guide must explain this UI and use new EN/AR screenshots captured after implementation; existing screenshot assets have not been regenerated in this change.

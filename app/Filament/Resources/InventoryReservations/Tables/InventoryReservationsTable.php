@@ -7,7 +7,10 @@ namespace App\Filament\Resources\InventoryReservations\Tables;
 use App\Enums\ReservationStatus;
 use App\Filament\Resources\InventoryReservations\Actions\InventoryReservationActions;
 use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryReservation;
+use App\Support\QuantityFormatter;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -19,18 +22,20 @@ final class InventoryReservationsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.reservation.fields.sku'))->searchable()->sortable(),
-                TextColumn::make('productVariant.name')->label(__('admin.inventory.reservation.fields.variant'))->searchable(),
-                TextColumn::make('warehouse.name')->label(__('admin.inventory.reservation.fields.warehouse'))->searchable()->sortable(),
+                TextColumn::make('productVariant.name')->wrap()->label(__('admin.inventory.reservation.fields.variant'))->searchable(),
+                TextColumn::make('warehouse.name')->wrap()->label(__('admin.inventory.reservation.fields.warehouse'))->searchable()->sortable(),
                 TextColumn::make('salesOrder.order_number')
                     ->label(__('Sales Order'))
                     ->searchable()
-                    ->placeholder(__('—')),
-                TextColumn::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6)->sortable(),
-                TextColumn::make('allocations_count')->counts('allocations')->label(__('admin.inventory.reservation.fields.allocations')),
+                    ->placeholder(__('—'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric()->sortable()
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
+                TextColumn::make('allocations_count')->counts('allocations')->label(__('admin.inventory.reservation.fields.allocations'))->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('source_document')
                     ->label(__('admin.inventory.reservation.fields.source_document'))
                     ->state(fn (InventoryReservation $record): string => InventoryReservationResource::sourceDocumentLabel($record))
@@ -38,10 +43,10 @@ final class InventoryReservationsTable
                     ->openUrlInNewTab(false),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('expires_at')->dateTime()->placeholder(__('admin.inventory.reservation.no_expiry'))->sortable(),
-                TextColumn::make('releasedBy.name')->label(__('admin.inventory.reservation.fields.released_by'))->placeholder(__('—')),
-                TextColumn::make('release_reason')->label(__('admin.inventory.reservation.release_reason'))->limit(50)->placeholder(__('—')),
-                TextColumn::make('released_at')->dateTime()->placeholder(__('—'))->sortable(),
-                TextColumn::make('created_at')->dateTime()->sortable(),
+                TextColumn::make('releasedBy.name')->wrap()->label(__('admin.inventory.reservation.fields.released_by'))->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('release_reason')->wrap()->label(__('admin.inventory.reservation.release_reason'))->limit(50)->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('released_at')->dateTime()->placeholder(__('—'))->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -65,10 +70,10 @@ final class InventoryReservationsTable
                         ->whereNotNull('expires_at')
                         ->whereBetween('expires_at', [now(), now()->addDays(7)])),
             ])
-            ->recordActions([
-                ViewAction::make(),
+            ->recordActions(TableFit::rowActions([
                 InventoryReservationActions::release(),
-            ])
+                ActionGroup::make([ViewAction::make()]),
+            ]))
             ->toolbarActions([
                 InventoryReservationActions::releaseSelected(),
             ])

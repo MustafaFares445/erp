@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\Accounting\BankReconciliation\BankReconciliationService;
 use App\Services\Accounting\BankReconciliation\BankReconciliationSuggestionService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -37,6 +38,12 @@ final class LinesRelationManager extends RelationManager
     protected static string $relationship = 'lines';
 
     #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Statement transactions');
+    }
+
+    #[\Override]
     public function table(Table $table): Table
     {
         return $table
@@ -45,7 +52,7 @@ final class LinesRelationManager extends RelationManager
                 TextColumn::make('transaction_date')->date()->sortable(),
                 TextColumn::make('reference')->searchable()->placeholder('—'),
                 TextColumn::make('counterparty')->searchable()->placeholder('—'),
-                TextColumn::make('description')->wrap()->limit(80)->placeholder('—'),
+                TextColumn::make('description')->wrap()->limit(80)->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('amount')->money(fn (): string => $this->statement()->currency_code)->sortable(),
                 TextColumn::make('matched_amount')
                     ->label(__('Matched'))
@@ -55,14 +62,19 @@ final class LinesRelationManager extends RelationManager
                     ->label(__('Remaining'))
                     ->state(fn (BankStatementLine $record): string => number_format($record->remainingMinor() / 100, 2, '.', ''))
                     ->money(fn (): string => $this->statement()->currency_code),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (string $state): string => __(ucfirst($state)))
+                    ->sortable(),
             ])
             ->recordActions([
-                $this->suggestionAction(),
-                $this->matchCustomerPaymentAction(),
-                $this->matchSupplierPaymentAction(),
-                $this->matchJournalEntryAction(),
-                $this->differenceAction(),
+                ActionGroup::make([
+                    $this->suggestionAction(),
+                    $this->matchCustomerPaymentAction(),
+                    $this->matchSupplierPaymentAction(),
+                    $this->matchJournalEntryAction(),
+                    $this->differenceAction(),
+                ]),
             ]);
     }
 

@@ -33,6 +33,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 final class PurchaseNeeds extends Page
 {
@@ -146,12 +147,11 @@ final class PurchaseNeeds extends Page
                     Notification::make()
                         ->success()
                         ->title(__('Purchase Order drafts created'))
-                        ->body(sprintf(
-                            '%d draft(s) created from Sales Order %s: %s',
-                            $drafts->count(),
-                            $order->order_number,
-                            $drafts->pluck('purchase_order_number')->implode(', '),
-                        ))
+                        ->body(__(':count draft(s) created from Sales Order :order: :numbers', [
+                            'count' => $drafts->count(),
+                            'order' => $order->order_number,
+                            'numbers' => $drafts->pluck('purchase_order_number')->implode(', '),
+                        ]))
                         ->send();
                 }),
             Action::make('createFromReplenishment')
@@ -196,11 +196,10 @@ final class PurchaseNeeds extends Page
                     Notification::make()
                         ->success()
                         ->title(__('Purchase Order drafts created'))
-                        ->body(sprintf(
-                            '%d draft(s) created from replenishment: %s',
-                            $drafts->count(),
-                            $drafts->pluck('purchase_order_number')->implode(', '),
-                        ))
+                        ->body(__(':count draft(s) created from replenishment: :numbers', [
+                            'count' => $drafts->count(),
+                            'numbers' => $drafts->pluck('purchase_order_number')->implode(', '),
+                        ]))
                         ->send();
                 }),
             Action::make('createPurchaseOrder')
@@ -258,12 +257,13 @@ final class PurchaseNeeds extends Page
         foreach ($sales as $requirement) {
             $rows[] = [
                 'source' => 'Sales Order',
+                'source_label' => __('Sales Order'),
                 'source_reference' => $requirement->order->order_number ?? '—',
                 'source_url' => OrderResource::getUrl('view', ['record' => $requirement->order]),
                 'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
                 'sku' => $requirement->productVariant->sku ?? '—',
                 'image' => $requirement->productVariant?->mainImageUrl(),
-                'warehouse' => $requirement->destinationWarehouse->name ?? 'Not assigned',
+                'warehouse' => $requirement->destinationWarehouse->name ?? __('Not assigned'),
                 'required' => (string) $requirement->required_base_quantity,
                 'covered' => (string) $requirement->fulfilled_base_quantity,
                 'remaining' => $requirement->outstandingBaseQuantity(),
@@ -272,6 +272,7 @@ final class PurchaseNeeds extends Page
                     ? PurchaseOrderResource::getUrl('view', ['record' => $requirement->purchaseOrder])
                     : null,
                 'status' => (string) $requirement->status,
+                'status_label' => self::salesRequirementStatusLabel((string) $requirement->status),
                 'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
                 'sales_order_id' => $requirement->order_id,
                 'replenishment_requirement_id' => null,
@@ -284,10 +285,10 @@ final class PurchaseNeeds extends Page
                 'suggested_supplier' => null,
                 'lead_time_days' => null,
                 'next_action' => $requirement->purchaseOrder instanceof PurchaseOrder
-                    ? 'Review linked Purchase Order'
+                    ? __('Review linked Purchase Order')
                     : (($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
-                        ? 'Create Purchase Order'
-                        : 'Add Supplier Product'),
+                        ? __('Create Purchase Order')
+                        : __('Add Supplier Product')),
                 'next_action_type' => $requirement->purchaseOrder instanceof PurchaseOrder
                     ? 'link'
                     : (($supplierCounts[$requirement->product_variant_id] ?? 0) > 0 ? 'sales_create' : 'link'),
@@ -326,6 +327,7 @@ final class PurchaseNeeds extends Page
 
             $rows[] = [
                 'source' => 'Inventory Replenishment',
+                'source_label' => __('Inventory Replenishment'),
                 'source_reference' => 'REQ-'.$requirementId,
                 'source_url' => null,
                 'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
@@ -338,6 +340,7 @@ final class PurchaseNeeds extends Page
                 'linked_po' => null,
                 'linked_po_url' => null,
                 'status' => $requirement->status->value,
+                'status_label' => $requirement->status->getLabel(),
                 'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
                 'sales_order_id' => null,
                 'replenishment_requirement_id' => $requirementId,
@@ -350,8 +353,8 @@ final class PurchaseNeeds extends Page
                 'suggested_supplier' => $recommendation->supplierName,
                 'lead_time_days' => $recommendation->leadTimeDays,
                 'next_action' => ($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
-                    ? 'Create PO draft'
-                    : 'Add Supplier Product',
+                    ? __('Create PO draft')
+                    : __('Add Supplier Product'),
                 'next_action_type' => ($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
                     ? 'replenishment_create'
                     : 'link',
@@ -372,17 +375,28 @@ final class PurchaseNeeds extends Page
             static function (array $row) use ($search): bool {
                 $haystack = mb_strtolower(implode(' ', array_filter([
                     $row['source'],
+                    $row['source_label'],
                     $row['source_reference'],
                     $row['product'],
                     $row['sku'],
                     $row['warehouse'],
                     $row['linked_po'] ?? null,
                     $row['status'],
+                    $row['status_label'],
                 ], is_scalar(...))));
 
                 return str_contains($haystack, $search);
             },
         ));
+    }
+
+    private static function salesRequirementStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'open' => __('Open'),
+            'purchasing' => __('Purchasing'),
+            default => __(Str::headline($status)),
+        };
     }
 
     /** @return array<int, string> */

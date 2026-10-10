@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: purchasing
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: tests/Feature/Purchasing
 ---
 
@@ -21,8 +21,8 @@ The suite covers:
 - inbound allocation/status and multi-warehouse receipt;
 - over-receipt guards;
 - Inventory receiving integration;
-- supplier cost writeback;
-- Sales shortage follow-up;
+- supplier defaults/references, purchase-UOM/MOQ/lead-time behavior and supplier cost writeback;
+- Sales shortage follow-up and replenishment PO-draft generation;
 - permissions/navigation/resources/forms;
 - reports and document/media behavior;
 - cancellation/close/remediation guards.

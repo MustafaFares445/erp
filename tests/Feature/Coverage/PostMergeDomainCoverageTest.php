@@ -224,7 +224,7 @@ it('covers visit lifecycle follow-up and location edge cases', function (): void
         ->toThrow(DomainException::class, 'before check-in');
 
     $transition = new ReflectionMethod($service, 'transition');
-    expect(fn () => $transition->invoke(
+    expect(fn (): mixed => $transition->invoke(
         $service,
         CustomerVisit::factory()->create(['status' => VisitStatus::InProgress]),
         VisitStatus::Completed,
@@ -242,6 +242,7 @@ it('covers customer commercial assignment validation', function (): void {
     $customer = CustomerProfile::factory()->create(['default_currency_code' => null]);
 
     $customer->default_price_list_id = $inactiveList->getKey();
+
     expect(fn () => $customer->save())
         ->toThrow(ValidationException::class, 'default price list must be active');
 
@@ -254,6 +255,7 @@ it('covers customer commercial assignment validation', function (): void {
     $customer = CustomerProfile::factory()->create(['default_currency_code' => null]);
     $customer->default_price_list_id = $activeList->getKey();
     $customer->save();
+
     expect($customer->default_currency_code)->toBe('AED');
 
     $customer->default_currency_code = 'USD';
@@ -271,11 +273,13 @@ it('covers customer commercial assignment validation', function (): void {
     ]);
     $customer = CustomerProfile::factory()->create();
     $customer->customer_group_id = $inactiveGroup->getKey();
+
     expect(fn () => $customer->save())
         ->toThrow(ValidationException::class, 'customer group must be active');
 
     $customer = CustomerProfile::factory()->create();
     $customer->assigned_sales_employee_id = User::factory()->admin()->create()->getKey();
+
     expect(fn () => $customer->save())
         ->toThrow(ValidationException::class, 'employee account');
 });
@@ -347,10 +351,12 @@ it('covers product and variant observer invariants', function (): void {
 
     $trackingOnly = new ProductVariant;
     $trackingOnly->forceFill(['tracking_mode' => TrackingMode::Serial]);
+
     expect($trackingOnly->trackingMode())->toBe(TrackingMode::Serial);
 
     $legacy = new ProductVariant;
     $legacy->setRelation('product', new Product(['product_type' => ProductType::Machine]));
+
     expect($legacy->trackingMode())->toBe(TrackingMode::Serial);
 
     $expiringProduct = Product::factory()->make([
@@ -398,9 +404,11 @@ it('covers supplier product reference validation and availability projection', f
     $reference = SupplierProductReference::query()->create($base);
     $reference->availability_status = 'temporarily_unavailable';
     $reference->save();
+
     expect($reference->is_active)->toBeFalse();
 
     $reference->is_active = true;
     $reference->save();
+
     expect($reference->availability_status)->toBe('active');
 });

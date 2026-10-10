@@ -33,6 +33,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -53,6 +54,7 @@ final class CreateInventoryOperation extends CreateRecord
 {
     use HasWizard {
         form as private wizardForm;
+        getFormContentComponent as private wizardFormContentComponent;
     }
 
     protected static string $resource = InventoryOperationResource::class;
@@ -110,6 +112,14 @@ final class CreateInventoryOperation extends CreateRecord
         }
 
         return parent::hasFormWrapper();
+    }
+
+    #[\Override]
+    public function getFormContentComponent(): Component
+    {
+        return $this->isDeliveryCreation()
+            ? $this->wizardFormContentComponent()
+            : parent::getFormContentComponent();
     }
 
     /** @return array<Step> */
@@ -313,15 +323,13 @@ final class CreateInventoryOperation extends CreateRecord
     #[\Override]
     public function getTitle(): string
     {
-        $operationType = $this->forcedOperationType();
+        $operationType = $this->isContextualDelivery
+            ? OperationType::Delivery
+            : $this->forcedOperationType();
 
-        if ($this->isContextualDelivery) {
-            return 'Create Delivery';
-        }
-
-        return $operationType instanceof OperationType
-            ? 'Create '.$operationType->label()
-            : 'Create '.__('admin.resources.inventory_operations');
+        return __('filament-panels::resources/pages/create-record.title', [
+            'label' => $operationType?->label() ?? __('admin.resources.inventory_operations'),
+        ]);
     }
 
     #[\Override]

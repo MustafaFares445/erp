@@ -6,10 +6,13 @@ namespace App\Filament\Resources\PurchaseInbounds\RelationManagers;
 
 use App\Data\Inventory\LogisticsInboundLineData;
 use App\Filament\Resources\PurchaseInbounds\Actions\PurchaseInboundAllocationActions;
+use App\Filament\Tables\TableFit;
 use App\Models\PurchaseInboundLine;
 use App\Services\Inventory\LogisticsInboundProjectionService;
 use App\Support\QuantityFormatter;
+use Filament\Actions\ActionGroup;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -27,14 +30,14 @@ final class PurchaseInboundLinesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('id')
             ->columns([
                 TextColumn::make('sku')->label(__('admin.logistics.inbound.sku'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => self::projection($record)->sku),
-                TextColumn::make('product')->label(__('admin.logistics.inbound.product'))
+                TextColumn::make('product')->wrap()->label(__('admin.logistics.inbound.product'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => self::projection($record)->product),
-                TextColumn::make('ordered')->label(__('admin.logistics.inbound.ordered'))
+                TextColumn::make('ordered')->toggleable(isToggledHiddenByDefault: true)->label(__('admin.logistics.inbound.ordered'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => QuantityFormatter::display(self::projection($record)->orderedBaseQuantity)),
                 TextColumn::make('confirmed')->label(__('admin.logistics.inbound.confirmed'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => QuantityFormatter::display(self::projection($record)->confirmedBaseQuantity)),
@@ -45,15 +48,20 @@ final class PurchaseInboundLinesRelationManager extends RelationManager
                 TextColumn::make('allocatable')->label(__('admin.logistics.inbound.still_allocatable'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => QuantityFormatter::display(self::projection($record)->currentlyAllocatableBaseQuantity)),
                 TextColumn::make('next_action')->label(__('admin.logistics.fields.next_action'))
-                    ->getStateUsing(fn (PurchaseInboundLine $record): string => self::projection($record)->nextAction),
+                    ->getStateUsing(fn (PurchaseInboundLine $record): string => __(sprintf(
+                        'admin.logistics.inbound.next_actions.%s',
+                        str(self::projection($record)->nextAction)->snake()->toString(),
+                    ))),
             ])
             ->headerActions([])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 PurchaseInboundAllocationActions::add(),
-                PurchaseInboundAllocationActions::edit(),
-                PurchaseInboundAllocationActions::remove(),
                 PurchaseInboundAllocationActions::confirm(),
-            ]);
+                ActionGroup::make([
+                    PurchaseInboundAllocationActions::edit(),
+                    PurchaseInboundAllocationActions::remove(),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]));
     }
 
     private static function projection(PurchaseInboundLine $record): LogisticsInboundLineData

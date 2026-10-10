@@ -1,0 +1,38 @@
+---
+title: "مستويات الخدمة"
+module: support
+pages: ["index", "create", "edit"]
+screenshots: ["support-support-service-level-index", "support-support-service-level-create", "support-support-service-level-edit"]
+lastVerified: 2026-10-07
+---
+
+# مستويات خدمة الدعم: الفئات التعاقدية
+
+<IerpPageSummary purpose="تعريف فئات الدعم التعاقدية بأسماء ورموز ثابتة لاستخدامها في الاستحقاقات وسياسات SLA." useWhen="عندما تختلف التزامات الدعم حسب العقد أو نوع الباقة." owner="الدعم والصيانة" />
+
+## متى تستخدم هذه الصفحة؟
+
+عندما تختلف التزامات الدعم حسب العقد أو نوع الباقة.
+
+## المهام الشائعة
+
+- راجع قسم «التعريف لا يمنح الاستحقاق» واتبع التعليمات المحددة فيه.
+- راجع قسم «إنشاء المستوى وتعديله» واتبع التعليمات المحددة فيه.
+
+## التعريف لا يمنح الاستحقاق
+
+مستوى الخدمة هو فئة تعاقدية لها رمز فريد واسم ووصف وحالة تفعيل. وجودها في القائمة **لا يمنح العميل تلك الفئة تلقائياً**؛ يتم ذلك عبر استحقاق دعم مستقل محدد النطاق والمدة.
+
+<IerpScreenshot id="support-support-service-level-index" title="قائمة مستويات الخدمة" description="راجع الرموز والتفعيل ووصف الفئات قبل ربطها بعقد عميل." path="سياسات الخدمة ← مستويات الدعم" />
+
+## إنشاء المستوى وتعديله
+
+<IerpScreenshot id="support-support-service-level-create" title="إنشاء مستوى خدمة" description="أدخل رمزاً فريداً واسم الباقة والوصف والالتزامات المناسبة." path="مستويات الدعم ← إنشاء" imageSrc="/images/ar/support/support-support-service-level-create.png" />
+
+اختر رمزاً ثابتاً قصيراً يسمح بالحروف والأرقام والشرطة، واسماً ووصفاً يتطابقان مع الاتفاق التجاري. التفعيل يتيح اختيار المستوى ولا يسنده آلياً إلى العملاء.
+
+<IerpScreenshot id="support-support-service-level-edit" title="تعديل مستوى خدمة" description="تحقق من الاستحقاقات وسياسات SLA الحالية قبل تغيير الفئة." path="مستويات الدعم ← تعديل" imageSrc="/images/ar/support/support-support-service-level-edit.png" />
+
+قد يؤثر تغيير الاسم أو التعطيل في الاختيارات والتقارير المستقبلية. أما الاستحقاقات القائمة ومؤشرات SLA التاريخية فتحتاج معالجة مستقلة قائمة على الإثبات، ولا يجوز إخفاء التزام تعاقدي بمجرد تعطيل الفئة.
+
+راجع: [استحقاقات الدعم](/ar/screens/support/support-entitlement)، [سياسات SLA](/ar/screens/support/sla-policy)، [التذاكر](/ar/screens/support/ticket).

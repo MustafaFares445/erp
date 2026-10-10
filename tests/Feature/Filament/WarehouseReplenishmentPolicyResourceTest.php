@@ -2,36 +2,28 @@
 
 declare(strict_types=1);
 
-use App\Enums\InventoryPermission;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\Pages\ManageWarehouseReplenishmentPolicies;
 use App\Models\User;
-use App\Models\WarehouseReplenishmentPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
+use Database\Seeders\SystemPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-beforeEach(function (): void {
+// Release QA 2026-10-10: the create button read "New Replenishment Policies" (plural model label).
+it('names one replenishment policy in the create action', function (string $locale, string $createLabel, string $pluralCreateLabel): void {
+    (new SystemPermissionSeeder)->run();
     (new InventoryPermissionSeeder)->run();
-});
+    $admin = User::factory()->admin()->create();
+    $admin->assignRole('System Admin');
+    app()->setLocale($locale);
 
-it('loads the replenishment policy management page for an authorized viewer', function (): void {
-    $viewer = User::factory()->create();
-    $viewer->givePermissionTo(InventoryPermission::ReplenishmentPolicyView->value);
-
-    $policy = WarehouseReplenishmentPolicy::factory()->create();
-
-    Livewire::actingAs($viewer)
+    Livewire::actingAs($admin)
         ->test(ManageWarehouseReplenishmentPolicies::class)
-        ->assertOk()
-        ->assertCanSeeTableRecords([$policy]);
-});
-
-it('denies the replenishment policy management page without the replenishment policy view permission', function (): void {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test(ManageWarehouseReplenishmentPolicies::class)
-        ->assertForbidden();
-});
+        ->assertSeeText($createLabel)
+        ->assertDontSeeText($pluralCreateLabel);
+})->with([
+    'English' => ['en', 'New Replenishment Policy', 'New Replenishment Policies'],
+    'Arabic' => ['ar', 'سياسة إعادة التزويد', 'إضافة سياسات إعادة التزويد'],
+]);

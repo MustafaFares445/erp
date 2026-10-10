@@ -39,14 +39,14 @@ final class AdjustmentForm
                     ->rules($rules['warehouse_id'])
                     ->searchable()
                     ->preload()
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose the warehouse whose on-hand quantities will be corrected by this adjustment.')
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_phase4.adjustment.warehouse_help'))
                     ->disabled(fn (?InventoryAdjustment $record): bool => $record?->isConfirmed() ?? false),
                 TextInput::make('adjustment_number')
                     ->label(__('admin.inventory.adjustment.adjustment_number'))
                     ->placeholder(__('admin.inventory.adjustment.number_pending'))
                     ->disabled()
                     ->dehydrated(false)
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'The adjustment number is assigned automatically when the record is saved.'),
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_phase4.adjustment.number_help')),
                 Select::make('reason_category')
                     ->label(__('admin.inventory.adjustment.reason_category'))
                     ->options(collect(ConditionChangeReason::cases())
@@ -63,7 +63,7 @@ final class AdjustmentForm
                     ->rules($rules['reason'])
                     ->maxLength(1000)
                     ->columnSpanFull()
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Record why the correction is required so the change can be audited.')
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('inventory_phase4.adjustment.reason_help'))
                     ->disabled(fn (?InventoryAdjustment $record): bool => $record?->isConfirmed() ?? false),
                 Repeater::make('items')
                     ->relationship()
@@ -118,7 +118,7 @@ final class AdjustmentForm
                             ->searchable()
                             ->preload(),
                         Select::make('serialized_inventory_unit_id')
-                            ->label(__('Serialized unit'))
+                            ->label(__('inventory_phase4.adjustment.serialized_unit'))
                             ->options(fn (Get $get): array => self::serializedUnitOptions($get))
                             ->searchable()
                             ->preload()
@@ -149,14 +149,14 @@ final class AdjustmentForm
                     ->table([
                         TableColumn::make(__('admin.inventory.stock.variant')),
                         TableColumn::make(__('admin.inventory.adjustment.stock_condition')),
-                        TableColumn::make('Serialized unit'),
+                        TableColumn::make(__('inventory_phase4.adjustment.serialized_unit')),
                         TableColumn::make(__('admin.inventory.lot.fields.lot')),
                         TableColumn::make(__('admin.inventory.operation.fields.package')),
                         TableColumn::make(__('admin.inventory.adjustment.old_quantity')),
                         TableColumn::make(__('admin.inventory.adjustment.new_quantity')),
                         TableColumn::make(__('admin.inventory.adjustment.difference')),
                     ])
-                    ->addActionLabel(__('New inventory adjustment item'))
+                    ->addActionLabel(__('inventory_phase4.adjustment.add_item'))
                     ->defaultItems(0)
                     ->columnSpanFull()
                     ->saveRelationshipsWhenHidden()

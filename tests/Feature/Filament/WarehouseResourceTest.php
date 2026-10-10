@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Toggle;
 use Filament\Navigation\NavigationItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -309,4 +310,52 @@ it('keeps pagination gap-free and duplicate-free after sorting and after a mid-l
 
     expect($component->instance()->getAllTableRecordsCount())->toBe(13)
         ->and($remainingIds)->not->toContain($deleted->getKey());
+});
+
+// Release QA 2026-10-10: warehouse form toggle showed the generated "Is active" label.
+it('labels the warehouse active toggle as Active', function (): void {
+    Livewire::actingAs(createWarehouseManager())
+        ->test(CreateWarehouse::class)
+        ->assertFormFieldExists('is_active', static fn (Toggle $field): bool => $field->getLabel() === 'Active');
+});
+
+// Release QA 2026-10-10: warehouse stock relation showed 6-decimal quantities, an empty Low Stock column and a generated "Stocks" title.
+it('shows trimmed quantities and a health badge for every warehouse stock row', function (): void {
+    $admin = createWarehouseManager();
+    Role::query()->where('name', 'warehouse-manager')->firstOrFail()
+        ->givePermissionTo(InventoryPermission::StockView->value);
+
+    $warehouse = Warehouse::factory()->create();
+    $lowStock = InventoryStock::factory()->lowStock()->create(['warehouse_id' => $warehouse->id]);
+    $healthyStock = InventoryStock::factory()->create([
+        'warehouse_id' => $warehouse->id,
+        'on_hand_quantity' => 238,
+        'reserved_quantity' => 0,
+        'available_quantity' => 238,
+    ]);
+
+    expect(StockLevelsRelationManager::getTitle($warehouse, ViewWarehouse::class))->toBe('Stock Levels');
+
+    Livewire::actingAs($admin)
+        ->test(StockLevelsRelationManager::class, [
+            'ownerRecord' => $warehouse,
+            'pageClass' => ViewWarehouse::class,
+        ])
+        ->assertTableColumnFormattedStateSet('on_hand_quantity', '238', $healthyStock)
+        ->assertTableColumnFormattedStateSet('reserved_quantity', '0', $healthyStock)
+        ->assertTableColumnFormattedStateSet('reorder_level', '10', $lowStock)
+        ->assertTableColumnStateSet('low_stock', 'Healthy', $healthyStock)
+        ->assertTableColumnStateSet('low_stock', 'Low Stock', $lowStock);
+});
+
+// Release QA 2026-10-10: warehouse coordinates were shown with DECIMAL(10,7) zero padding.
+it('shows warehouse coordinates without trailing zero padding', function (): void {
+    $warehouse = Warehouse::factory()->create(['latitude' => 25.1255, 'longitude' => 55.23]);
+
+    Livewire::actingAs(createWarehouseManager())
+        ->test(ViewWarehouse::class, ['record' => $warehouse->getKey()])
+        ->assertSee('25.1255')
+        ->assertSee('55.23')
+        ->assertDontSee('25.1255000')
+        ->assertDontSee('55.2300000');
 });

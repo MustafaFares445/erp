@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum OpportunityCloseReason: string
+use Filament\Support\Contracts\HasLabel;
+
+enum OpportunityCloseReason: string implements HasLabel
 {
     case WonAsQuoted = 'won_as_quoted';
     case WonAfterNegotiation = 'won_after_negotiation';
@@ -28,6 +30,11 @@ enum OpportunityCloseReason: string
 
     public function label(): string
     {
-        return str($this->value)->replace('_', ' ')->headline()->toString();
+        return __(str($this->value)->replace('_', ' ')->headline()->toString());
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 }

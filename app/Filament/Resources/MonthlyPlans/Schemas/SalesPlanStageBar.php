@@ -15,16 +15,15 @@ use Illuminate\Support\HtmlString;
  * the arrow-segment stage bar convention used by
  * {@see OperationStageBar}
  * but rendered as filled chevrons so the active {@see SalesPlanStatus} reads
- * at a glance. `Paused` is a lateral detour rather than a forward step, so
- * only the current stage is highlighted — earlier stages are not implied
- * "done".
+ * at a glance. Only the current stage is highlighted; earlier stages are not
+ * implicitly marked as completed.
  */
 final class SalesPlanStageBar
 {
     public static function make(): Placeholder
     {
         return Placeholder::make('sales_plan_stage_bar')
-            ->label('')
+            ->hiddenLabel()
             ->content(function (?SalesPlan $record): HtmlString {
                 if (! $record instanceof SalesPlan) {
                     return new HtmlString('');

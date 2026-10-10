@@ -61,6 +61,7 @@ final class DemoMonthSeeder extends DemoSeeder
         DemoInventoryOpeningSeeder::class,
         DemoPurchasingMonthSeeder::class,
         DemoSalesMonthSeeder::class,
+        DemoBackToBackProcurementSeeder::class,
         DemoInventoryOperationsSeeder::class,
         DemoReplenishmentReviewSeeder::class,
         DemoCrmMonthSeeder::class,

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\SkippedWithMessageException;
 use Symfony\Component\Process\Process;
+use Tests\Support\DisposableMySqlSchema;
 
 it('allows exactly one concurrent source-stock withdrawal on MySQL', function (): void {
     $connection = 'warehouse_concurrency';
@@ -23,11 +24,9 @@ it('allows exactly one concurrent source-stock withdrawal on MySQL', function ()
         throw new SkippedWithMessageException('Configure WAREHOUSE_CONCURRENCY_DB_DATABASE with a dedicated migrated MySQL test database to run this process-concurrency harness.');
     }
 
-    expect($warehouseConcurrencyDatabase)->toMatch('/(?:_test|_testing)(?:_\\d+)?$/');
-
     $databaseConnection = DB::connection($connection);
 
-    expect($databaseConnection->getDriverName())->toBe('mysql');
+    DisposableMySqlSchema::assertDisposable($databaseConnection);
 
     foreach (['products', 'product_units', 'product_variants', 'units', 'warehouses', 'inventory_stocks'] as $table) {
         expect(Schema::connection($connection)->hasTable($table))->toBeTrue("The dedicated warehouse concurrency database is missing its {$table} table.");

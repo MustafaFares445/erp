@@ -19,6 +19,7 @@ use App\Models\WarrantyRecoveryClaim;
 use App\Services\Support\MaintenanceCostService;
 use App\Services\Support\MaintenanceNextActionResolver;
 use App\Services\Support\WarrantyClaimService;
+use App\Support\MoneyFormatter;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -33,16 +34,7 @@ final class MaintenanceRequestInfolist
                 ->schema([
                     WorkflowStepper::make('status')
                         ->hiddenLabel()
-                        ->steps([
-                            MaintenanceStatus::Open->value => MaintenanceStatus::Open->label(),
-                            MaintenanceStatus::Diagnosing->value => MaintenanceStatus::Diagnosing->label(),
-                            MaintenanceStatus::AwaitingApproval->value => MaintenanceStatus::AwaitingApproval->label(),
-                            MaintenanceStatus::ReadyForRepair->value => MaintenanceStatus::ReadyForRepair->label(),
-                            MaintenanceStatus::InProgress->value => MaintenanceStatus::InProgress->label(),
-                            MaintenanceStatus::QualityAssurance->value => MaintenanceStatus::QualityAssurance->label(),
-                            MaintenanceStatus::Closed->value => MaintenanceStatus::Closed->label(),
-                            MaintenanceStatus::Cancelled->value => MaintenanceStatus::Cancelled->label(),
-                        ])
+                        ->steps(static fn (MaintenanceRecord $record): array => self::workflowSteps($record))
                         ->terminalKeys([MaintenanceStatus::Cancelled->value])
                         ->columnSpanFull(),
                     TextEntry::make('status')
@@ -227,6 +219,37 @@ final class MaintenanceRequestInfolist
         ]);
     }
 
+    /**
+     * The cancelled step is only drawn for a cancelled request, so the normal flow fits the
+     * card without clipping its last labels.
+     *
+     * @return array<string, string>
+     */
+    private static function workflowSteps(MaintenanceRecord $record): array
+    {
+        $statuses = [
+            MaintenanceStatus::Open,
+            MaintenanceStatus::Diagnosing,
+            MaintenanceStatus::AwaitingApproval,
+            MaintenanceStatus::ReadyForRepair,
+            MaintenanceStatus::InProgress,
+            MaintenanceStatus::QualityAssurance,
+            MaintenanceStatus::Closed,
+        ];
+
+        if ($record->status === MaintenanceStatus::Cancelled) {
+            $statuses[] = MaintenanceStatus::Cancelled;
+        }
+
+        $steps = [];
+
+        foreach ($statuses as $status) {
+            $steps[$status->value] = $status->label();
+        }
+
+        return $steps;
+    }
+
     private static function warrantyGuidance(MaintenanceRecord $record): string
     {
         $expiry = $record->warranty_expiry_date?->toDateString();
@@ -284,7 +307,7 @@ final class MaintenanceRequestInfolist
         $value = $claim->getAttribute($field);
 
         return is_numeric($value)
-            ? number_format(((int) $value) / 100, 2).' '.$claim->currency
+            ? self::money((int) $value, $claim->currency)
             : '—';
     }
 
@@ -293,12 +316,16 @@ final class MaintenanceRequestInfolist
         $claim = $record->warrantyRecoveryClaim;
 
         return $claim instanceof WarrantyRecoveryClaim
-            ? number_format($claim->outstandingMinor() / 100, 2).' '.$claim->currency
+            ? self::money($claim->outstandingMinor(), $claim->currency)
             : '—';
     }
 
-    private static function money(int $minor): string
+    /**
+     * Currency-formatted amount wrapped in a left-to-right isolate so a negative margin keeps
+     * its leading minus sign in the Arabic (RTL) layout.
+     */
+    private static function money(int $minor, ?string $currency = null): string
     {
-        return number_format($minor / 100, 2);
+        return "\u{2066}".MoneyFormatter::format($minor, $currency)."\u{2069}";
     }
 }

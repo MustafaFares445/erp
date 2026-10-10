@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum SupplierConfirmationStatus: string
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasLabel;
+
+enum SupplierConfirmationStatus: string implements HasColor, HasLabel
 {
     case Pending = 'pending';
     case Partial = 'partial';
@@ -24,6 +27,21 @@ enum SupplierConfirmationStatus: string
     public function label(): string
     {
         return __('admin.purchasing.confirmation_status.'.$this->value);
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
+
+    public function getColor(): string
+    {
+        return match ($this) {
+            self::Pending => 'info',
+            self::Partial => 'warning',
+            self::Confirmed => 'success',
+            self::Rejected => 'danger',
+        };
     }
 
     /** @return list<string> */

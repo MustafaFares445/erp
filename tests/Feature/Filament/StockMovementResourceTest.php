@@ -31,6 +31,20 @@ use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
+it('shows translated movement status and reversal labels on details', function (string $locale, string $status, string $reversal): void {
+    app()->setLocale($locale);
+    $movement = InventoryMovement::factory()->create();
+
+    Livewire::actingAs(createMovementViewer())
+        ->test(ViewStockMovement::class, ['record' => $movement->getKey()])
+        ->assertSee($status)
+        ->assertSee($reversal)
+        ->assertDontSee('admin.inventory.movement.reversal_of');
+})->with([
+    'English' => ['en', 'Confirmed', 'Reversal of'],
+    'Arabic' => ['ar', 'مؤكد', 'عكس للحركة'],
+]);
+
 beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
@@ -65,8 +79,8 @@ it('shows a read-only movement ledger with signed quantities', function (): void
         ->test(ListStockMovements::class)
         ->assertOk()
         ->assertCanSeeTableRecords([$increase, $decrease])
-        ->assertSee('+5.000000')
-        ->assertSee('-3.000000');
+        ->assertTableColumnFormattedStateSet('base_quantity_delta', '+5', $increase)
+        ->assertTableColumnFormattedStateSet('base_quantity_delta', '-3', $decrease);
 });
 
 it('shows and filters immutable stock-condition transition evidence', function (): void {

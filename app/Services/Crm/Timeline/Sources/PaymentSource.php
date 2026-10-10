@@ -80,7 +80,7 @@ final readonly class PaymentSource implements TimelineSource
                     id: $payment->id,
                     occurredAt: $payment->payment_date,
                     occurredAtIsDateOnly: true,
-                    title: "Payment {$payment->payment_number}",
+                    title: __('Payment :number', ['number' => $payment->payment_number]),
                     detail: $this->detail($payment),
                     statusLabel: $payment->status->label(),
                     statusColor: $payment->status->color(),
@@ -97,13 +97,11 @@ final readonly class PaymentSource implements TimelineSource
 
     private function detail(Payment $payment): ?string
     {
-        $parts = [$payment->paymentMethod?->name];
+        $parts = array_filter([$payment->paymentMethod?->name], fn (?string $part): bool => is_string($part) && $part !== '');
 
         if (is_string($payment->external_reference) && $payment->external_reference !== '') {
-            $parts[] = "Ref {$payment->external_reference}";
+            $parts[] = __('Ref :reference', ['reference' => $payment->external_reference]);
         }
-
-        $parts = array_filter($parts, fn (?string $part): bool => is_string($part) && $part !== '');
 
         return $parts === [] ? null : implode(' — ', $parts);
     }

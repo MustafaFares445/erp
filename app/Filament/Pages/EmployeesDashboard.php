@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Employees' module landing page: field-work KPIs, task completion beside
- * task status, then the top performers beside the overdue-task queue — all
+ * task status, then the top performers and a full-width overdue-task queue — all
  * narrowable to one employee.
  */
 final class EmployeesDashboard extends ModuleDashboard

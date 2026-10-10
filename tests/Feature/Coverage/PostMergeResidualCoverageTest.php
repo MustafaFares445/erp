@@ -49,7 +49,7 @@ beforeEach(function (): void {
 function residualPurchaseNeedsAction(string $name): Action
 {
     $page = app(PurchaseNeeds::class);
-    $actions = (new ReflectionMethod(PurchaseNeeds::class, 'getHeaderActions'))->invoke($page);
+    $actions = new ReflectionMethod(PurchaseNeeds::class, 'getHeaderActions')->invoke($page);
     $action = collect($actions)->first(
         static fn (mixed $candidate): bool => $candidate instanceof Action && $candidate->getName() === $name,
     );
@@ -128,7 +128,7 @@ it('covers Purchase Needs replenishment options and draft action success', funct
 
     [, , , , $requirement] = residualReplenishmentFixture();
 
-    $options = (new ReflectionMethod(PurchaseNeeds::class, 'replenishmentRequirementOptions'))->invoke(null);
+    $options = new ReflectionMethod(PurchaseNeeds::class, 'replenishmentRequirementOptions')->invoke(null);
 
     expect($options)->toHaveKey($requirement->getKey())
         ->and($options[$requirement->getKey()])->toContain('REQ-'.$requirement->getKey());
@@ -227,7 +227,7 @@ it('covers price-list variant options and pricing actor permission branches', fu
 
     expect($field)->toBeInstanceOf(Select::class);
 
-    $options = (new ReflectionProperty($field, 'options'))->getValue($field);
+    $options = new ReflectionProperty($field, 'options')->getValue($field);
     expect($options)->toBeInstanceOf(Closure::class);
 
     $invalid = Mockery::mock(Get::class);
@@ -310,7 +310,7 @@ it('covers transfer-only and unsourced replenishment option branches', function 
 
     [, , , , $transferRequirement] = residualReplenishmentFixture(true);
 
-    $options = (new ReflectionMethod(PurchaseNeeds::class, 'replenishmentRequirementOptions'))->invoke(null);
+    $options = new ReflectionMethod(PurchaseNeeds::class, 'replenishmentRequirementOptions')->invoke(null);
     expect($options)->not->toHaveKey($transferRequirement->getKey());
 
     $rows = app(PurchaseNeeds::class)->needs();
@@ -341,7 +341,7 @@ it('covers transfer-only and unsourced replenishment option branches', function 
         ->active()
         ->sole();
 
-    $options = (new ReflectionMethod(PurchaseNeeds::class, 'replenishmentRequirementOptions'))->invoke(null);
+    $options = new ReflectionMethod(PurchaseNeeds::class, 'replenishmentRequirementOptions')->invoke(null);
 
     expect($options)->not->toHaveKey($unsourced->getKey());
 });

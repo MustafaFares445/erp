@@ -35,10 +35,18 @@ jobs:
           key: composer-${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
           restore-keys: composer-${{ runner.os }}-
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: npm
+          cache-dependency-path: user-guide/package-lock.json
+
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+      - run: npm ci --prefix user-guide
       - run: cp .env.example .env
       - run: php artisan key:generate
       - run: composer run test:docs
+      - run: composer run test:guide
       - run: composer run test:lint
       - run: composer run test:architecture
       - run: composer run test:types
@@ -141,6 +149,7 @@ jobs:
       DB_DATABASE: ierp_seed_integrity
       DB_USERNAME: root
       DB_PASSWORD: root
+      IERP_DISPOSABLE_DATABASES: ierp_seed_integrity
 
     steps:
       - uses: actions/checkout@v4
@@ -199,8 +208,9 @@ jobs:
       WAREHOUSE_CONCURRENCY_DB_HOST: 127.0.0.1
       WAREHOUSE_CONCURRENCY_DB_PORT: 3306
       WAREHOUSE_CONCURRENCY_DB_DATABASE: ierp_concurrency_testing
-      WAREHOUSE_CONCURRENCY_DB_USERNAME: root
-      WAREHOUSE_CONCURRENCY_DB_PASSWORD: root
+      WAREHOUSE_CONCURRENCY_DB_USERNAME: ierp_race
+      WAREHOUSE_CONCURRENCY_DB_PASSWORD: ierp_race
+      IERP_DISPOSABLE_DATABASES: ierp_acceptance_testing,ierp_concurrency_testing
 
     steps:
       - uses: actions/checkout@v4
@@ -224,9 +234,13 @@ jobs:
 
       - run: php artisan key:generate
 
-      - name: Create dedicated concurrency database
+      - name: Create dedicated concurrency database and schema-scoped account
         run: |
-          mysql -h 127.0.0.1 -P 3306 -uroot -proot             -e "CREATE DATABASE IF NOT EXISTS ierp_concurrency_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot <<'SQL'
+          CREATE DATABASE IF NOT EXISTS ierp_concurrency_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE USER 'ierp_race'@'%' IDENTIFIED BY 'ierp_race';
+          GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, LOCK TABLES, CREATE VIEW, SHOW VIEW, TRIGGER, EXECUTE, CREATE ROUTINE, ALTER ROUTINE ON `ierp\_concurrency\_testing`.* TO 'ierp_race'@'%';
+          SQL
 
       - name: Fresh migrate acceptance database
         run: php artisan migrate:fresh --force

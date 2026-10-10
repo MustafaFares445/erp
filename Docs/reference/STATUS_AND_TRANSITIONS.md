@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: product
-last_verified: 2026-10-04
+last_verified: 2026-10-07
 verified_against: current enum cases and canonical domain docs
 ---
 
@@ -17,7 +17,7 @@ This is a navigation reference, not a replacement for service guards. The owning
 | Inventory Correction | Draft, Posted, Cancelled |
 | Purchase Order | Draft, Pending Approval, Accepted, Rejected, Partially Received, Received, Closed, Cancelled |
 | Purchase Inbound | Awaiting Allocation, Awaiting Receipt, Partially Received, Received, Cancelled |
-| Quotation | Draft, Sent, Accepted, Rejected, Expired, Converted to Delivery, Cancelled, Changes Requested |
+| Quotation | Draft, Sent, Accepted, Rejected, Expired, Converted to Order, Cancelled, Changes Requested |
 | Sales Order | Draft, Confirmed, Released, Closed, Cancelled |
 | Invoice document | Draft, Issued, Sent, Written Off, Cancelled |
 | Invoice financial | Not Payable Yet, Unpaid, Partially Paid, Paid, Credited, Overdue |
@@ -38,7 +38,8 @@ This is a navigation reference, not a replacement for service guards. The owning
 | Campaign | Draft, Scheduled, Sending, Completed, Failed, Cancelled |
 | Employee Sales Plan | Draft, Active, Paused, Completed, Archived |
 | Plan Task | Pending, In Progress, Completed, Cancelled |
-| Visit | Planned, In Progress, Completed, Missed |
+| Visit | Scheduled, En Route, In Progress, Completed, Unable to Complete, Cancelled |
+| Employee Sales Opportunity Review | Draft, Approved (labelled Accepted), Rejected |
 | Voice Note | Pending, Processing, Transcribed, Failed |
 | Salary Calculation | Draft, Pending Confirmation, Confirmed, Superseded |
 | Support Ticket | Pending, Pending Payment, Live, Assigned, In Progress, Waiting Customer, Resolved, Closed, Cancelled |

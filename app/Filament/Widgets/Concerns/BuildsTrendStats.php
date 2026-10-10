@@ -64,9 +64,14 @@ trait BuildsTrendStats
             return __('dashboards.trend.no_change');
         }
 
-        return __($change > 0 ? 'dashboards.trend.increase' : 'dashboards.trend.decrease', [
-            'percent' => number_format(abs($change), 1),
+        $percent = number_format(abs($change), 1);
+        $description = __($change > 0 ? 'dashboards.trend.increase' : 'dashboards.trend.decrease', [
+            'percent' => $percent,
         ]);
+
+        return app()->getLocale() === 'ar'
+            ? str_replace($percent.'%', "\u{2066}{$percent}%\u{2069}", $description)
+            : $description;
     }
 
     private static function trendIcon(?float $change): ?Heroicon

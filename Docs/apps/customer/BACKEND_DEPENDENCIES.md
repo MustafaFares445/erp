@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: customer-app
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: current services/models/routes and adopted Customer V1 decisions
 ---
 
@@ -51,18 +51,21 @@ Implemented:
 ### Notifications
 Database/mail notification infrastructure and delivery records exist.
 
-## Not Yet an Exposed Customer App Channel
+## Partially Exposed Customer App Channel
 
-At the current audit:
-- no runtime `api/*` routes exist;
-- no complete Customer Mobile API/authentication surface is exposed;
-- Stripe service classes do not equal a public mobile Checkout endpoint;
-- code comments on Stripe checkout explicitly state that HTTP/webhook adapter work is still future-facing;
-- mobile push device-token/provider behavior is not established by the current notification services.
+The current runtime exposes a deliberately limited `/api/customer` surface:
+- Sanctum login/logout for active, approved Customer accounts;
+- rollout-gated Support tickets, messages and customer-visible attachments;
+- support payment-session/status endpoints backed by server-known ticket amounts;
+- customer-owned equipment and maintenance reads;
+- customer-safe knowledge-base reads/suggestions when enabled;
+- post-close satisfaction submission when enabled.
 
-## Required Mobile/API Boundary
+The complete Customer Mobile API is **not** exposed yet. Catalog/pricing, quotation/order, shipment, invoice/general payment, returns, notifications and account-management surfaces still require explicit routes/controllers/resources. Mobile push device-token/provider behavior is also not established by the current notification services.
 
-A Customer API should provide ownership-scoped endpoints/resources for:
+## Remaining Mobile/API Boundary
+
+The remaining Customer API should provide ownership-scoped endpoints/resources for:
 
 - registration / session / profile;
 - catalog and resolved pricing;
@@ -80,8 +83,8 @@ Controllers must call existing domain services rather than duplicate pricing, st
 
 ## Payment Adapter Requirements
 
-Future public Stripe channel still needs an explicit secure adapter around current domain services:
-- authenticated endpoint to create/reuse provider payment session;
+The Support API already exposes a scoped ticket payment-session/status adapter. Broader invoice/order/customer payment flows still need an explicit secure adapter around current domain services:
+- authenticated endpoint to create/reuse the appropriate provider payment session;
 - verified provider callback/webhook/event handling;
 - idempotent reconciliation into `PaymentTransaction` / ERP Payment;
 - ownership checks;

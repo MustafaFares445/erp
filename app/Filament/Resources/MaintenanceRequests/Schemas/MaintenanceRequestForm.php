@@ -72,7 +72,7 @@ final class MaintenanceRequestForm
                             })
                             ->searchable()
                             ->live()
-                            ->helperText(__('Optional. Select equipment already recorded in this customer custody.'))
+                            ->helperText(__("Optional. Select equipment already recorded in this customer's custody."))
                             ->visible(static fn (Get $get): bool => ! is_numeric($get('ticket_id'))),
                         TextInput::make('serial_number')
                             ->label(__('External / unlinked serial number'))

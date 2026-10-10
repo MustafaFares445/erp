@@ -32,7 +32,7 @@ enum WriteOffStatus: string
     {
         return match ($this) {
             self::Draft => 'gray',
-            self::Approved => 'danger',
+            self::Approved => 'success',
             self::Cancelled => 'warning',
         };
     }

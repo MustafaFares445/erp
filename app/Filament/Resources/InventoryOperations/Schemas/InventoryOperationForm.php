@@ -45,12 +45,14 @@ final class InventoryOperationForm
                                         ->placeholder(__('admin.inventory.operation.placeholders.operation_type'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.operation_type')),
                                     Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload()
+                                        ->label(__('admin.inventory.operation.fields.supplier'))
                                         ->disabled(fn (?InventoryOperation $record): bool => self::isPurchaseInboundReceipt($record))
                                         ->dehydrated()
                                         ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Receipt))
                                         ->placeholder(__('admin.inventory.operation.placeholders.supplier'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.supplier')),
                                     Select::make('customer_id')->relationship('customer', 'company_name', modifyQueryUsing: fn (Builder $query): Builder => $query->where('is_active', true))->searchable()->preload()
+                                        ->label(__('admin.inventory.operation.fields.customer'))
                                         ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery))
                                         ->required(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery))
                                         ->placeholder(__('admin.inventory.operation.placeholders.customer'))
@@ -64,11 +66,13 @@ final class InventoryOperationForm
                                         ->placeholder(__('admin.inventory.operation.placeholders.delivery_type'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.delivery_type')),
                                     Select::make('source_warehouse_id')->relationship('sourceWarehouse', 'name')->searchable()->preload()
+                                        ->label(__('admin.inventory.operation.fields.source_warehouse'))
                                         ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery) || self::isType($get('operation_type'), OperationType::InternalTransfer))
                                         ->required(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery) || self::isType($get('operation_type'), OperationType::InternalTransfer))
                                         ->placeholder(__('admin.inventory.operation.placeholders.source_warehouse'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.source_warehouse')),
                                     Select::make('destination_warehouse_id')->relationship('destinationWarehouse', 'name')->searchable()->preload()
+                                        ->label(__('admin.inventory.operation.fields.destination_warehouse'))
                                         ->disabled(fn (?InventoryOperation $record): bool => self::isPurchaseInboundReceipt($record))
                                         ->dehydrated()
                                         ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Receipt) || self::isType($get('operation_type'), OperationType::InternalTransfer))

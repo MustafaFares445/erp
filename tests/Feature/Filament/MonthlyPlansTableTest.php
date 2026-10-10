@@ -159,3 +159,15 @@ it('shows a notification instead of assigning a plan to an employee with a confl
         ])
         ->assertNotified();
 });
+
+it('shows the employee name rather than the job title in the employee column', function (): void {
+    // Release QA 2026-10-10: the monthly plan list showed job titles under "Employee".
+    $admin = User::factory()->admin()->create();
+    $employee = EmployeeProfile::factory()->create(['job_title' => 'Field Sales Representative']);
+    $plan = SalesPlan::factory()->create(['employee_id' => $employee->id]);
+
+    Livewire::actingAs($admin)
+        ->test(ListMonthlyPlans::class)
+        ->assertTableColumnStateSet('employee.user.name', $employee->user->name, $plan)
+        ->assertDontSeeText('Field Sales Representative');
+});

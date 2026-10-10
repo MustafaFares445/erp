@@ -30,6 +30,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Policies\MaintenanceRecordPolicy;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
+use App\Services\Support\MaintenanceNextActionResolver;
 use App\Services\Support\MaintenanceRecordService;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -696,3 +697,24 @@ it('hides workflow row actions from a view-only reviewer and refuses to invoke t
         ->toThrow(AuthorizationException::class)
         ->and($ready->refresh()->status)->toBe(MaintenanceStatus::ReadyForRepair);
 });
+
+it('resolves the next action label for cancelled and closed maintenance records', function (
+    MaintenanceStatus $status,
+    MaintenanceBillingType $billing,
+    WarrantyClaimDecision $decision,
+    string $expected,
+): void {
+    $record = MaintenanceRecord::factory()->create([
+        'status' => $status,
+        'billing_type' => $billing,
+        'coverage_decision' => $decision,
+    ]);
+
+    expect(app(MaintenanceNextActionResolver::class)->resolve($record))->toBe($expected);
+})->with([
+    'cancelled needs no action' => [MaintenanceStatus::Cancelled, MaintenanceBillingType::Unbilled, WarrantyClaimDecision::PendingDiagnosis, 'No action — cancelled'],
+    'closed and already invoiced' => [MaintenanceStatus::Closed, MaintenanceBillingType::Invoiced, WarrantyClaimDecision::PartiallyCovered, 'Commercial follow-up complete'],
+    'closed fully covered repair' => [MaintenanceStatus::Closed, MaintenanceBillingType::Unbilled, WarrantyClaimDecision::FullyCovered, 'Settle covered repair'],
+    'closed rejected claim' => [MaintenanceStatus::Closed, MaintenanceBillingType::Quoted, WarrantyClaimDecision::Rejected, 'Create final customer invoice'],
+    'closed with diagnosis still pending' => [MaintenanceStatus::Closed, MaintenanceBillingType::Unbilled, WarrantyClaimDecision::PendingDiagnosis, 'Review billing'],
+]);

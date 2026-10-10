@@ -8,6 +8,7 @@ use App\Enums\OpportunityCloseReason;
 use App\Enums\OpportunityStage;
 use App\Enums\SalesOpportunityStatus;
 use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Tables\TableFit;
 use App\Models\EmployeeProfile;
 use App\Models\Product;
 use App\Models\Quotation;
@@ -18,6 +19,7 @@ use App\Services\Sales\Exceptions\OpportunityNotQuotable;
 use App\Services\Sales\OpportunityService;
 use App\Services\Sales\QuotationService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -36,18 +38,18 @@ final class SalesOpportunitiesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table->defaultSort('created_at', 'desc')->columns([
-            TextColumn::make('title')->placeholder(__('—'))->searchable(), TextColumn::make('customer.company_name')->label(__('Customer'))->placeholder(__('—'))->searchable(),
-            TextColumn::make('stage')->badge(), TextColumn::make('estimated_value_minor')->label(__('Value (minor)'))->numeric()->sortable(), TextColumn::make('currency'), TextColumn::make('owner.name')->label(__('Owner'))->placeholder(__('—')),
-            TextColumn::make('expected_close_date')->date()->sortable()->placeholder(__('—')),
+        return TableFit::apply($table)->defaultSort('created_at', 'desc')->columns([
+            TextColumn::make('title')->wrap()->placeholder(__('—'))->searchable(), TextColumn::make('customer.company_name')->wrap()->label(__('Customer'))->placeholder(__('—'))->searchable(),
+            TextColumn::make('stage')->badge(), TextColumn::make('estimated_value_minor')->label(__('Value (minor)'))->numeric()->sortable(), TextColumn::make('currency')->toggleable(isToggledHiddenByDefault: true), TextColumn::make('owner.name')->toggleable(isToggledHiddenByDefault: true)->wrap()->label(__('Owner'))->placeholder(__('—')),
+            TextColumn::make('expected_close_date')->toggleable(isToggledHiddenByDefault: true)->date()->sortable()->placeholder(__('—')),
             TextColumn::make('status')->label(__('AI review'))->badge()->formatStateUsing(static fn (SalesOpportunityStatus $state): string => $state->label()),
-            TextColumn::make('sourceVisit.reference')->label(__('Source visit'))->placeholder(__('—'))->searchable(),
+            TextColumn::make('sourceVisit.reference')->toggleable(isToggledHiddenByDefault: true)->label(__('Source visit'))->placeholder(__('—'))->searchable(),
             TextColumn::make('detectedProduct.name')->label(__('Detected product'))->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('origin')->badge()
                 // WP-1.10: driven by isAiOriginated() (retained origin
                 // evidence) rather than by the nullable transcription FK, so
                 // the badge survives the live transcript being deleted.
-                ->state(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'AI-originated' : $record->origin->label())
+                ->state(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? __('AI-originated') : $record->origin->label())
                 ->color(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'info' : 'gray'),
         ])->filters([
             SelectFilter::make('status')
@@ -87,11 +89,16 @@ final class SalesOpportunitiesTable
                 }),
             SelectFilter::make('stage')->options(collect(OpportunityStage::cases())->mapWithKeys(fn (OpportunityStage $stage): array => [$stage->value => $stage->label()])->all()),
             SelectFilter::make('owner_id')->relationship('owner', 'name'),
-        ])->recordActions([
-            ViewAction::make(), EditAction::make()->visible(static fn (SalesOpportunity $record): bool => ! $record->stage->isClosed()),
-            self::reviewAction('approve', 'Approve AI review', true), self::reviewAction('reject', 'Reject AI review', false),
-            self::stageAction(), self::createQuotationAction(),
-        ]);
+        ])->recordActions(TableFit::rowActions([
+            self::reviewAction('approve', 'Approve AI review', true),
+            self::createQuotationAction(),
+            ActionGroup::make([
+                ViewAction::make(),
+                EditAction::make()->visible(static fn (SalesOpportunity $record): bool => ! $record->stage->isClosed()),
+                self::reviewAction('reject', 'Reject AI review', false),
+                self::stageAction(),
+            ])->icon(Heroicon::EllipsisVertical),
+        ]));
     }
 
     private static function stageAction(): Action

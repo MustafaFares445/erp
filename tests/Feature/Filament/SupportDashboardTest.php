@@ -26,6 +26,7 @@ use Database\Seeders\SupportPermissionSeeder;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\HtmlString;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -129,7 +130,58 @@ it('adds CSAT to the headline only when the CSAT rollout is enabled', function (
     $stats = supportStats();
 
     expect($stats)->toHaveCount(6)
-        ->and($stats[5]->getValue())->toBe(__('dashboards.support.kpis.csat_value', ['value' => 5.0]));
+        ->and($stats[5]->getValue())->toBeInstanceOf(HtmlString::class)
+        ->and((string) $stats[5]->getValue())->toBe('<bdi dir="ltr">5 / 5</bdi>');
+});
+
+it('shows a neutral CSAT placeholder when the rollout is enabled but nobody has responded', function (): void {
+    config()->set('support.csat_enabled', true);
+
+    $stats = supportStats();
+
+    expect($stats)->toHaveCount(6)
+        ->and($stats[5]->getValue())->toBe('—')
+        ->and($stats[5]->getColor())->toBe('gray')
+        ->and((string) $stats[5]->getDescription())->toBe(__('dashboards.support.kpis.csat_responses', ['count' => 0]));
+});
+
+it('isolates the CSAT score as left-to-right numeric text in Arabic and English', function (): void {
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::Closed,
+        'resolved_at' => now()->subHour(),
+        'closed_at' => now()->subMinutes(30),
+    ]);
+    $secondTicket = Ticket::factory()->create([
+        'status' => TicketStatus::Closed,
+        'resolved_at' => now()->subHour(),
+        'closed_at' => now()->subMinutes(30),
+    ]);
+
+    TicketSatisfactionResponse::query()->create([
+        'ticket_id' => $ticket->getKey(),
+        'customer_id' => $ticket->customer_id,
+        'rating' => 4,
+        'submitted_at' => now(),
+        'source_channel' => 'customer_app',
+    ]);
+    TicketSatisfactionResponse::query()->create([
+        'ticket_id' => $secondTicket->getKey(),
+        'customer_id' => $secondTicket->customer_id,
+        'rating' => 5,
+        'submitted_at' => now(),
+        'source_channel' => 'customer_app',
+    ]);
+
+    config()->set('support.csat_enabled', true);
+    $this->actingAs(supportViewer(SupportPermission::TicketView));
+
+    app()->setLocale('ar');
+    Livewire::test(SupportStatistics::class)
+        ->assertSeeHtml('<bdi dir="ltr">4.5 / 5</bdi>');
+
+    app()->setLocale('en');
+    Livewire::test(SupportStatistics::class)
+        ->assertSeeHtml('<bdi dir="ltr">4.5 / 5</bdi>');
 });
 
 it('narrows ticket KPIs, the trend and the attention queue to the selected assignee and priority', function (): void {

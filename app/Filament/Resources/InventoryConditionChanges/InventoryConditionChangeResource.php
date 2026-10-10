@@ -16,6 +16,8 @@ use App\Models\InventoryConditionChange;
 use App\Models\InventoryLot;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
+use App\Services\Inventory\Diagnostics\InventoryConditionChangeDiagnoser;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -24,12 +26,14 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use App\Filament\Components\InventoryViewDiagnostics;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use UnitEnum;
@@ -195,8 +199,11 @@ final class InventoryConditionChangeResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
+            InventoryViewDiagnostics::section(),
+            InventoryViewDiagnostics::metrics(static fn (Model $record): array => self::metrics($record)),
             Section::make(__('admin.inventory.condition_change.sections.details'))
-                ->columns(3)
+                ->columnSpanFull()
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     TextEntry::make('document_number')->label(__('admin.inventory.condition_change.fields.document')),
                     TextEntry::make('type')->badge(),
@@ -304,6 +311,48 @@ final class InventoryConditionChangeResource extends Resource
             'create' => CreateInventoryConditionChange::route('/create'),
             'view' => ViewInventoryConditionChange::route('/{record}'),
         ];
+    }
+
+    /**
+     * @return list<array{label: string, value: string, helper?: string|null, tone?: string|null}>
+     */
+    private static function metrics(Model $record): array
+    {
+        assert($record instanceof InventoryConditionChange);
+
+        $metrics = [
+            [
+                'label' => __('inventory_view_ux.ui.condition_change_quantity'),
+                'value' => QuantityFormatter::display($record->base_quantity),
+                'helper' => __('inventory_view_ux.ui.document_base_unit_helper'),
+                'tone' => 'primary',
+            ],
+            [
+                'label' => __('inventory_view_ux.ui.condition_change_movement'),
+                'value' => __('inventory_view_ux.ui.condition_change_from_to', [
+                    'from' => $record->condition_from?->getLabel() ?? __('—'),
+                    'to' => $record->condition_to?->getLabel() ?? __('—'),
+                ]),
+            ],
+        ];
+
+        if ($record->type === InventoryConditionChangeType::Disposal) {
+            $files = $record->getMedia('disposal-evidence')->count();
+            $metrics[] = [
+                'label' => __('inventory_view_ux.ui.condition_change_evidence'),
+                'value' => (string) $files,
+                'tone' => $files === 0 && $record->isDraft() ? 'danger' : null,
+            ];
+        }
+
+        if ($record->type === InventoryConditionChangeType::Damage && $record->status === InventoryConditionChangeStatus::Posted) {
+            $metrics[] = [
+                'label' => __('inventory_view_ux.ui.condition_change_recoverable'),
+                'value' => QuantityFormatter::display(max(0.0, InventoryConditionChangeDiagnoser::recoverableQuantity($record))),
+            ];
+        }
+
+        return $metrics;
     }
 
     private static function lotKey(InventoryLot $lot): int

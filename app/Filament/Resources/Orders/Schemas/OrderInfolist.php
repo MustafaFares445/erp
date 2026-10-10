@@ -294,12 +294,13 @@ final class OrderInfolist
         return Section::make(__('admin.sales.fields.lines'))
             ->schema([
                 RepeatableEntry::make('lines')
-                    ->label('')
+                    ->hiddenLabel()
                     ->schema([
                         Grid::make(12)->columnSpanFull()->schema([
                             ImageEntry::make('productVariant.main_image')
-                                ->label('')
+                                ->hiddenLabel()
                                 ->getStateUsing(static fn (OrderLine $record): ?string => $record->productVariant?->mainImageUrl())
+                                ->placeholder(__('No image'))
                                 ->circular()
                                 ->imageSize(48)
                                 ->columnSpan(1),
@@ -320,12 +321,12 @@ final class OrderInfolist
                                 ->state(static function (OrderLine $record): string {
                                     $unit = $record->unit;
 
-                                    return mb_trim(QuantityFormatter::display($record->quantity).' '.($unit instanceof Unit ? $unit->name : ''));
+                                    return mb_trim(QuantityFormatter::display($record->quantity).' '.($unit instanceof Unit ? $unit->localizedName() : ''));
                                 })
                                 ->columnSpan(3),
                             TextEntry::make('unit_price')
                                 ->label(__('admin.sales.fields.unit_price'))
-                                ->state(static fn (OrderLine $record): string => MoneyFormatter::format((int) round((float) $record->unit_price * 100)).' each')
+                                ->state(static fn (OrderLine $record): string => __(':price each', ['price' => MoneyFormatter::format((int) round((float) $record->unit_price * 100))]))
                                 ->columnSpan(3),
                             TextEntry::make('fulfillment')
                                 ->label(__('Fulfillment'))

@@ -33,23 +33,23 @@ final class MaintenanceSchedulesTable
             ->defaultSort('next_due_on')
             ->columns([
                 FavoriteColumn::make(),
-                TextColumn::make('schedule_number')->label(__('Schedule #'))->searchable(),
-                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                TextColumn::make('schedule_number')->label(__('Schedule #'))->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('serializedInventoryUnit.serial_number')->label(__('Equipment serial'))->searchable(),
                 TextColumn::make('maintenance_kind')->label(__('Schedule type'))->badge(),
-                TextColumn::make('name')->label(__('Maintenance')),
+                TextColumn::make('name')->label(__('Maintenance'))->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('recurrence')
                     ->label(__('Recurrence'))
-                    ->getStateUsing(static fn (MaintenanceSchedule $record): string => sprintf(
-                        'Every %d %s',
-                        $record->interval_value,
-                        $record->interval_type->label(),
-                    )),
+                    ->getStateUsing(static fn (MaintenanceSchedule $record): string => __('Every :count :unit', [
+                        'count' => $record->interval_value,
+                        'unit' => $record->interval_type->label(),
+                    ])),
                 TextColumn::make('next_due_on')->label(__('Next due'))->date()->sortable(),
                 TextColumn::make('due_state')
                     ->label(__('Due state'))
                     ->badge()
                     ->getStateUsing(static fn (MaintenanceSchedule $record): string => self::dueState($record))
+                    ->formatStateUsing(static fn (string $state): string => __($state))
                     ->color(static fn (MaintenanceSchedule $record): string => match (self::dueState($record)) {
                         'Overdue' => 'danger',
                         'Due Soon' => 'warning',

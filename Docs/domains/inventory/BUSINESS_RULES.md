@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: inventory
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: InventoryOperationService, InventoryPostingService, InventoryBalanceService, reservation/count/return/correction services and tests
 ---
 
@@ -34,7 +34,7 @@ On-hand changes when warehouse custody changes, not when a document is merely dr
 
 ## Reservations
 
-Reservations protect outbound availability without changing on-hand. Consumption/release is coordinated through `InventoryReservationService`.
+Reservations protect outbound availability without changing on-hand. Consumption/release is coordinated through `InventoryReservationService`. Sales-driven reservations retain Sales Order provenance, and tracked reservations may retain assigned lot/expiry identity where the workflow has selected it.
 
 ## Posting
 
@@ -47,8 +47,13 @@ A stock-changing action must preserve both balance correctness and movement/audi
 - transaction quantities are normalized into base UOM;
 - serialized lines require valid serial coverage and atomic serialized handling;
 - batch/lot-tracked products use inventory lots;
-- expiry requirements are enforced when the product type requires them;
+- expiry-controlled stock uses FEFO selection; an allowed override must be explicit and auditable rather than silently choosing a later lot;
+- expiry requirements are enforced when the product type requires them, and operational ageing is exposed as Expired, 0–30, 31–60, 61–90 and healthy buckets;
 - duplicate SKU/serial/IoT identities are guarded.
+
+## Replenishment
+
+Warehouse replenishment policies may define minimum/maximum stock and a preferred supplier. Recommendations use canonical available quantity (already net of reservations), incoming supply, internal-transfer coverage, supplier eligibility and lead-time/commercial facts without double-subtracting reserved stock.
 
 ## Counts
 

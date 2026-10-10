@@ -8,6 +8,7 @@ use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryLots\Pages\ListInventoryLots;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
+use App\Models\InventoryMovement;
 use App\Models\InventorySetting;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\ViewAction;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -181,6 +183,35 @@ it('exposes actionable expiry tabs and excludes zero-stock lots from expiry queu
         ->assertCanSeeTableRecords([$warning])
         ->set('activeTab', 'notice')
         ->assertCanSeeTableRecords([$notice]);
+});
+
+// Release QA 2026-10-10: the expiry tabs read "0?30 Days" and the lot history showed "4.000000".
+it('names the expiry tabs in the viewer language', function (): void {
+    app()->setLocale('ar');
+
+    $tabs = Livewire::actingAs(lotViewer())->test(ListInventoryLots::class)->instance()->getTabs();
+
+    expect(array_map(static fn (Tab $tab): string => (string) $tab->getLabel(), array_slice($tabs, 2)))->toBe([
+        'critical' => 'من 0 إلى 30 يوماً',
+        'warning' => 'من 31 إلى 60 يوماً',
+        'notice' => 'من 61 إلى 90 يوماً',
+    ]);
+});
+
+it('shows lot movement quantities without trailing zero decimals', function (): void {
+    $lot = InventoryLot::factory()->canonical()->create();
+    InventoryMovement::factory()->create([
+        'product_variant_id' => $lot->product_variant_id,
+        'inventory_lot_id' => $lot->getKey(),
+        'transaction_quantity' => '1250.500000',
+        'base_quantity_delta' => '1250.500000',
+    ]);
+
+    $this->actingAs(lotViewer())
+        ->get(InventoryLotResource::getUrl('view', ['record' => $lot]))
+        ->assertOk()
+        ->assertSee('1,250.5')
+        ->assertDontSee('1250.500000');
 });
 
 it('hides legacy lot aliases and keeps the canonical lot resource read only', function (): void {

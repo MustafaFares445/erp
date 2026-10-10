@@ -12,6 +12,7 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Services\Purchasing\PurchaseOrderWorkflowProjectionStore;
@@ -38,12 +39,12 @@ final class PurchaseOrdersTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->searchPlaceholder(__('PO, supplier, product, SKU…'))
             ->defaultSort('ordered_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
-                ImageColumn::make('supplier.logo_path')
+                ImageColumn::make('supplier.logo_path')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Logo'))
                     ->disk('public')
                     ->circular()
@@ -67,6 +68,7 @@ final class PurchaseOrdersTable
                 TextColumn::make('workflow_stage')
                     ->label(__('Stage'))
                     ->getStateUsing(fn (PurchaseOrder $record): string => self::projection($record)->businessState)
+                    ->formatStateUsing(static fn (string $state): string => __($state))
                     ->badge()
                     ->color(fn (PurchaseOrder $record): string => self::stageColor(self::projection($record))),
                 TextColumn::make('receiving_progress')
@@ -77,12 +79,12 @@ final class PurchaseOrdersTable
                         return QuantityFormatter::display($projection->receivedBaseQuantity)
                             .' / '.QuantityFormatter::display($projection->confirmedBaseQuantity);
                     })
-                    ->description(fn (PurchaseOrder $record): string => self::receivingDescription(self::projection($record))),
+                    ->description(fn (PurchaseOrder $record): string => __(self::receivingDescription(self::projection($record)))),
                 TextColumn::make('total_amount')
                     ->label(__('Total'))
                     ->money(static fn (PurchaseOrder $record): string => $record->currency_code)
                     ->sortable(),
-                TextColumn::make('expected_at')
+                TextColumn::make('expected_at')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('Expected'))
                     ->date()
                     ->placeholder(__('—'))
@@ -97,7 +99,7 @@ final class PurchaseOrdersTable
                     ->falseIcon(Heroicon::CheckCircle)
                     ->trueColor('warning')
                     ->falseColor('success')
-                    ->tooltip(fn (PurchaseOrder $record): string => self::projection($record)->blocker ?? 'No active blocker')
+                    ->tooltip(fn (PurchaseOrder $record): string => __(self::projection($record)->blocker ?? 'No active blocker'))
                     ->url(fn (PurchaseOrder $record): string => PurchaseOrderResource::getUrl('view', ['record' => $record])),
             ])
             ->filters([
@@ -150,15 +152,15 @@ final class PurchaseOrdersTable
                 Group::make('currency_code')->label(__('Currency')),
                 Group::make('ordered_at')->label(__('Ordered at'))->date(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 Action::make('continue')
-                    ->label(fn (PurchaseOrder $record): string => self::nextActionLabel($record))
+                    ->label(fn (PurchaseOrder $record): string => __(self::nextActionLabel($record)))
                     ->icon(Heroicon::ArrowRight)
                     ->button()
                     ->color('primary')
                     ->url(fn (PurchaseOrder $record): string => self::nextActionUrl($record)),
                 ViewAction::make()->label(__('Details')),
-            ]);
+            ]));
     }
 
     private static function projection(PurchaseOrder $record): PurchaseOrderWorkflowData

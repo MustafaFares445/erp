@@ -8,6 +8,7 @@ use App\Enums\OperationStage;
 use App\Filament\Resources\DeliveryNotes\Actions\DeliveryNoteActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryOperation;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
@@ -25,15 +26,15 @@ final class DeliveryNotesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->modifyQueryUsing(static fn (Builder $query): Builder => $query->with('invoiceDeliveryLink'))
             ->defaultSort('created_at', 'desc')
             ->searchPlaceholder(__('Search by delivery note number or customer name'))
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending'))->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label(__('admin.inventory.operation.fields.customer'))->searchable(),
-                TextColumn::make('sourceWarehouse.name')->label(__('admin.inventory.operation.fields.source_warehouse'))->searchable(),
+                TextColumn::make('customer.company_name')->wrap()->label(__('admin.inventory.operation.fields.customer'))->searchable(),
+                TextColumn::make('sourceWarehouse.name')->toggleable(isToggledHiddenByDefault: true)->wrap()->label(__('admin.inventory.operation.fields.source_warehouse'))->searchable(),
                 TextColumn::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at'))->dateTime()->sortable(),
                 TextColumn::make('stage')->badge()->formatStateUsing(fn (OperationStage $state, InventoryOperation $record): string => $record->stageLabel())->color(fn (OperationStage $state): string => match ($state) {
                     OperationStage::Draft => 'gray', OperationStage::Waiting => 'warning', OperationStage::Ready => 'success', OperationStage::InTransit, OperationStage::PartiallyReceived => 'primary', OperationStage::Done => 'success', OperationStage::Canceled => 'danger',
@@ -41,7 +42,7 @@ final class DeliveryNotesTable
                 TextColumn::make('invoiced')
                     ->label(__('Invoiced'))
                     ->badge()
-                    ->state(fn (InventoryOperation $record): string => $record->isInvoiced() ? 'Invoiced' : 'Uninvoiced')
+                    ->state(fn (InventoryOperation $record): string => $record->isInvoiced() ? __('Invoiced') : __('Uninvoiced'))
                     ->color(fn (InventoryOperation $record): string => $record->isInvoiced() ? 'success' : 'gray'),
             ])
             ->groups([
@@ -77,9 +78,9 @@ final class DeliveryNotesTable
                         ->where('stage', OperationStage::Done->value)
                         ->whereDoesntHave('invoiceDeliveryLink')),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 DeliveryNoteActions::createInvoice()->button(),
                 ViewAction::make(),
-            ]);
+            ]));
     }
 }

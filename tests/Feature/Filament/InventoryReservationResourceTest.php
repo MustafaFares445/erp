@@ -12,8 +12,10 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReservation;
+use App\Models\InventoryReservationAllocation;
 use App\Models\InventoryStock;
 use App\Models\Order;
+use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -183,4 +185,57 @@ it('renders the reservation detail page with allocation and lifecycle evidence',
         ->assertSuccessful()
         ->assertSee(__('admin.inventory.reservation.sections.allocations'))
         ->assertSee(__('admin.inventory.reservation.sections.lifecycle'));
+});
+
+it('shows reservation and allocation quantities without trailing zeroes', function (): void {
+    $reservation = InventoryReservation::factory()->create(['base_quantity' => '2.500000']);
+    InventoryReservationAllocation::factory()->create([
+        'inventory_reservation_id' => $reservation->getKey(),
+        'base_quantity' => '2.500000',
+    ]);
+
+    Livewire::actingAs(reservationViewer(false))
+        ->test(ViewInventoryReservation::class, ['record' => $reservation->getKey()])
+        ->assertSeeText('2.5')
+        ->assertDontSeeText('2.500000');
+
+    Livewire::actingAs(reservationViewer(false))
+        ->test(ListInventoryReservations::class)
+        ->assertTableColumnFormattedStateSet('base_quantity', '2.5', record: $reservation);
+});
+
+it('names the sales order line by its SKU in English and Arabic instead of a raw identifier', function (): void {
+    $order = Order::factory()->create();
+    $line = OrderLine::factory()->for($order)->create();
+    $reservation = InventoryReservation::factory()->create([
+        'sales_order_id' => $order->getKey(),
+        'sales_order_line_id' => $line->getKey(),
+    ]);
+    $sku = (string) $line->productVariant->sku;
+
+    Livewire::actingAs(reservationViewer(false))
+        ->test(ViewInventoryReservation::class, ['record' => $reservation->getKey()])
+        ->assertSeeText('Sales Order line')
+        ->assertSeeText($sku);
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs(reservationViewer(false))
+        ->test(ViewInventoryReservation::class, ['record' => $reservation->getKey()])
+        ->assertSeeText('بند أمر البيع')
+        ->assertSeeText($sku)
+        ->assertDontSeeText('Sales Order line');
+});
+
+it('keeps the status column in view by hiding secondary reservation columns by default', function (): void {
+    $component = Livewire::actingAs(reservationViewer(false))->test(ListInventoryReservations::class);
+    $table = $component->instance()->getTable();
+
+    foreach (['salesOrder.order_number', 'allocations_count', 'releasedBy.name', 'release_reason', 'released_at', 'created_at'] as $secondary) {
+        expect($table->getColumn($secondary)?->isToggledHiddenByDefault())->toBeTrue($secondary);
+    }
+
+    foreach (['productVariant.sku', 'warehouse.name', 'base_quantity', 'source_document', 'status'] as $essential) {
+        expect($table->getColumn($essential)?->isToggledHiddenByDefault())->toBeFalse($essential);
+    }
 });

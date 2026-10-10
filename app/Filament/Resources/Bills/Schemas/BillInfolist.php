@@ -40,14 +40,16 @@ final class BillInfolist
                 ]),
             Section::make(__('Bill details'))->columns(3)->schema([
                 TextEntry::make('bill_number')->label(__('Bill number')),
-                TextEntry::make('status')->label(__('Status'))->badge(),
+                TextEntry::make('status')->label(__('Status'))
+                    ->state(fn (Bill $record): string => $record->status->label())
+                    ->badge(),
                 TextEntry::make('resolvedSupplier.name')->label(__('Supplier')),
                 TextEntry::make('supplier_reference')->label(__('Supplier reference')),
                 TextEntry::make('supplier_reference_source')
                     ->label(__('Reference evidence'))
                     ->state(fn (Bill $record): string => $record->supplier_reference_backfilled_at === null
-                        ? 'Supplier provided'
-                        : 'Backfilled reference')
+                        ? __('Supplier provided')
+                        : __('Backfilled reference'))
                     ->badge(),
                 TextEntry::make('purchaseOrder.purchase_order_number')->label(__('Purchase order'))->placeholder(__('Not linked')),
                 TextEntry::make('paymentTerm.name')->label(__('Payment term'))->placeholder(__('Not provided')),
@@ -59,8 +61,8 @@ final class BillInfolist
                 TextEntry::make('paid_amount')->label(__('Paid amount'))->money(),
                 TextEntry::make('description')->label(__('Description'))->columnSpanFull(),
             ]),
-            Section::make(__('Lines and three-way match'))->schema([
-                RepeatableEntry::make('lines')->label('')->columns(8)->schema([
+            Section::make(__('Lines and three-way match'))->columnSpanFull()->schema([
+                RepeatableEntry::make('lines')->label('')->columns(['default' => 1, 'md' => 2, 'xl' => 4])->schema([
                     TextEntry::make('description')->label(__('Description')),
                     TextEntry::make('quantity')->label(__('Billed quantity'))->numeric(decimalPlaces: 3),
                     TextEntry::make('unit_price')->label(__('Billed unit price'))->money(),
@@ -76,11 +78,11 @@ final class BillInfolist
                     TextEntry::make('quantity_variance')
                         ->label(__('Quantity variance'))
                         ->badge()
-                        ->state(static fn (BillLine $record): string => $record->hasQuantityVariance() ? 'Variance' : 'Matched'),
+                        ->state(static fn (BillLine $record): string => $record->hasQuantityVariance() ? __('Variance') : __('Matched')),
                     TextEntry::make('price_variance')
                         ->label(__('Unit-price variance'))
                         ->badge()
-                        ->state(static fn (BillLine $record): string => $record->hasUnitPriceVariance() ? 'Variance' : 'Matched'),
+                        ->state(static fn (BillLine $record): string => $record->hasUnitPriceVariance() ? __('Variance') : __('Matched')),
                 ]),
             ]),
         ]);
@@ -91,13 +93,13 @@ final class BillInfolist
     {
         if ($bill->status === BillStatus::Draft
             && str_starts_with($bill->supplier_reference, 'PO-AUTO:')) {
-            return 'Replace the provisional reference with the supplier invoice reference';
+            return __('Replace the provisional reference with the supplier invoice reference');
         }
 
         $bill->loadMissing('lines');
 
         if ($bill->lines->contains(static fn (BillLine $line): bool => $line->hasQuantityVariance() || $line->hasUnitPriceVariance())) {
-            return 'Three-way match variance requires review';
+            return __('Three-way match variance requires review');
         }
 
         return null;
@@ -106,19 +108,19 @@ final class BillInfolist
     private static function nextOwner(Bill $bill): string
     {
         return match ($bill->status) {
-            BillStatus::Draft => 'Accounting',
-            BillStatus::Approved, BillStatus::PartiallyPaid => 'Accounts Payable',
-            BillStatus::Paid, BillStatus::Cancelled => 'None',
+            BillStatus::Draft => __('Accounting'),
+            BillStatus::Approved, BillStatus::PartiallyPaid => __('Accounts Payable'),
+            BillStatus::Paid, BillStatus::Cancelled => __('None'),
         };
     }
 
     private static function nextAction(Bill $bill): string
     {
         return match ($bill->status) {
-            BillStatus::Draft => 'Review supplier reference and three-way match, then approve the bill',
-            BillStatus::Approved, BillStatus::PartiallyPaid => 'Record and allocate supplier payment',
-            BillStatus::Paid => 'Completed',
-            BillStatus::Cancelled => 'No further accounting action',
+            BillStatus::Draft => __('Review supplier reference and three-way match, then approve the bill'),
+            BillStatus::Approved, BillStatus::PartiallyPaid => __('Record and allocate supplier payment'),
+            BillStatus::Paid => __('Completed'),
+            BillStatus::Cancelled => __('No further accounting action'),
         };
     }
 
@@ -127,7 +129,7 @@ final class BillInfolist
         $purchaseOrderLine = $line->purchaseOrderLine;
 
         return $purchaseOrderLine === null
-            ? 'Not matched'
+            ? __('Not matched')
             : number_format((float) $purchaseOrderLine->quantity_ordered, 3, '.', '');
     }
 }

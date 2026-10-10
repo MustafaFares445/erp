@@ -73,7 +73,7 @@ final readonly class OrderSource implements TimelineSource
                     id: $order->id,
                     occurredAt: $order->created_at ?? Carbon::now(),
                     occurredAtIsDateOnly: false,
-                    title: "Order {$order->order_number}",
+                    title: __('Order :number', ['number' => $order->order_number]),
                     detail: $this->detail($order),
                     statusLabel: $order->status->label(),
                     statusColor: $order->status->color(),
@@ -97,11 +97,11 @@ final readonly class OrderSource implements TimelineSource
         $parts = [];
 
         if (is_string($order->delivery_type) && $order->delivery_type !== '') {
-            $parts[] = str($order->delivery_type)->replace('_', ' ')->headline()->toString();
+            $parts[] = __(str($order->delivery_type)->replace('_', ' ')->headline()->toString());
         }
 
         if ($order->scheduled_at instanceof Carbon) {
-            $parts[] = "Scheduled {$order->scheduled_at->toDateTimeString()}";
+            $parts[] = __('Scheduled :datetime', ['datetime' => $order->scheduled_at->toDateTimeString()]);
         }
 
         return $parts === [] ? null : implode(' — ', $parts);

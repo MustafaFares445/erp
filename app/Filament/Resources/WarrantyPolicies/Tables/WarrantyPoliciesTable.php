@@ -22,24 +22,19 @@ final class WarrantyPoliciesTable
         return $table
             ->defaultSort('name')
             ->columns([
-                TextColumn::make('code')->badge()->searchable()->sortable(),
+                TextColumn::make('code')->badge()->searchable()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('period')
                     ->label(__('Coverage period'))
                     ->state(static fn (WarrantyPolicy $record): string => $record->duration_value.' '.$record->duration_unit->label()),
                 TextColumn::make('start_trigger')
                     ->label(__('Begins from'))
-                    ->formatStateUsing(static fn (WarrantyStartTrigger $state): string => $state->label()),
+                    ->formatStateUsing(static fn (WarrantyStartTrigger $state): string => $state->label())
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('coverage')
-                    ->state(static fn (WarrantyPolicy $record): string => collect([
-                        'Parts' => $record->covers_parts,
-                        'Labour' => $record->covers_labour,
-                        'Travel' => $record->covers_travel,
-                        'Consumables' => $record->covers_consumables,
-                        'Third party' => $record->covers_third_party,
-                    ])->filter()->keys()->implode(', ') ?: 'No default categories')
+                    ->state(static fn (WarrantyPolicy $record): string => self::coverageSummary($record))
                     ->wrap(),
-                IconColumn::make('transferable')->boolean(),
+                IconColumn::make('transferable')->boolean()->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('is_active')->label(__('Active'))->boolean(),
                 TextColumn::make('updated_at')->since()->sortable(),
             ])
@@ -52,5 +47,16 @@ final class WarrantyPoliciesTable
                 DeleteAction::make(),
                 RestoreAction::make(),
             ]);
+    }
+
+    private static function coverageSummary(WarrantyPolicy $record): string
+    {
+        return collect([
+            __('Parts') => $record->covers_parts,
+            __('Labour') => $record->covers_labour,
+            __('Travel') => $record->covers_travel,
+            __('Consumables') => $record->covers_consumables,
+            __('Third-party services') => $record->covers_third_party,
+        ])->filter()->keys()->implode(' · ') ?: __('No default categories');
     }
 }

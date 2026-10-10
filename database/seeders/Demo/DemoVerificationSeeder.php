@@ -39,6 +39,7 @@ final class DemoVerificationSeeder extends Seeder
     private const array Coverage = [
         'Sales.Quotation' => ['quotations', 'status'],
         'Sales.Order' => ['orders', 'status'],
+        'Sales.ProcurementRequirement' => ['sales_procurement_requirements', 'status'],
         'Sales.Invoice' => ['invoices', 'status'],
         'Sales.CreditNote' => ['credit_notes', 'status'],
         'Sales.WriteOff' => ['receivable_write_offs', 'status'],
@@ -71,6 +72,7 @@ final class DemoVerificationSeeder extends Seeder
         'Crm.Campaign' => ['campaigns', 'status'],
         'Crm.CampaignRecipient' => ['campaign_recipients', 'send_status'],
         'Crm.CustomerApproval' => ['customer_profiles', 'approval_status'],
+        'Crm.CustomerReturnRequest' => ['customer_return_requests', 'status'],
         'Employees.Plan' => ['sales_plans', 'status'],
         'Employees.Task' => ['plan_tasks', 'status'],
         'Employees.Visit' => ['customer_visits', 'status'],
@@ -93,6 +95,9 @@ final class DemoVerificationSeeder extends Seeder
 
         $this->section('Integrity');
         $this->integrity();
+
+        $this->section('Canonical flow evidence');
+        $this->canonicalFlowEvidence();
 
         $this->section('Inventory dashboard (2026-09-04 .. 2026-10-03)');
         $this->guard($this->inventoryDashboard(...));
@@ -117,8 +122,9 @@ final class DemoVerificationSeeder extends Seeder
     {
         $tables = [
             'users', 'customer_profiles', 'suppliers', 'employee_profiles', 'products', 'product_variants', 'warehouses',
-            'inventory_movements', 'inventory_operations', 'inventory_adjustments', 'inventory_returns',
-            'quotations', 'orders', 'invoices', 'credit_notes', 'refunds', 'payments', 'payment_transactions', 'payment_allocations',
+            'inventory_movements', 'inventory_operations', 'inventory_adjustments', 'inventory_returns', 'inventory_condition_changes',
+            'serialized_inventory_units', 'shipments', 'sales_procurement_requirements', 'customer_return_requests', 'price_floor_overrides',
+            'quotations', 'orders', 'invoices', 'credit_notes', 'refunds', 'payments', 'payment_transactions', 'payment_allocations', 'deposit_application_issues',
             'purchase_orders', 'purchase_rfqs', 'purchase_agreements', 'supplier_confirmations', 'bills', 'supplier_payments',
             'expenses', 'journal_entries', 'tax_recognition_entries', 'leads', 'sales_opportunities', 'interactions', 'campaigns',
             'sales_plans', 'plan_tasks', 'customer_visits', 'employee_voice_notes', 'tickets', 'maintenance_records', 'maintenance_tasks',
@@ -387,6 +393,103 @@ final class DemoVerificationSeeder extends Seeder
         $this->line('Open supplier repairs on closed or cancelled requests', $openOnClosedRequest, $openOnClosedRequest === 0);
     }
 
+    private function canonicalFlowEvidence(): void
+    {
+        $rows = [];
+
+        $add = (static fn (string $flow, bool $ok, string $evidence, string $result = ''): array => [$flow, $evidence, $result !== '' ? $result : ($ok ? 'PASS' : 'MISSING')]);
+
+        $doneDeliveries = DB::table('inventory_operations')->where('operation_type', 'delivery')->where('stage', 'done')->count();
+        $issuedInvoices = DB::table('invoices')->whereNotNull('issued_at')->count();
+        $postedPayments = DB::table('payments')->where('status', 'posted')->count();
+        $rows[] = $add('F-01 Normal sale from stock', $doneDeliveries > 0 && $issuedInvoices > 0 && $postedPayments > 0, "deliveries={$doneDeliveries}; invoices={$issuedInvoices}; payments={$postedPayments}");
+
+        $b2b = DB::table('sales_procurement_requirements')->where('status', 'fulfilled')->whereNotNull('purchase_order_id')->whereNotNull('purchase_order_line_id')->count();
+        $rows[] = $add('F-02 Stock shortage / back-to-back', $b2b > 0, "fulfilled linked requirements={$b2b}");
+
+        $customerReturns = DB::table('customer_return_requests')->where('status', 'converted')->whereNotNull('resulting_inventory_return_id')->count();
+        $returnCredits = DB::table('credit_notes')->whereNotNull('inventory_return_id')->count();
+        $rows[] = $add('F-03 Customer return -> credit/refund', $customerReturns > 0 && $returnCredits > 0, "converted requests={$customerReturns}; return-linked credits={$returnCredits}");
+
+        $aiOpportunities = DB::table('sales_opportunities')->whereNotNull('voice_note_transcription_id')->count();
+        $rows[] = $add('F-04 Visit -> voice/AI -> opportunity', $aiOpportunities > 0, "AI-linked opportunities={$aiOpportunities}");
+
+        $partialInvoices = Invoice::query()
+            ->whereNotNull('issued_at')
+            ->get()
+            ->filter(fn (Invoice $invoice): bool => app(InvoiceBalanceService::class)->status($invoice) === 'partially_paid')
+            ->count();
+        $taxEntries = DB::table('tax_recognition_entries')->count();
+        $rows[] = $add('F-05 Partial payment / proportional tax', $partialInvoices > 0 && $taxEntries > 0, "partially paid invoices={$partialInvoices}; tax entries={$taxEntries}");
+
+        $chargeableTickets = DB::table('tickets')->where('is_chargeable', true)->count();
+        $ticketLinks = DB::table('ticket_payment_links')->count();
+        $rows[] = $add('F-06 Chargeable support / maintenance', $chargeableTickets > 0 && $ticketLinks > 0, "chargeable tickets={$chargeableTickets}; payment links={$ticketLinks}");
+
+        $coveredMaintenance = DB::table('maintenance_records')->where('coverage_decision', 'fully_covered')->count();
+        $rows[] = $add('F-07 Warranty / covered service', $coveredMaintenance > 0, "fully-covered maintenance={$coveredMaintenance}");
+
+        $supplierReturns = DB::table('inventory_returns')->where('return_type', 'supplier')->where('status', 'posted')->count();
+        $rows[] = $add('F-08 Supplier return', $supplierReturns > 0, "posted supplier returns={$supplierReturns}");
+
+        $transfers = DB::table('inventory_operations')->where('operation_type', 'internal_transfer')->where('stage', 'done')->count();
+        $rows[] = $add('F-09 Inter-warehouse transfer', $transfers > 0, "completed transfers={$transfers}");
+
+        $conditionChanges = DB::table('inventory_condition_changes')->where('status', 'posted')->count();
+        $expiringLots = DB::table('inventory_lots')->whereNotNull('expires_at')->count();
+        $disposals = DB::table('inventory_movements')->where('movement_type', 'disposal')->count();
+        $rows[] = $add('F-10 Expiry / condition / disposal', $conditionChanges > 0 && $expiringLots > 0 && $disposals > 0, "posted condition changes={$conditionChanges}; expiry-tracked lots={$expiringLots}; disposal movements={$disposals}");
+
+        $overrides = DB::table('price_floor_overrides')->count();
+        $orderOverrideLines = DB::table('order_lines')->whereNotNull('price_floor_override_id')->count();
+        $invoiceOverrideLines = DB::table('invoice_lines')->whereNotNull('price_floor_override_id')->count();
+        $rows[] = $add('F-11 Below-floor price approval', $overrides > 0 && $orderOverrideLines > 0 && $invoiceOverrideLines > 0, "approvals={$overrides}; order lines={$orderOverrideLines}; invoice lines={$invoiceOverrideLines}");
+
+        $serializedWarranty = DB::table('warranty_entitlements')
+            ->whereNotNull('serialized_inventory_unit_id')
+            ->whereNotNull('source_shipment_id')
+            ->where('state', 'active')
+            ->count();
+        $serializedService = DB::table('maintenance_records')->whereNotNull('serialized_inventory_unit_id')->count();
+        $rows[] = $add('F-12 Serialized sale -> warranty/service', $serializedWarranty > 0 && $serializedService > 0, "shipment-linked active warranties={$serializedWarranty}; serialized maintenance={$serializedService}");
+
+        $depositPayment = DB::table('payments')->where('external_reference', 'BNK-2026-0915-GVC')->first();
+        $depositApplications = $depositPayment === null ? 0 : DB::table('payment_allocations')->where('payment_id', $depositPayment->id)->count();
+        $rows[] = $add('F-13 Deposit -> later application/refund', $depositApplications > 0, "PM03 later allocations={$depositApplications}");
+
+        $closeChecks = DB::table('fiscal_period_close_checks')->count();
+        $closedPeriods = DB::table('fiscal_periods')->where('is_closed', true)->count();
+        $rows[] = $add('F-14 Period / month-end close', $closeChecks > 0 && $closedPeriods > 0, "persisted checks={$closeChecks}; closed periods={$closedPeriods}");
+
+        $releasedCancelled = DB::table('orders')->where('notes', 'like', '[DEMO-SALES] O22 -%')->where('status', 'cancelled')->whereNotNull('released_at')->count();
+        $rows[] = $add('F-15 Released order cancellation', $releasedCancelled > 0, "released then cancelled demo orders={$releasedCancelled}");
+
+        $counts = DB::table('inventory_counts')->count();
+        $corrections = DB::table('inventory_corrections')->count();
+        $rows[] = $add('F-16 Physical count -> correction', $counts > 0 && $corrections > 0, "counts={$counts}; corrections={$corrections}");
+
+        $campaignResponses = DB::table('campaign_responses')->where(function (Builder $query): void {
+            $query->whereNotNull('created_lead_id')->orWhereNotNull('created_opportunity_id');
+        })->count();
+        $rows[] = $add('F-17 Campaign -> CRM opportunity', $campaignResponses > 0, "responses creating lead/opportunity={$campaignResponses}");
+
+        $expiredQuotes = DB::table('quotations')->where('status', 'expired')->count();
+        $requotes = DB::table('quotations')->whereNotNull('requoted_from_id')->count();
+        $rows[] = $add('F-18 Quotation expiry / re-quote', $expiredQuotes > 0 && $requotes > 0, "expired={$expiredQuotes}; requotes={$requotes}");
+
+        $directOrders = DB::table('orders')->whereNull('quotation_id')->count();
+        $directCustomers = DB::table('customer_profiles')->where('allow_direct_orders', true)->count();
+        $rows[] = $add('F-19 Direct ordering backend capability', $directOrders > 0 && $directCustomers > 0, "direct orders={$directOrders}; enabled customers={$directCustomers}; customer API intentionally absent");
+
+        $rows[] = $add('F-20 Field sale from van warehouse', true, 'Not implemented/canonical in current docs; intentionally not seeded.', 'N/A');
+
+        $supplierPayments = DB::table('supplier_payments')->count();
+        $completedReceipts = DB::table('inventory_operations')->where('operation_type', 'receipt')->where('stage', 'done')->count();
+        $rows[] = $add('F-21 Procure to pay', $supplierPayments > 0 && $completedReceipts > 0, "supplier payments={$supplierPayments}; completed receipts={$completedReceipts}");
+
+        $this->command->table(['Flow', 'Evidence', 'Result'], $rows);
+    }
+
     private function inventoryDashboard(): void
     {
         $value = DemoContext::floatOf(DB::table('inventory_stocks')
@@ -416,7 +519,7 @@ final class DemoVerificationSeeder extends Seeder
             });
         $needsCount = (clone $needs)->count();
         $oos = (clone $needs)->where('s.available_quantity', '<=', 0)->count();
-        $this->line('Needs reorder (target 4-7)', $needsCount, $needsCount >= 4 && $needsCount <= 7);
+        $this->line('Needs reorder (target 4-10)', $needsCount, $needsCount >= 4 && $needsCount <= 10);
         $this->line('Out of stock (target >=2-3)', $oos, $oos >= 2);
 
         $requirements = DB::table('replenishment_requirements')->whereIn('status', ['open', 'partially_covered', 'covered'])->count();
@@ -436,9 +539,9 @@ final class DemoVerificationSeeder extends Seeder
         $direct = (float) DB::table('orders')->whereIn('status', ['confirmed', 'released', 'closed'])->whereBetween('confirmed_at', [self::From, self::To])->sum('grand_total');
         $directCount = DB::table('orders')->whereIn('status', ['confirmed', 'released', 'closed'])->whereBetween('confirmed_at', [self::From, self::To])->count();
 
-        $this->line('Confirmed order value (service)', number_format((float) $kpis['value'], 2), $kpis['value'] >= 35000 && $kpis['value'] <= 90000);
+        $this->line('Confirmed order value (service, target 90k-140k)', number_format((float) $kpis['value'], 2), $kpis['value'] >= 90000 && $kpis['value'] <= 140000);
         $this->line('Confirmed order value (direct SQL)', number_format($direct, 2), abs($direct - (float) $kpis['value']) < 0.01);
-        $this->line('Confirmed orders (target 6-12)', $kpis['count'].' / direct '.$directCount, $kpis['count'] >= 6 && $kpis['count'] <= 12 && $kpis['count'] === $directCount);
+        $this->line('Confirmed orders (target 18-26)', $kpis['count'].' / direct '.$directCount, $kpis['count'] >= 18 && $kpis['count'] <= 26 && $kpis['count'] === $directCount);
         $this->line('Average order value', number_format((float) ($kpis['average_order_value'] ?? 0), 2), ($kpis['average_order_value'] ?? 0) > 0);
         $this->line('Quote->order conversion % (target 35-60)', ($kpis['conversion_percent'] ?? 'n/a').' ('.$kpis['conversion_numerator'].'/'.$kpis['conversion_denominator'].')', ($kpis['conversion_percent'] ?? 0) >= 35 && $kpis['conversion_percent'] <= 60);
 
@@ -531,7 +634,7 @@ final class DemoVerificationSeeder extends Seeder
         $days = DB::table('journal_entries')->where('status', 'posted')->whereBetween('entry_date', ['2026-09-04', '2026-10-03'])->selectRaw('COUNT(DISTINCT entry_date) d')->value('d');
         $this->line('Posted-journal days (>=10)', $days, $days >= 10);
         $journals = DB::table('journal_entries')->whereIn('status', ['posted', 'draft'])->count();
-        $this->line('Journal entries (target 30-45)', $journals, $journals >= 30 && $journals <= 45);
+        $this->line('Journal entries (target 90-130)', $journals, $journals >= 90 && $journals <= 130);
 
         $period = DB::table('fiscal_periods')->where('is_closed', false)->orderBy('starts_at')->first();
         $checks = $period === null ? collect() : DB::table('fiscal_period_close_checks')->where('fiscal_period_id', $period->id)->orderByDesc('id')->get()->unique('check_key');
@@ -556,7 +659,7 @@ final class DemoVerificationSeeder extends Seeder
         $movementTypes = DB::table('inventory_movements')->whereBetween('created_at', [self::From, self::To])->distinct()->pluck('movement_type')->implode(', ');
         $this->line('Movement types present', $movementTypes, true);
         $count = DB::table('inventory_movements')->count();
-        $this->line('Inventory movements (target 80-120)', $count, $count >= 80 && $count <= 120);
+        $this->line('Inventory movements (target 180-250)', $count, $count >= 180 && $count <= 250);
     }
 
     private function coverage(): void

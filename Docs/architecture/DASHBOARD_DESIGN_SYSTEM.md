@@ -140,7 +140,7 @@ Desktop first, verified at 1440, 1280, 1024 and 768 px:
 
 - the module strip shows from 90rem (1440px); below that it collapses into the module dropdown; module icons appear from 104rem;
 - the sidebar collapses behind the topbar toggle below `lg`;
-- tables scroll horizontally rather than hiding columns.
+- tables scroll horizontally rather than hiding columns at a breakpoint; lists that adopt the list table fit policy ([ADR 0016](../adr/0016-list-table-fit.md)) fit a 1440px desktop with their default columns and stack into labelled cards below `sm`.
 
 ## Verification
 

@@ -21,13 +21,13 @@ final class InvoiceNextActionResolver
     public function resolve(Invoice $invoice): string
     {
         return match (true) {
-            $invoice->isDraft() => 'Issue invoice',
-            $invoice->status === InvoiceStatus::Cancelled => 'No action required',
-            $invoice->status === InvoiceStatus::WrittenOff => 'No collection required',
-            $this->hasUnresolvedDepositIssue($invoice) => 'Retry deposit application',
-            $invoice->outstandingMinor() <= 0 => 'No action required',
-            $invoice->isOverdue() => 'Follow up: collect '.MoneyFormatter::format($invoice->outstandingMinor()),
-            default => 'Collect '.MoneyFormatter::format($invoice->outstandingMinor()),
+            $invoice->isDraft() => __('Issue invoice'),
+            $invoice->status === InvoiceStatus::Cancelled => __('No action required'),
+            $invoice->status === InvoiceStatus::WrittenOff => __('No collection required'),
+            $this->hasUnresolvedDepositIssue($invoice) => __('Retry deposit application'),
+            $invoice->outstandingMinor() <= 0 => __('No action required'),
+            $invoice->isOverdue() => __('Follow up: collect :amount', ['amount' => MoneyFormatter::format($invoice->outstandingMinor())]),
+            default => __('Collect :amount', ['amount' => MoneyFormatter::format($invoice->outstandingMinor())]),
         };
     }
 

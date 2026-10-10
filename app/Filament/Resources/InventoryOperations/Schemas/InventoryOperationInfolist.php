@@ -9,6 +9,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Components\InventoryViewDiagnostics;
 use App\Filament\Components\WorkflowStepper;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
@@ -16,6 +17,8 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Order;
 use App\Models\PurchaseOrder;
+use App\Services\Inventory\Diagnostics\InventoryOperationDiagnoser;
+use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -27,6 +30,10 @@ final class InventoryOperationInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
+            InventoryViewDiagnostics::section(),
+            InventoryViewDiagnostics::metrics(
+                static fn (InventoryOperation $record): array => app(InventoryOperationDiagnoser::class)->keyFigures($record),
+            ),
             Section::make(__('admin.inventory.operation.workflow.section'))
                 ->columns(2)
                 ->schema([
@@ -69,7 +76,7 @@ final class InventoryOperationInfolist
                         ->state(fn (InventoryOperation $record): string => self::stockImpact($record))
                         ->columnSpanFull(),
                 ]),
-            Section::make()->columns(2)->schema([
+            Section::make(__('inventory_view_ux.ui.operation_details'))->columns(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                 TextEntry::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending')),
                 TextEntry::make('stage')->badge()->formatStateUsing(fn (mixed $state, InventoryOperation $record): string => $record->stageLabel()),
                 TextEntry::make('sourceWarehouse.name')->label(__('admin.inventory.operation.fields.source_warehouse')),
@@ -90,10 +97,11 @@ final class InventoryOperationInfolist
                 RepeatableEntry::make('lines')->label('')->columns([
                     'default' => 1,
                     '@sm' => 2,
-                    '@lg' => 4,
+                    '@2xl' => 4,
                 ])->schema([
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.operation.fields.product')),
-                    TextEntry::make('quantity')->label(__('admin.inventory.operation.fields.demand')),
+                    TextEntry::make('quantity')->label(__('admin.inventory.operation.fields.demand'))
+                        ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                     TextEntry::make('unit.name')->label(__('admin.inventory.operation.fields.unit')),
                     TextEntry::make('is_picked')
                         ->label(__('admin.inventory.operation.fields.warehouse_preparation'))
@@ -105,9 +113,11 @@ final class InventoryOperationInfolist
                         ->color(fn (InventoryOperationLine $record): string => $record->is_picked ? 'success' : 'gray'),
                     TextEntry::make('dispatched_base_quantity')
                         ->label(__('admin.inventory.operation.fields.dispatched_quantity'))
+                        ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
                         ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
                     TextEntry::make('received_base_quantity')
                         ->label(__('admin.inventory.operation.fields.received_quantity'))
+                        ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
                         ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
                     TextEntry::make('discrepancy_disposition')
                         ->label(__('admin.inventory.operation.fields.discrepancy_disposition'))

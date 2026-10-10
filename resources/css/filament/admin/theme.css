@@ -113,6 +113,55 @@
     .fi-ta-cell-is-favorited {
         @apply w-px;
     }
+
+    /*
+     * Opt-in per column via `->extraCellAttributes(['class' => 'ierp-ta-wrap-badge'])`: a long badge label
+     * ("Manufacturer / supplier warranty", "Resolution Breached") wraps inside its pill instead of forcing
+     * the column — and the whole list table — wider than the viewport. Filament keeps badges on one line
+     * (`truncate`, plus `whitespace-nowrap` inside a wrapped text column), hence the extra specificity.
+     */
+    .fi-ta-cell.ierp-ta-wrap-badge .fi-ta-text .fi-badge {
+        @apply max-w-full text-center whitespace-normal;
+        overflow: visible;
+        text-overflow: clip;
+    }
+
+    /*
+     * Trailing row actions stay pinned to the table's end edge while wide tables scroll sideways, so
+     * View/Edit and the next-step button are reachable at desktop widths without hiding columns.
+     * `inset-inline-end` pins to the left edge in RTL. Backgrounds are opaque so scrolled cells never
+     * show through; the selected-row tint (translucent in dark mode) is layered over the surface.
+     */
+    .fi-ta-row > .fi-ta-cell:last-child:has(> .fi-ta-actions),
+    .fi-ta-table > thead > tr > .fi-ta-actions-header-cell:last-child {
+        position: sticky;
+        inset-inline-end: 0;
+        z-index: 1;
+        background-color: var(--ierp-surface);
+        box-shadow: -8px 0 8px -8px rgb(0 0 0 / 0.12);
+
+        &:dir(rtl) {
+            box-shadow: 8px 0 8px -8px rgb(0 0 0 / 0.12);
+        }
+    }
+
+    .fi-ta-table > thead > tr > .fi-ta-actions-header-cell:last-child {
+        background-color: var(--ierp-table-head);
+    }
+
+    .fi-ta-row {
+        &.fi-clickable:hover > .fi-ta-cell:last-child:has(> .fi-ta-actions) {
+            background-color: var(--ierp-surface-hover);
+        }
+
+        &.fi-striped > .fi-ta-cell:last-child:has(> .fi-ta-actions) {
+            background-color: var(--ierp-table-head);
+        }
+
+        &.fi-selected:not(.fi-striped) > .fi-ta-cell:last-child:has(> .fi-ta-actions) {
+            background: linear-gradient(var(--ierp-primary-soft), var(--ierp-primary-soft)), var(--ierp-surface);
+        }
+    }
 }
 
 /* Module dashboards (App\Filament\Pages\ModuleDashboard): side-by-side widget cards share the row height. */

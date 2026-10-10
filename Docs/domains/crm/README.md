@@ -3,13 +3,13 @@
 ---
 status: canonical
 owner: crm
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: app/Services/Crm, CRM enums/permissions, tests/Feature/Crm
 ---
 
 ## Purpose
 
-CRM owns customer onboarding/approval/change requests, leads/interactions, campaigns/responses, customer quotation requests, customer return requests and customer timeline context.
+CRM owns customer onboarding/approval/change requests, customer commercial profile defaults, leads/interactions, campaigns/responses, customer quotation requests, customer return requests and customer timeline context.
 
 ## Main Code Anchors
 

@@ -353,6 +353,17 @@ it('hides the correcting adjustment action from drafts and read-only viewers', f
         ->assertActionHidden('createCorrection');
 });
 
+// Release QA 2026-10-10: the movements section was headed "Movement Type" and listed bare ids under "Source".
+it('lists a confirmed adjustment\'s stock movements by movement number', function (): void {
+    $adjustment = InventoryAdjustment::factory()->confirmed()->create();
+    $movement = InventoryMovement::factory()->create(['source_type' => 'adjustment', 'source_id' => $adjustment->getKey()]);
+
+    Livewire::actingAs(createAdjustmentApprover())
+        ->test(ViewAdjustment::class, ['record' => $adjustment->getKey()])
+        ->assertSeeText(['Stock Movements', 'Movement', '#'.$movement->getKey()])
+        ->assertDontSeeText('Movement Type');
+});
+
 it('hides the confirm action from a preparer without the confirm permission', function (): void {
     $preparer = createAdjustmentPreparer();
     $adjustment = InventoryAdjustment::factory()->create(['created_by' => $preparer->id]);
@@ -735,4 +746,36 @@ it('hides the correction row action from a read-only viewer', function (): void 
     Livewire::actingAs($viewer)
         ->test(ListAdjustments::class)
         ->assertTableActionHidden('createCorrection', $confirmed);
+});
+
+it('shows item and movement quantities without trailing zeroes on the items table and the view page', function (): void {
+    $approver = createAdjustmentApprover();
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $adjustment = InventoryAdjustment::factory()->confirmed()->for($warehouse)->create();
+    $item = $adjustment->items()->make(['stock_condition' => StockCondition::Saleable, 'product_variant_id' => $variant->id, 'new_quantity' => '9.500000']);
+    $item->forceFill(['old_quantity' => '11.000000', 'difference' => '-1.500000'])->save();
+    InventoryMovement::factory()->create([
+        'source_type' => 'adjustment',
+        'source_id' => $adjustment->getKey(),
+        'quantity' => '-1.500000',
+    ]);
+
+    Livewire::actingAs($approver)
+        ->test(AdjustmentItemsRelationManager::class, [
+            'ownerRecord' => $adjustment,
+            'pageClass' => EditAdjustment::class,
+        ])
+        ->assertTableColumnFormattedStateSet('old_quantity', '11', record: $item)
+        ->assertTableColumnFormattedStateSet('new_quantity', '9.5', record: $item)
+        ->assertTableColumnFormattedStateSet('difference', '-1.5', record: $item);
+
+    Livewire::actingAs($approver)
+        ->test(ViewAdjustment::class, ['record' => $adjustment->getKey()])
+        ->assertSeeHtml('fi-in-table-repeatable')
+        ->assertSeeText('9.5')
+        ->assertSeeText('-1.5')
+        ->assertDontSeeText('9.500000')
+        ->assertDontSeeText('11.000000')
+        ->assertDontSeeText('-1.500000');
 });

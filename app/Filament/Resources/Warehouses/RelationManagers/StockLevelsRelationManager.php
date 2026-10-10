@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Warehouses\RelationManagers;
 
+use App\Filament\Tables\TableFit;
 use App\Models\WarehouseReplenishmentPolicy;
+use App\Support\QuantityFormatter;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -26,30 +28,48 @@ final class StockLevelsRelationManager extends RelationManager
 {
     protected static string $relationship = 'stocks';
 
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Stock Levels');
+    }
+
     public function table(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->recordTitleAttribute('id')
+            ->modelLabel(__('stock level'))
+            ->pluralModelLabel(__('stock levels'))
             ->columns([
                 TextColumn::make('productVariant.sku')
                     ->label(__('admin.inventory.stock.variant')),
-                TextColumn::make('productVariant.name'),
-                TextColumn::make('on_hand_quantity'),
-                TextColumn::make('reserved_quantity'),
-                TextColumn::make('available_quantity'),
+                TextColumn::make('productVariant.name')
+                    ->label(__('admin.inventory.stock.variant_name'))
+                    ->wrap(),
+                TextColumn::make('on_hand_quantity')
+                    ->label(__('admin.inventory.stock.on_hand_quantity'))
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
+                TextColumn::make('reserved_quantity')
+                    ->label(__('admin.inventory.stock.reserved_quantity'))
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
+                TextColumn::make('available_quantity')
+                    ->label(__('admin.inventory.stock.available_quantity'))
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.stock.reorder_level'))
-                    ->state(fn (Model $record): ?string => $this->policyFor($record)?->min_quantity),
+                    ->state(fn (Model $record): ?string => $this->policyFor($record)?->min_quantity)
+                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
+                    ->placeholder(__('—')),
                 TextColumn::make('low_stock')
                     ->label(__('admin.inventory.stock.low_stock'))
                     ->state(fn (Model $record): string => $this->isLowStock($record)
                         ? __('admin.inventory.stock.low_stock')
-                        : '')
+                        : __('admin.inventory.stock.healthy'))
                     ->badge()
-                    ->color(fn (Model $record): string => $this->isLowStock($record) ? 'danger' : 'gray'),
+                    ->color(fn (Model $record): string => $this->isLowStock($record) ? 'danger' : 'success'),
             ])
             ->headerActions([])
-            ->recordActions([])
+            ->recordActions(TableFit::rowActions([]))
             ->toolbarActions([]);
     }
 

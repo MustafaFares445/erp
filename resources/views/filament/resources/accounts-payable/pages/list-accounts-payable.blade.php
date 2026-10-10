@@ -3,11 +3,11 @@
         <x-filament::section>
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h2 class="text-lg font-semibold">Payable aging</h2>
-                    <p class="text-sm text-gray-500">Computed from approved supplier bills and expenses as of the selected date.</p>
+                    <h2 class="text-lg font-semibold">{{ __('Payable aging') }}</h2>
+                    <p class="text-sm text-gray-500">{{ __('Computed from approved supplier bills and expenses as of the selected date.') }}</p>
                 </div>
                 <label class="ierp-label grid gap-1.5">
-                        As of
+                        {{ __('As of') }}
                         <x-filament::input.wrapper>
                             <x-filament::input type="date" wire:model.live="asOf" />
                         </x-filament::input.wrapper>
@@ -18,10 +18,10 @@
         @if($summary !== [])
             <div class="grid gap-4 md:grid-cols-4">
                 @foreach([
-                    'Billed' => $summary['billed_minor'],
-                    'Paid' => $summary['paid_minor'],
-                    'Outstanding' => $summary['outstanding_minor'],
-                    'Payable control account' => $summary['control_account_minor'],
+                    __('Billed') => $summary['billed_minor'],
+                    __('Paid') => $summary['paid_minor'],
+                    __('Outstanding') => $summary['outstanding_minor'],
+                    __('Payable control account') => $summary['control_account_minor'],
                 ] as $label => $minor)
                     <x-filament::section>
                         <p class="ierp-metric-label">{{ $label }}</p>
@@ -33,11 +33,11 @@
             <x-filament::section>
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-lg font-semibold">Tie-out proof</h2>
-                        <p class="text-sm text-gray-500">Subledger outstanding minus payable control account.</p>
+                        <h2 class="text-lg font-semibold">{{ __('Tie-out proof') }}</h2>
+                        <p class="text-sm text-gray-500">{{ __('Subledger outstanding minus payable control account.') }}</p>
                     </div>
                     <span class="ierp-status" data-tone="{{ $summary['is_reconciled'] ? 'success' : 'danger' }}">
-                        {{ $summary['is_reconciled'] ? 'Reconciled' : 'Difference: '.number_format($summary['tie_out_difference_minor'] / 100, 2) }}
+                        {{ $summary['is_reconciled'] ? __('Reconciled') : __('Difference: :amount', ['amount' => number_format($summary['tie_out_difference_minor'] / 100, 2)]) }}
                     </span>
                 </div>
             </x-filament::section>
@@ -47,15 +47,15 @@
                     <table class="ierp-table">
                         <thead>
                             <tr>
-                                <th>Supplier</th>
-                                <th>Billed</th>
-                                <th>Paid</th>
-                                <th>Outstanding</th>
-                                <th>Current</th>
+                                <th>{{ __('Supplier') }}</th>
+                                <th>{{ __('Billed') }}</th>
+                                <th>{{ __('Paid') }}</th>
+                                <th>{{ __('Outstanding') }}</th>
+                                <th>{{ __('Current') }}</th>
                                 <th>1–30</th>
                                 <th>31–60</th>
                                 <th>61–90</th>
-                                <th>Over 90</th>
+                                <th>{{ __('Over 90') }}</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -65,7 +65,7 @@
                                     <td>
                                         {{ $supplier['supplier_name'] }}
                                         @if($supplier['supplier_deleted'])
-                                            <span class="text-xs text-danger-600">(deleted)</span>
+                                            <span class="text-xs text-danger-600">{{ __('(deleted)') }}</span>
                                         @endif
                                     </td>
                                     <td>{{ number_format($supplier['billed_minor'] / 100, 2) }}</td>
@@ -77,12 +77,12 @@
                                     <td>{{ number_format($supplier['buckets']['61_90'] / 100, 2) }}</td>
                                     <td>{{ number_format($supplier['buckets']['over_90'] / 100, 2) }}</td>
                                     <td>
-                                        <button type="button" wire:click="showSupplier({{ $supplier['supplier_id'] }})" class="text-primary-600 hover:underline">View detail</button>
+                                        <button type="button" wire:click="showSupplier({{ $supplier['supplier_id'] }})" class="text-primary-600 hover:underline">{{ __('View detail') }}</button>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="10" class="py-6 text-center text-gray-500">No outstanding payables.</td>
+                                    <td colspan="10" class="py-6 text-center text-gray-500">{{ __('No outstanding payables.') }}</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -98,23 +98,23 @@
                             <p class="text-sm text-gray-500">Open documents as of {{ $summary['as_of'] }}.</p>
                         </div>
                         <div class="flex gap-3 text-sm">
-                            <button type="button" wire:click="downloadStatement" class="text-primary-600 hover:underline">Download statement CSV</button>
-                            <button type="button" wire:click="clearSupplier" class="text-primary-600 hover:underline">Back to all suppliers</button>
+                            <button type="button" wire:click="downloadStatement" class="text-primary-600 hover:underline">{{ __('Download statement CSV') }}</button>
+                            <button type="button" wire:click="clearSupplier" class="text-primary-600 hover:underline">{{ __('Back to all suppliers') }}</button>
                         </div>
                     </div>
                     <div class="mt-4 overflow-x-auto">
                         <table class="ierp-table">
                             <thead>
                                 <tr>
-                                    <th>Type</th>
-                                    <th>Number</th>
-                                    <th>Supplier reference</th>
-                                    <th>Date</th>
-                                    <th>Due date</th>
-                                    <th>Days overdue</th>
-                                    <th>Total</th>
-                                    <th>Paid</th>
-                                    <th>Remaining</th>
+                                    <th>{{ __('Type') }}</th>
+                                    <th>{{ __('Number') }}</th>
+                                    <th>{{ __('Supplier reference') }}</th>
+                                    <th>{{ __('Date') }}</th>
+                                    <th>{{ __('Due date') }}</th>
+                                    <th>{{ __('Days overdue') }}</th>
+                                    <th>{{ __('Total') }}</th>
+                                    <th>{{ __('Paid') }}</th>
+                                    <th>{{ __('Remaining') }}</th>
                                 </tr>
                             </thead>
                             <tbody>

@@ -10,8 +10,10 @@ use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Actions\OrderActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\Order;
 use App\Services\Sales\OrderWorkflowProjectionStore;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
@@ -20,6 +22,7 @@ use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
@@ -30,7 +33,7 @@ final class OrdersTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->searchPlaceholder(__('Search by order number or customer name'))
             ->columns([
@@ -38,9 +41,9 @@ final class OrdersTable
                 TextColumn::make('order_number')
                     ->searchable()
                     ->sortable()
-                    ->description(fn (Order $record): ?string => ($message = self::projection($record)->blockerMessage) === null ? null : Str::limit($message, 80))
-                    ->tooltip(fn (Order $record): ?string => self::projection($record)->blockerMessage),
-                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                    ->description(fn (Order $record): ?string => ($message = self::blockerMessage($record)) === null ? null : Str::limit($message, 80))
+                    ->tooltip(fn (Order $record): ?string => self::blockerMessage($record)),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->wrap(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(static fn (OrderStatus $state): string => $state->label())
@@ -49,10 +52,12 @@ final class OrdersTable
                     ->label(__('Availability'))
                     ->state(fn (Order $record): string => self::projection($record)->availabilityState->label())
                     ->badge()
-                    ->color(fn (Order $record): string => self::projection($record)->availabilityState->color()),
+                    ->color(fn (Order $record): string => self::projection($record)->availabilityState->color())
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('workflow_milestone')
                     ->label(__('Milestone'))
                     ->state(fn (Order $record): string => self::projection($record)->businessMilestone)
+                    ->formatStateUsing(static fn (string $state): string => __($state))
                     ->badge()
                     ->color(static fn (string $state): string => match ($state) {
                         'Cancelled' => 'danger',
@@ -76,7 +81,8 @@ final class OrdersTable
                     ->placeholder(__('—'))
                     ->formatStateUsing(static fn (?OrderPaymentStatus $state): ?string => $state?->label())
                     ->color(static fn (?OrderPaymentStatus $state): ?string => $state?->color()),
-                TextColumn::make('scheduled_at')->label(__('Requested'))->date()->sortable(),
+                TextColumn::make('scheduled_at')->label(__('Requested'))->date()->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->groups([
                 Group::make('status')
@@ -112,14 +118,27 @@ final class OrdersTable
                     DateConstraint::make('created_at')->label(__('Created at')),
                 ]),
             ])
-            ->recordActions([
-                ViewAction::make(),
-                EditAction::make()->visible(fn (Order $record): bool => $record->status === OrderStatus::Draft),
+            ->recordActions(TableFit::rowActions([
                 OrderActions::confirm()->button(),
                 OrderActions::release()->button(),
                 OrderActions::nextStep(),
-            ])
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make()->visible(fn (Order $record): bool => $record->status === OrderStatus::Draft),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]))
             ->toolbarActions([]);
+    }
+
+    /**
+     * The workflow projection carries English source strings; they are
+     * translated here, at the display boundary only.
+     */
+    private static function blockerMessage(Order $record): ?string
+    {
+        $message = self::projection($record)->blockerMessage;
+
+        return $message === null ? null : (string) __($message);
     }
 
     private static function projection(Order $record): OrderWorkflowProjection

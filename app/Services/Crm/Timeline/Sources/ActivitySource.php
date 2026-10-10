@@ -176,8 +176,8 @@ final readonly class ActivitySource implements TimelineSource
         // Falls back to a readable rendering of the `<module>.<entity>.<event>`
         // convention (e.g. `support.ticket.status_changed`) so an
         // untranslated new activity description degrades to legible text
-        // instead of a raw dotted key.
-        return str($description)->replace(['.', '_'], ' ')->title()->toString();
+        // instead of a raw dotted key, itself translatable as a JSON key.
+        return __(str($description)->replace(['.', '_'], ' ')->title()->toString());
     }
 
     private function detail(AuditLog $log): ?string
@@ -202,8 +202,8 @@ final readonly class ActivitySource implements TimelineSource
             return null;
         }
 
-        $from = str((string) $oldStatus)->headline()->toString();
-        $to = str((string) $newStatus)->headline()->toString();
+        $from = __(str((string) $oldStatus)->headline()->toString());
+        $to = __(str((string) $newStatus)->headline()->toString());
 
         return "{$from} → {$to}";
     }

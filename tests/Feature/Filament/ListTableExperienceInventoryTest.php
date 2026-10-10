@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryOperations\Pages\ListDeliveries;
+use App\Filament\Resources\InventoryOperations\Pages\ListInternalTransfers;
 use App\Filament\Resources\InventoryOperations\Pages\ListInventoryOperations;
 use App\Filament\Resources\InventoryOperations\Pages\ListReceipts;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
@@ -41,11 +44,46 @@ it('renders the operations list with presets and Starred in the tab bar', functi
         ->assertSeeHtml("selectTableView('preset', 'starred')");
 });
 
+it('offers only the supported transfer creation link to permitted operators', function (bool $canCreateTransfer): void {
+    if ($canCreateTransfer) {
+        $this->user->givePermissionTo(InventoryPermission::TransferCreate->value);
+    }
+
+    $component = Livewire::test(ListInventoryOperations::class);
+
+    if (! $canCreateTransfer) {
+        $component->assertActionHidden('create');
+
+        return;
+    }
+
+    $component->assertActionVisible('create')
+        ->assertActionHasUrl('create', InventoryOperationResource::getUrl('create', ['operation_type' => 'internal_transfer']));
+})->with([true, false]);
+
 it('renders the typed receipts list with the same tab bar', function (): void {
     Livewire::test(ListReceipts::class)
         ->assertSeeHtml("selectTableView('preset', 'all')")
         ->assertSeeHtml("selectTableView('preset', 'starred')");
 });
+
+it('keeps operation-specific columns after switching list views', function (string $page, array $visibleColumns, array $hiddenColumns): void {
+    $component = Livewire::test($page)
+        ->call('selectTableView', 'preset', 'open')
+        ->assertOk();
+
+    foreach ($visibleColumns as $column) {
+        $component->assertTableColumnVisible($column);
+    }
+
+    foreach ($hiddenColumns as $column) {
+        $component->assertTableColumnHidden($column);
+    }
+})->with([
+    'receipts' => [ListReceipts::class, ['supplier.name', 'destinationWarehouse.name'], ['operation_type', 'customer.company_name', 'delivery_type', 'sourceWarehouse.name']],
+    'deliveries' => [ListDeliveries::class, ['customer.company_name', 'delivery_type', 'sourceWarehouse.name'], ['operation_type', 'supplier.name', 'destinationWarehouse.name']],
+    'transfers' => [ListInternalTransfers::class, ['sourceWarehouse.name', 'destinationWarehouse.name'], ['operation_type', 'supplier.name', 'customer.company_name', 'delivery_type']],
+]);
 
 it('stars an operation and lists it under the Starred tab', function (): void {
     [$starred, $other] = InventoryOperation::factory()->receipt()->count(2)->create()->all();

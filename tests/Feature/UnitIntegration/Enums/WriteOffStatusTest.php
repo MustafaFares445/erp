@@ -29,6 +29,12 @@ describe('WriteOffStatus', function () use ($legalTransitions): void {
         }
     });
 
+    it('colours an approved write-off as a completed state rather than an error', function (): void {
+        expect(WriteOffStatus::Approved->color())->toBe('success')
+            ->and(WriteOffStatus::Draft->color())->toBe('gray')
+            ->and(WriteOffStatus::Cancelled->color())->toBe('warning');
+    });
+
     it('marks approved and cancelled as terminal', function (): void {
         foreach (WriteOffStatus::cases() as $status) {
             expect($status->isTerminal())->toBe(

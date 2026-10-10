@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\Resources\MonthlyPlans\Pages\EditMonthlyPlan;
+use App\Models\EmployeeProfile;
 use App\Models\SalesPlan;
 use App\Models\User;
 use App\Services\Employees\SalesPlanService;
@@ -10,6 +11,24 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+it('renders the linked employee name with the employee code in the edit selector', function (): void {
+    $admin = User::factory()->admin()->create();
+    $employee = EmployeeProfile::factory()->create([
+        'employee_code' => 'EMP-PLAN-014',
+        'job_title' => 'Job Title Must Not Appear',
+    ]);
+    $employee->user->update(['name' => 'Monthly Plan Employee']);
+
+    $plan = SalesPlan::factory()->create(['employee_id' => $employee->getKey()]);
+
+    Livewire::actingAs($admin)
+        ->test(EditMonthlyPlan::class, ['record' => $plan->getKey()])
+        ->assertSuccessful()
+        ->assertSeeHtml('Monthly Plan Employee')
+        ->assertSeeHtml('EMP-PLAN-014')
+        ->assertDontSeeHtml('Job Title Must Not Appear');
+});
 
 it('updates a monthly plan through the edit form', function (): void {
     $admin = User::factory()->admin()->create();

@@ -197,12 +197,19 @@ it('shows an empty calibration state and the schedule-derived next due dates on 
         'created_by' => $manager->getKey(),
     ]);
 
-    equipmentView($manager, $unit)
-        ->assertSeeHtml('data-testid="equipment-next-due"')
-        ->assertSee(now()->addDays(10)->toFormattedDateString())
-        ->assertSee(now()->addDays(20)->toFormattedDateString())
-        ->assertSee(now()->addDays(30)->toFormattedDateString())
-        ->assertDontSee(now()->addDay()->toFormattedDateString());
+    $page = equipmentView($manager, $unit);
+    $document = new DOMDocument;
+    $document->loadHTML($page->html(), LIBXML_NOERROR | LIBXML_NOWARNING);
+
+    $nextDueSummary = new DOMXPath($document)->query('//*[@data-testid="equipment-next-due"]')->item(0)?->textContent;
+
+    expect($nextDueSummary)
+        ->not->toBeNull()
+        ->and($nextDueSummary)
+        ->toContain(now()->addDays(10)->locale(app()->getLocale())->translatedFormat('M j, Y'))
+        ->toContain(now()->addDays(20)->locale(app()->getLocale())->translatedFormat('M j, Y'))
+        ->toContain(now()->addDays(30)->locale(app()->getLocale())->translatedFormat('M j, Y'))
+        ->not->toContain(now()->addDay()->locale(app()->getLocale())->translatedFormat('M j, Y'));
 });
 
 it('shows the last calibration with result, certificate, next due, measurements and evidence on Equipment 360', function (): void {

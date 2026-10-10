@@ -55,11 +55,11 @@ final class InventoryLowStock extends TableWidget
                 ->orderBy('available_quantity'))
             ->recordUrl(fn (InventoryStock $record): string => StockLevelResource::getUrl('view', ['record' => $record]))
             ->columns([
-                TextColumn::make('productVariant.name')
+                TextColumn::make('productVariant.name')->wrap()
                     ->label(__('admin.inventory.stock.variant_name'))
                     ->description(fn (InventoryStock $record): ?string => $record->productVariant?->sku)
                     ->weight(FontWeight::Medium),
-                TextColumn::make('warehouse.name')
+                TextColumn::make('warehouse.name')->wrap()
                     ->label(__('admin.inventory.stock.warehouse_name')),
                 TextColumn::make('available_quantity')
                     ->label(__('admin.inventory.stock.available_quantity'))

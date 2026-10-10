@@ -22,6 +22,9 @@ final class TaskForm
                 Placeholder::make('sales_plan')
                     ->label(__('Plan'))
                     ->content(static fn (?PlanTask $record): string => $record?->salesPlan->name ?? '—'),
+                Placeholder::make('status')
+                    ->label(__('Status'))
+                    ->content(static fn (?PlanTask $record): string => $record?->status->label() ?? '—'),
                 TextInput::make('title')->required()->maxLength(200),
                 Textarea::make('description'),
                 DatePicker::make('starts_at')

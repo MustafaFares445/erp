@@ -59,7 +59,9 @@
             "@php artisan key:generate",
             "@php artisan migrate --force",
             "npm install --ignore-scripts",
-            "npm run build"
+            "npm run build",
+            "npm --prefix user-guide ci",
+            "npm --prefix user-guide run docs:build"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
@@ -74,6 +76,9 @@
             "pint --parallel --test",
             "rector --dry-run"
         ],
+        "guide:dev": "npm --prefix user-guide run docs:dev",
+        "guide:build": "npm --prefix user-guide run docs:build",
+        "test:guide": "npm --prefix user-guide run docs:check",
         "test:docs": "@php scripts/docs-check.php",
         "test:types": [
             "Composer\\Config::disableProcessTimeout",
@@ -151,6 +156,7 @@
         "test:full": [
             "@test:lint",
             "@test:docs",
+            "@test:guide",
             "@test:architecture",
             "@test:types",
             "@test:type-coverage",

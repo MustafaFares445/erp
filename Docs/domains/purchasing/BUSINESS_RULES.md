@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: purchasing
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: purchase-order approval/acceptance/inbound/receiving/procurement services and tests
 ---
 
@@ -12,6 +12,10 @@ verified_against: purchase-order approval/acceptance/inbound/receiving/procureme
 Statuses include `Draft`, `Pending Approval`, `Accepted`, `Rejected`, `Partially Received`, `Received`, `Closed`, and `Cancelled`.
 
 The current reject action records the reason and returns the order to Draft for revision.
+
+## Supplier Commercial References
+
+Supplier defaults and active Supplier Product References own supplier item identity, purchase UOM, currency/cost, MOQ, lead time, preference, validity and availability facts used by sourcing. PO line creation must respect supplier/currency compatibility and cannot silently change supplier/currency after commercial lines exist.
 
 ## Submission / Approval
 
@@ -38,9 +42,13 @@ The first Send of an accepted PO:
 
 Re-send does not duplicate the first-send provisioning.
 
+## Supplier Confirmations
+
+Supplier Confirmations capture line-level commitments and promised dates. Rejected or partial commitments remain visible procurement follow-up work and do not silently satisfy demand. They are contextual to Purchase Orders/work queues rather than a duplicate primary navigation path.
+
 ## Receiving Boundary
 
-Purchasing establishes receipt provenance and quantity ceilings. `PurchaseOrderReceivingService` creates Inventory receipt operations.
+Purchasing establishes receipt provenance and quantity ceilings. `PurchaseOrderReceivingService` creates Inventory receipt operations, preserving purchase-UOM conversion and the lot/serial/expiry evidence required by tracked goods.
 
 **Inventory is the only domain that posts stock.**
 
@@ -65,7 +73,9 @@ Allocation is exact base quantity across warehouses; completed physical receipts
 
 Open Sales procurement requirements may become Purchasing draft POs only for suppliers with active matching supplier-product references in the selected currency.
 
-The current implementation creates one draft PO per open requirement so provenance remains one-to-one.
+The current Sales-driven procurement path creates one draft PO per open requirement so requirement/PO provenance remains one-to-one.
+
+Selected warehouse-replenishment recommendations use the dedicated replenishment draft service. That path may group compatible requirements by supplier/currency and applies active supplier-product references, purchase-UOM conversion, MOQ, lead time and internal-transfer coverage before external buying.
 
 ## Authorization
 

@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Products\Tables;
 use App\Enums\ProductOperationalProfile;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
+use App\Filament\Tables\TableFit;
 use App\Models\Product;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -24,7 +25,7 @@ final class ProductsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 ImageColumn::make('images')
@@ -34,24 +35,24 @@ final class ProductsTable
                     ->imageHeight(40)
                     ->stacked()
                     ->wrap(),
-                TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
+                TextColumn::make('name')->wrap()->searchable()->sortable(),
+                TextColumn::make('name_ar')->wrap()->label(__('Arabic name'))->searchable(),
                 TextColumn::make('product_type')
                     ->label(__('admin.inventory.product_type.label'))
                     ->badge()
                     ->formatStateUsing(static fn (ProductType $state): string => $state->label())
                     ->color(static fn (ProductType $state): string => $state->color())
                     ->sortable(),
-                TextColumn::make('category.name')->searchable()->sortable(),
-                TextColumn::make('manufacturer.name')->label(__('Manufacturer'))->searchable()->sortable(),
-                TextColumn::make('brand.name')->searchable()->sortable(),
+                TextColumn::make('category.name')->wrap()->searchable()->sortable(),
+                TextColumn::make('manufacturer.name')->toggleable(isToggledHiddenByDefault: true)->wrap()->label(__('Manufacturer'))->searchable()->sortable(),
+                TextColumn::make('brand.name')->toggleable(isToggledHiddenByDefault: true)->wrap()->searchable()->sortable(),
                 TextColumn::make('operational_profile')
                     ->label(__('Profile'))
                     ->badge()
                     ->formatStateUsing(static fn (ProductOperationalProfile $state): string => $state->label())
                     ->sortable(),
-                TextColumn::make('variants_count')->counts('variants')->label(__('admin.resources.product_variants_number')),
-                ToggleColumn::make('is_active'),
+                TextColumn::make('variants_count')->counts('variants')->label(__('Variants')),
+                ToggleColumn::make('is_active')->label(__('Active')),
             ])
             ->filters([
                 SelectFilter::make('status')->options(self::statusOptions()),
@@ -65,7 +66,7 @@ final class ProductsTable
                 SelectFilter::make('brand_id')->relationship('brand', 'name')->searchable()->preload(),
                 TrashedFilter::make(),
             ])
-            ->recordActions([ViewAction::make(), EditAction::make(), DeleteAction::make(), RestoreAction::make()]);
+            ->recordActions(TableFit::rowActions([ViewAction::make(), EditAction::make(), DeleteAction::make(), RestoreAction::make()]));
     }
 
     /** @return array<string, string> */

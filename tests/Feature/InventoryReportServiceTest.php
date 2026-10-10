@@ -607,6 +607,10 @@ it('normalizes empty invalid and date-boundary report filters', function (): voi
         'is_active' => 'not-a-boolean',
         'status' => ' ',
     ]))->toBe([])
+        // Release QA 2026-10-10: the report page's cleared "Active" filter (null) listed only inactive variants.
+        ->and($service->normalizeFilters(InventoryReportType::Catalog, ['is_active' => null]))->toBe([])
+        ->and($service->normalizeFilters(InventoryReportType::Catalog, ['is_active' => '']))->toBe([])
+        ->and($service->normalizeFilters(InventoryReportType::Catalog, ['is_active' => '0']))->toBe(['is_active' => false])
         ->and(reportIds($service->query(InventoryReportType::Movements, [
             'from' => '2026-01-01',
             'until' => '2026-01-31',

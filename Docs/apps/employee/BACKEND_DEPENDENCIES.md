@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: employee-app
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: current Employees/Sales services, current route table, approved spec and active employee API plan
 ---
 
@@ -43,7 +43,7 @@ Implemented backend Sales Opportunity and Quotation services are reusable by a f
 ## Not Yet an Exposed Employee App Channel
 
 At the current audit:
-- no runtime `api/*` routes exist;
+- no `/api/employee` routes exist (the implemented `/api/customer` Support surface does not expose Employee functionality);
 - Employee Mobile API/authentication is not exposed;
 - dedicated Device Binding model/service was not found in the current scan;
 - mobile push token/provider implementation was not found in the current scan;

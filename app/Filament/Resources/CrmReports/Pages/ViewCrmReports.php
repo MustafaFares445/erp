@@ -6,6 +6,8 @@ namespace App\Filament\Resources\CrmReports\Pages;
 
 use App\Enums\CrmPermission;
 use App\Enums\CrmReportType;
+use App\Enums\LeadSource;
+use App\Enums\LeadStatus;
 use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Models\User;
 use App\Services\Crm\CrmFunnelReportService;
@@ -71,12 +73,12 @@ final class ViewCrmReports extends Page
         /** @var list<array<string, bool|float|int|string|null>> $rows */
         $rows = match ($this->type()) {
             CrmReportType::LeadsBySource => $service->bySource()->map(static fn (array $row): array => [
-                __('Source') => $row['source'],
+                __('Source') => LeadSource::tryFrom($row['source'])?->label() ?? $row['source'],
                 __('Leads') => $row['lead_count'],
                 __('Converted') => $row['converted_count'],
             ])->values()->all(),
             CrmReportType::StageConversion => $service->byStage()->map(static fn (array $row): array => [
-                __('Stage') => $row['status'],
+                __('Stage') => LeadStatus::tryFrom($row['status'])?->label() ?? $row['status'],
                 __('Leads') => $row['lead_count'],
             ])->values()->all(),
             CrmReportType::CampaignPerformance => $service->byCampaign()->map(static fn (array $campaign): array => [

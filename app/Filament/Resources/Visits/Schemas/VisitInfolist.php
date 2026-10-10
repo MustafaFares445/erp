@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\HtmlString;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class VisitInfolist
@@ -34,7 +35,7 @@ final class VisitInfolist
                     TextEntry::make('customer.company_name')->label(__('Customer')),
                     TextEntry::make('customer.customer_type')
                         ->label(__('Customer type'))
-                        ->formatStateUsing(static fn (?CustomerType $state): string => $state?->label() ?? __('Not specified')),
+                        ->formatStateUsing(static fn (?CustomerType $state): string => $state instanceof CustomerType ? __($state->label()) : __('Not specified')),
                     TextEntry::make('customer.defaultPriceList.name')->label(__('Price list'))->placeholder(__('Default pricing')),
                     TextEntry::make('customer.default_currency_code')->label(__('Customer currency'))->placeholder(__('System default')),
                     TextEntry::make('customer.contact_name')->label(__('Contact'))->placeholder(__('Not provided')),
@@ -83,21 +84,21 @@ final class VisitInfolist
                             TextEntry::make('customer.address')->label(__('Customer address'))->placeholder(__('Not provided')),
                             TextEntry::make('customer_coordinates')
                                 ->label(__('Customer coordinates'))
-                                ->state(static function (CustomerVisit $record): string {
+                                ->state(static function (CustomerVisit $record): HtmlString|string {
                                     $customer = $record->customer;
 
-                                    return $customer !== null && $customer->latitude !== null && $customer->longitude !== null
-                                        ? $customer->latitude.', '.$customer->longitude
-                                        : self::translation('Not provided');
+                                    return self::coordinatePair($customer?->latitude, $customer?->longitude, __('Not provided'));
                                 }),
                             TextEntry::make('check_in_coordinates')
                                 ->label(__('Check-in coordinates'))
-                                ->state(static fn (CustomerVisit $record): string => $record->check_in_latitude !== null && $record->check_in_longitude !== null
-                                    ? $record->check_in_latitude.', '.$record->check_in_longitude
-                                    : __('Not recorded')),
+                                ->state(static fn (CustomerVisit $record): HtmlString|string => self::coordinatePair(
+                                    $record->check_in_latitude,
+                                    $record->check_in_longitude,
+                                    __('Not recorded'),
+                                )),
                             TextEntry::make('check_in_accuracy_meters')->label(__('GPS accuracy'))->suffix(' m')->placeholder(__('—')),
                             TextEntry::make('distance_from_customer_meters')->label(__('Distance from customer'))->suffix(' m')->placeholder(__('—')),
-                            IconEntry::make('location_warning')->label(__('Location warning'))->boolean(),
+                            IconEntry::make('location_warning')->label(__('Location warning'))->boolean()->trueColor('warning')->falseColor('gray'),
                             TextEntry::make('location_override_reason')
                                 ->label(__('Location override reason'))
                                 ->placeholder(__('No override recorded'))
@@ -111,8 +112,9 @@ final class VisitInfolist
                             TextEntry::make('outcome_code')
                                 ->label(__('Outcome'))
                                 ->formatStateUsing(static fn (?VisitOutcome $state): string => $state?->label() ?? __('Not recorded'))
+                                ->placeholder(__('Not recorded'))
                                 ->badge(),
-                            IconEntry::make('follow_up_required')->label(__('Follow-up required'))->boolean(),
+                            IconEntry::make('follow_up_required')->label(__('Follow-up required'))->boolean()->trueColor('warning')->falseColor('gray'),
                             TextEntry::make('follow_up_date')->label(__('Follow-up date'))->date()->placeholder(__('—')),
                             TextEntry::make('outcome_notes')->label(__('Outcome notes'))->placeholder(__('No outcome notes'))->columnSpanFull(),
                             TextEntry::make('employee_notes')->label(__('Employee notes'))->placeholder(__('No employee notes'))->columnSpanFull(),
@@ -234,10 +236,10 @@ final class VisitInfolist
                             ->map(static fn (EmployeeVoiceNote $note): array => [
                                 'language' => $note->language,
                                 'duration' => $note->duration_seconds !== null ? $note->duration_seconds.' sec' : null,
-                                'status' => $note->status->value,
+                                'status' => $note->status->label(),
                                 'play_url' => self::voiceNotePlayUrl($note),
                                 'transcript' => $note->transcription?->transcript,
-                                'transcription_status' => $note->transcription?->status->value,
+                                'transcription_status' => $note->transcription?->status->label(),
                                 'confidence' => $note->transcription?->confidenceLabel(),
                                 'error' => $note->transcription?->error_message,
                             ])
@@ -329,6 +331,29 @@ final class VisitInfolist
         }
 
         return $opportunity->keywordRule?->keyword;
+    }
+
+    private static function coordinatePair(?string $latitude, ?string $longitude, string $fallback): HtmlString|string
+    {
+        if ($latitude === null || mb_trim($latitude) === '' || $longitude === null || mb_trim($longitude) === '') {
+            return $fallback;
+        }
+
+        return new HtmlString('<bdi dir="ltr">'.e(self::coordinate($latitude)).', '.e(self::coordinate($longitude)).'</bdi>');
+    }
+
+    /**
+     * Coordinates are stored with seven decimals; show at most six (about 0.1 m) without trailing zeros.
+     */
+    private static function coordinate(string $value): string
+    {
+        if (! is_numeric($value)) {
+            return $value;
+        }
+
+        $formatted = mb_rtrim(mb_rtrim(number_format((float) $value, 6, '.', ''), '0'), '.');
+
+        return $formatted === '-0' ? '0' : $formatted;
     }
 
     private static function translation(string $key): string

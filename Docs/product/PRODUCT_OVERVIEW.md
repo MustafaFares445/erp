@@ -3,8 +3,8 @@
 ---
 status: canonical
 owner: product
-last_verified: 2026-10-02
-verified_against: current Laravel/Filament implementation, domain services, tests and canonical domain docs
+last_verified: 2026-10-07
+verified_against: current Laravel/Filament implementation, customer API routes, domain services, tests, standalone VitePress user guide and canonical domain docs
 ---
 
 ## What IERP Is
@@ -35,7 +35,7 @@ The implemented primary UI is the Filament 5 admin dashboard.
 
 Customer App V1 has an approved product/design specification and current Pen source.
 
-The backend contains many reusable domain capabilities, but the current runtime does not expose a complete customer `api/*` route surface.
+The runtime now exposes customer authentication plus a rollout-gated Support/Maintenance API under `/api/customer`. The complete Customer App surface for catalog, quotation/order, shipment, invoice/payment, returns, notifications, and account workflows is not yet exposed.
 
 See [Customer App V1](../apps/customer/README.md).
 
@@ -92,6 +92,10 @@ See [Canonical Business Flows](BUSINESS_FLOWS.md).
 - High-impact actions are auditable.
 - Permissions are domain-scoped.
 - Historical plans/specs are not current product truth once canonicalized.
+
+## User Guide
+
+Authenticated dashboard users can open **User Guide** from the user menu. The link opens the standalone bilingual VitePress documentation application rather than a Filament page. The guide mirrors the dashboard module structure, documents every registered dashboard class/page with English and Arabic screen articles, tracks planned screenshots for every covered surface, and includes end-to-end workflows that explain cross-module behavior. The default same-host destination is `/guide/`, while `USER_GUIDE_URL` can point to a dedicated documentation host.
 
 ## Documentation Navigation
 

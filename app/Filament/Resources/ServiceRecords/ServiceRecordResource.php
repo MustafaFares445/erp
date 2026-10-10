@@ -42,6 +42,18 @@ final class ServiceRecordResource extends Resource
     }
 
     #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('Service Record');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.resources.service_records');
+    }
+
+    #[\Override]
     public static function form(Schema $schema): Schema
     {
         return ServiceRecordForm::configure($schema);

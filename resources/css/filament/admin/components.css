@@ -26,7 +26,8 @@
     --ierp-step-marker: 1.625rem;
     position: relative;
     flex: 1 1 0;
-    min-width: 5.5rem;
+    /* Narrow enough for a seven-step flow inside a half-width card; labels wrap instead. */
+    min-width: 4.25rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -486,5 +487,77 @@
     &[data-tone='info'] {
         background-color: var(--ierp-info-soft);
         color: var(--ierp-info-on);
+    }
+}
+
+/* Inventory glossary: tap/click the question mark for a short term explanation. */
+.ierp-term-help {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    vertical-align: middle;
+}
+
+.ierp-term-help > summary {
+    display: inline-grid;
+    place-items: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 1px solid var(--ierp-border-strong);
+    border-radius: 999px;
+    color: var(--ierp-text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+    background: var(--ierp-surface);
+}
+
+.ierp-term-help > summary::-webkit-details-marker { display: none; }
+.ierp-term-help[open] > summary { color: var(--ierp-primary-on); border-color: var(--ierp-primary); }
+.ierp-term-help > summary:focus-visible { outline: 2px solid var(--ierp-primary); outline-offset: 2px; }
+
+.ierp-term-help-content {
+    position: absolute;
+    z-index: 50;
+    inset-block-start: calc(100% + 0.5rem);
+    inset-inline-start: 0;
+    display: block;
+    min-width: min(16rem, 80vw);
+    max-width: min(21rem, 85vw);
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--ierp-radius-md);
+    background: var(--ierp-surface);
+    color: var(--ierp-text);
+    border: 1px solid var(--ierp-border-strong);
+    box-shadow: var(--ierp-shadow-sm);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    font-weight: 400;
+    text-align: start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.ierp-term-help:not([open]) > .ierp-term-help-content { display: none; }
+
+/* Keep explanations inside the viewport on the last card in responsive metric grids. */
+@media (max-width: 639px) {
+    .ierp-metric:nth-child(2n) .ierp-term-help-content {
+        inset-inline-start: auto;
+        inset-inline-end: 0;
+    }
+}
+@media (min-width: 640px) and (max-width: 1279px) {
+    .ierp-metric:nth-child(3n) .ierp-term-help-content {
+        inset-inline-start: auto;
+        inset-inline-end: 0;
+    }
+}
+@media (min-width: 1280px) {
+    .ierp-metric:nth-child(6n) .ierp-term-help-content {
+        inset-inline-start: auto;
+        inset-inline-end: 0;
     }
 }

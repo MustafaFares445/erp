@@ -1,7 +1,7 @@
 ---
 status: active-plan
 owner: product
-last_verified: 2026-10-02
+last_verified: 2026-10-08
 ---
 
 # IERP Non-Technical User Guide Implementation Plan
@@ -12,7 +12,31 @@ Build a public-facing, non-technical IERP user guide inside the existing reposit
 
 The guide will teach administrators and operational users how to complete real business tasks in IERP without exposing implementation details such as Laravel classes, APIs, database tables, queues, jobs, migrations, or internal service names.
 
-The guide will be a separate VitePress application stored in the same Git repository and deployed independently from the ERP dashboard.
+The guide is a separate VitePress application stored in the same Git repository. It is not a Filament page and has its own package, theme, content tree, search, localization, and build lifecycle.
+
+### Current implementation
+
+As of 2026-10-07, `user-guide/` is implemented as a bilingual VitePress web application. English is served from the guide root and Arabic from `/ar/`; Arabic uses RTL styling and the same Noto Sans Arabic family used by the dashboard. The guide now mirrors the dashboard's blue/slate/graphite visual system, status semantics, cards, tables, stepper vocabulary, spacing and responsive behavior.
+
+The content layer is no longer a small hand-maintained module overview. A Laravel-backed manifest exporter inventories the current `AdminModuleRegistry`, workspaces, contextual resources and each registered Filament Resource page. The generator currently produces **111 bilingual screen/surface articles**, covers **264 unique registered Resource pages**, tracks **282 planned screenshot positions** and publishes **21 bilingual cross-module workflow guides**. Getting Started and Reference pages explain navigation, tables/search/filtering, statuses/actions, permissions, module ownership and current status vocabularies.
+
+`composer test:guide` now checks that the code-derived admin manifest is current, every registered dashboard class/page remains covered, EN/AR articles remain paired, screenshot placeholder IDs remain valid, required workflow files exist, generated articles still match SHA-256 fingerprints of their Resource/Schemas/Tables/Pages source files, and the VitePress production build succeeds. Verified screenshots are embedded only after rendered QA; unverified locale positions retain screen-reference placeholders. `screenshots.manifest.json` now also records the real Filament route/page/model metadata required for later capture, and the optional capture pipeline resolves those targets against an isolated deterministic SQLite demo database without touching the developer's normal database.
+
+The default VitePress base is `/guide/` and the production build target is `public/guide`, so the same web host can expose the guide at `/guide/`. The Filament user menu contains only a link to the configured `USER_GUIDE_URL` and opens the standalone guide in a new tab. A dedicated documentation host/subdomain remains a supported deployment option.
+
+This plan remains active for actual screenshot capture and annotation, deeper editorial review of the highest-risk screen explanations, and release/deployment hardening. Stable page-header links from the ERP to matching guide articles are implemented.
+
+### Current QA continuation
+
+The catalog now contains **84 locale images**: 10 onboarding, 52 Sales and 22 Inventory. There are 41 positions with both planned locales and two onboarding positions with only English. Stock Levels and Stock Movements list/detail plus all seven Inventory Operations screens passed desktop EN/AR review; their operational articles use curated overrides. Further Inventory posting/correction/count/return workflows, Purchasing, Accounting, CRM, Employees and Support still require editorial and interaction QA.
+
+The 2026-10-08 Inventory Operations batch fixed typed-list column/group/filter drift after Livewire updates, the combined list's unsupported creation link, and missing submit controls on the non-wizard transfer form. Arabic creation title and warehouse/party labels were corrected before approval. The capture target now includes the required internal-transfer query context. Browser review covered read-only/validation interactions and partial receipt evidence; no physical operation was posted. The curated article distinguishes source-driven receipt/delivery creation, Ready vs stock custody, warehouse dispatch vs customer receipt, partial transfers, locked purchase assignments, and correction/financial boundaries.
+
+Contextual help after Livewire filter/customer updates is covered by bilingual regression tests and browser Sales dashboard filter/reset checks. The existing page-scoped resolver implementation is preserved. Quotation details now expose stored PDF preview/download controls; a browser download produced a valid PDF. Opening the preview link was exercised, but the browser surface did not expose a PDF viewer for visual review. Quotation CSV output and selected-view filtering pass automated checks; **browser download remains unverified** after an event timeout.
+
+The 12 unresolved route/record targets are classified, not approved: 11 lack legitimate demo records, while Supplier Payment Edit is inaccessible because all demo payments are Paid and only Draft is editable. No records were fabricated to improve the capture count. These positions remain pending.
+
+Retained findings from earlier QA still need follow-up: Arabic global-menu guide locale, SQLite quotation table search, expired quotation display/action consistency, converted quotation customer-decision summary, and Arabic Requote contrast. This continuation does not certify the entire guide or every previously captured business state as production-ready.
 
 ## 2. Primary Outcomes
 
@@ -36,10 +60,15 @@ ierp-new/
 ├── Docs/                  # Internal/canonical developer documentation
 ├── user-guide/            # Public non-technical documentation site
 │   ├── package.json
-│   ├── .vitepress/
-│   ├── public/
-│   ├── en/
-│   └── ar/
+│   ├── .vitepress/            # theme, components, generated sidebars
+│   ├── content/               # non-public coverage/screenshot/admin manifests
+│   ├── scripts/               # content generation and validation
+│   ├── getting-started/       # curated English onboarding
+│   ├── workflows/             # generated/curated English process guides
+│   ├── screens/               # generated English dashboard-screen articles
+│   ├── reference/             # statuses, ownership and reference material
+│   └── ar/                    # Arabic semantic mirror
+├── public/guide/              # generated build output, gitignored
 └── ...
 ```
 
@@ -392,7 +421,7 @@ description: Create and prepare a customer quotation.
 module: Sales
 audience: admin
 status: published
-lastVerified: 2026-10-02
+lastVerified: 2026-10-07
 ---
 ```
 
@@ -434,18 +463,23 @@ Rules:
 For high-risk actions, include a screenshot of the confirmation dialog and the impact summary.
 
 ## 15. Screenshot Automation Phase
-After the first manual documentation pass, add an optional repeatable screenshot workflow using local demo/seed data and browser automation.
 
-The automation should:
-- boot or target the local application;
-- authenticate with a documentation/demo account;
-- navigate to deterministic records;
-- capture agreed viewport sizes;
-- write images to predictable paths;
-- avoid destructive production-like actions;
-- fail clearly if a selector/label changes.
+**Automation infrastructure implemented; approved capture coverage is partial.**
 
-Do not make screenshot automation a prerequisite for the first guide release.
+The repository now has an optional repeatable screenshot workflow that:
+- creates `tmp/user-guide-demo.sqlite` and runs deterministic Demo seed data with external delivery/transcription behavior disabled;
+- refuses to resolve capture records against any database other than that isolated SQLite file;
+- authenticates with the seeded documentation/demo administrator;
+- derives URLs from the current registered Filament routes instead of hard-coded assumptions;
+- resolves record pages against an accessible record state (`canView` / `canEdit`) instead of blindly using the first ID;
+- supports English and Arabic browser checks;
+- uses the locally installed Edge/Chrome executable through `playwright-core`;
+- defaults to non-writing plan/check modes;
+- requires `IERP_GUIDE_CAPTURE_CONFIRM=1` before capture mode can write image files.
+
+At the current verification point, **270 of 282** tracked screenshot positions resolve to a real route plus an accessible deterministic Demo record where required. The remaining 12 are explicitly reported because DemoMonth currently has no accessible record for those exact View/Edit states; the pipeline does not invent fixtures or capture 403 pages.
+
+The verified catalog currently embeds 84 locale images across onboarding, Sales and two Inventory batches. Further capture and annotation remain active work; route readiness alone does not approve an image.
 
 ## 16. VitePress Application Structure
 
@@ -523,7 +557,7 @@ The guide must support:
 - task-based navigation;
 - previous/next links;
 - related guides;
-- direct links from contextual help in the ERP later.
+- direct links from contextual help in the ERP.
 
 The home page should prominently answer:
 - I am new to IERP
@@ -537,17 +571,13 @@ The home page should prominently answer:
 
 ## 19. Contextual Help Integration
 
-Phase two should add non-intrusive help links from the dashboard to the user guide.
+The dashboard has a global **User Guide** item in the authenticated user menu that opens the standalone VitePress site using `USER_GUIDE_URL`.
 
-Examples:
-- a Help action in page headers;
-- a ? icon near complex concepts;
-- a Learn more link in high-impact confirmation dialogs;
-- a global User Guide link in the user menu.
+**Stable page-level contextual help is implemented.** A single Filament `PAGE_HEADER_ACTIONS_AFTER` integration resolves the current registered Resource/Page through `AdminModuleRegistry` and opens the corresponding bilingual guide article in a new tab. English routes resolve to `/screens/<module>/<screen>` and Arabic routes to `/ar/screens/<module>/<screen>`. Unknown or unmapped routes render no contextual link rather than guessing a URL.
 
-Deep links should point to stable guide URLs rather than generic home pages.
+Contextual header hooks use concrete Filament page scopes from the centralized resolver, preserving the article through Livewire updates without depending on the update route or referrer. Route-based resolution remains available for other callers.
 
-Contextual help must not replace concise inline helper text in the application.
+Possible later refinement is limited to concept-level links near complex fields or Learn more links inside selected high-impact confirmation dialogs. Contextual help must not replace concise inline helper text in the application.
 
 ## 20. Content Verification Process
 
@@ -599,30 +629,29 @@ Actual script names can be finalized during implementation.
 
 ## 22. CI Plan
 
-Add a dedicated CI job triggered when:
-- `user-guide/**` changes;
-- guide validation scripts change.
+The repository quality job now installs the guide's Node dependencies and runs `composer test:guide`.
 
-CI should:
-1. install the guide's Node dependencies;
-2. run content validation;
-3. run VitePress build;
-4. fail on broken links or build errors;
-5. optionally upload the static build as an artifact.
+The guide gate:
+1. boots the Laravel application without requiring a production database connection and derives the current dashboard manifest from the module registry/resources;
+2. fails when `user-guide/content/admin-manifest.json` is stale;
+3. validates EN/AR screen-article parity;
+4. verifies every unique registered Resource page has generated coverage and a screenshot placeholder;
+5. verifies the required workflow library;
+6. runs the VitePress production build and fails on build/content errors.
 
-The user-guide build must not be required to boot Laravel or connect to the database.
+The VitePress renderer itself remains a static application. Laravel bootstrapping is used only by the validation/generation step so documentation cannot silently drift from the dashboard structure.
 ## 23. Deployment Plan
 
-Deploy the built VitePress site separately from the ERP application.
+The VitePress application is deployment-independent from Filament even when both are served by the same host.
 
-Recommended public shape:
+Default repository shape:
 
 ```text
-ERP dashboard:      https://erp.example.com
-User documentation: https://docs.example.com
+ERP dashboard:      https://erp.example.com/admin
+User documentation: https://erp.example.com/guide/
 ```
 
-Deployment options may include a static host, CDN-backed object storage, GitHub Pages, Cloudflare Pages, Netlify, Vercel, or the existing hosting stack.
+The guide may instead be published on a dedicated documentation host such as `https://docs.example.com`; set `USER_GUIDE_URL` accordingly. Deployment options may include the existing web host, a static host, CDN-backed object storage, GitHub Pages, Cloudflare Pages, Netlify, or Vercel.
 
 The final choice is an infrastructure decision and should not change the content structure.
 
@@ -648,123 +677,47 @@ When versioning becomes necessary, add:
 ## 25. Content Release Strategy
 
 ### Phase 0 - Foundation
-- create `user-guide/`;
-- install VitePress;
-- configure English/Arabic locales;
-- configure theme and branding;
-- create navigation;
-- create article templates;
-- create validation rules;
-- add CI build.
+Implemented:
+- `user-guide/` exists as an isolated package;
+- VitePress 1.6.4 is installed with its own lockfile;
+- English/Arabic locale navigation and RTL styling are configured;
+- the guide reuses the dashboard's blue/slate/graphite identity and semantic component vocabulary;
+- local search, module navigation, page outlines and the static `/guide/` build are working;
+- reusable guide components exist for screenshots, navigation paths, statuses, workflow steppers and page summaries;
+- code-derived admin, coverage and screenshot manifests are implemented;
+- generated screen/workflow content and bilingual parity validation are implemented;
+- CI executes the guide validation/build gate;
+- the Filament user menu links externally through `USER_GUIDE_URL`.
+
+The deterministic **capture infrastructure** is implemented: isolated SQLite demo preparation, route/model-aware target resolution, permission-aware record selection, English/Arabic browser checking, and guarded Playwright/Edge capture commands are available. Capture/editorial review remains partial: the verified catalog includes 84 locale images, while the remaining positions require independent UI QA.
 
 ### Phase 1 - New User Onboarding
-Create Getting Started, glossary, status explanation, navigation, tables/search/filtering, common actions, and help pages.
+**Implemented baseline.** Getting Started now covers the dashboard shell, module switcher, sidebar/workspaces, global search, tables, filters, saved views, statuses, actions, confirmations, permissions, language/RTL, appearance and help. Reference pages cover module ownership and current status vocabularies.
 
 ### Phase 2 - Core Revenue Flow
-Document:
-- customers;
-- quotations;
-- sales orders;
-- fulfillment/shipment;
-- invoices;
-- payments;
-- credit notes;
-- customer returns/refunds;
-- complete customer-sale workflow.
-
-This is the highest-priority operational section.
+**Implemented baseline.** Customers, quotations, Sales Orders, fulfillment/shipment, invoices, payments, payment transactions, credit notes, customer returns/refunds and Quote-to-Cash are covered by bilingual screen articles and workflow guides. Screen articles include actual registered list/create/view/edit/specialized pages and extracted form/table/action context.
 
 ### Phase 3 - Purchasing and Inventory
-Document suppliers, purchase orders, confirmations, receipts, supplier billing/payment, stock levels, movements, transfers, adjustments, counts, and purchasing-shortage workflows.
+**Implemented baseline.** Supplier sourcing, purchase needs/RFQs/agreements/orders/confirmations, inbounds/receipts, supplier billing/payment, stock, lots/serials, movements, transfers, adjustments, counts, returns, corrections, reservations, replenishment, warehouses and supporting tools are represented in the guide. Procure-to-Pay, shortage procurement, replenishment, transfer, count/correction and tracked-inventory workflows are published.
 
 ### Phase 4 - Accounting
-Document the accounting UI from a user perspective, including AR/AP, journal entries, tax behavior, period controls, and reports.
+**Implemented baseline.** Accounting Dashboard, chart of accounts, journals, bank statements, periods, AR/AP, bills, supplier payments, expenses, refunds, taxes, financial reports and accounting setup surfaces are covered. AR, AP and period-close workflows provide non-technical cross-module context.
+
 ### Phase 5 - CRM, Employees, Support, Maintenance
-Document daily operational workflows and cross-links to Sales/Accounting where those processes produce commercial consequences.
+**Implemented baseline.** Current CRM, employee planning/visit/performance and Support/Maintenance surfaces are covered, including the advanced support configuration workspaces. Lead-to-Sale, customer pricing, employee field sales/performance, support case, maintenance, warranty, field service and equipment lifecycle workflows are published.
 
 ### Phase 6 - Reports and Settings
-Document report interpretation, export behavior, business configuration, users/permissions, currencies, taxes, units, payment methods, and document templates.
+**Implemented baseline.** Reports Center, audit, system users, document/notification templates, custom fields and shared configuration surfaces are covered by the registry-derived screen inventory. Articles explain how to interpret and act on source facts rather than modifying report output.
 
 ### Phase 7 - Contextual Help
-Add stable User Guide links from the dashboard and selected complex forms/actions.
+Keep the global dashboard link pointed at the standalone guide and add stable article-level links from selected complex forms/actions.
 
 ### Phase 8 - Mobile Guides
 Only after customer and employee apps are production-ready, publish their onboarding, navigation, and task documentation.
 
 ## 26. Proposed First Release Scope
 
-The first useful release does not need every screen.
-
-Minimum launch set:
-- User Guide home page
-- Getting Started
-- Dashboard/navigation
-- Search/filter/table basics
-- Status basics
-- Customer sale end-to-end workflow
-- Create/send quotation
-- Convert/release sales work
-- Fulfillment/shipment
-- Create/issue invoice
-- Record/understand payment
-- Create purchase order
-- Receive purchased stock
-- Stock transfer
-- Stock adjustment
-- Customer return / credit / refund overview
-- Support ticket basics
-- Payment terms
-- Currencies
-- Users and permissions
-- Glossary
-- Troubleshooting landing page
-
-## 27. User-Guide UX Requirements
-
-The documentation site should feel like part of IERP, not like developer docs.
-
-Use:
-- IERP logo and restrained brand styling;
-- clear typography;
-- wide readable content area;
-- strong search;
-- sticky sidebar on desktop;
-- mobile-friendly navigation;
-- breadcrumbs;
-- page table of contents;
-- next/previous navigation;
-- callout boxes for warning, result, and prerequisite;
-- lightweight workflow diagrams;
-- large readable screenshots;
-- accessible contrast;
-- keyboard-accessible navigation.
-
-Avoid:
-- code-first visual styling;
-- terminal examples in user-facing pages;
-- API terminology;
-- oversized marketing layouts;
-- decorative animation;
-- dense technical diagrams.
-
-## 28. Business-Impact Callout Standard
-
-For actions that change money, stock, or lifecycle state, use a standard callout.
-### Phase 5 - CRM, Employees, Support, Maintenance
-Document daily operational workflows and cross-links to Sales/Accounting where those processes produce commercial consequences.
-
-### Phase 6 - Reports and Settings
-Document report interpretation, export behavior, business configuration, users/permissions, currencies, taxes, units, payment methods, and document templates.
-
-### Phase 7 - Contextual Help
-Add stable User Guide links from the dashboard and selected complex forms/actions.
-
-### Phase 8 - Mobile Guides
-Only after customer and employee apps are production-ready, publish their onboarding, navigation, and task documentation.
-
-## 26. Proposed First Release Scope
-
-The first useful release does not need every screen.
+The implementation has exceeded the original minimum launch scope: every currently registered Filament Resource page is now represented in generated bilingual screen coverage. The release checklist below remains useful as the editorial/screenshot priority order rather than as a coverage limit.
 
 Minimum launch set:
 - User Guide home page
@@ -903,7 +856,7 @@ When implementing this plan:
 5. `docs(user-guide): document accounting operations`
 6. `docs(user-guide): document CRM employees and support`
 7. `docs(user-guide): document reports and settings`
-8. `feat(help): add contextual user-guide links`
+8. `feat(help): expand contextual user-guide links`
 9. `ci(user-guide): validate and build documentation`
 
 Exact commit boundaries may be adjusted, but application changes and user-guide content should remain reviewable.
@@ -927,8 +880,12 @@ The user-guide project is successful when:
 
 ## 35. Recommended Implementation Order
 
-Start with Phase 0 and Phase 1, then document the complete customer-sale workflow before expanding module-by-module.
+Phases 0 through 6 now have baseline implementation coverage: onboarding, every current dashboard module/surface, current registered Resource pages, module dashboards, status vocabulary, 21 cross-module workflows, bilingual navigation and automated guide validation are present.
 
-The guide should become useful early rather than waiting for every module to be documented.
+The next implementation order is:
+1. continue rendered QA and capture for the remaining screenshot positions using deterministic non-production demo data;
+2. manually editorial-review the highest-risk commercial/stock/financial/support articles against the live UI and exact labels;
+3. add contextual article deep links from selected complex/high-impact dashboard actions;
+4. add mobile guide sections only when their production runtime/API exposure is ready.
 
-The first implementation task after approving this plan is to scaffold `user-guide/` as an isolated VitePress package and create the bilingual navigation/content templates without changing application behavior.
+The generated coverage gate remains the safety net: new dashboard classes/pages must not silently ship without corresponding documentation coverage.

@@ -72,3 +72,16 @@ it('converts a quote request to a quotation from the view page', function (): vo
     expect($request->refresh()->status)->toBe(CustomerQuotationRequestStatus::Quoted)
         ->and($request->resulting_quotation_id)->not->toBeNull();
 });
+
+it('shows requested line quantities without trailing zeroes on the view page', function (): void {
+    $admin = User::factory()->admin()->create();
+    $request = app(CustomerQuotationRequestService::class)->submit(
+        CustomerProfile::factory()->create(),
+        [['product_variant_id' => ProductVariant::factory()->create()->getKey(), 'requested_quantity' => '2.500000']],
+    );
+
+    Livewire::actingAs($admin)
+        ->test(ViewCustomerQuotationRequest::class, ['record' => $request->getKey()])
+        ->assertSeeText('2.5')
+        ->assertDontSeeText('2.500000');
+});

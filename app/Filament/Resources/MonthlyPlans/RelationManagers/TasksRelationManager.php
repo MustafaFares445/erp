@@ -10,6 +10,7 @@ use App\Models\SalesPlan;
 use App\Services\Employees\PlanTaskService;
 use DomainException;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -26,11 +27,18 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class TasksRelationManager extends RelationManager
 {
     protected static string $relationship = 'tasks';
+
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Tasks');
+    }
 
     #[\Override]
     public function form(Schema $schema): Schema
@@ -57,6 +65,7 @@ final class TasksRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('title')
+            ->modelLabel(__('Plan task'))
             ->columns([
                 TextColumn::make('title')->searchable(),
                 TextColumn::make('starts_at')->date()->sortable(),
@@ -79,19 +88,21 @@ final class TasksRelationManager extends RelationManager
                     ->using($this->createTask(...)),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->using(self::updateTask(...)),
-                self::transitionAction('startProgress', 'Start progress', PlanTaskStatus::InProgress)
-                    ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Pending),
-                self::transitionAction('complete', 'Complete', PlanTaskStatus::Completed)
-                    ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
-                self::transitionAction('cancel', 'Cancel', PlanTaskStatus::Cancelled)
-                    ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
-                self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
-                    ->modalHeading(__('Reopen this task?'))
-                    ->modalDescription(__("Reopening clears the completion date and marks the plan's performance score stale."))
-                    ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
-                DeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make()
+                        ->using(self::updateTask(...)),
+                    self::transitionAction('startProgress', 'Start progress', PlanTaskStatus::InProgress)
+                        ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Pending),
+                    self::transitionAction('complete', 'Complete', PlanTaskStatus::Completed)
+                        ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
+                    self::transitionAction('cancel', 'Cancel', PlanTaskStatus::Cancelled)
+                        ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
+                    self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
+                        ->modalHeading(__('Reopen this task?'))
+                        ->modalDescription(__("Reopening clears the completion date and marks the plan's performance score stale."))
+                        ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
+                    DeleteAction::make(),
+                ])->icon(Heroicon::EllipsisVertical),
             ]);
     }
 

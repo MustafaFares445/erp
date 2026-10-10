@@ -15,6 +15,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 /**
  * Support's compact operational headline: opened/resolved trend, live queue,
@@ -126,7 +127,9 @@ final class SupportStatistics extends StatsOverviewWidget
 
             $stats[] = Stat::make(
                 __('dashboards.support.kpis.csat'),
-                $csatAverage === null ? '—' : __('dashboards.support.kpis.csat_value', ['value' => $csatAverage]),
+                $csatAverage === null
+                    ? '—'
+                    : new HtmlString('<bdi dir="ltr">'.e(__('dashboards.support.kpis.csat_value', ['value' => $csatAverage])).'</bdi>'),
             )
                 ->description(__('dashboards.support.kpis.csat_responses', ['count' => $csatCount]))
                 ->icon(Heroicon::OutlinedFaceSmile)

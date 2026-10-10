@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Campaigns\RelationManagers;
 
 use App\Enums\CampaignResponseType;
+use App\Filament\Tables\TableFit;
 use App\Models\CampaignRecipient;
 use App\Models\User;
 use App\Services\Crm\CampaignResponseService;
@@ -15,6 +16,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 use LogicException;
 
 final class CampaignRecipientsRelationManager extends RelationManager
@@ -22,17 +25,40 @@ final class CampaignRecipientsRelationManager extends RelationManager
     protected static string $relationship = 'recipients';
 
     #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Recipients');
+    }
+
+    #[\Override]
     public function table(Table $table): Table
     {
-        return $table->columns([
-            TextColumn::make('recipient_type')->formatStateUsing(fn (string $state): string => class_basename($state)),
-            TextColumn::make('recipient_id')->label(__('Recipient ID')),
+        return TableFit::apply($table)->columns([
+            TextColumn::make('recipient_type')
+                ->label(__('Recipient type'))
+                ->formatStateUsing(static fn (string $state): string => match (class_basename($state)) {
+                    'Lead' => __('Lead'),
+                    'CustomerProfile' => __('Customer'),
+                    default => class_basename($state),
+                }),
+            TextColumn::make('recipient_id')->toggleable(isToggledHiddenByDefault: true)->label(__('Recipient ID')),
             TextColumn::make('email')->placeholder(__('—')),
-            TextColumn::make('phone')->placeholder(__('—')),
+            TextColumn::make('phone')
+                ->formatStateUsing(static fn (string $state): HtmlString => new HtmlString('<bdi dir="ltr">'.e($state).'</bdi>'))
+                ->placeholder(__('—')),
             TextColumn::make('send_status')->badge(),
             TextColumn::make('sent_at')->dateTime()->placeholder(__('—')),
-            TextColumn::make('send_error')->limit(50)->placeholder(__('—')),
-        ])->recordActions([
+            TextColumn::make('send_error')
+                ->wrap()
+                ->formatStateUsing(static function (string $state): string {
+                    // Known delivery failures are stored as English sentences; translate them when a
+                    // JSON key exists and leave provider/exception text untouched otherwise.
+                    $translated = __($state);
+
+                    return is_string($translated) ? $translated : $state;
+                })
+                ->placeholder(__('—')),
+        ])->recordActions(TableFit::rowActions([
             Action::make('record_response')
                 ->label(__('Response'))
                 ->visible(fn (CampaignRecipient $record): bool => auth()->user()?->can('update', $record->campaign) ?? false)
@@ -60,6 +86,6 @@ final class CampaignRecipientsRelationManager extends RelationManager
                     );
                     Notification::make()->success()->title(__('Campaign response recorded'))->send();
                 }),
-        ]);
+        ]));
     }
 }

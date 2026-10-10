@@ -12,6 +12,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 final class WarrantyPolicyForm
 {
@@ -19,14 +20,16 @@ final class WarrantyPolicyForm
     {
         return $schema->components([
             Section::make(__('General'))
-                ->description(__('Reusable warranty terms assigned to product variants. Terms are snapshotted per sold serial so history never changes retroactively.'))
+                ->description(__('Reusable warranty terms assigned to product variants. Each sold unit keeps the terms in force on its sale date, so later edits never change existing warranties.'))
                 ->columns(2)
                 ->schema([
                     TextInput::make('code')
                         ->required()
                         ->maxLength(80)
                         ->unique(ignoreRecord: true)
-                        ->helperText(__('Stable internal code, for example STANDARD-12M.')),
+                        ->helperText(new HtmlString(__('Stable internal code, for example :example.', [
+                            'example' => '<bdi dir="ltr">STANDARD-12M</bdi>',
+                        ]))),
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
@@ -54,7 +57,7 @@ final class WarrantyPolicyForm
                         ->default(true),
                 ]),
             Section::make(__('Coverage rules'))
-                ->description(__('These defaults drive the later claim decision UI. Being inside the warranty period does not automatically approve every repair.'))
+                ->description(__('What this warranty normally covers. These are defaults when deciding a repair claim; being inside the warranty period does not automatically approve every repair.'))
                 ->columns(3)
                 ->schema([
                     Toggle::make('covers_parts')->label(__('Replacement parts'))->default(true),
@@ -70,9 +73,9 @@ final class WarrantyPolicyForm
                     Select::make('replacement_rule')
                         ->label(__('Replacement equipment warranty'))
                         ->options([
-                            'remaining_original_term' => 'Keep remaining original term',
-                            'restart_full_term' => 'Restart full policy term',
-                            'manual_review' => 'Manual review',
+                            'remaining_original_term' => __('Keep remaining original term'),
+                            'restart_full_term' => __('Restart full policy term'),
+                            'manual_review' => __('Manual review'),
                         ])
                         ->default('remaining_original_term')
                         ->required()

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\SalesPermission;
 use App\Enums\SalesReportType;
+use Tests\TestCase;
+
+uses(TestCase::class);
 
 it('maps every sales report type to the report-view permission and a label', function (SalesReportType $type): void {
     expect($type->sourcePermission())->toBe(SalesPermission::ReportView)

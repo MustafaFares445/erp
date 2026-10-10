@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum OpportunityOrigin: string
+use Filament\Support\Contracts\HasLabel;
+
+enum OpportunityOrigin: string implements HasLabel
 {
     case AiVoiceNote = 'ai_voice_note';
     case Lead = 'lead';
@@ -15,6 +17,11 @@ enum OpportunityOrigin: string
 
     public function label(): string
     {
-        return str($this->value)->replace('_', ' ')->headline()->toString();
+        return __(str($this->value)->replace('_', ' ')->headline()->toString());
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 }

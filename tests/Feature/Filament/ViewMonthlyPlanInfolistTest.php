@@ -13,12 +13,15 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-it('renders the stage bar and record information for a sales plan', function (): void {
+it('renders the employee account name, stage bar, and record information for a sales plan', function (): void {
     $admin = User::factory()->admin()->create();
     $plan = SalesPlan::factory()->create([
         'name' => 'March territory plan',
         'created_by' => $admin->id,
     ]);
+    $employee = $plan->employee;
+    $employee->user->update(['name' => 'April Employee Name']);
+    $employee->update(['job_title' => 'Role That Must Not Appear']);
 
     Livewire::actingAs($admin)
         ->test(ViewMonthlyPlan::class, ['record' => $plan->getKey()])
@@ -27,6 +30,8 @@ it('renders the stage bar and record information for a sales plan', function ():
         ->assertSee($plan->status->value)
         ->assertSee('Record Information')
         ->assertSee('Scoring Weights')
+        ->assertSee('April Employee Name')
+        ->assertDontSee('Role That Must Not Appear')
         ->assertSee($admin->name)
         ->assertSee('No performance score calculated yet.');
 });

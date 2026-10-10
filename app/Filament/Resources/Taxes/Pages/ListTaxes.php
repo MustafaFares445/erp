@@ -17,6 +17,12 @@ final class ListTaxes extends ListRecords
     protected static string $resource = TaxResource::class;
 
     #[\Override]
+    public function getTitle(): string
+    {
+        return TaxResource::getNavigationLabel();
+    }
+
+    #[\Override]
     protected function getHeaderActions(): array
     {
         return [

@@ -22,6 +22,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class CustomFieldsRelationManager extends RelationManager
@@ -29,9 +30,16 @@ final class CustomFieldsRelationManager extends RelationManager
     protected static string $relationship = 'customFieldValues';
 
     #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Custom Field Values');
+    }
+
+    #[\Override]
     public function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading(__('No custom field values'))
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('definition'))
             ->recordTitleAttribute('id')
             ->columns([

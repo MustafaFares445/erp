@@ -10,6 +10,7 @@ use App\Enums\PurchaseInboundStatus;
 use App\Filament\Resources\PurchaseInbounds\Actions\PurchaseInboundActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\PurchaseInbound;
 use App\Services\Inventory\LogisticsInboundProjectionService;
 use App\Support\QuantityFormatter;
@@ -31,7 +32,7 @@ final class PurchaseInboundsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('id', 'desc')
             ->columns([
                 FavoriteColumn::make(),
@@ -40,9 +41,9 @@ final class PurchaseInboundsTable
                     ->label(__('admin.logistics.inbound.purchase_order_reference'))
                     ->description(fn (PurchaseInbound $record): ?string => self::blockerMessage($record))
                     ->searchable()->sortable(),
-                TextColumn::make('purchaseOrder.supplier.name')
+                TextColumn::make('purchaseOrder.supplier.name')->wrap()
                     ->label(__('admin.logistics.inbound.supplier'))->searchable(),
-                TextColumn::make('purchaseOrder.expected_at')
+                TextColumn::make('purchaseOrder.expected_at')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.logistics.inbound.expected_date'))->date()->placeholder(__('—'))->sortable(),
                 TextColumn::make('business_state')
                     ->label(__('admin.logistics.inbound.business_state'))
@@ -52,23 +53,23 @@ final class PurchaseInboundsTable
                     )))
                     ->badge()
                     ->color(fn (PurchaseInbound $record): string => self::stateColor(self::projection($record)->businessState)),
-                TextColumn::make('confirmed_qty')
+                TextColumn::make('confirmed_qty')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.logistics.inbound.confirmed'))
                     ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->confirmedBaseQuantity)),
-                TextColumn::make('allocated_qty')
+                TextColumn::make('allocated_qty')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.logistics.inbound.allocated'))
                     ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->allocatedBaseQuantity)),
-                TextColumn::make('received_qty')
+                TextColumn::make('received_qty')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.logistics.inbound.received'))
                     ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->receivedBaseQuantity)),
-                TextColumn::make('remaining_qty')
+                TextColumn::make('remaining_qty')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.logistics.inbound.remaining'))
                     ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->remainingBaseQuantity)),
-                TextColumn::make('warehouses')
+                TextColumn::make('warehouses')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.logistics.inbound.destination_warehouses'))
                     ->getStateUsing(fn (PurchaseInbound $record): array => self::projection($record)->destinationWarehouses)
                     ->listWithLineBreaks()->placeholder(__('—')),
-                IconColumn::make('overdue')
+                IconColumn::make('overdue')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.logistics.inbound.overdue'))
                     ->boolean()
                     ->getStateUsing(fn (PurchaseInbound $record): bool => self::projection($record)->overdue),
@@ -108,7 +109,7 @@ final class PurchaseInboundsTable
                         ->whereHas('purchaseOrder', static fn (Builder $po): Builder => $po->whereDate('expected_at', '<', today()))
                         ->where('status', '!=', PurchaseInboundStatus::Received->value)),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 PurchaseInboundActions::allocate()
                     ->label(__('Allocate stock'))
                     ->icon(Heroicon::BuildingStorefront)
@@ -119,7 +120,7 @@ final class PurchaseInboundsTable
                     ->button()
                     ->visible(fn (PurchaseInbound $record): bool => self::primaryAction($record) === 'receive'),
                 ViewAction::make(),
-            ]);
+            ]));
     }
 
     /**

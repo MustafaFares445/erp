@@ -102,3 +102,22 @@ it('places accounting resources in the intended navigation slots', function (): 
 
     expect(SupplierPaymentResource::shouldRegisterNavigation())->toBeFalse();
 });
+
+it('keeps the accounting module active on every accounting resource page, including nested-slug resources', function (): void {
+    $resolved = [];
+
+    foreach (ACCOUNTING_IMPLEMENTED_ITEMS as $class) {
+        $this->actingAs($this->chief)->get($class::getUrl())->assertOk();
+        AdminModuleRegistry::forgetMemoized();
+
+        $resolved[class_basename($class)] = AdminModuleRegistry::activeGroupKey();
+    }
+
+    expect($resolved)->each->toBe('accounting')
+        ->and(AccountsReceivableResource::getSlug())->toContain('/');
+});
+
+it('roots the receivable and payable breadcrumbs at their own pages rather than invoices and bills', function (): void {
+    expect(AccountsReceivableResource::getBreadcrumb())->toBe(__('admin.resources.accounts_receivable'))
+        ->and(AccountsPayableResource::getBreadcrumb())->toBe(__('admin.resources.accounts_payable'));
+});

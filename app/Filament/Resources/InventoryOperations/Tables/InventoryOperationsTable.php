@@ -8,8 +8,10 @@ use App\Enums\DeliveryType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryOperations\Pages\ListOperationsByType;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryOperation;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -60,9 +62,12 @@ final class InventoryOperationsTable
 
     public static function configure(Table $table): Table
     {
-        $operationType = InventoryOperationResource::currentOperationType();
+        $page = $table->getLivewire();
+        $operationType = $page instanceof ListOperationsByType
+            ? $page->getOperationType()
+            : InventoryOperationResource::currentOperationType();
 
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending'))->searchable()->sortable(),
@@ -70,11 +75,11 @@ final class InventoryOperationsTable
                     ->label(__('admin.inventory.operation.fields.operation_type'))
                     ->formatStateUsing(fn (OperationType $state): string => $state->label())
                     ->visible(! $operationType instanceof OperationType),
-                TextColumn::make('supplier.name')
+                TextColumn::make('supplier.name')->wrap()
                     ->label(__('admin.inventory.operation.fields.supplier'))
                     ->searchable()
                     ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Receipt),
-                TextColumn::make('customer.company_name')
+                TextColumn::make('customer.company_name')->wrap()
                     ->label(__('admin.inventory.operation.fields.customer'))
                     ->searchable()
                     ->placeholder(__('admin.inventory.operation.placeholders.no_customer'))
@@ -83,16 +88,20 @@ final class InventoryOperationsTable
                     ->label(__('admin.inventory.operation.fields.delivery_type'))
                     ->formatStateUsing(fn (?DeliveryType $state): ?string => $state?->label())
                     ->badge()
-                    ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Delivery),
-                TextColumn::make('sourceWarehouse.name')
+                    ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Delivery)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('sourceWarehouse.name')->wrap()
                     ->label(__('admin.inventory.operation.fields.source_warehouse'))
                     ->searchable()
-                    ->visible(in_array($operationType, [null, OperationType::Delivery, OperationType::InternalTransfer], true)),
-                TextColumn::make('destinationWarehouse.name')
+                    ->visible(in_array($operationType, [null, OperationType::Delivery, OperationType::InternalTransfer], true))
+                    ->toggleable(isToggledHiddenByDefault: ! $operationType instanceof OperationType),
+                TextColumn::make('destinationWarehouse.name')->wrap()
                     ->label(__('admin.inventory.operation.fields.destination_warehouse'))
                     ->searchable()
-                    ->visible(in_array($operationType, [null, OperationType::Receipt, OperationType::InternalTransfer], true)),
-                TextColumn::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at'))->dateTime()->sortable(),
+                    ->visible(in_array($operationType, [null, OperationType::Receipt, OperationType::InternalTransfer], true))
+                    ->toggleable(isToggledHiddenByDefault: ! $operationType instanceof OperationType),
+                TextColumn::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at'))->dateTime()->sortable()
+                    ->toggleable(isToggledHiddenByDefault: ! $operationType instanceof OperationType),
                 TextColumn::make('stage')->label(__('Stage'))->badge()->formatStateUsing(fn (OperationStage $state, InventoryOperation $record): string => $record->stageLabel())->color(fn (OperationStage $state): string => match ($state) {
                     OperationStage::Draft => 'gray', OperationStage::Waiting => 'warning', OperationStage::Ready => 'info', OperationStage::InTransit, OperationStage::PartiallyReceived => 'primary', OperationStage::Done => 'success', OperationStage::Canceled => 'danger',
                 }),
@@ -102,11 +111,11 @@ final class InventoryOperationsTable
                 TableQueryBuilder::make(self::constraints($operationType)),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 EditAction::make()->visible(fn (InventoryOperation $record): bool => $record->isDraft()),
                 DeleteAction::make()->visible(fn (InventoryOperation $record): bool => $record->isDraft()),
-            ]);
+            ]));
     }
 
     /** @return list<Group> */

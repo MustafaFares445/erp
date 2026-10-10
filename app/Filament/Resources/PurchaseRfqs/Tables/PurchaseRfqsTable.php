@@ -9,6 +9,7 @@ use App\Enums\PurchaseRfqStatus;
 use App\Filament\Resources\PurchaseRfqs\Actions\PurchaseRfqActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\PurchaseRfq;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
@@ -26,18 +27,18 @@ final class PurchaseRfqsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('id', 'desc')
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('rfq_number')->label(__('Reference'))->searchable()->sortable(),
-                TextColumn::make('requester.name')->label(__('Buyer'))->sortable(),
-                TextColumn::make('awardedSupplier.name')->label(__('Awarded supplier'))->placeholder('—')->sortable(),
+                TextColumn::make('requester.name')->wrap()->label(__('Buyer'))->sortable(),
+                TextColumn::make('awardedSupplier.name')->wrap()->label(__('Awarded supplier'))->placeholder('—')->sortable(),
                 TextColumn::make('needed_by')->label(__('Needed by'))->date()->placeholder('—')->sortable(),
                 TextColumn::make('closes_at')->label(__('Closes at'))->dateTime()->placeholder('—')->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('suppliers_count')->counts('suppliers')->label(__('Suppliers'))->badge()->color('gray'),
-                TextColumn::make('currency_code')->label(__('Currency')),
+                TextColumn::make('currency_code')->toggleable(isToggledHiddenByDefault: true)->label(__('Currency')),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -66,7 +67,7 @@ final class PurchaseRfqsTable
                     DateConstraint::make('created_at')->label(__('Created at')),
                 ]),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 PurchaseRfqActions::send()->button(),
                 PurchaseRfqActions::recordResponse()
                     ->button()
@@ -83,6 +84,6 @@ final class PurchaseRfqsTable
                     PurchaseRfqActions::cancel(),
                     ViewAction::make(),
                 ])->icon(Heroicon::EllipsisVertical),
-            ]);
+            ]));
     }
 }

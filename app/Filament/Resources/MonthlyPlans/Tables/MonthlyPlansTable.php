@@ -6,6 +6,7 @@ namespace App\Filament\Resources\MonthlyPlans\Tables;
 
 use App\Enums\SalesPlanStatus;
 use App\Filament\Resources\MonthlyPlans\Actions\MonthlyPlanLifecycleActions;
+use App\Filament\Tables\TableFit;
 use App\Models\EmployeeProfile;
 use App\Models\SalesPlan;
 use App\Models\User;
@@ -32,11 +33,11 @@ final class MonthlyPlansTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('employee.job_title')->label(__('Employee'))->searchable(),
-                TextColumn::make('name')->searchable(),
+                TextColumn::make('employee.user.name')->wrap()->label(__('Employee'))->searchable(),
+                TextColumn::make('name')->wrap()->searchable(),
                 TextColumn::make('month')->date('F Y')->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('tasks_count')->label(__('Tasks'))->counts('tasks'),
@@ -47,7 +48,7 @@ final class MonthlyPlansTable
                 ),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 EditAction::make(),
                 ActionGroup::make([
@@ -68,7 +69,7 @@ final class MonthlyPlansTable
                     RestoreAction::make()
                         ->action(static fn (SalesPlan $record) => app(SalesPlanService::class)->restore($record)),
                 ]),
-            ]);
+            ]));
     }
 
     private static function copyToMonthAction(): Action

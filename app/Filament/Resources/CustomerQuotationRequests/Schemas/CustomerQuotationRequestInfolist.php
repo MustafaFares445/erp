@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\CustomerQuotationRequests\Schemas;
 
 use App\Enums\CustomerQuotationRequestStatus;
+use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -39,7 +40,8 @@ final class CustomerQuotationRequestInfolist
                             ->label('')
                             ->schema([
                                 TextEntry::make('productVariant.sku')->label(__('Variant')),
-                                TextEntry::make('requested_quantity')->label(__('Quantity')),
+                                TextEntry::make('requested_quantity')->label(__('Quantity'))
+                                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                                 TextEntry::make('requestedUnit.symbol')->label(__('Unit'))->placeholder(__('Base unit')),
                                 TextEntry::make('customer_note')->label(__('Note'))->placeholder(__('—')),
                             ])

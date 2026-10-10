@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum InventoryReturnStatus: string
+use Filament\Support\Contracts\HasLabel;
+
+enum InventoryReturnStatus: string implements HasLabel
 {
     case Draft = 'draft';
     case Ready = 'ready';
@@ -19,5 +21,10 @@ enum InventoryReturnStatus: string
     public function label(): string
     {
         return __('admin.inventory.return_status.'.$this->value);
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 }

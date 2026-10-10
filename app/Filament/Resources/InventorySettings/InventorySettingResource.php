@@ -35,18 +35,18 @@ final class InventorySettingResource extends Resource
     {
         return $schema->components([
             TextInput::make('default_markup_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01)->required()
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'This percentage is used as the starting markup when a variant does not have a specific pricing rule.'),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('This percentage is used as the starting markup when a variant does not have a specific pricing rule.')),
             TextInput::make('expiry_critical_days')->label(__('Critical expiry window'))->integer()->minValue(1)->maxValue(365)->default(30)->required()
                 ->suffix(__(' days'))
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'The first actionable near-expiry bucket, normally 30 days.'),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('The first actionable near-expiry bucket, normally 30 days.')),
             TextInput::make('expiry_warning_days')->label(__('Warning expiry window'))->integer()->minValue(1)->maxValue(365)->default(60)->required()
                 ->suffix(__(' days'))
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'The second near-expiry bucket. It cannot be shorter than the critical window.'),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('The second near-expiry bucket. It cannot be shorter than the critical window.')),
             TextInput::make('expiry_notice_days')->label(__('Notice expiry window'))->integer()->minValue(1)->maxValue(365)->default(90)->required()
                 ->suffix(__(' days'))
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'The earliest horizon at which the ERP starts surfacing near-expiry stock.'),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __('The earliest horizon at which the ERP starts surfacing near-expiry stock.')),
             TextInput::make('max_price_floor_override_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01)
-                ->hintIcon(Heroicon::QuestionMarkCircle, "The furthest below a variant's price floor an approver may go, as a percentage of the floor. Leave empty for no ceiling."),
+                ->hintIcon(Heroicon::QuestionMarkCircle, __("The furthest below a variant's price floor an approver may go, as a percentage of the floor. Leave empty for no ceiling.")),
         ]);
     }
 

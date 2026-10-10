@@ -3,17 +3,17 @@
 ---
 status: canonical
 owner: sales
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: SalesOrderService, QuotationConversionService, OrderCompletionService, procurement/invoice/credit services and tests
 ---
 
 ## Quotation
 
-Statuses include Draft, Sent, Accepted, Rejected, Changes Requested, Expired, Converted to Delivery and Cancelled.
+Statuses include Draft, Sent, Accepted, Rejected, Changes Requested, Expired, Converted to Order and Cancelled.
 
 A quotation has no stock effect.
 
-Only an Accepted, non-support-origin quotation can be converted. Conversion is locked and one-time, creating a Confirmed sales order with frozen commercial/UOM snapshots.
+Only an Accepted, non-support-origin quotation can be converted. Conversion is locked and one-time, creating a Confirmed sales order with frozen commercial/UOM/pricing provenance snapshots. The terminal quotation state is `converted_to_order`; quotations do not bypass the Sales Order to create delivery directly.
 
 ## Sales Order
 
@@ -24,6 +24,10 @@ Order statuses are `Draft -> Confirmed -> Released -> Closed`, with `Cancelled` 
 - Release requires Confirmed and emits `SalesOrderReleased`.
 - Cancellation is blocked when non-cancelled delivery execution exists.
 - Short-close is available only on Released orders, requires a reason, and applies only to remaining unplanned demand.
+
+## Order Availability / Fulfillment Projection
+
+Released Sales Orders project availability through explicit states such as Insufficient Stock, Awaiting Purchase, Awaiting Supplier Confirmation, Partially Available and Ready for Delivery. These are operational projections; Inventory still owns reservation, lot/serial selection, picking and physical posting.
 
 ## Procurement Requirements
 
@@ -49,7 +53,7 @@ Invoice document statuses include Draft, Issued, Sent, Written Off and Cancelled
 
 Credit notes use Draft, Confirmed, Reversed and Cancelled states.
 
-A credit linked to an invoice cannot exceed remaining uncredited invoice-line value or quantity. Confirm/reversal financial effects use dedicated posting services.
+A credit linked to an invoice cannot exceed remaining uncredited invoice-line value or quantity. When a Credit Note is linked to a posted customer return, it preserves that return provenance and cannot credit more than the exact returned quantity still available for credit. Confirm/reversal financial effects use dedicated posting services.
 
 ## Boundary Rules
 

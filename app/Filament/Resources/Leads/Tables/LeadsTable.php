@@ -9,7 +9,9 @@ use App\Enums\LeadStatus;
 use App\Filament\Resources\Leads\Actions\LeadActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\Lead;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\QueryBuilder\Constraints\DateConstraint;
@@ -17,6 +19,7 @@ use Filament\QueryBuilder\Constraints\RelationshipConstraint;
 use Filament\QueryBuilder\Constraints\RelationshipConstraint\Operators\IsRelatedToOperator;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Grouping\Group;
@@ -27,17 +30,17 @@ final class LeadsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('lead_number')->searchable()->sortable(),
-                TextColumn::make('company_name')->searchable()->placeholder(__('—')),
-                TextColumn::make('first_name')->label(__('Contact'))->formatStateUsing(fn (Lead $record): string => $record->displayName())->searchable(['first_name', 'last_name']),
-                TextColumn::make('source')->badge()->formatStateUsing(fn (LeadSource $state): string => $state->label()),
+                TextColumn::make('company_name')->wrap()->searchable()->placeholder(__('—')),
+                TextColumn::make('first_name')->wrap()->label(__('Contact'))->formatStateUsing(fn (Lead $record): string => $record->displayName())->searchable(['first_name', 'last_name']),
+                TextColumn::make('source')->toggleable(isToggledHiddenByDefault: true)->badge()->formatStateUsing(fn (LeadSource $state): string => $state->label()),
                 TextColumn::make('status')->badge()->color(fn (LeadStatus $state): string => $state->color())->formatStateUsing(fn (LeadStatus $state): string => $state->label()),
-                TextColumn::make('assignee.name')->label(__('Assigned to'))->placeholder(__('Unassigned'))->searchable(),
-                TextColumn::make('last_interaction_at')->dateTime()->placeholder(__('Never'))->sortable(),
+                TextColumn::make('assignee.name')->wrap()->label(__('Assigned to'))->placeholder(__('Unassigned'))->searchable(),
+                TextColumn::make('last_interaction_at')->toggleable(isToggledHiddenByDefault: true)->dateTime()->placeholder(__('Never'))->sortable(),
             ])
             ->groups([
                 Group::make('status')->label(__('Status')),
@@ -72,13 +75,15 @@ final class LeadsTable
                     return (new Lead)->dormant($query);
                 }),
             ])
-            ->recordActions([
-                ViewAction::make(),
-                LeadActions::logInteraction(),
-                LeadActions::assign(),
-                LeadActions::disqualify(),
+            ->recordActions(TableFit::rowActions([
                 LeadActions::convert(),
-                EditAction::make()->visible(fn (Lead $record): bool => ! $record->status->isTerminal()),
-            ]);
+                LeadActions::logInteraction(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    LeadActions::assign(),
+                    LeadActions::disqualify(),
+                    EditAction::make()->visible(fn (Lead $record): bool => ! $record->status->isTerminal()),
+                ])->icon(Heroicon::EllipsisVertical),
+            ]));
     }
 }

@@ -1,0 +1,2764 @@
+{
+  "generated_at": "2026-10-07",
+  "module_count": 9,
+  "article_count": 111,
+  "screen_count": 282,
+  "workflow_count": 21,
+  "articles": [
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Pages\\SalesDashboard",
+      "slug": "dashboard",
+      "article_en": "/screens/sales/dashboard",
+      "article_ar": "/ar/screens/sales/dashboard",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "sales-dashboard-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/SalesDashboard.php"
+      ],
+      "source_fingerprint": "77bafb15b1018dc52504b670048d9917c0c451839f6478fc5d6e9f8b4b5f42e6"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\Quotations\\QuotationResource",
+      "slug": "quotation",
+      "article_en": "/screens/sales/quotation",
+      "article_ar": "/ar/screens/sales/quotation",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "sales-quotation-index",
+        "sales-quotation-create",
+        "sales-quotation-view",
+        "sales-quotation-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Quotations/Actions/QuotationActions.php",
+        "app/Filament/Resources/Quotations/Pages/CreateQuotation.php",
+        "app/Filament/Resources/Quotations/Pages/EditQuotation.php",
+        "app/Filament/Resources/Quotations/Pages/ListQuotations.php",
+        "app/Filament/Resources/Quotations/Pages/ViewQuotation.php",
+        "app/Filament/Resources/Quotations/QuotationResource.php",
+        "app/Filament/Resources/Quotations/Schemas/QuotationForm.php",
+        "app/Filament/Resources/Quotations/Schemas/QuotationInfolist.php",
+        "app/Filament/Resources/Quotations/Schemas/QuotationLinesRepeater.php",
+        "app/Filament/Resources/Quotations/Support/QuotationLinePriceFloorApprovals.php",
+        "app/Filament/Resources/Quotations/Tables/QuotationsTable.php",
+        "app/Filament/Resources/Quotations/Widgets/QuotationsOverview.php"
+      ],
+      "source_fingerprint": "41e1b156865b66de9e0cd2d62cf4029f5df365161bb8b3a5fa675b14f4c815aa"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\Orders\\OrderResource",
+      "slug": "order",
+      "article_en": "/screens/sales/order",
+      "article_ar": "/ar/screens/sales/order",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "sales-order-index",
+        "sales-order-create",
+        "sales-order-view",
+        "sales-order-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Orders/Actions/OrderActions.php",
+        "app/Filament/Resources/Orders/Actions/OrderNextStep.php",
+        "app/Filament/Resources/Orders/OrderResource.php",
+        "app/Filament/Resources/Orders/Pages/CreateOrder.php",
+        "app/Filament/Resources/Orders/Pages/EditOrder.php",
+        "app/Filament/Resources/Orders/Pages/ListOrders.php",
+        "app/Filament/Resources/Orders/Pages/ViewOrder.php",
+        "app/Filament/Resources/Orders/Schemas/OrderForm.php",
+        "app/Filament/Resources/Orders/Schemas/OrderInfolist.php",
+        "app/Filament/Resources/Orders/Tables/OrdersTable.php",
+        "app/Filament/Resources/Orders/Widgets/OrdersOverview.php"
+      ],
+      "source_fingerprint": "8c42acf0748c57fa95664fd4b1dfa2a7dfb70aee3f0a416e5ab489bdbedf36d7"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\DeliveryNotes\\DeliveryNoteResource",
+      "slug": "delivery-note",
+      "article_en": "/screens/sales/delivery-note",
+      "article_ar": "/ar/screens/sales/delivery-note",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "sales-delivery-note-index",
+        "sales-delivery-note-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/DeliveryNotes/Actions/DeliveryNoteActions.php",
+        "app/Filament/Resources/DeliveryNotes/DeliveryNoteResource.php",
+        "app/Filament/Resources/DeliveryNotes/Pages/ListDeliveryNotes.php",
+        "app/Filament/Resources/DeliveryNotes/Pages/ViewDeliveryNote.php",
+        "app/Filament/Resources/DeliveryNotes/Schemas/DeliveryNoteForm.php",
+        "app/Filament/Resources/DeliveryNotes/Schemas/DeliveryNoteInfolist.php",
+        "app/Filament/Resources/DeliveryNotes/Tables/DeliveryNotesTable.php",
+        "app/Filament/Resources/DeliveryNotes/Widgets/DeliveryNotesOverview.php"
+      ],
+      "source_fingerprint": "e88e11b86e7da4953379f8ebe0414ed0cbfcb9e7cd8b1748a1fcfa61a086979b"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\Invoices\\InvoiceResource",
+      "slug": "invoice",
+      "article_en": "/screens/sales/invoice",
+      "article_ar": "/ar/screens/sales/invoice",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "sales-invoice-index",
+        "sales-invoice-create",
+        "sales-invoice-view",
+        "sales-invoice-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Invoices/Actions/InvoiceActions.php",
+        "app/Filament/Resources/Invoices/InvoiceResource.php",
+        "app/Filament/Resources/Invoices/Pages/CreateInvoice.php",
+        "app/Filament/Resources/Invoices/Pages/EditInvoice.php",
+        "app/Filament/Resources/Invoices/Pages/ListInvoices.php",
+        "app/Filament/Resources/Invoices/Pages/ViewInvoice.php",
+        "app/Filament/Resources/Invoices/Schemas/InvoiceForm.php",
+        "app/Filament/Resources/Invoices/Schemas/InvoiceInfolist.php",
+        "app/Filament/Resources/Invoices/Tables/InvoicesTable.php",
+        "app/Filament/Resources/Invoices/Widgets/InvoicesOverview.php"
+      ],
+      "source_fingerprint": "80310a2729ba9f08b4595e87d11ca1d1b2a877440136a95d8a8dd69a16a4a00d"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\Payments\\PaymentResource",
+      "slug": "payment",
+      "article_en": "/screens/sales/payment",
+      "article_ar": "/ar/screens/sales/payment",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "sales-payment-index",
+        "sales-payment-create",
+        "sales-payment-view",
+        "sales-payment-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Payments/Actions/PaymentActions.php",
+        "app/Filament/Resources/Payments/Pages/CreatePayment.php",
+        "app/Filament/Resources/Payments/Pages/EditPayment.php",
+        "app/Filament/Resources/Payments/Pages/ListPayments.php",
+        "app/Filament/Resources/Payments/Pages/ViewPayment.php",
+        "app/Filament/Resources/Payments/PaymentResource.php",
+        "app/Filament/Resources/Payments/Schemas/PaymentForm.php",
+        "app/Filament/Resources/Payments/Schemas/PaymentInfolist.php",
+        "app/Filament/Resources/Payments/Tables/PaymentsTable.php",
+        "app/Filament/Resources/Payments/Widgets/PaymentsOverview.php"
+      ],
+      "source_fingerprint": "5e8255f7e1bbbc75c903b6533a358702913bfbe1b78d3d6c15ba099b58c51c13"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\PaymentTransactions\\PaymentTransactionResource",
+      "slug": "payment-transaction",
+      "article_en": "/screens/sales/payment-transaction",
+      "article_ar": "/ar/screens/sales/payment-transaction",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "sales-payment-transaction-index",
+        "sales-payment-transaction-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PaymentTransactions/Actions/PaymentTransactionActions.php",
+        "app/Filament/Resources/PaymentTransactions/Pages/ListPaymentTransactions.php",
+        "app/Filament/Resources/PaymentTransactions/Pages/ViewPaymentTransaction.php",
+        "app/Filament/Resources/PaymentTransactions/PaymentTransactionResource.php",
+        "app/Filament/Resources/PaymentTransactions/Schemas/PaymentTransactionInfolist.php",
+        "app/Filament/Resources/PaymentTransactions/Tables/PaymentTransactionsTable.php"
+      ],
+      "source_fingerprint": "ce92ae14ab32dd95c0c5930f8c0ac4f8ca30868aa90065a4190baefb29e1168f"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\CreditNotes\\CreditNoteResource",
+      "slug": "credit-note",
+      "article_en": "/screens/sales/credit-note",
+      "article_ar": "/ar/screens/sales/credit-note",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "sales-credit-note-index",
+        "sales-credit-note-create",
+        "sales-credit-note-view",
+        "sales-credit-note-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/CreditNotes/Actions/CreditNoteActions.php",
+        "app/Filament/Resources/CreditNotes/CreditNoteResource.php",
+        "app/Filament/Resources/CreditNotes/Pages/CreateCreditNote.php",
+        "app/Filament/Resources/CreditNotes/Pages/EditCreditNote.php",
+        "app/Filament/Resources/CreditNotes/Pages/ListCreditNotes.php",
+        "app/Filament/Resources/CreditNotes/Pages/ViewCreditNote.php",
+        "app/Filament/Resources/CreditNotes/RelationManagers/CreditNoteLinesRelationManager.php",
+        "app/Filament/Resources/CreditNotes/Schemas/CreditNoteForm.php",
+        "app/Filament/Resources/CreditNotes/Schemas/CreditNoteInfolist.php",
+        "app/Filament/Resources/CreditNotes/Tables/CreditNotesTable.php",
+        "app/Filament/Resources/CreditNotes/Widgets/CreditNotesOverview.php"
+      ],
+      "source_fingerprint": "4c60ae07bc8baaee86799678a9ae4056820f92adea9604dcd27595a5634c30d6"
+    },
+    {
+      "module": "sales",
+      "class": "App\\Filament\\Resources\\SalesReports\\SalesReportResource",
+      "slug": "sales-report",
+      "article_en": "/screens/sales/sales-report",
+      "article_ar": "/ar/screens/sales/sales-report",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "sales-sales-report-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SalesReports/Pages/ViewSalesReports.php",
+        "app/Filament/Resources/SalesReports/SalesReportResource.php"
+      ],
+      "source_fingerprint": "fc59a9134f9629c93d48068a35f10314178ccc6c4fef941fdffffea3049b3b4a"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Pages\\AccountingDashboard",
+      "slug": "dashboard",
+      "article_en": "/screens/accounting/dashboard",
+      "article_ar": "/ar/screens/accounting/dashboard",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "accounting-dashboard-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/AccountingDashboard.php"
+      ],
+      "source_fingerprint": "541ad114f689fd19b48a5f1154611f58486d080a393fa8ed4a259737fdb80789"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\ChartOfAccounts\\ChartOfAccountResource",
+      "slug": "chart-of-account",
+      "article_en": "/screens/accounting/chart-of-account",
+      "article_ar": "/ar/screens/accounting/chart-of-account",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-chart-of-account-index",
+        "accounting-chart-of-account-create",
+        "accounting-chart-of-account-view",
+        "accounting-chart-of-account-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/ChartOfAccounts/ChartOfAccountResource.php",
+        "app/Filament/Resources/ChartOfAccounts/Pages/CreateChartOfAccount.php",
+        "app/Filament/Resources/ChartOfAccounts/Pages/EditChartOfAccount.php",
+        "app/Filament/Resources/ChartOfAccounts/Pages/ListChartOfAccounts.php",
+        "app/Filament/Resources/ChartOfAccounts/Pages/ViewChartOfAccount.php",
+        "app/Filament/Resources/ChartOfAccounts/RelationManagers/LedgerRelationManager.php",
+        "app/Filament/Resources/ChartOfAccounts/Schemas/ChartAccountForm.php",
+        "app/Filament/Resources/ChartOfAccounts/Schemas/ChartAccountInfolist.php",
+        "app/Filament/Resources/ChartOfAccounts/Tables/ChartAccountsTable.php"
+      ],
+      "source_fingerprint": "369beaf1a2dc1e62bbf18f8fcb0f81d2d56c4cff3390fece9aa4480e1effaa3a"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\JournalEntries\\JournalEntryResource",
+      "slug": "journal-entry",
+      "article_en": "/screens/accounting/journal-entry",
+      "article_ar": "/ar/screens/accounting/journal-entry",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-journal-entry-index",
+        "accounting-journal-entry-create",
+        "accounting-journal-entry-view",
+        "accounting-journal-entry-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/JournalEntries/Actions/JournalEntryActions.php",
+        "app/Filament/Resources/JournalEntries/JournalEntryResource.php",
+        "app/Filament/Resources/JournalEntries/Pages/CreateJournalEntry.php",
+        "app/Filament/Resources/JournalEntries/Pages/EditJournalEntry.php",
+        "app/Filament/Resources/JournalEntries/Pages/ListJournalEntries.php",
+        "app/Filament/Resources/JournalEntries/Pages/ViewJournalEntry.php",
+        "app/Filament/Resources/JournalEntries/Schemas/JournalEntryForm.php",
+        "app/Filament/Resources/JournalEntries/Schemas/JournalEntryInfolist.php",
+        "app/Filament/Resources/JournalEntries/Schemas/JournalEntryLinesRepeater.php",
+        "app/Filament/Resources/JournalEntries/Tables/JournalEntriesTable.php"
+      ],
+      "source_fingerprint": "df4a91041f37f6cc653cde37fbdebddc96a6c0d00036a022c1d15ade89a9ea00"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\BankStatements\\BankStatementResource",
+      "slug": "bank-statement",
+      "article_en": "/screens/accounting/bank-statement",
+      "article_ar": "/ar/screens/accounting/bank-statement",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "accounting-bank-statement-index",
+        "accounting-bank-statement-create",
+        "accounting-bank-statement-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/BankStatements/Actions/BankStatementActions.php",
+        "app/Filament/Resources/BankStatements/BankStatementResource.php",
+        "app/Filament/Resources/BankStatements/Pages/CreateBankStatement.php",
+        "app/Filament/Resources/BankStatements/Pages/ListBankStatements.php",
+        "app/Filament/Resources/BankStatements/Pages/ViewBankStatement.php",
+        "app/Filament/Resources/BankStatements/RelationManagers/LinesRelationManager.php"
+      ],
+      "source_fingerprint": "e3b52c73141e0e15dc6d323dad0ad9d987494b6afc8aa473f1b17aa47d7819c7"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\FiscalPeriods\\FiscalPeriodResource",
+      "slug": "fiscal-period",
+      "article_en": "/screens/accounting/fiscal-period",
+      "article_ar": "/ar/screens/accounting/fiscal-period",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-fiscal-period-index",
+        "accounting-fiscal-period-create",
+        "accounting-fiscal-period-view",
+        "accounting-fiscal-period-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/FiscalPeriods/Actions/FiscalPeriodActions.php",
+        "app/Filament/Resources/FiscalPeriods/FiscalPeriodResource.php",
+        "app/Filament/Resources/FiscalPeriods/Pages/CreateFiscalPeriod.php",
+        "app/Filament/Resources/FiscalPeriods/Pages/EditFiscalPeriod.php",
+        "app/Filament/Resources/FiscalPeriods/Pages/ListFiscalPeriods.php",
+        "app/Filament/Resources/FiscalPeriods/Pages/ViewFiscalPeriod.php",
+        "app/Filament/Resources/FiscalPeriods/Schemas/FiscalPeriodForm.php",
+        "app/Filament/Resources/FiscalPeriods/Schemas/FiscalPeriodInfolist.php",
+        "app/Filament/Resources/FiscalPeriods/Tables/FiscalPeriodsTable.php"
+      ],
+      "source_fingerprint": "38baa0b516f5e228ed0ad8254be72a1ae20e6960bbb4e7953bcb2ade209f0e05"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\AccountsReceivable\\AccountsReceivableResource",
+      "slug": "accounts-receivable",
+      "article_en": "/screens/accounting/accounts-receivable",
+      "article_ar": "/ar/screens/accounting/accounts-receivable",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "accounting-accounts-receivable-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/AccountsReceivable/AccountsReceivableResource.php",
+        "app/Filament/Resources/AccountsReceivable/Pages/ListAccountsReceivable.php"
+      ],
+      "source_fingerprint": "ed0d040394cab5e43c45d07e86d752d6e2c8cacfaf123aec7fbf17281e1b91a8"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\AccountsPayable\\AccountsPayableResource",
+      "slug": "accounts-payable",
+      "article_en": "/screens/accounting/accounts-payable",
+      "article_ar": "/ar/screens/accounting/accounts-payable",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "accounting-accounts-payable-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/AccountsPayable/AccountsPayableResource.php",
+        "app/Filament/Resources/AccountsPayable/Pages/ListAccountsPayable.php"
+      ],
+      "source_fingerprint": "a23db24bb51da2175c0b6883bb4a86eae8c53540f1197181b29ffcbe04646514"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\Bills\\BillResource",
+      "slug": "bill",
+      "article_en": "/screens/accounting/bill",
+      "article_ar": "/ar/screens/accounting/bill",
+      "pages": [
+        "index",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-bill-index",
+        "accounting-bill-view",
+        "accounting-bill-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Bills/BillResource.php",
+        "app/Filament/Resources/Bills/Pages/EditBill.php",
+        "app/Filament/Resources/Bills/Pages/ManageBills.php",
+        "app/Filament/Resources/Bills/Pages/ViewBill.php",
+        "app/Filament/Resources/Bills/Schemas/BillInfolist.php",
+        "app/Filament/Resources/Bills/Tables/BillsTable.php"
+      ],
+      "source_fingerprint": "f3263bffcba8ed8c6c6364fc5d4da5f77287be6fc837b5d0a837c49737f48966"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\SupplierPayments\\SupplierPaymentResource",
+      "slug": "supplier-payment",
+      "article_en": "/screens/accounting/supplier-payment",
+      "article_ar": "/ar/screens/accounting/supplier-payment",
+      "pages": [
+        "index",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-supplier-payment-index",
+        "accounting-supplier-payment-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupplierPayments/Pages/EditSupplierPayment.php",
+        "app/Filament/Resources/SupplierPayments/Pages/ManageSupplierPayments.php",
+        "app/Filament/Resources/SupplierPayments/SupplierPaymentResource.php"
+      ],
+      "source_fingerprint": "cd9a1d98153fb290a4d968d295d4581e3852b856c43a7d7ec4fed5cc17f4f047"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\Expenses\\ExpenseResource",
+      "slug": "expense",
+      "article_en": "/screens/accounting/expense",
+      "article_ar": "/ar/screens/accounting/expense",
+      "pages": [
+        "index",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-expense-index",
+        "accounting-expense-view",
+        "accounting-expense-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Expenses/ExpenseResource.php",
+        "app/Filament/Resources/Expenses/Pages/EditExpense.php",
+        "app/Filament/Resources/Expenses/Pages/ManageExpenses.php",
+        "app/Filament/Resources/Expenses/Pages/ViewExpense.php",
+        "app/Filament/Resources/Expenses/Schemas/ExpenseInfolist.php",
+        "app/Filament/Resources/Expenses/Tables/ExpensesTable.php"
+      ],
+      "source_fingerprint": "e8484df014a623de6ec799c2b4790a3e6e17554cc788ef5e6cb457033c079747"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\Refunds\\RefundResource",
+      "slug": "refund",
+      "article_en": "/screens/accounting/refund",
+      "article_ar": "/ar/screens/accounting/refund",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "accounting-refund-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Refunds/Pages/ManageRefunds.php",
+        "app/Filament/Resources/Refunds/RefundResource.php"
+      ],
+      "source_fingerprint": "96c1e6261c1e5bc00f7e7aa4113bc24d2e307430b17760c8ae181756e1ec6992"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\Taxes\\TaxResource",
+      "slug": "tax",
+      "article_en": "/screens/accounting/tax",
+      "article_ar": "/ar/screens/accounting/tax",
+      "pages": [
+        "index",
+        "register"
+      ],
+      "screenshot_ids": [
+        "accounting-tax-index",
+        "accounting-tax-register"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Taxes/Pages/ListTaxes.php",
+        "app/Filament/Resources/Taxes/Pages/ViewTaxRegister.php",
+        "app/Filament/Resources/Taxes/TaxResource.php"
+      ],
+      "source_fingerprint": "74c71694bcdc7af76ec73a2716955c4b2737a9f6a2ddc5847e910206bb8575a2"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\FinancialReports\\FinancialReportResource",
+      "slug": "financial-report",
+      "article_en": "/screens/accounting/financial-report",
+      "article_ar": "/ar/screens/accounting/financial-report",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "accounting-financial-report-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/FinancialReports/FinancialReportResource.php",
+        "app/Filament/Resources/FinancialReports/Pages/ViewFinancialReports.php"
+      ],
+      "source_fingerprint": "89b44065189bed1548e28a9397ff714a3aad1c4bc0b66ea7ec97775b1e865f14"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\Currencies\\CurrencyResource",
+      "slug": "currency",
+      "article_en": "/screens/accounting/currency",
+      "article_ar": "/ar/screens/accounting/currency",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "accounting-currency-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Currencies/CurrencyResource.php",
+        "app/Filament/Resources/Currencies/Pages/ManageCurrencies.php"
+      ],
+      "source_fingerprint": "282b6998186a5c1aaccae7f90aa01eec822538b43d82323e7e8b2c1c10966a88"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\PaymentTerms\\PaymentTermResource",
+      "slug": "payment-term",
+      "article_en": "/screens/accounting/payment-term",
+      "article_ar": "/ar/screens/accounting/payment-term",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-payment-term-index",
+        "accounting-payment-term-create",
+        "accounting-payment-term-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PaymentTerms/Pages/CreatePaymentTerm.php",
+        "app/Filament/Resources/PaymentTerms/Pages/EditPaymentTerm.php",
+        "app/Filament/Resources/PaymentTerms/Pages/ListPaymentTerms.php",
+        "app/Filament/Resources/PaymentTerms/PaymentTermResource.php",
+        "app/Filament/Resources/PaymentTerms/Schemas/PaymentTermForm.php",
+        "app/Filament/Resources/PaymentTerms/Tables/PaymentTermsTable.php"
+      ],
+      "source_fingerprint": "05a52a92f067c8d6ae27bf94869a90b67480efa07632e3205e8f6cb0d5dac9ab"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\PaymentMethods\\PaymentMethodResource",
+      "slug": "payment-method",
+      "article_en": "/screens/accounting/payment-method",
+      "article_ar": "/ar/screens/accounting/payment-method",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "accounting-payment-method-index",
+        "accounting-payment-method-create",
+        "accounting-payment-method-view",
+        "accounting-payment-method-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PaymentMethods/Pages/CreatePaymentMethod.php",
+        "app/Filament/Resources/PaymentMethods/Pages/EditPaymentMethod.php",
+        "app/Filament/Resources/PaymentMethods/Pages/ListPaymentMethods.php",
+        "app/Filament/Resources/PaymentMethods/Pages/ViewPaymentMethod.php",
+        "app/Filament/Resources/PaymentMethods/PaymentMethodResource.php",
+        "app/Filament/Resources/PaymentMethods/Schemas/PaymentMethodForm.php",
+        "app/Filament/Resources/PaymentMethods/Schemas/PaymentMethodInfolist.php",
+        "app/Filament/Resources/PaymentMethods/Tables/PaymentMethodsTable.php"
+      ],
+      "source_fingerprint": "1eef96ec4db27cd8be7a6b10d3c3995b66a760356f55030306054385bdad6225"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\SalesSettings\\SalesSettingResource",
+      "slug": "sales-setting",
+      "article_en": "/screens/accounting/sales-setting",
+      "article_ar": "/ar/screens/accounting/sales-setting",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "accounting-sales-setting-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SalesSettings/Pages/ManageSalesSettings.php",
+        "app/Filament/Resources/SalesSettings/SalesSettingResource.php"
+      ],
+      "source_fingerprint": "6155ff92fb6d91267348a5f824c0652ffd3ee8df79758b2085f1bb2fdd567294"
+    },
+    {
+      "module": "accounting",
+      "class": "App\\Filament\\Resources\\ReceivableWriteOffs\\ReceivableWriteOffResource",
+      "slug": "receivable-write-off",
+      "article_en": "/screens/accounting/receivable-write-off",
+      "article_ar": "/ar/screens/accounting/receivable-write-off",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "accounting-receivable-write-off-index",
+        "accounting-receivable-write-off-create",
+        "accounting-receivable-write-off-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/ReceivableWriteOffs/Actions/ReceivableWriteOffActions.php",
+        "app/Filament/Resources/ReceivableWriteOffs/Pages/CreateReceivableWriteOff.php",
+        "app/Filament/Resources/ReceivableWriteOffs/Pages/ListReceivableWriteOffs.php",
+        "app/Filament/Resources/ReceivableWriteOffs/Pages/ViewReceivableWriteOff.php",
+        "app/Filament/Resources/ReceivableWriteOffs/ReceivableWriteOffResource.php",
+        "app/Filament/Resources/ReceivableWriteOffs/Schemas/ReceivableWriteOffForm.php",
+        "app/Filament/Resources/ReceivableWriteOffs/Schemas/ReceivableWriteOffInfolist.php",
+        "app/Filament/Resources/ReceivableWriteOffs/Tables/ReceivableWriteOffsTable.php"
+      ],
+      "source_fingerprint": "349920b448f00bd6c7cb58f3ecd69ee42538e799fb44a60e5e1b6ca092989001"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Pages\\InventoryDashboard",
+      "slug": "dashboard",
+      "article_en": "/screens/inventory/dashboard",
+      "article_ar": "/ar/screens/inventory/dashboard",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "inventory-dashboard-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/InventoryDashboard.php"
+      ],
+      "source_fingerprint": "3092d7227b2d066652163c9aeaabc8387b9a3e2f7cc284f2904008613707ab06"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\StockLevels\\StockLevelResource",
+      "slug": "stock-level",
+      "article_en": "/screens/inventory/stock-level",
+      "article_ar": "/ar/screens/inventory/stock-level",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-stock-level-index",
+        "inventory-stock-level-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/StockLevels/Actions/StockDamageActions.php",
+        "app/Filament/Resources/StockLevels/Pages/ListStockLevels.php",
+        "app/Filament/Resources/StockLevels/Pages/ViewStockLevel.php",
+        "app/Filament/Resources/StockLevels/Schemas/StockLevelInfolist.php",
+        "app/Filament/Resources/StockLevels/StockLevelResource.php",
+        "app/Filament/Resources/StockLevels/Tables/StockLevelsTable.php"
+      ],
+      "source_fingerprint": "c280244bba473889a00c048d2a2f5e4bdf78f2767a49754b0ca30fb888cb3ab4"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\Products\\ProductResource",
+      "slug": "product",
+      "article_en": "/screens/inventory/product",
+      "article_ar": "/ar/screens/inventory/product",
+      "pages": [
+        "index",
+        "view",
+        "edit",
+        "variants",
+        "vendors",
+        "quantities",
+        "movements"
+      ],
+      "screenshot_ids": [
+        "inventory-product-index",
+        "inventory-product-view",
+        "inventory-product-edit",
+        "inventory-product-variants",
+        "inventory-product-vendors",
+        "inventory-product-quantities",
+        "inventory-product-movements"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Products/Pages/EditProduct.php",
+        "app/Filament/Resources/Products/Pages/ManageProductMoveLines.php",
+        "app/Filament/Resources/Products/Pages/ManageProductQuantities.php",
+        "app/Filament/Resources/Products/Pages/ManageProducts.php",
+        "app/Filament/Resources/Products/Pages/ManageProductVariants.php",
+        "app/Filament/Resources/Products/Pages/ManageProductVendors.php",
+        "app/Filament/Resources/Products/Pages/ViewProduct.php",
+        "app/Filament/Resources/Products/ProductResource.php",
+        "app/Filament/Resources/Products/Schemas/ProductForm.php",
+        "app/Filament/Resources/Products/Schemas/ProductStockSummary.php",
+        "app/Filament/Resources/Products/Tables/ProductsTable.php"
+      ],
+      "source_fingerprint": "836eded63635cefa9f2a062f7c837ab64888fc0a758fbd27f43cbebec15d1b55"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryLots\\InventoryLotResource",
+      "slug": "inventory-lot",
+      "article_en": "/screens/inventory/inventory-lot",
+      "article_ar": "/ar/screens/inventory/inventory-lot",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-lot-index",
+        "inventory-inventory-lot-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryLots/InventoryLotResource.php",
+        "app/Filament/Resources/InventoryLots/Pages/ListInventoryLots.php",
+        "app/Filament/Resources/InventoryLots/Pages/ViewInventoryLot.php",
+        "app/Filament/Resources/InventoryLots/RelationManagers/LotBalancesRelationManager.php",
+        "app/Filament/Resources/InventoryLots/Schemas/InventoryLotInfolist.php",
+        "app/Filament/Resources/InventoryLots/Tables/InventoryLotsTable.php"
+      ],
+      "source_fingerprint": "a8559ac44492f3d6e01241b1a2a649280b2d364d174dd0a0ae6918287900c543"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\SerializedInventoryUnits\\SerializedInventoryUnitResource",
+      "slug": "serialized-inventory-unit",
+      "article_en": "/screens/inventory/serialized-inventory-unit",
+      "article_ar": "/ar/screens/inventory/serialized-inventory-unit",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-serialized-inventory-unit-index",
+        "inventory-serialized-inventory-unit-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SerializedInventoryUnits/Pages/ListSerializedInventoryUnits.php",
+        "app/Filament/Resources/SerializedInventoryUnits/Pages/ViewSerializedInventoryUnit.php",
+        "app/Filament/Resources/SerializedInventoryUnits/Schemas/SerializedInventoryUnitInfolist.php",
+        "app/Filament/Resources/SerializedInventoryUnits/SerializedInventoryUnitResource.php",
+        "app/Filament/Resources/SerializedInventoryUnits/Tables/SerializedInventoryUnitsTable.php"
+      ],
+      "source_fingerprint": "fa5179c672a520cd3f89caea34bd3e5af6560baba05642820099016892d0742c"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\StockMovements\\StockMovementResource",
+      "slug": "stock-movement",
+      "article_en": "/screens/inventory/stock-movement",
+      "article_ar": "/ar/screens/inventory/stock-movement",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-stock-movement-index",
+        "inventory-stock-movement-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/StockMovements/Pages/ListStockMovements.php",
+        "app/Filament/Resources/StockMovements/Pages/ViewStockMovement.php",
+        "app/Filament/Resources/StockMovements/Schemas/StockMovementInfolist.php",
+        "app/Filament/Resources/StockMovements/StockMovementResource.php",
+        "app/Filament/Resources/StockMovements/Tables/StockMovementsTable.php"
+      ],
+      "source_fingerprint": "436a2a33172c63e15d2fbb2bce3c3b18294c9b7fe1778a438fd331eda49827aa"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryImportRuns\\InventoryImportRunResource",
+      "slug": "inventory-import-run",
+      "article_en": "/screens/inventory/inventory-import-run",
+      "article_ar": "/ar/screens/inventory/inventory-import-run",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-import-run-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryImportRuns/InventoryImportRunResource.php",
+        "app/Filament/Resources/InventoryImportRuns/Pages/ManageInventoryImportRuns.php"
+      ],
+      "source_fingerprint": "8788eb1fa594c4c1cbdd4abf7bfefb2d42dbfdb384da40588135518861baa1c5"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryReports\\InventoryReportResource",
+      "slug": "inventory-report",
+      "article_en": "/screens/inventory/inventory-report",
+      "article_ar": "/ar/screens/inventory/inventory-report",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-report-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryReports/InventoryReportResource.php",
+        "app/Filament/Resources/InventoryReports/Pages/ManageInventoryReports.php",
+        "app/Filament/Resources/InventoryReports/Schemas/InventoryExportRequestSchema.php",
+        "app/Filament/Resources/InventoryReports/Tables/InventoryReportFilters.php",
+        "app/Filament/Resources/InventoryReports/Tables/InventoryReportsTable.php",
+        "app/Filament/Resources/InventoryReports/Widgets/InventoryQuarantineAgeing.php",
+        "app/Filament/Resources/InventoryReports/Widgets/ReconciliationStatus.php"
+      ],
+      "source_fingerprint": "4b94314ddd6b27edca2f5b2c26f35d68dfa3952cc211b1b8450d539f8674cffd"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\PurchaseInbounds\\PurchaseInboundResource",
+      "slug": "purchase-inbound",
+      "article_en": "/screens/inventory/purchase-inbound",
+      "article_ar": "/ar/screens/inventory/purchase-inbound",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-purchase-inbound-index",
+        "inventory-purchase-inbound-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PurchaseInbounds/Actions/PurchaseInboundActions.php",
+        "app/Filament/Resources/PurchaseInbounds/Actions/PurchaseInboundAllocationActions.php",
+        "app/Filament/Resources/PurchaseInbounds/Pages/ListPurchaseInbounds.php",
+        "app/Filament/Resources/PurchaseInbounds/Pages/ViewPurchaseInbound.php",
+        "app/Filament/Resources/PurchaseInbounds/PurchaseInboundResource.php",
+        "app/Filament/Resources/PurchaseInbounds/RelationManagers/PurchaseInboundLinesRelationManager.php",
+        "app/Filament/Resources/PurchaseInbounds/Schemas/PurchaseInboundInfolist.php",
+        "app/Filament/Resources/PurchaseInbounds/Tables/PurchaseInboundsTable.php"
+      ],
+      "source_fingerprint": "3aa8ee1cd1bd46c843707863c93ceeab0e4004c1da9711b6b1229d97e752a635"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryOperations\\InventoryOperationResource",
+      "slug": "inventory-operation",
+      "article_en": "/screens/inventory/inventory-operation",
+      "article_ar": "/ar/screens/inventory/inventory-operation",
+      "pages": [
+        "index",
+        "receipts",
+        "deliveries",
+        "transfers",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-operation-index",
+        "inventory-inventory-operation-receipts",
+        "inventory-inventory-operation-deliveries",
+        "inventory-inventory-operation-transfers",
+        "inventory-inventory-operation-create",
+        "inventory-inventory-operation-view",
+        "inventory-inventory-operation-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryOperations/Actions/InventoryOperationActions.php",
+        "app/Filament/Resources/InventoryOperations/InventoryOperationResource.php",
+        "app/Filament/Resources/InventoryOperations/Pages/CreateInventoryOperation.php",
+        "app/Filament/Resources/InventoryOperations/Pages/EditInventoryOperation.php",
+        "app/Filament/Resources/InventoryOperations/Pages/ListDeliveries.php",
+        "app/Filament/Resources/InventoryOperations/Pages/ListInternalTransfers.php",
+        "app/Filament/Resources/InventoryOperations/Pages/ListInventoryOperations.php",
+        "app/Filament/Resources/InventoryOperations/Pages/ListOperationsByType.php",
+        "app/Filament/Resources/InventoryOperations/Pages/ListReceipts.php",
+        "app/Filament/Resources/InventoryOperations/Pages/ViewInventoryOperation.php",
+        "app/Filament/Resources/InventoryOperations/Schemas/DeliveryRelatedDocuments.php",
+        "app/Filament/Resources/InventoryOperations/Schemas/InventoryOperationForm.php",
+        "app/Filament/Resources/InventoryOperations/Schemas/InventoryOperationInfolist.php",
+        "app/Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php",
+        "app/Filament/Resources/InventoryOperations/Schemas/OperationStageBar.php",
+        "app/Filament/Resources/InventoryOperations/Tables/InventoryOperationsTable.php"
+      ],
+      "source_fingerprint": "ce6d9b5a44c431bbe701a9cf871f1ef15f8492f5c22bf5524258c20cb1d9b337"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Pages\\BarcodeWorkbench",
+      "slug": "barcode-workbench",
+      "article_en": "/screens/inventory/barcode-workbench",
+      "article_ar": "/ar/screens/inventory/barcode-workbench",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "inventory-barcode-workbench-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/BarcodeWorkbench.php"
+      ],
+      "source_fingerprint": "7571910281f776f2917635b2ce6d40d8806a016499b37c17d864c4361504c27e"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\OutboundFulfillments\\OutboundFulfillmentResource",
+      "slug": "outbound-fulfillment",
+      "article_en": "/screens/inventory/outbound-fulfillment",
+      "article_ar": "/ar/screens/inventory/outbound-fulfillment",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-outbound-fulfillment-index",
+        "inventory-outbound-fulfillment-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/OutboundFulfillments/Actions/OutboundFulfillmentActions.php",
+        "app/Filament/Resources/OutboundFulfillments/OutboundFulfillmentResource.php",
+        "app/Filament/Resources/OutboundFulfillments/Pages/ListOutboundFulfillments.php",
+        "app/Filament/Resources/OutboundFulfillments/Pages/ViewOutboundFulfillment.php"
+      ],
+      "source_fingerprint": "11b28bdfce021128b03d99e540ebd1bfb0de13ce26dfd0f71456c7deba397901"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\Shipments\\ShipmentResource",
+      "slug": "shipment",
+      "article_en": "/screens/inventory/shipment",
+      "article_ar": "/ar/screens/inventory/shipment",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-shipment-index",
+        "inventory-shipment-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Shipments/Pages/ListShipments.php",
+        "app/Filament/Resources/Shipments/Pages/ViewShipment.php",
+        "app/Filament/Resources/Shipments/ShipmentResource.php",
+        "app/Filament/Resources/Shipments/Tables/ShipmentsTable.php"
+      ],
+      "source_fingerprint": "0624f8d54ca9cf9b3085be7eb8012fd051a9fd719f0d53890d863a18abb07414"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\Packages\\PackageResource",
+      "slug": "package",
+      "article_en": "/screens/inventory/package",
+      "article_ar": "/ar/screens/inventory/package",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "inventory-package-index",
+        "inventory-package-create",
+        "inventory-package-view",
+        "inventory-package-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Packages/PackageResource.php",
+        "app/Filament/Resources/Packages/Pages/CreatePackage.php",
+        "app/Filament/Resources/Packages/Pages/EditPackage.php",
+        "app/Filament/Resources/Packages/Pages/ListPackages.php",
+        "app/Filament/Resources/Packages/Pages/ViewPackage.php",
+        "app/Filament/Resources/Packages/Schemas/PackageForm.php",
+        "app/Filament/Resources/Packages/Schemas/PackageInfolist.php",
+        "app/Filament/Resources/Packages/Tables/PackagesTable.php"
+      ],
+      "source_fingerprint": "cea2ce83498adbb34d1534ca226d2b111dc6999e2979bcabdb1dc210a2debed6"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\Adjustments\\AdjustmentResource",
+      "slug": "adjustment",
+      "article_en": "/screens/inventory/adjustment",
+      "article_ar": "/ar/screens/inventory/adjustment",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "inventory-adjustment-index",
+        "inventory-adjustment-create",
+        "inventory-adjustment-view",
+        "inventory-adjustment-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Adjustments/Actions/AdjustmentActions.php",
+        "app/Filament/Resources/Adjustments/AdjustmentResource.php",
+        "app/Filament/Resources/Adjustments/Pages/CreateAdjustment.php",
+        "app/Filament/Resources/Adjustments/Pages/EditAdjustment.php",
+        "app/Filament/Resources/Adjustments/Pages/ListAdjustments.php",
+        "app/Filament/Resources/Adjustments/Pages/ViewAdjustment.php",
+        "app/Filament/Resources/Adjustments/RelationManagers/AdjustmentItemsRelationManager.php",
+        "app/Filament/Resources/Adjustments/Schemas/AdjustmentForm.php",
+        "app/Filament/Resources/Adjustments/Schemas/AdjustmentInfolist.php",
+        "app/Filament/Resources/Adjustments/Tables/AdjustmentsTable.php"
+      ],
+      "source_fingerprint": "082892c3388daf1eb12610229c078ba165aed90f069a38df2a54e9e735a5063f"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryCounts\\InventoryCountResource",
+      "slug": "inventory-count",
+      "article_en": "/screens/inventory/inventory-count",
+      "article_ar": "/ar/screens/inventory/inventory-count",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-count-index",
+        "inventory-inventory-count-create",
+        "inventory-inventory-count-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryCounts/InventoryCountResource.php",
+        "app/Filament/Resources/InventoryCounts/Pages/CreateInventoryCount.php",
+        "app/Filament/Resources/InventoryCounts/Pages/ListInventoryCounts.php",
+        "app/Filament/Resources/InventoryCounts/Pages/ViewInventoryCount.php",
+        "app/Filament/Resources/InventoryCounts/RelationManagers/InventoryCountLinesRelationManager.php",
+        "app/Filament/Resources/InventoryCounts/Schemas/InventoryCountInfolist.php",
+        "app/Filament/Resources/InventoryCounts/Tables/InventoryCountsTable.php"
+      ],
+      "source_fingerprint": "305f42517f7cc30961fd31b4eaf7106e158ff0253f13c00604e21544a5842a31"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\Returns\\ReturnResource",
+      "slug": "return",
+      "article_en": "/screens/inventory/return",
+      "article_ar": "/ar/screens/inventory/return",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-return-index",
+        "inventory-return-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Returns/Pages/ManageReturns.php",
+        "app/Filament/Resources/Returns/Pages/ViewReturn.php",
+        "app/Filament/Resources/Returns/RelationManagers/ReturnLinesRelationManager.php",
+        "app/Filament/Resources/Returns/ReturnResource.php"
+      ],
+      "source_fingerprint": "83dae25b181ed964ee07164d05b0c4dc64ddf3265fae73c21be6d6dc0c3e4ae4"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryCorrections\\InventoryCorrectionResource",
+      "slug": "inventory-correction",
+      "article_en": "/screens/inventory/inventory-correction",
+      "article_ar": "/ar/screens/inventory/inventory-correction",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-correction-index",
+        "inventory-inventory-correction-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryCorrections/InventoryCorrectionResource.php",
+        "app/Filament/Resources/InventoryCorrections/Pages/ManageInventoryCorrections.php",
+        "app/Filament/Resources/InventoryCorrections/Pages/ViewInventoryCorrection.php",
+        "app/Filament/Resources/InventoryCorrections/RelationManagers/CorrectionLinesRelationManager.php"
+      ],
+      "source_fingerprint": "c6fe772cd2d5c98278a63027b2f7b9170cee52e2e181efc70b8349597131a2b7"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryConditionChanges\\InventoryConditionChangeResource",
+      "slug": "inventory-condition-change",
+      "article_en": "/screens/inventory/inventory-condition-change",
+      "article_ar": "/ar/screens/inventory/inventory-condition-change",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-condition-change-index",
+        "inventory-inventory-condition-change-create",
+        "inventory-inventory-condition-change-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryConditionChanges/InventoryConditionChangeResource.php",
+        "app/Filament/Resources/InventoryConditionChanges/Pages/CreateInventoryConditionChange.php",
+        "app/Filament/Resources/InventoryConditionChanges/Pages/ListInventoryConditionChanges.php",
+        "app/Filament/Resources/InventoryConditionChanges/Pages/ViewInventoryConditionChange.php",
+        "app/Filament/Resources/InventoryConditionChanges/Widgets/DamagedStockQueue.php"
+      ],
+      "source_fingerprint": "0740d8da9db617c26300344171defcdd64d0bf202e67415ea005876f651f923a"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryReservations\\InventoryReservationResource",
+      "slug": "inventory-reservation",
+      "article_en": "/screens/inventory/inventory-reservation",
+      "article_ar": "/ar/screens/inventory/inventory-reservation",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-reservation-index",
+        "inventory-inventory-reservation-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryReservations/Actions/InventoryReservationActions.php",
+        "app/Filament/Resources/InventoryReservations/InventoryReservationResource.php",
+        "app/Filament/Resources/InventoryReservations/Pages/ListInventoryReservations.php",
+        "app/Filament/Resources/InventoryReservations/Pages/ViewInventoryReservation.php",
+        "app/Filament/Resources/InventoryReservations/Tables/InventoryReservationsTable.php"
+      ],
+      "source_fingerprint": "85d09b8f110a59d8ede817bb5558c1b5f5b940ef70ad8355a2c1d8973d3b8c2f"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventoryAlerts\\InventoryAlertResource",
+      "slug": "inventory-alert",
+      "article_en": "/screens/inventory/inventory-alert",
+      "article_ar": "/ar/screens/inventory/inventory-alert",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-alert-index",
+        "inventory-inventory-alert-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventoryAlerts/InventoryAlertResource.php",
+        "app/Filament/Resources/InventoryAlerts/Pages/ListInventoryAlerts.php",
+        "app/Filament/Resources/InventoryAlerts/Pages/ViewInventoryAlert.php",
+        "app/Filament/Resources/InventoryAlerts/Schemas/InventoryAlertInfolist.php",
+        "app/Filament/Resources/InventoryAlerts/Tables/InventoryAlertsTable.php"
+      ],
+      "source_fingerprint": "ab62aa2fe9b15ac94cfb495bd68973711d93fb520a67138ee897284985b4b5fc"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\WarehouseReplenishmentPolicies\\WarehouseReplenishmentPolicyResource",
+      "slug": "warehouse-replenishment-policy",
+      "article_en": "/screens/inventory/warehouse-replenishment-policy",
+      "article_ar": "/ar/screens/inventory/warehouse-replenishment-policy",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "inventory-warehouse-replenishment-policy-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/WarehouseReplenishmentPolicies/Pages/ManageWarehouseReplenishmentPolicies.php",
+        "app/Filament/Resources/WarehouseReplenishmentPolicies/Schemas/WarehouseReplenishmentPolicyForm.php",
+        "app/Filament/Resources/WarehouseReplenishmentPolicies/Tables/WarehouseReplenishmentPoliciesTable.php",
+        "app/Filament/Resources/WarehouseReplenishmentPolicies/WarehouseReplenishmentPolicyResource.php"
+      ],
+      "source_fingerprint": "a65d5eb1bcdaf8c185ccca54cd9f1b794b9ec4433f59b8a579edfe654ee7af78"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\Warehouses\\WarehouseResource",
+      "slug": "warehouse",
+      "article_en": "/screens/inventory/warehouse",
+      "article_ar": "/ar/screens/inventory/warehouse",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "inventory-warehouse-index",
+        "inventory-warehouse-create",
+        "inventory-warehouse-view",
+        "inventory-warehouse-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Warehouses/Pages/CreateWarehouse.php",
+        "app/Filament/Resources/Warehouses/Pages/EditWarehouse.php",
+        "app/Filament/Resources/Warehouses/Pages/ListWarehouses.php",
+        "app/Filament/Resources/Warehouses/Pages/ViewWarehouse.php",
+        "app/Filament/Resources/Warehouses/RelationManagers/StockLevelsRelationManager.php",
+        "app/Filament/Resources/Warehouses/Schemas/WarehouseForm.php",
+        "app/Filament/Resources/Warehouses/Schemas/WarehouseInfolist.php",
+        "app/Filament/Resources/Warehouses/Tables/WarehousesTable.php",
+        "app/Filament/Resources/Warehouses/WarehouseResource.php"
+      ],
+      "source_fingerprint": "adcafa4090842202d62accf77df273d12744d0c02d2a43df3a2b07e7f7c8e757"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Pages\\CatalogSetup",
+      "slug": "catalog-setup",
+      "article_en": "/screens/inventory/catalog-setup",
+      "article_ar": "/ar/screens/inventory/catalog-setup",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "inventory-catalog-setup-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/CatalogSetup.php"
+      ],
+      "source_fingerprint": "e78b6269570320191d20b68873a256dac5d5974aec0c223a1add723a24a4293a"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\PackageTypes\\PackageTypeResource",
+      "slug": "package-type",
+      "article_en": "/screens/inventory/package-type",
+      "article_ar": "/ar/screens/inventory/package-type",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "inventory-package-type-index",
+        "inventory-package-type-create",
+        "inventory-package-type-view",
+        "inventory-package-type-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PackageTypes/PackageTypeResource.php",
+        "app/Filament/Resources/PackageTypes/Pages/CreatePackageType.php",
+        "app/Filament/Resources/PackageTypes/Pages/EditPackageType.php",
+        "app/Filament/Resources/PackageTypes/Pages/ListPackageTypes.php",
+        "app/Filament/Resources/PackageTypes/Pages/ViewPackageType.php",
+        "app/Filament/Resources/PackageTypes/Schemas/PackageTypeForm.php",
+        "app/Filament/Resources/PackageTypes/Schemas/PackageTypeInfolist.php",
+        "app/Filament/Resources/PackageTypes/Tables/PackageTypesTable.php"
+      ],
+      "source_fingerprint": "887e82b733691444cfd66a889e6d56287f718c301cf097f286f25b0e762f7a97"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\InventorySettings\\InventorySettingResource",
+      "slug": "inventory-setting",
+      "article_en": "/screens/inventory/inventory-setting",
+      "article_ar": "/ar/screens/inventory/inventory-setting",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "inventory-inventory-setting-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/InventorySettings/InventorySettingResource.php",
+        "app/Filament/Resources/InventorySettings/Pages/ManageInventorySettings.php"
+      ],
+      "source_fingerprint": "738911c32fe24fada432409c61d93d4a5fb398beef0aaaf1454008e3e9cab2a9"
+    },
+    {
+      "module": "inventory",
+      "class": "App\\Filament\\Resources\\ProductVariants\\ProductVariantResource",
+      "slug": "product-variant",
+      "article_en": "/screens/inventory/product-variant",
+      "article_ar": "/ar/screens/inventory/product-variant",
+      "pages": [
+        "index",
+        "view",
+        "attributes"
+      ],
+      "screenshot_ids": [
+        "inventory-product-variant-index",
+        "inventory-product-variant-view",
+        "inventory-product-variant-attributes"
+      ],
+      "source_files": [
+        "app/Filament/Resources/ProductVariants/Pages/ManageProductVariantAttributeValues.php",
+        "app/Filament/Resources/ProductVariants/Pages/ManageProductVariants.php",
+        "app/Filament/Resources/ProductVariants/Pages/ViewProductVariant.php",
+        "app/Filament/Resources/ProductVariants/ProductVariantResource.php"
+      ],
+      "source_fingerprint": "4caa1ff580a38e4de0a691e3dbc96c50f9edcc7e0fbe323f74cafac124d73206"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Pages\\PurchasingDashboard",
+      "slug": "dashboard",
+      "article_en": "/screens/vendors/dashboard",
+      "article_ar": "/ar/screens/vendors/dashboard",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "vendors-dashboard-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/PurchasingDashboard.php"
+      ],
+      "source_fingerprint": "b4abe65a9b334112190f083a7699a9b790a4147d5a73b41b4008ec83921f4409"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Pages\\PurchaseNeeds",
+      "slug": "purchase-needs",
+      "article_en": "/screens/vendors/purchase-needs",
+      "article_ar": "/ar/screens/vendors/purchase-needs",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "vendors-purchase-needs-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/PurchaseNeeds.php"
+      ],
+      "source_fingerprint": "83675c8f31fd86dacafd4ca338a204275f56956ef1a8706be339cc31daf6e0bc"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\PurchaseRfqs\\PurchaseRfqResource",
+      "slug": "purchase-rfq",
+      "article_en": "/screens/vendors/purchase-rfq",
+      "article_ar": "/ar/screens/vendors/purchase-rfq",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "vendors-purchase-rfq-index",
+        "vendors-purchase-rfq-create",
+        "vendors-purchase-rfq-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PurchaseRfqs/Actions/PurchaseRfqActions.php",
+        "app/Filament/Resources/PurchaseRfqs/Pages/CreatePurchaseRfq.php",
+        "app/Filament/Resources/PurchaseRfqs/Pages/ListPurchaseRfqs.php",
+        "app/Filament/Resources/PurchaseRfqs/Pages/ViewPurchaseRfq.php",
+        "app/Filament/Resources/PurchaseRfqs/PurchaseRfqResource.php",
+        "app/Filament/Resources/PurchaseRfqs/Tables/PurchaseRfqsTable.php"
+      ],
+      "source_fingerprint": "fd8ce556bc95d6f7575cc0658db7ad5c495af1df4596e0aab10de0bcf9ea3922"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\PurchaseAgreements\\PurchaseAgreementResource",
+      "slug": "purchase-agreement",
+      "article_en": "/screens/vendors/purchase-agreement",
+      "article_ar": "/ar/screens/vendors/purchase-agreement",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "vendors-purchase-agreement-index",
+        "vendors-purchase-agreement-create",
+        "vendors-purchase-agreement-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PurchaseAgreements/Pages/CreatePurchaseAgreement.php",
+        "app/Filament/Resources/PurchaseAgreements/Pages/ListPurchaseAgreements.php",
+        "app/Filament/Resources/PurchaseAgreements/Pages/ViewPurchaseAgreement.php",
+        "app/Filament/Resources/PurchaseAgreements/PurchaseAgreementResource.php"
+      ],
+      "source_fingerprint": "686caae59053bb3a436364ecbb16f630edb04701647d1aabfa67709c7dd6f684"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\PurchaseOrders\\PurchaseOrderResource",
+      "slug": "purchase-order",
+      "article_en": "/screens/vendors/purchase-order",
+      "article_ar": "/ar/screens/vendors/purchase-order",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "vendors-purchase-order-index",
+        "vendors-purchase-order-create",
+        "vendors-purchase-order-view",
+        "vendors-purchase-order-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PurchaseOrders/Actions/PurchaseOrderActions.php",
+        "app/Filament/Resources/PurchaseOrders/Pages/CreatePurchaseOrder.php",
+        "app/Filament/Resources/PurchaseOrders/Pages/EditPurchaseOrder.php",
+        "app/Filament/Resources/PurchaseOrders/Pages/ListPurchaseOrders.php",
+        "app/Filament/Resources/PurchaseOrders/Pages/ViewPurchaseOrder.php",
+        "app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php",
+        "app/Filament/Resources/PurchaseOrders/RelationManagers/AllocationsRelationManager.php",
+        "app/Filament/Resources/PurchaseOrders/RelationManagers/ConfirmationsRelationManager.php",
+        "app/Filament/Resources/PurchaseOrders/RelationManagers/LinesRelationManager.php",
+        "app/Filament/Resources/PurchaseOrders/RelationManagers/ReceiptsRelationManager.php",
+        "app/Filament/Resources/PurchaseOrders/Schemas/PurchaseOrderForm.php",
+        "app/Filament/Resources/PurchaseOrders/Schemas/PurchaseOrderInfolist.php",
+        "app/Filament/Resources/PurchaseOrders/Tables/PurchaseOrdersTable.php"
+      ],
+      "source_fingerprint": "b787587b637c38895e2acfb251aec68ec1175ece636353dfe710e341043336e4"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\Suppliers\\SupplierResource",
+      "slug": "supplier",
+      "article_en": "/screens/vendors/supplier",
+      "article_ar": "/ar/screens/vendors/supplier",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "vendors-supplier-index",
+        "vendors-supplier-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Suppliers/Pages/ManageSuppliers.php",
+        "app/Filament/Resources/Suppliers/Pages/ViewSupplier.php",
+        "app/Filament/Resources/Suppliers/Schemas/SupplierInfolist.php",
+        "app/Filament/Resources/Suppliers/SupplierResource.php",
+        "app/Filament/Resources/Suppliers/Tables/SuppliersTable.php"
+      ],
+      "source_fingerprint": "d82dc77932517e864a13e8e1fa11c7e3bf928f0f74bf1044a4cb93e9922de09c"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\SupplierProductReferences\\SupplierProductReferenceResource",
+      "slug": "supplier-product-reference",
+      "article_en": "/screens/vendors/supplier-product-reference",
+      "article_ar": "/ar/screens/vendors/supplier-product-reference",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "vendors-supplier-product-reference-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupplierProductReferences/Pages/ManageSupplierProductReferences.php",
+        "app/Filament/Resources/SupplierProductReferences/SupplierProductReferenceResource.php"
+      ],
+      "source_fingerprint": "0179f68dcc7738a04b37cace2ccfae6b6f454d42ecf35fedc51f5a4da04b5db3"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\SupplierProductSupports\\SupplierProductSupportResource",
+      "slug": "supplier-product-support",
+      "article_en": "/screens/vendors/supplier-product-support",
+      "article_ar": "/ar/screens/vendors/supplier-product-support",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "vendors-supplier-product-support-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupplierProductSupports/Pages/ManageSupplierProductSupports.php",
+        "app/Filament/Resources/SupplierProductSupports/SupplierProductSupportResource.php"
+      ],
+      "source_fingerprint": "43da75f45d34e6596ad827ad384196637296282059f7b1071698d2f6e0dd1bdd"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\PurchasingReports\\PurchasingReportResource",
+      "slug": "purchasing-report",
+      "article_en": "/screens/vendors/purchasing-report",
+      "article_ar": "/ar/screens/vendors/purchasing-report",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "vendors-purchasing-report-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PurchasingReports/Pages/ListPurchasingReports.php",
+        "app/Filament/Resources/PurchasingReports/PurchasingReportResource.php"
+      ],
+      "source_fingerprint": "c52903f9a6eac5e3ade17cd3a4aaa0bcc3dbbdead1dc660b46e2a0b77804fa70"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\PurchaseSettings\\PurchaseSettingResource",
+      "slug": "purchase-setting",
+      "article_en": "/screens/vendors/purchase-setting",
+      "article_ar": "/ar/screens/vendors/purchase-setting",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "vendors-purchase-setting-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PurchaseSettings/Pages/ManagePurchaseSettings.php",
+        "app/Filament/Resources/PurchaseSettings/PurchaseSettingResource.php"
+      ],
+      "source_fingerprint": "a2ce2c02115f4ca7b4bfbc5f29c286c1065735314e62f4f5e88362e42d659108"
+    },
+    {
+      "module": "vendors",
+      "class": "App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource",
+      "slug": "supplier-confirmation",
+      "article_en": "/screens/vendors/supplier-confirmation",
+      "article_ar": "/ar/screens/vendors/supplier-confirmation",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "vendors-supplier-confirmation-index",
+        "vendors-supplier-confirmation-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupplierConfirmations/Actions/SupplierConfirmationActions.php",
+        "app/Filament/Resources/SupplierConfirmations/Pages/ManageSupplierConfirmations.php",
+        "app/Filament/Resources/SupplierConfirmations/Pages/ViewSupplierConfirmation.php",
+        "app/Filament/Resources/SupplierConfirmations/Schemas/SupplierConfirmationInfolist.php",
+        "app/Filament/Resources/SupplierConfirmations/SupplierConfirmationResource.php"
+      ],
+      "source_fingerprint": "f82023e04537906a54790b35f5423d20d12bd6927771fd581df3df20148985ec"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Pages\\CrmDashboard",
+      "slug": "dashboard",
+      "article_en": "/screens/crm/dashboard",
+      "article_ar": "/ar/screens/crm/dashboard",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "crm-dashboard-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/CrmDashboard.php"
+      ],
+      "source_fingerprint": "f35028dfab281aaf14543fb3fdb2c0ecc92875d6c40d86d48837027f1e7b3632"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\Customers\\CustomerResource",
+      "slug": "customer",
+      "article_en": "/screens/crm/customer",
+      "article_ar": "/ar/screens/crm/customer",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit",
+        "timeline"
+      ],
+      "screenshot_ids": [
+        "crm-customer-index",
+        "crm-customer-create",
+        "crm-customer-view",
+        "crm-customer-edit",
+        "crm-customer-timeline"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Customers/Actions/CustomerApprovalActions.php",
+        "app/Filament/Resources/Customers/CustomerResource.php",
+        "app/Filament/Resources/Customers/Pages/CreateCustomer.php",
+        "app/Filament/Resources/Customers/Pages/CustomerTimeline.php",
+        "app/Filament/Resources/Customers/Pages/EditCustomer.php",
+        "app/Filament/Resources/Customers/Pages/ListCustomers.php",
+        "app/Filament/Resources/Customers/Pages/ViewCustomer.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerInteractionsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerInvoicesRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerMaintenanceRecordsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerOrdersRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerOwnedEquipmentRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerPaymentsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerPaymentTransactionsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerProfileChangeRequestsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerQuotationRequestsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerQuotationsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerReturnRequestsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerTicketsRelationManager.php",
+        "app/Filament/Resources/Customers/RelationManagers/CustomerVisitsRelationManager.php",
+        "app/Filament/Resources/Customers/Schemas/CustomerForm.php",
+        "app/Filament/Resources/Customers/Schemas/CustomerInfolist.php",
+        "app/Filament/Resources/Customers/Tables/CustomersTable.php"
+      ],
+      "source_fingerprint": "29441e38472067041f1c39226b9d008f145774029444765e305e7bfc727652e9"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\CustomerQuotationRequests\\CustomerQuotationRequestResource",
+      "slug": "customer-quotation-request",
+      "article_en": "/screens/crm/customer-quotation-request",
+      "article_ar": "/ar/screens/crm/customer-quotation-request",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "crm-customer-quotation-request-index",
+        "crm-customer-quotation-request-create",
+        "crm-customer-quotation-request-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/CustomerQuotationRequests/Actions/CustomerQuotationRequestActions.php",
+        "app/Filament/Resources/CustomerQuotationRequests/CustomerQuotationRequestResource.php",
+        "app/Filament/Resources/CustomerQuotationRequests/Pages/CreateCustomerQuotationRequest.php",
+        "app/Filament/Resources/CustomerQuotationRequests/Pages/ListCustomerQuotationRequests.php",
+        "app/Filament/Resources/CustomerQuotationRequests/Pages/ViewCustomerQuotationRequest.php",
+        "app/Filament/Resources/CustomerQuotationRequests/Schemas/CustomerQuotationRequestForm.php",
+        "app/Filament/Resources/CustomerQuotationRequests/Schemas/CustomerQuotationRequestInfolist.php",
+        "app/Filament/Resources/CustomerQuotationRequests/Tables/CustomerQuotationRequestsTable.php"
+      ],
+      "source_fingerprint": "1bee53c60058d88e1dcccc595674ecdce78cef0b175aef96e26a4035f2e5f318"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\CustomerReturnRequests\\CustomerReturnRequestResource",
+      "slug": "customer-return-request",
+      "article_en": "/screens/crm/customer-return-request",
+      "article_ar": "/ar/screens/crm/customer-return-request",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "crm-customer-return-request-index",
+        "crm-customer-return-request-create",
+        "crm-customer-return-request-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/CustomerReturnRequests/Actions/CustomerReturnRequestActions.php",
+        "app/Filament/Resources/CustomerReturnRequests/CustomerReturnRequestResource.php",
+        "app/Filament/Resources/CustomerReturnRequests/Pages/CreateCustomerReturnRequest.php",
+        "app/Filament/Resources/CustomerReturnRequests/Pages/ListCustomerReturnRequests.php",
+        "app/Filament/Resources/CustomerReturnRequests/Pages/ViewCustomerReturnRequest.php",
+        "app/Filament/Resources/CustomerReturnRequests/Schemas/CustomerReturnRequestForm.php",
+        "app/Filament/Resources/CustomerReturnRequests/Schemas/CustomerReturnRequestInfolist.php",
+        "app/Filament/Resources/CustomerReturnRequests/Tables/CustomerReturnRequestsTable.php"
+      ],
+      "source_fingerprint": "dc121451c4a65ae7a417f83104c2ea1da7606313dc656e99396ca029b4f89a3f"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\Leads\\LeadResource",
+      "slug": "lead",
+      "article_en": "/screens/crm/lead",
+      "article_ar": "/ar/screens/crm/lead",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "crm-lead-index",
+        "crm-lead-create",
+        "crm-lead-view",
+        "crm-lead-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Leads/Actions/LeadActions.php",
+        "app/Filament/Resources/Leads/LeadResource.php",
+        "app/Filament/Resources/Leads/Pages/CreateLead.php",
+        "app/Filament/Resources/Leads/Pages/EditLead.php",
+        "app/Filament/Resources/Leads/Pages/ListLeads.php",
+        "app/Filament/Resources/Leads/Pages/ViewLead.php",
+        "app/Filament/Resources/Leads/RelationManagers/LeadInteractionsRelationManager.php",
+        "app/Filament/Resources/Leads/RelationManagers/LeadStageHistoryRelationManager.php",
+        "app/Filament/Resources/Leads/Schemas/LeadForm.php",
+        "app/Filament/Resources/Leads/Schemas/LeadInfolist.php",
+        "app/Filament/Resources/Leads/Tables/LeadsTable.php"
+      ],
+      "source_fingerprint": "f1e3981ea488fb3d9593606065e622321edfa5c2563eb5b6d76686338c7a7e7c"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\SalesOpportunities\\SalesOpportunityResource",
+      "slug": "sales-opportunity",
+      "article_en": "/screens/crm/sales-opportunity",
+      "article_ar": "/ar/screens/crm/sales-opportunity",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "crm-sales-opportunity-index",
+        "crm-sales-opportunity-create",
+        "crm-sales-opportunity-view",
+        "crm-sales-opportunity-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SalesOpportunities/Pages/CreateSalesOpportunity.php",
+        "app/Filament/Resources/SalesOpportunities/Pages/EditSalesOpportunity.php",
+        "app/Filament/Resources/SalesOpportunities/Pages/ListSalesOpportunities.php",
+        "app/Filament/Resources/SalesOpportunities/Pages/ViewSalesOpportunity.php",
+        "app/Filament/Resources/SalesOpportunities/RelationManagers/StageHistoryRelationManager.php",
+        "app/Filament/Resources/SalesOpportunities/SalesOpportunityResource.php",
+        "app/Filament/Resources/SalesOpportunities/Schemas/SalesOpportunityForm.php",
+        "app/Filament/Resources/SalesOpportunities/Schemas/SalesOpportunityInfolist.php",
+        "app/Filament/Resources/SalesOpportunities/Tables/SalesOpportunitiesTable.php"
+      ],
+      "source_fingerprint": "a25797f8bdf217875b134dfefc0c8bf36056cfd25c8f03c3e3d324e69b3aa3e0"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\Interactions\\InteractionResource",
+      "slug": "interaction",
+      "article_en": "/screens/crm/interaction",
+      "article_ar": "/ar/screens/crm/interaction",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "crm-interaction-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Interactions/InteractionResource.php",
+        "app/Filament/Resources/Interactions/Pages/ListInteractions.php"
+      ],
+      "source_fingerprint": "31afd8aa7bb963ca2f1cb1b407ef63c750b3319071f287b1ac9a6903c0cc9bfa"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\Campaigns\\CampaignResource",
+      "slug": "campaign",
+      "article_en": "/screens/crm/campaign",
+      "article_ar": "/ar/screens/crm/campaign",
+      "pages": [
+        "index",
+        "create",
+        "view"
+      ],
+      "screenshot_ids": [
+        "crm-campaign-index",
+        "crm-campaign-create",
+        "crm-campaign-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Campaigns/Actions/CampaignActions.php",
+        "app/Filament/Resources/Campaigns/CampaignResource.php",
+        "app/Filament/Resources/Campaigns/Pages/CreateCampaign.php",
+        "app/Filament/Resources/Campaigns/Pages/ListCampaigns.php",
+        "app/Filament/Resources/Campaigns/Pages/ViewCampaign.php",
+        "app/Filament/Resources/Campaigns/RelationManagers/CampaignRecipientsRelationManager.php",
+        "app/Filament/Resources/Campaigns/Schemas/CampaignForm.php",
+        "app/Filament/Resources/Campaigns/Schemas/CampaignInfolist.php",
+        "app/Filament/Resources/Campaigns/Tables/CampaignsTable.php"
+      ],
+      "source_fingerprint": "007e5692f2f8952d410cc00ae7ac083ed522b43e49bf552ba3b0134db3588793"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\CrmReports\\CrmReportResource",
+      "slug": "crm-report",
+      "article_en": "/screens/crm/crm-report",
+      "article_ar": "/ar/screens/crm/crm-report",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "crm-crm-report-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/CrmReports/CrmReportResource.php",
+        "app/Filament/Resources/CrmReports/Pages/ViewCrmReports.php"
+      ],
+      "source_fingerprint": "0ceba5eb169d728a5fe615f7dd9135efd92a6a536d2eb5384262aaf2be48a3b5"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\PricingTiers\\PricingTierResource",
+      "slug": "pricing-tier",
+      "article_en": "/screens/crm/pricing-tier",
+      "article_ar": "/ar/screens/crm/pricing-tier",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "crm-pricing-tier-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PricingTiers/Pages/ManagePricingTiers.php",
+        "app/Filament/Resources/PricingTiers/PricingTierResource.php"
+      ],
+      "source_fingerprint": "ac4668cf741a7cce47a1da29d3c13775d1ccf84fc042ce1e377fa4085cfb7db0"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\PriceHistories\\PriceHistoryResource",
+      "slug": "price-history",
+      "article_en": "/screens/crm/price-history",
+      "article_ar": "/ar/screens/crm/price-history",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "crm-price-history-index",
+        "crm-price-history-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PriceHistories/Pages/ListPriceHistories.php",
+        "app/Filament/Resources/PriceHistories/Pages/ViewPriceHistory.php",
+        "app/Filament/Resources/PriceHistories/PriceHistoryResource.php",
+        "app/Filament/Resources/PriceHistories/Schemas/PriceHistoryInfolist.php",
+        "app/Filament/Resources/PriceHistories/Tables/PriceHistoriesTable.php"
+      ],
+      "source_fingerprint": "513f7d42b7cfff35c777cbec6396b4863b0953cdc2ec88eb3938b274401f0ac5"
+    },
+    {
+      "module": "crm",
+      "class": "App\\Filament\\Resources\\PriceFloorOverrides\\PriceFloorOverrideResource",
+      "slug": "price-floor-override",
+      "article_en": "/screens/crm/price-floor-override",
+      "article_ar": "/ar/screens/crm/price-floor-override",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "crm-price-floor-override-index",
+        "crm-price-floor-override-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/PriceFloorOverrides/Pages/ListPriceFloorOverrides.php",
+        "app/Filament/Resources/PriceFloorOverrides/Pages/ViewPriceFloorOverride.php",
+        "app/Filament/Resources/PriceFloorOverrides/PriceFloorOverrideResource.php",
+        "app/Filament/Resources/PriceFloorOverrides/Schemas/PriceFloorOverrideInfolist.php",
+        "app/Filament/Resources/PriceFloorOverrides/Tables/PriceFloorOverridesTable.php"
+      ],
+      "source_fingerprint": "9ec3c818cf9e159e3c0b4859368cce2d980d1877116cca381cb62a7bbf6b52cd"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Pages\\EmployeesDashboard",
+      "slug": "dashboard",
+      "article_en": "/screens/employees/dashboard",
+      "article_ar": "/ar/screens/employees/dashboard",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "employees-dashboard-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/EmployeesDashboard.php"
+      ],
+      "source_fingerprint": "75c050111d1872ae3ee13a7ce9a9b668d72af64d2d67310f2bff89c853a9d442"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Resources\\Employees\\EmployeeResource",
+      "slug": "employee",
+      "article_en": "/screens/employees/employee",
+      "article_ar": "/ar/screens/employees/employee",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "employees-employee-index",
+        "employees-employee-create",
+        "employees-employee-view",
+        "employees-employee-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Employees/EmployeeResource.php",
+        "app/Filament/Resources/Employees/Pages/CreateEmployee.php",
+        "app/Filament/Resources/Employees/Pages/EditEmployee.php",
+        "app/Filament/Resources/Employees/Pages/ListEmployees.php",
+        "app/Filament/Resources/Employees/Pages/ViewEmployee.php",
+        "app/Filament/Resources/Employees/Schemas/EmployeeForm.php",
+        "app/Filament/Resources/Employees/Schemas/EmployeeInfolist.php",
+        "app/Filament/Resources/Employees/Tables/EmployeesTable.php"
+      ],
+      "source_fingerprint": "c553872d5ba82a85d4e2cf900d7a4c7b3d0056c6ff1a710c75e6ee7be037dd16"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Resources\\MonthlyPlans\\MonthlyPlanResource",
+      "slug": "monthly-plan",
+      "article_en": "/screens/employees/monthly-plan",
+      "article_ar": "/ar/screens/employees/monthly-plan",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "employees-monthly-plan-index",
+        "employees-monthly-plan-create",
+        "employees-monthly-plan-view",
+        "employees-monthly-plan-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/MonthlyPlans/Actions/MonthlyPlanLifecycleActions.php",
+        "app/Filament/Resources/MonthlyPlans/MonthlyPlanResource.php",
+        "app/Filament/Resources/MonthlyPlans/Pages/CreateMonthlyPlan.php",
+        "app/Filament/Resources/MonthlyPlans/Pages/EditMonthlyPlan.php",
+        "app/Filament/Resources/MonthlyPlans/Pages/ListMonthlyPlans.php",
+        "app/Filament/Resources/MonthlyPlans/Pages/ViewMonthlyPlan.php",
+        "app/Filament/Resources/MonthlyPlans/RelationManagers/TasksRelationManager.php",
+        "app/Filament/Resources/MonthlyPlans/RelationManagers/VisitsRelationManager.php",
+        "app/Filament/Resources/MonthlyPlans/Schemas/MonthlyPlanForm.php",
+        "app/Filament/Resources/MonthlyPlans/Schemas/MonthlyPlanInfolist.php",
+        "app/Filament/Resources/MonthlyPlans/Schemas/PerformanceProgressBar.php",
+        "app/Filament/Resources/MonthlyPlans/Schemas/SalesPlanStageBar.php",
+        "app/Filament/Resources/MonthlyPlans/Tables/MonthlyPlansTable.php"
+      ],
+      "source_fingerprint": "c05a53422ecc2f8caac071d5d6af1b0e0661d9f547b5001738e90d5348077764"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Resources\\Tasks\\TaskResource",
+      "slug": "task",
+      "article_en": "/screens/employees/task",
+      "article_ar": "/ar/screens/employees/task",
+      "pages": [
+        "index",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "employees-task-index",
+        "employees-task-view",
+        "employees-task-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Tasks/Pages/EditTask.php",
+        "app/Filament/Resources/Tasks/Pages/ListTasks.php",
+        "app/Filament/Resources/Tasks/Pages/ViewTask.php",
+        "app/Filament/Resources/Tasks/Schemas/TaskForm.php",
+        "app/Filament/Resources/Tasks/Tables/TasksTable.php",
+        "app/Filament/Resources/Tasks/TaskResource.php"
+      ],
+      "source_fingerprint": "67b69d0afa4be93d8a33f862cf52bbf7196ac81fe70af76c691c53e864eb608a"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Resources\\Visits\\VisitResource",
+      "slug": "visit",
+      "article_en": "/screens/employees/visit",
+      "article_ar": "/ar/screens/employees/visit",
+      "pages": [
+        "index",
+        "create",
+        "calendar",
+        "view"
+      ],
+      "screenshot_ids": [
+        "employees-visit-index",
+        "employees-visit-create",
+        "employees-visit-calendar",
+        "employees-visit-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Visits/Actions/VisitManagementActions.php",
+        "app/Filament/Resources/Visits/Pages/CreateVisit.php",
+        "app/Filament/Resources/Visits/Pages/ListVisits.php",
+        "app/Filament/Resources/Visits/Pages/ViewVisit.php",
+        "app/Filament/Resources/Visits/Pages/VisitsCalendar.php",
+        "app/Filament/Resources/Visits/Schemas/VisitInfolist.php",
+        "app/Filament/Resources/Visits/Schemas/VisitScheduleForm.php",
+        "app/Filament/Resources/Visits/Tables/VisitsTable.php",
+        "app/Filament/Resources/Visits/VisitResource.php"
+      ],
+      "source_fingerprint": "92f37534dbdb626a04388f83e57fbecf342f25e4658818e9c9e0afe46ffefed0"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Resources\\Performance\\PerformanceResource",
+      "slug": "performance",
+      "article_en": "/screens/employees/performance",
+      "article_ar": "/ar/screens/employees/performance",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "employees-performance-index",
+        "employees-performance-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Performance/Pages/ListPerformanceScores.php",
+        "app/Filament/Resources/Performance/Pages/ViewPerformanceScore.php",
+        "app/Filament/Resources/Performance/PerformanceResource.php",
+        "app/Filament/Resources/Performance/Schemas/PerformanceInfolist.php",
+        "app/Filament/Resources/Performance/Tables/PerformanceTable.php"
+      ],
+      "source_fingerprint": "ba0cdb600fe1e53a86effcb547841422a83e530efc1b6fe0d4c73a456ba0ec1a"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Resources\\SalaryCalculations\\SalaryCalculationResource",
+      "slug": "salary-calculation",
+      "article_en": "/screens/employees/salary-calculation",
+      "article_ar": "/ar/screens/employees/salary-calculation",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "employees-salary-calculation-index",
+        "employees-salary-calculation-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SalaryCalculations/Pages/ListSalaryCalculations.php",
+        "app/Filament/Resources/SalaryCalculations/Pages/ViewSalaryCalculation.php",
+        "app/Filament/Resources/SalaryCalculations/RelationManagers/BonusSuggestionsRelationManager.php",
+        "app/Filament/Resources/SalaryCalculations/SalaryCalculationResource.php",
+        "app/Filament/Resources/SalaryCalculations/Schemas/SalaryCalculationInfolist.php",
+        "app/Filament/Resources/SalaryCalculations/Tables/SalaryCalculationsTable.php"
+      ],
+      "source_fingerprint": "fdad033746643bad06a2e1c9a4fc3fcea66be8572217773173c3b4c32b60774b"
+    },
+    {
+      "module": "employees",
+      "class": "App\\Filament\\Resources\\EmployeeReports\\EmployeeReportResource",
+      "slug": "employee-report",
+      "article_en": "/screens/employees/employee-report",
+      "article_ar": "/ar/screens/employees/employee-report",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "employees-employee-report-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/EmployeeReports/EmployeeReportResource.php",
+        "app/Filament/Resources/EmployeeReports/Pages/ManageEmployeeReports.php",
+        "app/Filament/Resources/EmployeeReports/Schemas/EmployeeReportExportRequestSchema.php",
+        "app/Filament/Resources/EmployeeReports/Tables/EmployeeReportFilters.php",
+        "app/Filament/Resources/EmployeeReports/Tables/EmployeeReportsTable.php"
+      ],
+      "source_fingerprint": "f80812a2bd51fd7832e23f7882a194ee19f71000c74babb7af9981bd9907e7f6"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Pages\\SupportDashboard",
+      "slug": "dashboard",
+      "article_en": "/screens/support/dashboard",
+      "article_ar": "/ar/screens/support/dashboard",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "support-dashboard-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/SupportDashboard.php"
+      ],
+      "source_fingerprint": "a635ec3bec5aa3b889bd7adf47c56b377872f533de3a95121f4e37ec76eb7d84"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\Tickets\\TicketResource",
+      "slug": "ticket",
+      "article_en": "/screens/support/ticket",
+      "article_ar": "/ar/screens/support/ticket",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-ticket-index",
+        "support-ticket-create",
+        "support-ticket-view",
+        "support-ticket-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/Tickets/Actions/TriageTicketAction.php",
+        "app/Filament/Resources/Tickets/Pages/CreateTicket.php",
+        "app/Filament/Resources/Tickets/Pages/EditTicket.php",
+        "app/Filament/Resources/Tickets/Pages/ListTickets.php",
+        "app/Filament/Resources/Tickets/Pages/ViewTicket.php",
+        "app/Filament/Resources/Tickets/RelationManagers/AssignmentsRelationManager.php",
+        "app/Filament/Resources/Tickets/RelationManagers/MaintenanceRecordsRelationManager.php",
+        "app/Filament/Resources/Tickets/RelationManagers/MessagesRelationManager.php",
+        "app/Filament/Resources/Tickets/RelationManagers/ProductContextsRelationManager.php",
+        "app/Filament/Resources/Tickets/Schemas/TicketForm.php",
+        "app/Filament/Resources/Tickets/Schemas/TicketInfolist.php",
+        "app/Filament/Resources/Tickets/Tables/TicketsTable.php",
+        "app/Filament/Resources/Tickets/TicketResource.php"
+      ],
+      "source_fingerprint": "e0596d7e27a48a81ce31f6be4ec45474f62badf0a4166a7dffc8fff6865115ea"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\MaintenanceRequests\\MaintenanceRequestResource",
+      "slug": "maintenance-request",
+      "article_en": "/screens/support/maintenance-request",
+      "article_ar": "/ar/screens/support/maintenance-request",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-maintenance-request-index",
+        "support-maintenance-request-create",
+        "support-maintenance-request-view",
+        "support-maintenance-request-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/MaintenanceRequests/Actions/MaintenanceBillingActions.php",
+        "app/Filament/Resources/MaintenanceRequests/Actions/MaintenanceTransitionActions.php",
+        "app/Filament/Resources/MaintenanceRequests/Actions/WarrantyClaimActions.php",
+        "app/Filament/Resources/MaintenanceRequests/Actions/WarrantyRecoveryActions.php",
+        "app/Filament/Resources/MaintenanceRequests/MaintenanceRequestResource.php",
+        "app/Filament/Resources/MaintenanceRequests/Pages/CreateMaintenanceRequest.php",
+        "app/Filament/Resources/MaintenanceRequests/Pages/EditMaintenanceRequest.php",
+        "app/Filament/Resources/MaintenanceRequests/Pages/ListMaintenanceRequests.php",
+        "app/Filament/Resources/MaintenanceRequests/Pages/ViewMaintenanceRequest.php",
+        "app/Filament/Resources/MaintenanceRequests/RelationManagers/CalibrationRelationManager.php",
+        "app/Filament/Resources/MaintenanceRequests/RelationManagers/ExternalRepairRelationManager.php",
+        "app/Filament/Resources/MaintenanceRequests/RelationManagers/InstallationRelationManager.php",
+        "app/Filament/Resources/MaintenanceRequests/RelationManagers/LabourEntriesRelationManager.php",
+        "app/Filament/Resources/MaintenanceRequests/RelationManagers/LoanRelationManager.php",
+        "app/Filament/Resources/MaintenanceRequests/RelationManagers/ServiceRecordsRelationManager.php",
+        "app/Filament/Resources/MaintenanceRequests/RelationManagers/ThirdPartyCostsRelationManager.php",
+        "app/Filament/Resources/MaintenanceRequests/Schemas/MaintenanceRequestForm.php",
+        "app/Filament/Resources/MaintenanceRequests/Schemas/MaintenanceRequestInfolist.php",
+        "app/Filament/Resources/MaintenanceRequests/Tables/MaintenanceRequestsTable.php"
+      ],
+      "source_fingerprint": "b0ca3e59c00925e07c4f74d5eaa04d1254b369817c1017622f6ad29db1cbdeab"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\ServiceRecords\\ServiceRecordResource",
+      "slug": "service-record",
+      "article_en": "/screens/support/service-record",
+      "article_ar": "/ar/screens/support/service-record",
+      "pages": [
+        "index",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-service-record-index",
+        "support-service-record-view",
+        "support-service-record-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/ServiceRecords/Pages/EditServiceRecord.php",
+        "app/Filament/Resources/ServiceRecords/Pages/ListServiceRecords.php",
+        "app/Filament/Resources/ServiceRecords/Pages/ViewServiceRecord.php",
+        "app/Filament/Resources/ServiceRecords/RelationManagers/ConsumedPartsRelationManager.php",
+        "app/Filament/Resources/ServiceRecords/Schemas/ServiceRecordForm.php",
+        "app/Filament/Resources/ServiceRecords/Schemas/ServiceRecordInfolist.php",
+        "app/Filament/Resources/ServiceRecords/ServiceRecordResource.php",
+        "app/Filament/Resources/ServiceRecords/Tables/ServiceRecordsTable.php"
+      ],
+      "source_fingerprint": "7f88d31cca736bc490a2bfb4623ec6a6b848f654f957d5540529e1703d28fb57"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\MaintenanceSchedules\\MaintenanceScheduleResource",
+      "slug": "maintenance-schedule",
+      "article_en": "/screens/support/maintenance-schedule",
+      "article_ar": "/ar/screens/support/maintenance-schedule",
+      "pages": [
+        "index",
+        "create",
+        "calendar",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-maintenance-schedule-index",
+        "support-maintenance-schedule-create",
+        "support-maintenance-schedule-calendar",
+        "support-maintenance-schedule-view",
+        "support-maintenance-schedule-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/MaintenanceSchedules/Actions/MaintenanceScheduleActions.php",
+        "app/Filament/Resources/MaintenanceSchedules/MaintenanceScheduleResource.php",
+        "app/Filament/Resources/MaintenanceSchedules/Pages/CreateMaintenanceSchedule.php",
+        "app/Filament/Resources/MaintenanceSchedules/Pages/EditMaintenanceSchedule.php",
+        "app/Filament/Resources/MaintenanceSchedules/Pages/ListMaintenanceSchedules.php",
+        "app/Filament/Resources/MaintenanceSchedules/Pages/MaintenanceCalendar.php",
+        "app/Filament/Resources/MaintenanceSchedules/Pages/ViewMaintenanceSchedule.php",
+        "app/Filament/Resources/MaintenanceSchedules/RelationManagers/OccurrencesRelationManager.php",
+        "app/Filament/Resources/MaintenanceSchedules/Schemas/MaintenanceScheduleForm.php",
+        "app/Filament/Resources/MaintenanceSchedules/Schemas/MaintenanceScheduleInfolist.php",
+        "app/Filament/Resources/MaintenanceSchedules/Tables/MaintenanceSchedulesTable.php"
+      ],
+      "source_fingerprint": "9c6fd98a354af13ad8d38dbe4f4877ca7e5b84ef491a73f9cc4139846e242a72"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\ServiceAppointments\\ServiceAppointmentResource",
+      "slug": "service-appointment",
+      "article_en": "/screens/support/service-appointment",
+      "article_ar": "/ar/screens/support/service-appointment",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "support-service-appointment-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/ServiceAppointments/Pages/ListServiceAppointments.php",
+        "app/Filament/Resources/ServiceAppointments/ServiceAppointmentResource.php",
+        "app/Filament/Resources/ServiceAppointments/Tables/ServiceAppointmentsTable.php"
+      ],
+      "source_fingerprint": "f13f5e07d94df07b01a3d108fd73ee0ee2b326cb4485f80dbad1e91068069d1c"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportEquipment\\SupportEquipmentResource",
+      "slug": "support-equipment",
+      "article_en": "/screens/support/support-equipment",
+      "article_ar": "/ar/screens/support/support-equipment",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "support-support-equipment-index",
+        "support-support-equipment-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportEquipment/Pages/ListSupportEquipment.php",
+        "app/Filament/Resources/SupportEquipment/Pages/ViewSupportEquipment.php",
+        "app/Filament/Resources/SupportEquipment/SupportEquipmentResource.php",
+        "app/Filament/Resources/SupportEquipment/Tables/SupportEquipmentTable.php"
+      ],
+      "source_fingerprint": "82a28559141b5869a0323f056ca35beaab47f3957c9756e55591a90e43874b43"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportReports\\SupportReportResource",
+      "slug": "support-report",
+      "article_en": "/screens/support/support-report",
+      "article_ar": "/ar/screens/support/support-report",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "support-support-report-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportReports/Pages/ViewSupportReports.php",
+        "app/Filament/Resources/SupportReports/SupportReportResource.php"
+      ],
+      "source_fingerprint": "dee761df358e334c9ce8480cdd598e23b1d003cff8879232d421a65dad30ae04"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SlaPolicies\\SlaPolicyResource",
+      "slug": "sla-policy",
+      "article_en": "/screens/support/sla-policy",
+      "article_ar": "/ar/screens/support/sla-policy",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-sla-policy-index",
+        "support-sla-policy-create",
+        "support-sla-policy-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SlaPolicies/Pages/CreateSlaPolicy.php",
+        "app/Filament/Resources/SlaPolicies/Pages/EditSlaPolicy.php",
+        "app/Filament/Resources/SlaPolicies/Pages/ListSlaPolicies.php",
+        "app/Filament/Resources/SlaPolicies/Schemas/SlaPolicyForm.php",
+        "app/Filament/Resources/SlaPolicies/SlaPolicyResource.php",
+        "app/Filament/Resources/SlaPolicies/Tables/SlaPoliciesTable.php"
+      ],
+      "source_fingerprint": "071bdc7699ee02cca2ca6c762675fe8eba3ef4acc8bc0b7cebcd50e28b5789a0"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SlaCalendars\\SlaCalendarResource",
+      "slug": "sla-calendar",
+      "article_en": "/screens/support/sla-calendar",
+      "article_ar": "/ar/screens/support/sla-calendar",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-sla-calendar-index",
+        "support-sla-calendar-create",
+        "support-sla-calendar-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SlaCalendars/Pages/CreateSlaCalendar.php",
+        "app/Filament/Resources/SlaCalendars/Pages/EditSlaCalendar.php",
+        "app/Filament/Resources/SlaCalendars/Pages/ListSlaCalendars.php",
+        "app/Filament/Resources/SlaCalendars/Schemas/SlaCalendarForm.php",
+        "app/Filament/Resources/SlaCalendars/SlaCalendarResource.php",
+        "app/Filament/Resources/SlaCalendars/Tables/SlaCalendarsTable.php"
+      ],
+      "source_fingerprint": "fccdb0fae1535fe2f96e0dd8015abe556c3536a3a1d38645042fbbb4153ae7e6"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportServiceLevels\\SupportServiceLevelResource",
+      "slug": "support-service-level",
+      "article_en": "/screens/support/support-service-level",
+      "article_ar": "/ar/screens/support/support-service-level",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-support-service-level-index",
+        "support-support-service-level-create",
+        "support-support-service-level-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportServiceLevels/Pages/CreateSupportServiceLevel.php",
+        "app/Filament/Resources/SupportServiceLevels/Pages/EditSupportServiceLevel.php",
+        "app/Filament/Resources/SupportServiceLevels/Pages/ListSupportServiceLevels.php",
+        "app/Filament/Resources/SupportServiceLevels/Schemas/SupportServiceLevelForm.php",
+        "app/Filament/Resources/SupportServiceLevels/SupportServiceLevelResource.php",
+        "app/Filament/Resources/SupportServiceLevels/Tables/SupportServiceLevelsTable.php"
+      ],
+      "source_fingerprint": "e57f5d34cc4a866810541991b32ef3e1296d8ce6eb9b78c76809d6f2b269e6ed"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportEntitlements\\SupportEntitlementResource",
+      "slug": "support-entitlement",
+      "article_en": "/screens/support/support-entitlement",
+      "article_ar": "/ar/screens/support/support-entitlement",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-support-entitlement-index",
+        "support-support-entitlement-create",
+        "support-support-entitlement-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportEntitlements/Pages/CreateSupportEntitlement.php",
+        "app/Filament/Resources/SupportEntitlements/Pages/EditSupportEntitlement.php",
+        "app/Filament/Resources/SupportEntitlements/Pages/ListSupportEntitlements.php",
+        "app/Filament/Resources/SupportEntitlements/Schemas/SupportEntitlementForm.php",
+        "app/Filament/Resources/SupportEntitlements/SupportEntitlementResource.php",
+        "app/Filament/Resources/SupportEntitlements/Tables/SupportEntitlementsTable.php"
+      ],
+      "source_fingerprint": "e973526401eb1a765d76b35b1b2e9a0ab0850ec730fa10dc246e1529e9309f30"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\WarrantyPolicies\\WarrantyPolicyResource",
+      "slug": "warranty-policy",
+      "article_en": "/screens/support/warranty-policy",
+      "article_ar": "/ar/screens/support/warranty-policy",
+      "pages": [
+        "index",
+        "create",
+        "view",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-warranty-policy-index",
+        "support-warranty-policy-create",
+        "support-warranty-policy-view",
+        "support-warranty-policy-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/WarrantyPolicies/Pages/CreateWarrantyPolicy.php",
+        "app/Filament/Resources/WarrantyPolicies/Pages/EditWarrantyPolicy.php",
+        "app/Filament/Resources/WarrantyPolicies/Pages/ListWarrantyPolicies.php",
+        "app/Filament/Resources/WarrantyPolicies/Pages/ViewWarrantyPolicy.php",
+        "app/Filament/Resources/WarrantyPolicies/Schemas/WarrantyPolicyForm.php",
+        "app/Filament/Resources/WarrantyPolicies/Schemas/WarrantyPolicyInfolist.php",
+        "app/Filament/Resources/WarrantyPolicies/Tables/WarrantyPoliciesTable.php",
+        "app/Filament/Resources/WarrantyPolicies/WarrantyPolicyResource.php"
+      ],
+      "source_fingerprint": "e3dfb44e7866646c4092b7bcec8b378b3a570d055098957cb00207e0911d2230"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportTeams\\SupportTeamResource",
+      "slug": "support-team",
+      "article_en": "/screens/support/support-team",
+      "article_ar": "/ar/screens/support/support-team",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-support-team-index",
+        "support-support-team-create",
+        "support-support-team-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportTeams/Pages/CreateSupportTeam.php",
+        "app/Filament/Resources/SupportTeams/Pages/EditSupportTeam.php",
+        "app/Filament/Resources/SupportTeams/Pages/ListSupportTeams.php",
+        "app/Filament/Resources/SupportTeams/RelationManagers/MembersRelationManager.php",
+        "app/Filament/Resources/SupportTeams/Schemas/SupportTeamForm.php",
+        "app/Filament/Resources/SupportTeams/SupportTeamResource.php",
+        "app/Filament/Resources/SupportTeams/Tables/SupportTeamsTable.php"
+      ],
+      "source_fingerprint": "fa41dc3748d1917629d1f13d7a62f338e9542321c73f3e3b666f46f6788e855f"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportSkills\\SupportSkillResource",
+      "slug": "support-skill",
+      "article_en": "/screens/support/support-skill",
+      "article_ar": "/ar/screens/support/support-skill",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-support-skill-index",
+        "support-support-skill-create",
+        "support-support-skill-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportSkills/Pages/CreateSupportSkill.php",
+        "app/Filament/Resources/SupportSkills/Pages/EditSupportSkill.php",
+        "app/Filament/Resources/SupportSkills/Pages/ListSupportSkills.php",
+        "app/Filament/Resources/SupportSkills/Schemas/SupportSkillForm.php",
+        "app/Filament/Resources/SupportSkills/SupportSkillResource.php",
+        "app/Filament/Resources/SupportSkills/Tables/SupportSkillsTable.php"
+      ],
+      "source_fingerprint": "2caf129ccaf18993cc317146fb5ad5b0d3059778fc438ceb2c7939c095b24de3"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportQueues\\SupportQueueResource",
+      "slug": "support-queue",
+      "article_en": "/screens/support/support-queue",
+      "article_ar": "/ar/screens/support/support-queue",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-support-queue-index",
+        "support-support-queue-create",
+        "support-support-queue-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportQueues/Pages/CreateSupportQueue.php",
+        "app/Filament/Resources/SupportQueues/Pages/EditSupportQueue.php",
+        "app/Filament/Resources/SupportQueues/Pages/ListSupportQueues.php",
+        "app/Filament/Resources/SupportQueues/Schemas/SupportQueueForm.php",
+        "app/Filament/Resources/SupportQueues/SupportQueueResource.php",
+        "app/Filament/Resources/SupportQueues/Tables/SupportQueuesTable.php"
+      ],
+      "source_fingerprint": "92b73ac933f9bd40370c2e890a0432736b0f0a6a28eca094c2e66fb1f12812bd"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportRoutingRules\\SupportRoutingRuleResource",
+      "slug": "support-routing-rule",
+      "article_en": "/screens/support/support-routing-rule",
+      "article_ar": "/ar/screens/support/support-routing-rule",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-support-routing-rule-index",
+        "support-support-routing-rule-create",
+        "support-support-routing-rule-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportRoutingRules/Pages/CreateSupportRoutingRule.php",
+        "app/Filament/Resources/SupportRoutingRules/Pages/EditSupportRoutingRule.php",
+        "app/Filament/Resources/SupportRoutingRules/Pages/ListSupportRoutingRules.php",
+        "app/Filament/Resources/SupportRoutingRules/Schemas/SupportRoutingRuleForm.php",
+        "app/Filament/Resources/SupportRoutingRules/SupportRoutingRuleResource.php",
+        "app/Filament/Resources/SupportRoutingRules/Tables/SupportRoutingRulesTable.php"
+      ],
+      "source_fingerprint": "54e40d90794d9b9bb86fe5aef12bdf255c13a3d4ac52f3d5e1dec65f6121c327"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\SupportAutomationRules\\SupportAutomationRuleResource",
+      "slug": "support-automation-rule",
+      "article_en": "/screens/support/support-automation-rule",
+      "article_ar": "/ar/screens/support/support-automation-rule",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-support-automation-rule-index",
+        "support-support-automation-rule-create",
+        "support-support-automation-rule-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/SupportAutomationRules/Pages/CreateSupportAutomationRule.php",
+        "app/Filament/Resources/SupportAutomationRules/Pages/EditSupportAutomationRule.php",
+        "app/Filament/Resources/SupportAutomationRules/Pages/ListSupportAutomationRules.php",
+        "app/Filament/Resources/SupportAutomationRules/Schemas/SupportAutomationRuleForm.php",
+        "app/Filament/Resources/SupportAutomationRules/SupportAutomationRuleResource.php",
+        "app/Filament/Resources/SupportAutomationRules/Tables/SupportAutomationRulesTable.php"
+      ],
+      "source_fingerprint": "21646d5561fea54bd7a7951ce96c1db4af36e0a5b1cbf8abc532a5a05871e9d5"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\KnowledgeArticles\\KnowledgeArticleResource",
+      "slug": "knowledge-article",
+      "article_en": "/screens/support/knowledge-article",
+      "article_ar": "/ar/screens/support/knowledge-article",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-knowledge-article-index",
+        "support-knowledge-article-create",
+        "support-knowledge-article-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/KnowledgeArticles/KnowledgeArticleResource.php",
+        "app/Filament/Resources/KnowledgeArticles/Pages/CreateKnowledgeArticle.php",
+        "app/Filament/Resources/KnowledgeArticles/Pages/EditKnowledgeArticle.php",
+        "app/Filament/Resources/KnowledgeArticles/Pages/ListKnowledgeArticles.php",
+        "app/Filament/Resources/KnowledgeArticles/Schemas/KnowledgeArticleForm.php",
+        "app/Filament/Resources/KnowledgeArticles/Tables/KnowledgeArticlesTable.php"
+      ],
+      "source_fingerprint": "53ea85dffb316bb34e66332b038adb1290a624d80b884a3f45a79486450e2473"
+    },
+    {
+      "module": "support",
+      "class": "App\\Filament\\Resources\\KnowledgeArticleCategories\\KnowledgeArticleCategoryResource",
+      "slug": "knowledge-article-category",
+      "article_en": "/screens/support/knowledge-article-category",
+      "article_ar": "/ar/screens/support/knowledge-article-category",
+      "pages": [
+        "index",
+        "create",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "support-knowledge-article-category-index",
+        "support-knowledge-article-category-create",
+        "support-knowledge-article-category-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/KnowledgeArticleCategories/KnowledgeArticleCategoryResource.php",
+        "app/Filament/Resources/KnowledgeArticleCategories/Pages/CreateKnowledgeArticleCategory.php",
+        "app/Filament/Resources/KnowledgeArticleCategories/Pages/EditKnowledgeArticleCategory.php",
+        "app/Filament/Resources/KnowledgeArticleCategories/Pages/ListKnowledgeArticleCategories.php"
+      ],
+      "source_fingerprint": "3ef7526ea2f7d72de5a22a9c67021504a669437d2ba4782ffc231e269388e7b6"
+    },
+    {
+      "module": "reports",
+      "class": "App\\Filament\\Pages\\ReportsCenter",
+      "slug": "reports-center",
+      "article_en": "/screens/reports/reports-center",
+      "article_ar": "/ar/screens/reports/reports-center",
+      "pages": [
+        "overview"
+      ],
+      "screenshot_ids": [
+        "reports-reports-center-overview"
+      ],
+      "source_files": [
+        "app/Filament/Pages/ReportsCenter.php"
+      ],
+      "source_fingerprint": "c0c955a3599e5ffb1240838a61cd291b4767c6f93dfc00b8ccf0aba56bdb39a3"
+    },
+    {
+      "module": "reports",
+      "class": "App\\Filament\\Resources\\AuditLogs\\AuditLogResource",
+      "slug": "audit-log",
+      "article_en": "/screens/reports/audit-log",
+      "article_ar": "/ar/screens/reports/audit-log",
+      "pages": [
+        "index",
+        "view"
+      ],
+      "screenshot_ids": [
+        "reports-audit-log-index",
+        "reports-audit-log-view"
+      ],
+      "source_files": [
+        "app/Filament/Resources/AuditLogs/AuditLogResource.php",
+        "app/Filament/Resources/AuditLogs/Pages/ListAuditLogs.php",
+        "app/Filament/Resources/AuditLogs/Pages/ViewAuditLog.php",
+        "app/Filament/Resources/AuditLogs/Schemas/AuditLogInfolist.php",
+        "app/Filament/Resources/AuditLogs/Tables/AuditLogsTable.php"
+      ],
+      "source_fingerprint": "1200cfcef8659b0c5f3adf84273a92a2544f9a20d6e119805482396400d626d6"
+    },
+    {
+      "module": "system",
+      "class": "App\\Filament\\Resources\\DashboardUsers\\DashboardUserResource",
+      "slug": "dashboard-user",
+      "article_en": "/screens/system/dashboard-user",
+      "article_ar": "/ar/screens/system/dashboard-user",
+      "pages": [
+        "index",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "system-dashboard-user-index",
+        "system-dashboard-user-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/DashboardUsers/DashboardUserResource.php",
+        "app/Filament/Resources/DashboardUsers/Pages/EditDashboardUser.php",
+        "app/Filament/Resources/DashboardUsers/Pages/ListDashboardUsers.php",
+        "app/Filament/Resources/DashboardUsers/Schemas/DashboardUserRoleForm.php",
+        "app/Filament/Resources/DashboardUsers/Tables/DashboardUsersTable.php"
+      ],
+      "source_fingerprint": "0217cb3164269093bd297846c1afc47391e19c4b48d2e1d604c4f105c1cdaaff"
+    },
+    {
+      "module": "system",
+      "class": "App\\Filament\\Resources\\DocumentTemplates\\DocumentTemplateResource",
+      "slug": "document-template",
+      "article_en": "/screens/system/document-template",
+      "article_ar": "/ar/screens/system/document-template",
+      "pages": [
+        "index",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "system-document-template-index",
+        "system-document-template-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/DocumentTemplates/DocumentTemplateResource.php",
+        "app/Filament/Resources/DocumentTemplates/Pages/EditDocumentTemplate.php",
+        "app/Filament/Resources/DocumentTemplates/Pages/ListDocumentTemplates.php"
+      ],
+      "source_fingerprint": "5901a4c7cac35ff930098f53b68142ffa59c10aa83b42ca53666cdf8f1c5299c"
+    },
+    {
+      "module": "system",
+      "class": "App\\Filament\\Resources\\NotificationTemplates\\NotificationTemplateResource",
+      "slug": "notification-template",
+      "article_en": "/screens/system/notification-template",
+      "article_ar": "/ar/screens/system/notification-template",
+      "pages": [
+        "index",
+        "edit"
+      ],
+      "screenshot_ids": [
+        "system-notification-template-index",
+        "system-notification-template-edit"
+      ],
+      "source_files": [
+        "app/Filament/Resources/NotificationTemplates/NotificationTemplateResource.php",
+        "app/Filament/Resources/NotificationTemplates/Pages/Concerns/EditsNotificationMessages.php",
+        "app/Filament/Resources/NotificationTemplates/Pages/EditNotificationTemplate.php",
+        "app/Filament/Resources/NotificationTemplates/Pages/ListNotificationTemplates.php"
+      ],
+      "source_fingerprint": "f8718da70b6fad04ef5b56f0357b78af874cd280f1007bbb6a6862f0d46a4d56"
+    },
+    {
+      "module": "system",
+      "class": "App\\Filament\\Resources\\CustomFieldDefinitions\\CustomFieldDefinitionResource",
+      "slug": "custom-field-definition",
+      "article_en": "/screens/system/custom-field-definition",
+      "article_ar": "/ar/screens/system/custom-field-definition",
+      "pages": [
+        "index"
+      ],
+      "screenshot_ids": [
+        "system-custom-field-definition-index"
+      ],
+      "source_files": [
+        "app/Filament/Resources/CustomFieldDefinitions/CustomFieldDefinitionResource.php",
+        "app/Filament/Resources/CustomFieldDefinitions/Pages/ManageCustomFieldDefinitions.php"
+      ],
+      "source_fingerprint": "42f9754e4b65750508f2c9ba4d7018d68601af265bda2866faa98d3f2575ccc7"
+    }
+  ],
+  "rules": {
+    "every_manifest_class_has_bilingual_article": true,
+    "every_registered_resource_page_has_screenshot_placeholder": true,
+    "screenshots_embedded": true,
+    "screenshots_capture_status": "partial"
+  }
+}

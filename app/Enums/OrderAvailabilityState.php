@@ -20,16 +20,16 @@ enum OrderAvailabilityState: string
     public function label(): string
     {
         return match ($this) {
-            self::CommercialPending => 'Commercial approval pending',
-            self::InsufficientStock => 'Insufficient Stock',
-            self::AwaitingPurchase => 'Awaiting Purchase',
-            self::AwaitingSupplierConfirmation => 'Awaiting Supplier Confirmation',
-            self::PartiallyAvailable => 'Partially Available',
-            self::AvailableForAllocation => 'Available for Allocation',
-            self::ReadyForDelivery => 'Ready for Delivery',
-            self::InTransit => 'In Transit',
-            self::Fulfilled => 'Fulfilled',
-            self::Cancelled => 'Cancelled',
+            self::CommercialPending => __('Commercial approval pending'),
+            self::InsufficientStock => __('Insufficient Stock'),
+            self::AwaitingPurchase => __('Awaiting Purchase'),
+            self::AwaitingSupplierConfirmation => __('Awaiting Supplier Confirmation'),
+            self::PartiallyAvailable => __('Partially Available'),
+            self::AvailableForAllocation => __('Available for Allocation'),
+            self::ReadyForDelivery => __('Ready for Delivery'),
+            self::InTransit => __('In Transit'),
+            self::Fulfilled => __('Fulfilled'),
+            self::Cancelled => __('Cancelled'),
         };
     }
 

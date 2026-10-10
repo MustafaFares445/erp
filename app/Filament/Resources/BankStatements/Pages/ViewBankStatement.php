@@ -16,7 +16,7 @@ final class ViewBankStatement extends ViewRecord
     #[\Override]
     public function getTitle(): string
     {
-        return 'Bank Statement '.$this->statement()->statement_number;
+        return __('Bank statement').' '.$this->statement()->statement_number;
     }
 
     #[\Override]

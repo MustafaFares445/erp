@@ -14,6 +14,7 @@ use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\MaintenanceRecord;
 use App\Models\PaymentMethod;
 use App\Models\SerializedInventoryUnit;
@@ -54,7 +55,7 @@ final class TicketsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
@@ -64,8 +65,9 @@ final class TicketsTable
                     ->searchable(['ticket_number', 'title'])
                     ->sortable()
                     ->description(static fn (Ticket $record): string => str($record->title)->limit(44)->toString())
-                    ->tooltip(static fn (Ticket $record): string => $record->title),
-                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                    ->tooltip(static fn (Ticket $record): string => $record->title)
+                    ->wrap(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->wrap(),
                 TextColumn::make('type')->badge()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('priority')->badge()->color(static fn (TicketPriority $state): string => match ($state) {
                     TicketPriority::Urgent => 'danger',
@@ -86,7 +88,10 @@ final class TicketsTable
                 TextColumn::make('next_action')
                     ->label(__('Next action'))
                     ->getStateUsing(static fn (Ticket $record): string => app(TicketWorkspaceStateResolver::class)->resolve($record)->nextAction)
-                    ->wrap(),
+                    ->limit(52)
+                    ->tooltip(static fn (Ticket $record): string => app(TicketWorkspaceStateResolver::class)->resolve($record)->nextAction)
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => 'min-width: 9rem']),
                 TextColumn::make('equipment')->label(__('Equipment'))
                     ->getStateUsing(static function (Ticket $record): string {
                         $unit = $record->serializedInventoryUnit;
@@ -115,14 +120,16 @@ final class TicketsTable
                     ->color(static fn (Ticket $record): string => app(TicketWorkspaceStateResolver::class)->resolve($record)->blocker->color())
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->visible(static fn (): bool => (bool) config('support.workspace_v2_enabled', true)),
-                TextColumn::make('supportTeam.name')->label(__('Team'))->placeholder(__('Unrouted')),
-                TextColumn::make('assignedEmployee.user.name')->label(__('Assignee'))->placeholder(__('Unassigned')),
+                TextColumn::make('supportTeam.name')->label(__('Team'))->placeholder(__('Unrouted'))->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('assignedEmployee.user.name')->label(__('Assignee'))->placeholder(__('Unassigned'))->wrap(),
                 TextColumn::make('sla_state')
                     ->label(__('SLA'))
+                    ->wrapHeader()
                     ->badge()
                     ->getStateUsing(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->label($record))
-                    ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record)),
-                TextColumn::make('updated_at')->dateTime()->sortable(),
+                    ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record))
+                    ->extraCellAttributes(['class' => 'ierp-ta-wrap-badge']),
+                TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('resolution_due_at')->label(__('Resolution due'))->dateTime()->placeholder(__('—'))->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -167,9 +174,9 @@ final class TicketsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
                 ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
                     TriageTicketAction::make(),
                     Action::make('settlePayment')
                         ->label(__('Settle Payment'))

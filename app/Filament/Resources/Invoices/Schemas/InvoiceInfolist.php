@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Invoices\Schemas;
 
 use App\Enums\InvoiceFinancialStatus;
+use App\Enums\InvoiceNextStep;
 use App\Enums\InvoiceStatus;
 use App\Enums\ResolvedPriceSource;
 use App\Filament\Components\WorkflowStepper;
@@ -118,29 +119,29 @@ final class InvoiceInfolist
     private static function bannerMeta(Invoice $record): array
     {
         if ($record->status === InvoiceStatus::Cancelled) {
-            return ['status' => 'danger', 'heading' => 'Cancelled', 'description' => 'This invoice was cancelled and is no longer active.'];
+            return ['status' => 'danger', 'heading' => __('Cancelled'), 'description' => __('This invoice was cancelled and is no longer active.')];
         }
 
         if ($record->status === InvoiceStatus::WrittenOff) {
-            return ['status' => 'gray', 'heading' => 'Written off', 'description' => 'The remaining receivable was written off; no further collection is required.'];
+            return ['status' => 'gray', 'heading' => __('Written off'), 'description' => __('The remaining receivable was written off; no further collection is required.')];
         }
 
         if ($record->depositApplicationIssues()->whereNull('resolved_at')->exists()) {
             return [
                 'status' => 'warning',
-                'heading' => 'Reconciliation issue',
-                'description' => mb_trim('A previously collected customer deposit could not be applied automatically. The invoice remains valid. '.self::nextStepSentence($record)),
+                'heading' => __('Reconciliation issue'),
+                'description' => mb_trim(__('A previously collected customer deposit could not be applied automatically. The invoice remains valid.').' '.self::nextStepSentence($record)),
             ];
         }
 
         $outstanding = MoneyFormatter::format($record->outstandingMinor());
 
         [$status, $heading, $description] = match (app(InvoiceBalanceService::class)->financialStatus($record)) {
-            InvoiceFinancialStatus::NotPayableYet => ['gray', 'Draft invoice', 'This invoice has not been issued yet and is not financially active.'],
-            InvoiceFinancialStatus::Unpaid => ['warning', 'Payment pending', "{$outstanding} remains outstanding."],
-            InvoiceFinancialStatus::PartiallyPaid => ['warning', 'Partially paid', "{$outstanding} remains outstanding."],
-            InvoiceFinancialStatus::Overdue => ['danger', 'Overdue', "This invoice is past its due date with {$outstanding} still outstanding."],
-            InvoiceFinancialStatus::Paid, InvoiceFinancialStatus::Credited => ['success', 'Financially settled', 'No outstanding balance remains.'],
+            InvoiceFinancialStatus::NotPayableYet => ['gray', __('Draft invoice'), __('This invoice has not been issued yet and is not financially active.')],
+            InvoiceFinancialStatus::Unpaid => ['warning', __('Payment pending'), __(':amount remains outstanding.', ['amount' => $outstanding])],
+            InvoiceFinancialStatus::PartiallyPaid => ['warning', __('Partially paid'), __(':amount remains outstanding.', ['amount' => $outstanding])],
+            InvoiceFinancialStatus::Overdue => ['danger', __('Overdue'), __('This invoice is past its due date with :amount still outstanding.', ['amount' => $outstanding])],
+            InvoiceFinancialStatus::Paid, InvoiceFinancialStatus::Credited => ['success', __('Financially settled'), __('No outstanding balance remains.')],
         };
 
         return [
@@ -152,9 +153,9 @@ final class InvoiceInfolist
 
     private static function nextStepSentence(Invoice $record): string
     {
-        $label = app(InvoiceNextActionResolver::class)->resolve($record);
+        $resolver = app(InvoiceNextActionResolver::class);
 
-        return in_array($label, ['No action required', 'No collection required'], true) ? '' : "Next: {$label}.";
+        return $resolver->step($record) instanceof InvoiceNextStep ? __('Next: :action.', ['action' => $resolver->resolve($record)]) : '';
     }
 
     private static function productsSection(): Section

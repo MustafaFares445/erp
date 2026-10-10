@@ -24,14 +24,32 @@ final class CollaborationEntriesRelationManager extends RelationManager
     protected static string $relationship = 'collaborationEntries';
 
     #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Collaboration Entries');
+    }
+
+    #[\Override]
     public function table(Table $table): Table
     {
         return $table
+            ->modelLabel(__('collaboration entry'))
+            ->pluralModelLabel(__('collaboration entries'))
+            ->emptyStateHeading(__('No collaboration entries'))
             ->recordTitleAttribute('body')
             ->columns([
-                TextColumn::make('type')->badge()->sortable(),
+                TextColumn::make('type')
+                    ->label(__('Type'))
+                    ->formatStateUsing(static fn (string $state): string => __(match ($state) {
+                        'comment' => 'Comment',
+                        'note' => 'Internal note',
+                        'activity' => 'Activity',
+                        default => $state,
+                    }))
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('author.name')->label(__('Author')),
-                TextColumn::make('body')->wrap()->limit(120),
+                TextColumn::make('body')->label(__('Body'))->wrap()->limit(120),
                 TextColumn::make('assignee.name')->label(__('Assignee'))->placeholder('—'),
                 TextColumn::make('due_at')->dateTime()->sortable()->placeholder('—'),
                 IconColumn::make('completed_at')->label(__('Done'))->boolean(fn (?string $state): bool => filled($state)),
@@ -45,6 +63,7 @@ final class CollaborationEntriesRelationManager extends RelationManager
             ])
             ->recordActions([
                 Action::make('complete')
+                    ->label(__('Complete'))
                     ->icon('heroicon-o-check-circle')
                     ->visible(fn (CollaborationEntry $record): bool => $record->type === 'activity' && $record->completed_at === null)
                     ->action(fn (CollaborationEntry $record): CollaborationEntry => app(CollaborationService::class)->complete($this->actor(), $record)),

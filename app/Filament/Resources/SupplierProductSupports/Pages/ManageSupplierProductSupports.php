@@ -12,6 +12,13 @@ class ManageSupplierProductSupports extends ManageRecords
 {
     protected static string $resource = SupplierProductSupportResource::class;
 
+    /** The page carries the navigation name so the menu entry, heading and tab title agree. */
+    #[\Override]
+    public function getTitle(): string
+    {
+        return SupplierProductSupportResource::getNavigationLabel();
+    }
+
     #[\Override]
     protected function getHeaderActions(): array
     {

@@ -85,6 +85,19 @@ it('shows human-readable alert types', function (): void {
         ->and($column->formatState(InventoryAlertType::LowStock))->toBe('Low Stock');
 });
 
+// Release QA 2026-10-10: every severity badge rendered in the same blue, including Critical.
+it('colours alert severity and state badges by urgency', function (): void {
+    $table = Livewire::actingAs(alertViewer())->test(ListInventoryAlerts::class)->instance()->getTable();
+    $severity = $table->getColumn('severity');
+    $state = $table->getColumn('state');
+
+    expect($severity->getColor(InventoryAlertSeverity::Critical))->toBe('danger')
+        ->and($severity->getColor(InventoryAlertSeverity::Warning))->toBe('warning')
+        ->and($severity->getColor(InventoryAlertSeverity::Info))->toBe('info')
+        ->and($state->record(InventoryAlert::factory()->create())->getColor(null))->toBe('warning')
+        ->and($state->record(InventoryAlert::factory()->create(['resolved_at' => now()]))->getColor(null))->toBe('success');
+});
+
 it('keeps alerts read only and denies users without alert view', function (): void {
     $viewer = alertViewer();
     $alert = InventoryAlert::factory()->create();

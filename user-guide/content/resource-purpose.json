@@ -1,0 +1,446 @@
+{
+  "sales-dashboard": {
+    "en": "Use the Sales Dashboard to understand current selling activity, customer/salesperson performance, commercial queues and the records that need attention before opening detailed Sales pages.",
+    "ar": "استخدم لوحة المبيعات لفهم نشاط البيع الحالي وأداء العملاء وموظفي المبيعات وقوائم العمل التجارية قبل فتح صفحات المبيعات التفصيلية."
+  },
+  "quotation": {
+    "en": "Create, send, review and convert customer quotations while preserving pricing, validity and customer-decision history before demand becomes a Sales Order.",
+    "ar": "أنشئ عروض أسعار العملاء وأرسلها وراجع قراراتها وحوّل المقبول منها مع حفظ التسعير والصلاحية قبل أن تصبح طلب مبيعات."
+  },
+  "order": {
+    "en": "Manage confirmed customer demand, availability, procurement coverage and the release boundary into fulfillment.",
+    "ar": "أدر الطلب المؤكد للعميل والتوفر وتغطية التوريد وحد التحرير إلى التنفيذ."
+  },
+  "delivery-note": {
+    "en": "Review the commercial delivery document and delivery evidence produced from completed customer fulfillment.",
+    "ar": "راجع مستند التسليم التجاري وأدلة التسليم الناتجة عن تنفيذ طلب العميل."
+  },
+  "invoice": {
+    "en": "Create, issue and review customer invoices while keeping document lifecycle, receivable balance and payment settlement as separate controlled facts.",
+    "ar": "أنشئ فواتير العملاء وأصدرها وراجعها مع فصل دورة حياة المستند عن الذمة والتسوية المالية."
+  },
+  "payment": {
+    "en": "Record customer money, allocate it to eligible invoices or deposits, and post/reverse the controlled collection effect.",
+    "ar": "سجل أموال العميل وخصصها للفواتير أو العربون ثم رحّل أو اعكس أثر التحصيل بشكل مضبوط."
+  },
+  "payment-transaction": {
+    "en": "Inspect provider-facing or immutable payment transaction events and their current processing/refund state without rewriting payment history.",
+    "ar": "راجع أحداث معاملات الدفع المرتبطة بمزود الدفع وحالات المعالجة أو الاسترداد دون إعادة كتابة التاريخ."
+  },
+  "credit-note": {
+    "en": "Create controlled customer credits against invoiced value and preserve the reason, source invoice and any return provenance.",
+    "ar": "أنشئ إشعارات دائنة مضبوطة على قيمة مفوترة مع حفظ السبب والفاتورة المصدر وأي مصدر مرتجع."
+  },
+  "sales-report": {
+    "en": "Analyze Sales facts such as quotations, orders, invoicing and commercial performance without changing source transactions.",
+    "ar": "حلل حقائق المبيعات مثل العروض والطلبات والفوترة والأداء التجاري دون تعديل السجلات المصدرية."
+  },
+  "accounting-dashboard": {
+    "en": "Use the Accounting Dashboard to review ledger, receivable, payable and period-level financial signals before opening detailed accounting work.",
+    "ar": "استخدم لوحة المحاسبة لمراجعة مؤشرات الدفتر والذمم والفترات قبل فتح العمل المحاسبي التفصيلي."
+  },
+  "chart-of-account": {
+    "en": "Maintain the chart of accounts used by posting rules and financial reporting while preserving stable historical account references.",
+    "ar": "أدر دليل الحسابات المستخدم في الترحيل والتقارير المالية مع الحفاظ على مراجع الحسابات التاريخية."
+  },
+  "journal-entry": {
+    "en": "Review and post balanced accounting entries, using explicit reversal/correction behavior after posting instead of destructive edits.",
+    "ar": "راجع القيود المتوازنة ورحّلها واستخدم العكس أو التصحيح بعد الترحيل بدل التعديل الهدّام."
+  },
+  "bank-statement": {
+    "en": "Reconcile bank-statement activity with ERP financial records and investigate unmatched or inconsistent movements.",
+    "ar": "طابق حركات كشف البنك مع السجلات المالية في ERP وراجع الحركات غير المطابقة."
+  },
+  "fiscal-period": {
+    "en": "Control fiscal periods, posting availability and close/reopen rules that protect dated financial history.",
+    "ar": "تحكم بالفترات المالية وإمكانية الترحيل وقواعد الإغلاق وإعادة الفتح التي تحمي التاريخ المالي."
+  },
+  "accounts-receivable": {
+    "en": "Review customer receivable balances, invoice exposure and settlement status so outstanding money can be followed to payment, credit or write-off.",
+    "ar": "راجع أرصدة الذمم المدينة والفواتير والتسوية لمتابعة المبالغ حتى الدفع أو الائتمان أو الشطب."
+  },
+  "accounts-payable": {
+    "en": "Review supplier liabilities and payment exposure created from the approved purchasing/billing lifecycle.",
+    "ar": "راجع التزامات الموردين وحالة السداد الناتجة عن دورة الشراء والفوترة المعتمدة."
+  },
+  "bill": {
+    "en": "Review and approve supplier bills that create Accounts Payable liability from valid purchasing/receiving context.",
+    "ar": "راجع واعتمد فواتير المورد التي تنشئ الذمم الدائنة من سياق شراء واستلام صحيح."
+  },
+  "supplier-payment": {
+    "en": "Record and allocate supplier payments against eligible liabilities while preserving payment and bill provenance.",
+    "ar": "سجل مدفوعات المورد وخصصها للالتزامات المؤهلة مع الحفاظ على مصدر الدفع والفاتورة."
+  },
+  "expense": {
+    "en": "Record business expenses and move them through approval/payment states with the correct accounting treatment.",
+    "ar": "سجل مصروفات العمل وانقلها عبر الموافقة والدفع بالمعالجة المحاسبية الصحيحة."
+  },
+  "refund": {
+    "en": "Approve and pay customer refunds from eligible credit/deposit sources while keeping cash movement separate from physical returns.",
+    "ar": "اعتمد استردادات العملاء وادفعها من مصادر ائتمان أو عربون مؤهلة مع فصل المال عن المرتجع المادي."
+  },
+  "tax": {
+    "en": "Maintain tax definitions and review tax-related accounting configuration used by commercial documents and reports.",
+    "ar": "أدر تعريفات الضرائب وإعداداتها المحاسبية المستخدمة في المستندات التجارية والتقارير."
+  },
+  "financial-report": {
+    "en": "Read consolidated financial reports from accounting facts; correct discrepancies in the owning transaction rather than in the report.",
+    "ar": "اقرأ التقارير المالية المجمعة من الحقائق المحاسبية وصحح الفروقات في السجل المصدر لا في التقرير."
+  },
+  "currency": {
+    "en": "Maintain the shared currency catalog, including active/default currency choices used by new transactions while preserving historical codes.",
+    "ar": "أدر دليل العملات المشترك بما في ذلك العملات الفعالة والافتراضية للعمليات الجديدة مع الحفاظ على الرموز التاريخية."
+  },
+  "payment-term": {
+    "en": "Define reusable payment terms that drive due-date expectations for customer and supplier commercial documents.",
+    "ar": "عرّف شروط دفع قابلة لإعادة الاستخدام تتحكم بتوقعات الاستحقاق لمستندات العملاء والموردين."
+  },
+  "payment-method": {
+    "en": "Maintain allowed payment methods used when recording customer or supplier money movement.",
+    "ar": "أدر طرق الدفع المسموحة المستخدمة عند تسجيل حركة أموال العملاء أو الموردين."
+  },
+  "sales-setting": {
+    "en": "Configure tax/posting account behavior shared by commercial workflows without rewriting already-posted history.",
+    "ar": "اضبط حسابات الضرائب والترحيل المستخدمة في المسارات التجارية دون إعادة كتابة التاريخ المرحّل."
+  },
+  "receivable-write-off": {
+    "en": "Perform a controlled receivable write-off when authorized collection policy requires reducing an outstanding customer balance.",
+    "ar": "نفذ شطبًا مضبوطًا للذمم المدينة عندما تتطلب سياسة التحصيل المعتمدة تخفيض رصيد عميل مستحق."
+  },
+  "inventory-dashboard": {
+    "en": "Use the Inventory Dashboard to monitor stock value, warehouse movement, low/expiring stock, replenishment and operations awaiting action.",
+    "ar": "استخدم لوحة المخزون لمراقبة قيمة المخزون والحركات والمخزون المنخفض أو المنتهي وإعادة التزويد والعمليات التي تنتظر إجراء."
+  },
+  "stock-level": {
+    "en": "Review on-hand, reserved and available quantity by warehouse/product without directly editing stock balances.",
+    "ar": "راجع الموجود والمحجوز والمتاح حسب المستودع والمنتج دون تعديل أرصدة المخزون مباشرة."
+  },
+  "product": {
+    "en": "Maintain catalog product identity, classification and shared attributes while keeping variant, supplier and physical-stock facts separate.",
+    "ar": "أدر هوية المنتج وتصنيفه وخصائصه المشتركة مع فصل المتغيرات والموردين وحقائق المخزون المادي."
+  },
+  "inventory-lot": {
+    "en": "Track lot-controlled stock, expiry, condition and movement provenance for products that require batch identity.",
+    "ar": "تتبع المخزون المرتبط بالدفعات والصلاحية والحالة ومصدر الحركة للمنتجات التي تتطلب هوية دفعة."
+  },
+  "serialized-inventory-unit": {
+    "en": "Track each serialized unit as a unique physical identity through warehouse custody, delivery, customer ownership and service history.",
+    "ar": "تتبع كل وحدة متسلسلة كهوية مادية فريدة عبر عهدة المستودع والتسليم وملكية العميل وسجل الخدمة."
+  },
+  "stock-movement": {
+    "en": "Inspect the immutable inventory movement trail to understand why, where and from which source document stock changed.",
+    "ar": "راجع سجل حركات المخزون لمعرفة لماذا وأين ومن أي مستند مصدر تغيرت الكمية."
+  },
+  "inventory-import-run": {
+    "en": "Review catalog/import runs, their processing result and errors before relying on imported product data.",
+    "ar": "راجع عمليات استيراد الكتالوج ونتائجها وأخطائها قبل الاعتماد على بيانات المنتجات المستوردة."
+  },
+  "inventory-report": {
+    "en": "Analyze inventory facts and exceptions without changing stock; corrections remain controlled Inventory operations.",
+    "ar": "حلل حقائق المخزون والاستثناءات دون تغيير الكميات، فالتصحيح يبقى عملية مخزون مضبوطة."
+  },
+  "purchase-inbound": {
+    "en": "Track expected inbound purchasing work and warehouse allocations before physical receipt is posted by Inventory.",
+    "ar": "تتبع أعمال الوارد المتوقعة وتوزيعها على المستودعات قبل أن يرحّل المخزون الاستلام الفعلي."
+  },
+  "inventory-operation": {
+    "en": "Execute controlled receipts, deliveries and internal transfers while preserving source document, tracking and movement history.",
+    "ar": "نفذ الاستلام والتسليم والنقل الداخلي بشكل مضبوط مع الحفاظ على المصدر والتتبع وسجل الحركة."
+  },
+  "barcode-workbench": {
+    "en": "Use barcode-driven lookup and operation assistance to identify products/serials quickly while still following the owning Inventory workflow.",
+    "ar": "استخدم منصة الباركود للتعرف السريع على المنتجات أو التسلسلات مع الالتزام بمسار المخزون المالك للعملية."
+  },
+  "outbound-fulfillment": {
+    "en": "Plan and execute outbound customer fulfillment against released demand before delivery stock posting and shipment progress.",
+    "ar": "خطط ونفذ أعمال الخروج للعميل مقابل الطلب المحرر قبل ترحيل التسليم وتقدم الشحنة."
+  },
+  "shipment": {
+    "en": "Track planned shipments from warehouse dispatch through in-transit and arrival confirmation without becoming the stock ledger.",
+    "ar": "تتبع الشحنات من التخطيط والإرسال حتى الوصول دون أن تصبح الشحنة هي دفتر المخزون."
+  },
+  "package": {
+    "en": "Organize shipment contents into packages and preserve package-level logistics context for outbound work.",
+    "ar": "نظم محتويات الشحنة ضمن طرود واحفظ السياق اللوجستي على مستوى الطرد."
+  },
+  "adjustment": {
+    "en": "Post authorized stock adjustments for controlled variances instead of manually editing Stock Levels.",
+    "ar": "رحّل تعديلات مخزون معتمدة للفروقات المضبوطة بدل تعديل مستويات المخزون يدويًا."
+  },
+  "inventory-count": {
+    "en": "Run physical/cycle counts, compare counted quantity with system snapshots and turn approved variance into auditable correction.",
+    "ar": "نفذ الجرد الفعلي أو الدوري وقارن الكمية المعدودة بلقطة النظام وحول الفرق المعتمد إلى تصحيح قابل للتدقيق."
+  },
+  "return": {
+    "en": "Inspect and post physical customer returns, their tracking provenance and disposition before separate financial credit/refund work.",
+    "ar": "افحص ورحّل مرتجعات العملاء المادية ومصدر التتبع وحالة التصرف قبل الائتمان أو الاسترداد المالي المنفصل."
+  },
+  "inventory-correction": {
+    "en": "Correct previously posted inventory history through an explicit compensating/correction flow instead of rewriting the original movement.",
+    "ar": "صحح تاريخ مخزون مرحّل عبر حركة تصحيح أو مقابلة صريحة بدل إعادة كتابة الحركة الأصلية."
+  },
+  "inventory-condition-change": {
+    "en": "Move stock between saleable, quarantine, damaged or other supported conditions with an auditable reason and tracking context.",
+    "ar": "غيّر حالة المخزون بين صالح للبيع أو حجر أو متضرر أو حالات مدعومة أخرى مع سبب وسياق تتبع قابل للتدقيق."
+  },
+  "inventory-reservation": {
+    "en": "Review stock reserved for downstream demand and understand which source record currently claims available quantity.",
+    "ar": "راجع المخزون المحجوز للطلب اللاحق واعرف أي سجل مصدر يحجز الكمية المتاحة حاليًا."
+  },
+  "inventory-alert": {
+    "en": "Work inventory exception and planning alerts such as low stock or replenishment need, then open the owning action to resolve them.",
+    "ar": "عالج تنبيهات واستثناءات المخزون مثل النقص أو الحاجة لإعادة التزويد ثم افتح الإجراء المالك لحلها."
+  },
+  "warehouse-replenishment-policy": {
+    "en": "Define warehouse/product replenishment policy such as minimum/maximum targets and preferred supply behavior used to generate recommendations.",
+    "ar": "عرّف سياسة إعادة التزويد حسب المستودع والمنتج مثل الحدود الدنيا والعليا وسلوك التوريد المفضل."
+  },
+  "warehouse": {
+    "en": "Maintain warehouse master locations and open their stock, movement and reservation context without editing quantities directly.",
+    "ar": "أدر المستودعات الرئيسية وافتح سياق الكميات والحركات والحجوزات دون تعديل الكميات مباشرة."
+  },
+  "catalog-setup": {
+    "en": "Configure catalog support data needed by products and variants before those records are used operationally.",
+    "ar": "اضبط بيانات الكتالوج المساندة التي تحتاجها المنتجات والمتغيرات قبل استخدامها تشغيليًا."
+  },
+  "package-type": {
+    "en": "Maintain reusable package-type definitions used by logistics and Inventory packaging workflows.",
+    "ar": "أدر تعريفات أنواع الطرود القابلة لإعادة الاستخدام في مسارات التغليف واللوجستيات."
+  },
+  "inventory-setting": {
+    "en": "Configure Inventory behavior that affects future operations, reservations, tracking and planning without rewriting posted movements.",
+    "ar": "اضبط سلوك المخزون الذي يؤثر على العمليات والحجوزات والتتبع والتخطيط المستقبلية دون إعادة كتابة الحركات المرحلة."
+  },
+  "product-variant": {
+    "en": "Maintain the concrete SKU-level identity, identifiers and operational attributes beneath a product.",
+    "ar": "أدر الهوية الفعلية على مستوى SKU والمعرفات والخصائص التشغيلية التابعة للمنتج."
+  },
+  "purchasing-dashboard": {
+    "en": "Use the Purchasing Dashboard to review sourcing demand, open supplier commitments, approvals, upcoming deliveries and purchasing attention queues.",
+    "ar": "استخدم لوحة المشتريات لمراجعة احتياجات التوريد والالتزامات المفتوحة والموافقات والتوريدات القادمة وقوائم الانتباه."
+  },
+  "purchase-needs": {
+    "en": "Review internal demand that requires external purchasing and turn eligible need into RFQ/PO sourcing without losing source provenance.",
+    "ar": "راجع الطلب الداخلي الذي يحتاج شراء خارجي وحوله إلى توريد RFQ أو أمر شراء مع الحفاظ على مصدر الحاجة."
+  },
+  "purchase-rfq": {
+    "en": "Request and compare supplier quotations before the business commits to a Purchase Order.",
+    "ar": "اطلب عروض الموردين وقارنها قبل أن تلتزم الشركة بأمر شراء."
+  },
+  "purchase-agreement": {
+    "en": "Maintain reusable supplier commercial agreements that influence future sourcing and purchasing terms.",
+    "ar": "أدر الاتفاقيات التجارية مع الموردين التي تؤثر على التوريد وشروط الشراء المستقبلية."
+  },
+  "purchase-order": {
+    "en": "Create, approve and send supplier commitments, then follow confirmation, inbound allocation, physical receipt and billing progress.",
+    "ar": "أنشئ أوامر الشراء واعتمدها وأرسلها ثم تابع تأكيد المورد والوارد والاستلام والفوترة."
+  },
+  "supplier": {
+    "en": "Maintain supplier master data, defaults and commercial context reused by RFQs, Purchase Orders and Accounts Payable.",
+    "ar": "أدر بيانات المورد الأساسية والإعدادات والسياق التجاري المستخدم في RFQ وأوامر الشراء والذمم الدائنة."
+  },
+  "supplier-product-reference": {
+    "en": "Map supplier-specific product identifiers, purchasing UOM/cost/MOQ and sourcing context to the ERP catalog.",
+    "ar": "اربط معرفات المورد للمنتجات ووحدة الشراء والتكلفة والحد الأدنى وسياق التوريد بكتالوج ERP."
+  },
+  "supplier-product-support": {
+    "en": "Review which suppliers can support which products/capabilities so sourcing can choose eligible supply options.",
+    "ar": "راجع قدرة الموردين على تزويد المنتجات أو القدرات المطلوبة حتى يختار التوريد خيارات مؤهلة."
+  },
+  "purchasing-report": {
+    "en": "Analyze purchasing commitments, sourcing and supplier performance without changing source purchasing records.",
+    "ar": "حلل التزامات الشراء والتوريد وأداء الموردين دون تعديل سجلات المشتريات المصدرية."
+  },
+  "purchase-setting": {
+    "en": "Configure purchasing rules and thresholds that affect future sourcing, approvals and supplier-facing work.",
+    "ar": "اضبط قواعد وحدود المشتريات التي تؤثر على التوريد والموافقات والعمل مع المورد مستقبلًا."
+  },
+  "supplier-confirmation": {
+    "en": "Record supplier-confirmed quantities and promised dates against a sent Purchase Order and expose partial/changed commitment clearly.",
+    "ar": "سجل الكميات المؤكدة من المورد وتواريخ الوعد مقابل أمر شراء مرسل وأظهر الالتزام الجزئي أو المتغير بوضوح."
+  },
+  "crm-dashboard": {
+    "en": "Use the CRM Dashboard to review customer growth, lead pipeline, campaign yield and dormant relationship work that needs follow-up.",
+    "ar": "استخدم لوحة CRM لمراجعة نمو العملاء ومسار العملاء المحتملين ونتائج الحملات والعلاقات التي تحتاج متابعة."
+  },
+  "customer": {
+    "en": "Maintain the customer master profile and review approval, commercial defaults, addresses, interactions, sales, service and equipment context in one place.",
+    "ar": "أدر الملف الرئيسي للعميل وراجع الموافقة والإعدادات التجارية والعناوين والتفاعلات والمبيعات والخدمة والمعدات في مكان واحد."
+  },
+  "customer-quotation-request": {
+    "en": "Review customer-submitted quotation requests and convert eligible requests into Sales-owned quotation work.",
+    "ar": "راجع طلبات عروض الأسعار القادمة من العملاء وحول الطلب المؤهل إلى عرض سعر تملكه المبيعات."
+  },
+  "customer-return-request": {
+    "en": "Review customer return requests against completed delivery provenance and convert approved requests into Draft Inventory Returns.",
+    "ar": "راجع طلبات إرجاع العملاء مقابل مصدر التسليم المكتمل وحول الموافق عليه إلى مرتجع مخزون مسودة."
+  },
+  "lead": {
+    "en": "Capture and qualify potential customers from New through Contacted/Qualified until conversion or disqualification.",
+    "ar": "سجل العملاء المحتملين وأهلهم من جديد إلى تواصل ومؤهل حتى التحويل أو الاستبعاد."
+  },
+  "sales-opportunity": {
+    "en": "Track active revenue opportunities and their sales stage until won/lost or converted into the appropriate commercial follow-up.",
+    "ar": "تتبع فرص الإيراد النشطة ومراحلها حتى الربح أو الخسارة أو التحويل إلى متابعة تجارية مناسبة."
+  },
+  "interaction": {
+    "en": "Record customer interactions so CRM timelines and follow-up decisions are based on structured relationship history.",
+    "ar": "سجل تفاعلات العميل حتى تعتمد الخطوط الزمنية وقرارات المتابعة على تاريخ علاقة منظم."
+  },
+  "campaign": {
+    "en": "Plan, dispatch and measure customer/lead campaigns while attributing responses without owning downstream Sales documents.",
+    "ar": "خطط للحملات وأرسلها وقس نتائجها واربط الردود دون امتلاك مستندات المبيعات اللاحقة."
+  },
+  "crm-report": {
+    "en": "Analyze CRM pipeline, customers, interactions and campaigns while keeping corrections in the source CRM record.",
+    "ar": "حلل العملاء والمسار والتفاعلات والحملات مع إبقاء التصحيح في سجل CRM المصدر."
+  },
+  "pricing-tier": {
+    "en": "Define reusable customer pricing tiers/discount behavior that can participate in deterministic price resolution.",
+    "ar": "عرّف شرائح تسعير وخصم قابلة لإعادة الاستخدام للعملاء ويمكن أن تدخل في حل السعر بشكل محدد."
+  },
+  "price-history": {
+    "en": "Review and approve controlled price-change requests/history so commercial pricing changes remain traceable.",
+    "ar": "راجع واعتمد طلبات أو تاريخ تغير السعر بشكل مضبوط حتى تبقى تغييرات التسعير قابلة للتتبع."
+  },
+  "price-floor-override": {
+    "en": "Review exceptions that allow a commercial price below the configured floor while preserving approver and reason provenance.",
+    "ar": "راجع استثناءات السماح بسعر أقل من الحد مع حفظ الموافق والسبب ومصدر القرار."
+  },
+  "employees-dashboard": {
+    "en": "Use the Employees Dashboard to review workforce plans, tasks, field execution, performance and compensation signals.",
+    "ar": "استخدم لوحة الموظفين لمراجعة الخطط والمهام والتنفيذ الميداني والأداء ومؤشرات التعويض."
+  },
+  "employee": {
+    "en": "Maintain employee identity and operational context reused by plans, tasks, visits, performance and salary calculation.",
+    "ar": "أدر هوية الموظف وسياقه التشغيلي المستخدم في الخطط والمهام والزيارات والأداء وحساب الراتب."
+  },
+  "monthly-plan": {
+    "en": "Plan an employee's monthly sales/activity objectives and tasks before field execution and performance evaluation.",
+    "ar": "خطط أهداف ومهام الموظف الشهرية قبل التنفيذ الميداني وتقييم الأداء."
+  },
+  "task": {
+    "en": "Manage employee work items and follow-up tasks through pending, in-progress, completed or cancelled states.",
+    "ar": "أدر مهام الموظف ومهام المتابعة عبر حالات معلقة وقيد التنفيذ ومكتملة أو ملغاة."
+  },
+  "visit": {
+    "en": "Track field visits from scheduling and travel through check-in, execution, outcome, evidence and follow-up.",
+    "ar": "تتبع الزيارات الميدانية من الجدولة والحركة حتى الوصول والتنفيذ والنتيجة والأدلة والمتابعة."
+  },
+  "performance": {
+    "en": "Review employee performance factors derived from completed operational evidence rather than free-form manual scoring alone.",
+    "ar": "راجع عوامل أداء الموظف المستمدة من أدلة تنفيذ مكتملة بدل الاعتماد على تقييم يدوي حر فقط."
+  },
+  "salary-calculation": {
+    "en": "Calculate and review salary/compensation results from the implemented employee rules and move calculations through confirmation states.",
+    "ar": "احسب وراجع نتائج الراتب أو التعويض وفق قواعد الموظفين وانقل الحساب عبر حالات التأكيد."
+  },
+  "employee-report": {
+    "en": "Analyze employee planning, visits, outcomes and performance without changing the source operational records.",
+    "ar": "حلل خطط الموظفين وزياراتهم ونتائجهم وأداءهم دون تعديل السجلات التشغيلية المصدرية."
+  },
+  "support-dashboard": {
+    "en": "Use the Support Dashboard to review ticket/service workload, SLA risk, warranty/maintenance queues and work requiring attention.",
+    "ar": "استخدم لوحة الدعم لمراجعة عبء التذاكر والخدمة ومخاطر SLA والضمان والصيانة والعمل الذي يحتاج انتباهًا."
+  },
+  "ticket": {
+    "en": "Manage a customer support case from intake and triage through entitlement/SLA, assignment, work, resolution and closure.",
+    "ar": "أدر حالة دعم العميل من الاستقبال والفرز والاستحقاق وSLA حتى الإسناد والعمل والحل والإغلاق."
+  },
+  "maintenance-request": {
+    "en": "Coordinate equipment diagnosis, customer/coverage approval, repair execution, QA and closure for maintenance work.",
+    "ar": "نسق تشخيص المعدات والموافقة والتغطية والتنفيذ وضبط الجودة والإغلاق لأعمال الصيانة."
+  },
+  "service-record": {
+    "en": "Preserve completed service evidence, work performed and equipment context as the durable service-history record.",
+    "ar": "احفظ أدلة الخدمة المكتملة والعمل المنفذ وسياق المعدة كسجل خدمة تاريخي دائم."
+  },
+  "maintenance-schedule": {
+    "en": "Plan recurring or future maintenance work so service demand is created before equipment reaches its due point.",
+    "ar": "خطط أعمال الصيانة الدورية أو المستقبلية حتى ينشأ طلب الخدمة قبل موعد الاستحقاق."
+  },
+  "service-appointment": {
+    "en": "Schedule and follow field-service appointments through dispatch, travel, on-site work, completion or cancellation.",
+    "ar": "جدول مواعيد الخدمة الميدانية وتابعها من الإرسال والحركة حتى العمل في الموقع والإكمال أو الإلغاء."
+  },
+  "support-equipment": {
+    "en": "Use Equipment 360 to review customer-owned serialized equipment, custody, entitlement, warranty and service history from one support-facing view.",
+    "ar": "استخدم Equipment 360 لمراجعة معدات العميل المتسلسلة والعهدة والاستحقاق والضمان وسجل الخدمة من شاشة واحدة."
+  },
+  "support-report": {
+    "en": "Analyze support, SLA, warranty and maintenance facts without changing the source service records.",
+    "ar": "حلل حقائق الدعم وSLA والضمان والصيانة دون تعديل سجلات الخدمة المصدرية."
+  },
+  "sla-policy": {
+    "en": "Define the service-policy rules used to calculate support response/resolution expectations for eligible work.",
+    "ar": "عرّف سياسات الخدمة المستخدمة لحساب توقعات الاستجابة والحل لأعمال الدعم المؤهلة."
+  },
+  "sla-calendar": {
+    "en": "Define support working calendars and availability windows used by SLA timing calculations.",
+    "ar": "عرّف تقاويم وأوقات عمل الدعم المستخدمة في حساب توقيت SLA."
+  },
+  "support-service-level": {
+    "en": "Maintain reusable service-level definitions that can be attached to support entitlement and SLA behavior.",
+    "ar": "أدر مستويات الخدمة القابلة لإعادة الاستخدام والمرتبطة بالاستحقاق وسلوك SLA."
+  },
+  "support-entitlement": {
+    "en": "Track whether a customer/equipment context is entitled to a configured support service and its current active/suspended/expired state.",
+    "ar": "تتبع استحقاق العميل أو المعدة لخدمة دعم محددة وحالته الفعالة أو المعلقة أو المنتهية."
+  },
+  "warranty-policy": {
+    "en": "Define warranty coverage/activation rules that later determine eligible equipment entitlement and service treatment.",
+    "ar": "عرّف قواعد تغطية وتفعيل الضمان التي تحدد لاحقًا استحقاق المعدات ومعالجة الخدمة."
+  },
+  "support-team": {
+    "en": "Maintain advanced support teams used by assignment, queue and routing behavior.",
+    "ar": "أدر فرق الدعم المتقدمة المستخدمة في الإسناد والطوابير والتوجيه."
+  },
+  "support-skill": {
+    "en": "Maintain support skills used to express technician/team capability for advanced assignment decisions.",
+    "ar": "أدر مهارات الدعم التي تعبر عن قدرة الفني أو الفريق لاستخدامها في قرارات الإسناد المتقدم."
+  },
+  "support-queue": {
+    "en": "Maintain support queues that organize incoming work before or during assignment.",
+    "ar": "أدر طوابير الدعم التي تنظم العمل الوارد قبل الإسناد أو أثناءه."
+  },
+  "support-routing-rule": {
+    "en": "Configure deterministic routing rules that send eligible support work to the appropriate queue/team based on supported criteria.",
+    "ar": "اضبط قواعد توجيه محددة ترسل أعمال الدعم المؤهلة إلى الطابور أو الفريق المناسب وفق المعايير المدعومة."
+  },
+  "support-automation-rule": {
+    "en": "Configure support automation that performs supported follow-up actions when its trigger/conditions are satisfied.",
+    "ar": "اضبط أتمتة الدعم التي تنفذ إجراءات المتابعة المدعومة عند تحقق المشغل والشروط."
+  },
+  "knowledge-article": {
+    "en": "Create, publish and archive support knowledge content that can be reused by agents and service workflows.",
+    "ar": "أنشئ محتوى المعرفة للدعم وانشره أو أرشفه لإعادة استخدامه من الوكلاء ومسارات الخدمة."
+  },
+  "knowledge-article-category": {
+    "en": "Organize support knowledge articles into maintainable categories for discovery and governance.",
+    "ar": "نظم مقالات معرفة الدعم ضمن تصنيفات قابلة للإدارة لتسهيل البحث والحوكمة."
+  },
+  "reports-center": {
+    "en": "Use the Reports Center as the cross-module entry point for operational/financial analysis while keeping source corrections in their owning modules.",
+    "ar": "استخدم مركز التقارير كمدخل للتحليل التشغيلي والمالي عبر الوحدات مع إبقاء التصحيح في الوحدة المالكة."
+  },
+  "audit-log": {
+    "en": "Review audited system/business changes, actor and timing context without using the audit log as a write path.",
+    "ar": "راجع التغييرات المدققة ومن قام بها وتوقيتها دون استخدام سجل التدقيق كمسار تعديل."
+  },
+  "dashboard-user": {
+    "en": "Manage administration users, roles and access context for the Filament dashboard without mixing access management with employee operational records.",
+    "ar": "أدر مستخدمي لوحة الإدارة والأدوار وسياق الوصول دون خلط إدارة الدخول بسجلات الموظفين التشغيلية."
+  },
+  "document-template": {
+    "en": "Maintain reusable business-document templates used when the ERP renders supported printable/exportable documents.",
+    "ar": "أدر قوالب المستندات القابلة لإعادة الاستخدام عند إنشاء المستندات المطبوعة أو القابلة للتصدير."
+  },
+  "notification-template": {
+    "en": "Maintain reusable notification content/templates used by supported business events and delivery channels.",
+    "ar": "أدر قوالب الإشعارات القابلة لإعادة الاستخدام في أحداث العمل وقنوات الإرسال المدعومة."
+  },
+  "custom-field-definition": {
+    "en": "Define governed custom fields that extend supported records without adding uncontrolled free-form database structure.",
+    "ar": "عرّف حقولًا مخصصة مضبوطة توسع السجلات المدعومة دون إنشاء بنية بيانات حرة وغير محكومة."
+  }
+}

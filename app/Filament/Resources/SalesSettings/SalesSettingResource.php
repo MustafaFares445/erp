@@ -143,22 +143,28 @@ final class SalesSettingResource extends Resource
                 ->label(__('admin.sales.fields.default_quotation_validity_days')),
             TextColumn::make('receivableAccount.name')
                 ->label(__('admin.sales.fields.receivable_account'))
-                ->placeholder(__('—')),
+                ->placeholder(__('—'))
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('revenueAccount.name')
                 ->label(__('admin.sales.fields.revenue_account'))
-                ->placeholder(__('—')),
+                ->placeholder(__('—'))
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('deferredTaxAccount.name')
                 ->label(__('admin.sales.fields.deferred_tax_account'))
-                ->placeholder(__('—')),
+                ->placeholder(__('—'))
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('taxPayableAccount.name')
                 ->label(__('admin.sales.fields.tax_payable_account'))
-                ->placeholder(__('—')),
+                ->placeholder(__('—'))
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('customerDepositsAccount.name')
                 ->label(__('admin.sales.fields.customer_deposits_account'))
-                ->placeholder(__('—')),
+                ->placeholder(__('—'))
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('badDebtExpenseAccount.name')
                 ->label(__('admin.sales.fields.bad_debt_expense_account'))
-                ->placeholder(__('—')),
+                ->placeholder(__('—'))
+                ->toggleable(isToggledHiddenByDefault: true),
             IconColumn::make('stripe_enabled')->label(__('Stripe enabled'))->boolean(),
         ])->recordActions([EditAction::make()]);
     }

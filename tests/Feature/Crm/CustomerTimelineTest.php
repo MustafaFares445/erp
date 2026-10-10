@@ -9,6 +9,7 @@ use App\Enums\InteractionDirection;
 use App\Enums\InteractionType;
 use App\Enums\SalesPermission;
 use App\Enums\SupportPermission;
+use App\Filament\Resources\Customers\Pages\CustomerTimeline;
 use App\Models\CustomerProfile;
 use App\Models\CustomerVisit;
 use App\Models\Invoice;
@@ -22,8 +23,10 @@ use App\Models\User;
 use App\Services\Accounting\AccountsReceivableService;
 use App\Services\Crm\CustomerTimelineService;
 use App\Services\Crm\InteractionService;
+use App\Services\Crm\Timeline\Sources\ActivitySource;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
@@ -364,4 +367,28 @@ it('covers all timeline fallback event occurred-at branches', function (): void 
         ->and($fromCarbon->title)->toBe('Missing Event')
         ->and($fromCarbon->statusLabel)->toBeNull()
         ->and($fromCarbon->amountMinor)->toBeNull();
+});
+
+it('translates the readable fallback title of an untranslated activity description', function (): void {
+    // Release QA 2026-10-10: "Support Quality Complaint Resolved" stayed English in the Arabic customer timeline.
+    [, $ids] = timelineSeededCustomer();
+    $ticket = Ticket::query()->findOrFail($ids['ticket']);
+    $log = activity()->performedOn($ticket)->log('support.quality_complaint.resolved');
+
+    expect((new ActivitySource)->hydrate([$log->getKey()])[$log->getKey()]->title)->toBe('Support Quality Complaint Resolved');
+
+    app()->setLocale('ar');
+    app('translator')->addLines(['*.Support Quality Complaint Resolved' => 'تمت معالجة شكوى الجودة'], 'ar');
+
+    expect((new ActivitySource)->hydrate([$log->getKey()])[$log->getKey()]->title)->toBe('تمت معالجة شكوى الجودة');
+});
+
+it('keeps internal requirement codes out of the timeline summary helper text', function (): void {
+    // Release QA 2026-10-10: the summary helper text showed the internal code "(CR-05)".
+    [$customer] = timelineSeededCustomer();
+
+    Livewire::actingAs(timelineFullAccessActor())
+        ->test(CustomerTimeline::class, ['record' => $customer->getKey()])
+        ->assertSeeText('Lifetime value, outstanding position, and activity at a glance.')
+        ->assertDontSeeText('CR-05');
 });

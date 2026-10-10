@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SupportEquipment\Tables;
 
 use App\Enums\SerializedCustodyType;
+use App\Enums\WarrantyEntitlementState;
+use App\Filament\Tables\TableFit;
 use App\Models\CustomerProfile;
 use App\Models\SerializedInventoryUnit;
 use Filament\Actions\ViewAction;
@@ -17,7 +19,7 @@ final class SupportEquipmentTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('updated_at', 'desc')
             ->columns([
                 TextColumn::make('serial_number')
@@ -25,11 +27,11 @@ final class SupportEquipmentTable
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
-                TextColumn::make('productVariant.product.name')
+                TextColumn::make('productVariant.product.name')->wrap()
                     ->label(__('Product'))
                     ->searchable()
                     ->description(static fn (SerializedInventoryUnit $record): ?string => $record->productVariant?->sku),
-                TextColumn::make('support_customer')
+                TextColumn::make('support_customer')->wrap()
                     ->label(__('Customer'))
                     ->state(static function (SerializedInventoryUnit $record): string {
                         if ($record->custody_type !== SerializedCustodyType::Customer || ! is_numeric($record->custody_reference_id)) {
@@ -43,6 +45,16 @@ final class SupportEquipmentTable
                 TextColumn::make('currentWarrantyEntitlement.state')
                     ->label(__('Warranty'))
                     ->badge()
+                    ->formatStateUsing(static function (?WarrantyEntitlementState $state): ?string {
+                        if (! $state instanceof WarrantyEntitlementState) {
+                            return null;
+                        }
+
+                        $label = __($state->label());
+
+                        return is_string($label) ? $label : $state->label();
+                    })
+                    ->color(static fn (?WarrantyEntitlementState $state): string => $state?->color() ?? 'gray')
                     ->placeholder(__('Legacy / not configured')),
                 TextColumn::make('active_tickets_count')
                     ->label(__('Open tickets'))
@@ -53,7 +65,7 @@ final class SupportEquipmentTable
                     ->badge()
                     ->color(static fn (int $state): string => $state > 0 ? 'primary' : 'gray'),
                 TextColumn::make('warranty_expires_on')->label(__('Warranty expiry'))->date()->placeholder(__('—')),
-                TextColumn::make('updated_at')->label(__('Updated'))->since()->sortable(),
+                TextColumn::make('updated_at')->toggleable(isToggledHiddenByDefault: true)->label(__('Updated'))->since()->sortable(),
             ])
             ->filters([
                 TernaryFilter::make('customer_custody')
@@ -63,6 +75,6 @@ final class SupportEquipmentTable
                         false: static fn (Builder $query): Builder => $query->where('custody_type', '!=', SerializedCustodyType::Customer->value),
                     ),
             ])
-            ->recordActions([ViewAction::make()]);
+            ->recordActions(TableFit::rowActions([ViewAction::make()]));
     }
 }

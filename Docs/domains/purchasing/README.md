@@ -3,13 +3,13 @@
 ---
 status: canonical
 owner: purchasing
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: app/Services/Purchasing, Suppliers/Supply services, Purchase enums/policies, tests/Feature/Purchasing
 ---
 
 ## Purpose
 
-Purchasing owns supplier-facing commercial commitments: suppliers, supplier product references, purchase orders, approval/transmission, supplier confirmation, inbound allocation/provenance and purchasing reports.
+Purchasing owns supplier-facing commercial commitments: supplier defaults, supplier product references, sourcing/RFQs, purchase orders, approval/transmission, supplier confirmation, inbound allocation/provenance, replenishment purchasing and purchasing reports.
 
 Purchasing does not directly own physical stock or the general ledger.
 
@@ -27,7 +27,7 @@ Purchasing does not directly own physical stock or the general ledger.
 
 ## Main UI Surfaces
 
-Suppliers, Supplier Product References/Supports, Requests for Quotation, Purchase Agreements, Purchase Orders, Purchase Inbounds, Supplier Confirmations, Purchase Settings and Purchasing Reports.
+Suppliers, Supplier Product References/Supports, Requests for Quotation, Purchase Agreements, Purchase Orders, Purchase Inbounds, Purchase Needs, Purchase Settings and Purchasing Reports. Supplier Confirmations remain routable/contextual but are reached through Purchase Orders and purchasing work queues rather than a duplicate primary-navigation destination.
 
 The Purchasing dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards) and has a supplier filter. Spend is summed only for orders in the default currency. The spend trend is limited to approvers; without approve access, the open-orders-by-stage chart takes the full row. The attention queue and upcoming deliveries replace the earlier per-queue stat cards.
 

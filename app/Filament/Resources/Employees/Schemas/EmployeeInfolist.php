@@ -13,6 +13,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 
 final class EmployeeInfolist
 {
@@ -21,6 +22,7 @@ final class EmployeeInfolist
         return $schema->components([
             Section::make(__('Employee'))
                 ->columns(4)
+                ->columnSpanFull()
                 ->schema([
                     TextEntry::make('user.name')->label(__('Employee name')),
                     TextEntry::make('job_title')->label(__('Job title')),
@@ -71,28 +73,25 @@ final class EmployeeInfolist
                                         ->state(static fn (EmployeeProfile $record): int => (int) self::overview($record)['opportunities']),
                                     TextEntry::make('overview_next_visit')
                                         ->label(__('Next visit'))
-                                        ->state(static function (EmployeeProfile $record): string {
+                                        ->state(static function (EmployeeProfile $record, TextEntry $component): string {
                                             $overview = self::overview($record);
-                                            $date = $overview['next_visit'] ?? null;
-                                            $customer = $overview['next_visit_customer'] ?? null;
 
-                                            return is_string($date) ? $date.(is_string($customer) ? ' — '.$customer : '') : __('No scheduled visit');
+                                            return self::visitSummary($component, $overview['next_visit'] ?? null, $overview['next_visit_customer'] ?? null, 'No scheduled visit');
                                         })
                                         ->columnSpan(2),
                                     TextEntry::make('overview_last_visit')
                                         ->label(__('Last completed visit'))
-                                        ->state(static function (EmployeeProfile $record): string {
+                                        ->state(static function (EmployeeProfile $record, TextEntry $component): string {
                                             $overview = self::overview($record);
-                                            $date = $overview['last_visit'] ?? null;
-                                            $customer = $overview['last_visit_customer'] ?? null;
 
-                                            return is_string($date) ? $date.(is_string($customer) ? ' — '.$customer : '') : __('No completed visit');
+                                            return self::visitSummary($component, $overview['last_visit'] ?? null, $overview['last_visit_customer'] ?? null, 'No completed visit');
                                         })
                                         ->columnSpan(2),
                                     TextEntry::make('overview_location_warnings')
                                         ->label(__('Location warnings'))
                                         ->state(static fn (EmployeeProfile $record): int => (int) self::overview($record)['location_warnings'])
-                                        ->badge(),
+                                        ->badge()
+                                        ->color(static fn (int $state): string => $state > 0 ? 'warning' : 'gray'),
                                 ]),
                         ]),
                     Tab::make(__('Plan'))
@@ -118,7 +117,7 @@ final class EmployeeInfolist
                                 ->schema([
                                     TextEntry::make('reference')->label(__('Reference')),
                                     TextEntry::make('customer')->label(__('Customer'))->placeholder(__('—')),
-                                    TextEntry::make('scheduled_at')->label(__('Scheduled'))->placeholder(__('—')),
+                                    TextEntry::make('scheduled_at')->label(__('Scheduled'))->dateTime()->placeholder(__('—')),
                                     TextEntry::make('status')->badge(),
                                     TextEntry::make('outcome')->label(__('Outcome'))->placeholder(__('—')),
                                     TextEntry::make('follow_up')->label(__('Follow-up')),
@@ -135,7 +134,7 @@ final class EmployeeInfolist
                                     TextEntry::make('title')->label(__('Task')),
                                     TextEntry::make('plan')->label(__('Plan')),
                                     TextEntry::make('customer')->label(__('Customer'))->placeholder(__('—')),
-                                    TextEntry::make('due_at')->label(__('Due date')),
+                                    TextEntry::make('due_at')->label(__('Due date'))->date(),
                                     TextEntry::make('status')->badge(),
                                     TextEntry::make('source')->label(__('Source')),
                                 ])
@@ -156,7 +155,7 @@ final class EmployeeInfolist
                                     TextEntry::make('schedule')->label(__('Schedule'))->suffix('%'),
                                     TextEntry::make('work_time')->label(__('Work time'))->suffix('%'),
                                     TextEntry::make('opportunity')->label(__('Sales opportunities'))->suffix('%'),
-                                    TextEntry::make('calculated_at')->label(__('Calculated at')),
+                                    TextEntry::make('calculated_at')->label(__('Calculated at'))->dateTime(),
                                 ])
                                 ->columns(3)
                                 ->placeholder(__('No performance snapshots found')),
@@ -180,7 +179,7 @@ final class EmployeeInfolist
                                     TextEntry::make('performance')->label(__('Performance'))->suffix('%'),
                                     TextEntry::make('bonus')->label(__('Bonus'))->money(),
                                     TextEntry::make('final')->label(__('Final salary'))->money(),
-                                    TextEntry::make('confirmed_at')->label(__('Confirmed at'))->placeholder(__('—')),
+                                    TextEntry::make('confirmed_at')->label(__('Confirmed at'))->dateTime()->placeholder(__('—')),
                                 ])
                                 ->columns(4)
                                 ->placeholder(__('No salary calculations found')),
@@ -194,6 +193,22 @@ final class EmployeeInfolist
     private static function overview(EmployeeProfile $record): array
     {
         return app(EmployeeOperationalContextService::class)->overview($record);
+    }
+
+    /**
+     * The operational context service reports visit times as `Y-m-d H:i`; show them in the panel's date-time format.
+     */
+    private static function visitSummary(TextEntry $component, mixed $dateTime, mixed $customer, string $fallbackKey): string
+    {
+        if (! is_string($dateTime)) {
+            return self::text(null, $fallbackKey);
+        }
+
+        $formatted = Carbon::parse($dateTime)
+            ->setTimezone($component->getTimezone())
+            ->translatedFormat($component->getContainer()->getDefaultDateTimeDisplayFormat());
+
+        return is_string($customer) ? $formatted.' — '.$customer : $formatted;
     }
 
     private static function percent(mixed $value): string

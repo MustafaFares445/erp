@@ -3,13 +3,13 @@
 ---
 status: canonical
 owner: sales
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: app/Services/Sales, Order/Quotation/Invoice/CreditNote enums and policies, tests/Feature/Sales
 ---
 
 ## Purpose
 
-Sales owns the customer commercial lifecycle: quotations, sales orders, delivery/invoice relationships, invoice lifecycle, credit-note correction, procurement demand and sales reporting.
+Sales owns the customer commercial lifecycle: quotations, sales orders, delivery/invoice relationships, invoice lifecycle, credit-note correction, procurement demand, customer price provenance and sales reporting.
 
 Physical stock remains Inventory-owned; money movement remains Payments-owned; ledger truth remains Accounting-owned.
 
@@ -35,6 +35,8 @@ Quotations, Customer Quotation Requests, Orders, Delivery Notes, Invoices, Credi
 The Sales dashboard follows the [module dashboard layout](../../architecture/SYSTEM_OVERVIEW.md#module-dashboards). It has salesperson and customer filters. Top customers and salesperson performance are paginated tables. When no quotation carries a salesperson, top customers takes the full row.
 
 The Invoices list uses the standard list-table experience ([ADR 0014](../../adr/0014-standard-list-table-experience.md)): a view tab bar (status presets, Starred, saved views), per-user favorites, Group by (status, customer, invoice date, due date) and slide-over rule filters. Trashed stays a separate filter.
+
+Quotation details expose the latest stored quotation PDF in a Document section after generation, with preview and download links through the existing permission-checked media routes. Earlier generated versions are retained. Generation remains asynchronous in queued environments and does not send an email; Sent/Accepted controls generation eligibility, while the stored document remains viewable with quotation-view access.
 
 ## Related Decisions
 

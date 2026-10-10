@@ -71,7 +71,7 @@ final class CalibrationRelationManager extends RelationManager
                     ->placeholder(__('In progress'))
                     ->description(static fn (EquipmentCalibration $record): ?string => $record->result === CalibrationResult::Failed
                         ? $record->failure_reason
-                        : $record->calibrated_at?->toDayDateTimeString()),
+                        : $record->calibrated_at?->translatedFormat('M j, Y H:i')),
                 TextColumn::make('measurements_summary')
                     ->label(__('Measurements'))
                     ->state(static fn (EquipmentCalibration $record): string => $record->measurements->filter(
@@ -81,7 +81,7 @@ final class CalibrationRelationManager extends RelationManager
                     ->label(__('Certificate'))
                     ->placeholder(__('Not issued'))
                     ->description(static fn (EquipmentCalibration $record): ?string => $record->certificate_expires_on instanceof Carbon
-                        ? self::t('Expires :date', ['date' => $record->certificate_expires_on->toFormattedDateString()])
+                        ? self::t('Expires :date', ['date' => $record->certificate_expires_on->translatedFormat('M j, Y')])
                         : null),
                 TextColumn::make('next_calibration_due_on')->label(__('Next calibration due'))->date()->placeholder(__('—')),
                 TextColumn::make('performedBy.user.name')->label(__('Technician'))->placeholder(__('—')),

@@ -8,9 +8,14 @@ use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryAlertType;
 use App\Filament\Resources\InventoryAlerts\Tables\InventoryAlertsTable;
 use App\Models\InventoryAlert;
+use App\Services\Inventory\Diagnostics\InventoryAlertDiagnoser;
+use App\Support\QuantityFormatter;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use App\Filament\Components\InventoryViewDiagnostics;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 final class InventoryAlertInfolist
 {
@@ -18,7 +23,13 @@ final class InventoryAlertInfolist
     {
         return $schema
             ->components([
-                Section::make()->columns(2)->schema([
+                InventoryViewDiagnostics::section(),
+                InventoryViewDiagnostics::metrics(static function (Model $record): array {
+                    assert($record instanceof InventoryAlert);
+
+                    return InventoryAlertDiagnoser::metrics($record);
+                }),
+                Section::make(__('inventory_view_ux.ui.alert_details'))->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                     TextEntry::make('type')
                         ->formatStateUsing(fn (InventoryAlertType $state): string => __('admin.inventory.alert.types.'.$state->value))
                         ->badge(),
@@ -35,7 +46,8 @@ final class InventoryAlertInfolist
                         ->state(fn (InventoryAlert $record): string => $record->isActive()
                             ? __('admin.inventory.alert.active')
                             : __('admin.inventory.alert.resolved'))
-                        ->badge(),
+                        ->badge()
+                        ->color(fn (InventoryAlert $record): string => $record->isActive() ? 'warning' : 'success'),
                     TextEntry::make('recommendation')
                         ->label(__('admin.inventory.alert.recommendation'))
                         ->state(fn (InventoryAlert $record): string => __('admin.inventory.alert.recommendations.'.$record->type->value))
@@ -57,18 +69,42 @@ final class InventoryAlertInfolist
         }
 
         return collect($alert->context)
-            ->map(fn (mixed $value, string $key): string => $key.': '.self::value($value))
+            ->map(fn (mixed $value, string $key): string => self::contextLabel($key).': '.self::value($value))
             ->join('; ');
+    }
+
+    /**
+     * Context keys are stored as snake_case facts; known keys have translated labels and
+     * any other key falls back to a readable headline instead of the raw storage name.
+     */
+    private static function contextLabel(string $key): string
+    {
+        $translationKey = 'admin.inventory.alert.context_fields.'.$key;
+        $label = __($translationKey);
+
+        return is_string($label) && $label !== $translationKey ? $label : Str::headline($key);
     }
 
     private static function value(mixed $value): string
     {
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return $value ? __('Yes') : __('No');
         }
 
-        if (is_scalar($value) || $value === null) {
-            return (string) ($value ?? 'null');
+        if ($value === null) {
+            return '—';
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return QuantityFormatter::display($value);
+        }
+
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            return collect($value)->map(fn (mixed $item): string => self::value($item))->join(', ');
         }
 
         return json_encode($value, JSON_THROW_ON_ERROR);

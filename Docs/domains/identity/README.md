@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: identity
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: app/Services/Identity, user/role/permission enums, policies and authorization tests
 ---
 
@@ -26,7 +26,7 @@ Business domains define their own abilities through domain permission enums/poli
 
 ## Current Surface
 
-The implemented administration surface is Filament. The current runtime has no `api/*` route surface, so mobile/API authentication is not documented as implemented here.
+The primary administration surface is Filament. Customer API authentication is now implemented with Sanctum at `/api/customer/login` and enforces Customer type plus active/approved profile state on protected customer routes. Employee mobile authentication is not exposed because there is no `/api/employee` route surface. See [API Reference](../../reference/API.md).
 
 ## Canonical Cross-Domain Flows
 

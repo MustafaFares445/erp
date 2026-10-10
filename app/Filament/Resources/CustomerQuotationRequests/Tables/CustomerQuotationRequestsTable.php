@@ -6,7 +6,9 @@ namespace App\Filament\Resources\CustomerQuotationRequests\Tables;
 
 use App\Enums\CustomerQuotationRequestStatus;
 use App\Filament\Resources\CustomerQuotationRequests\Actions\CustomerQuotationRequestActions;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -39,9 +41,11 @@ final class CustomerQuotationRequestsTable
             ])
             ->recordActions([
                 ViewAction::make(),
-                CustomerQuotationRequestActions::startReview(),
-                CustomerQuotationRequestActions::convert(),
-                CustomerQuotationRequestActions::reject(),
+                ActionGroup::make([
+                    CustomerQuotationRequestActions::startReview(),
+                    CustomerQuotationRequestActions::convert(),
+                    CustomerQuotationRequestActions::reject(),
+                ])->icon(Heroicon::EllipsisVertical),
             ])
             ->toolbarActions([]);
     }

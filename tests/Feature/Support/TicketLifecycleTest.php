@@ -478,7 +478,10 @@ it('transitions a ticket through the view-page action and handles a stale invali
 
     Livewire::actingAs($manager)
         ->test(ViewTicket::class, ['record' => $ticket->getKey()])
-        ->callAction('startProgress');
+        ->assertActionVisible('startProgress')
+        ->callAction('startProgress')
+        ->assertActionHidden('startProgress')
+        ->assertActionVisible('resolve');
 
     expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress);
 

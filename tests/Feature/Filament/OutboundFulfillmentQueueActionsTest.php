@@ -6,7 +6,10 @@ use App\Enums\InventoryPermission;
 use App\Enums\OrderStatus;
 use App\Enums\ShipmentStatus;
 use App\Filament\Pages\PurchaseNeeds;
+use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
 use App\Filament\Resources\OutboundFulfillments\Pages\ListOutboundFulfillments;
+use App\Filament\Resources\OutboundFulfillments\Pages\ViewOutboundFulfillment;
+use App\Filament\Resources\PurchaseInbounds\Schemas\PurchaseInboundInfolist;
 use App\Models\InventoryOperation;
 use App\Models\Order;
 use App\Models\OrderLine;
@@ -14,6 +17,8 @@ use App\Models\SalesProcurementRequirement;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\Logistics\OutboundDispatchService;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -172,4 +177,92 @@ it('hides workflow actions from a user who may only view the queue', function ()
         ->assertTableActionHidden('createDeliveryPlan', $planOrder)
         ->assertTableActionHidden('dispatchGoods', $readyOrder)
         ->assertTableActionVisible('view', $readyOrder);
+});
+
+it('translates the logistics milestone and blocker sentence on the outbound queue and detail page in Arabic', function (): void {
+    Gate::before(static fn (): bool => true);
+    app()->setLocale('ar');
+    $order = outboundQueueOrder();
+    OrderLine::factory()->for($order)->create(['quantity' => 3]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(ListOutboundFulfillments::class)
+        ->assertTableColumnFormattedStateSet('logistics_milestone', 'بانتظار تخصيص الخدمات اللوجستية', record: $order)
+        ->assertSeeText('يجب على الخدمات اللوجستية تخصيص الطلب المحرر المتبقي.')
+        ->assertDontSeeText('Awaiting Logistics Allocation')
+        ->assertDontSeeText('Logistics must allocate the remaining released demand.');
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(ViewOutboundFulfillment::class, ['record' => $order->getKey()])
+        ->assertSeeText('بانتظار تخصيص الخدمات اللوجستية')
+        ->assertSeeText('يجب على الخدمات اللوجستية تخصيص الطلب المحرر المتبقي.')
+        ->assertDontSeeText('Awaiting Logistics Allocation');
+});
+
+it('keeps the English milestone and blocker sentence in English', function (): void {
+    Gate::before(static fn (): bool => true);
+    $order = outboundQueueOrder();
+    OrderLine::factory()->for($order)->create(['quantity' => 3]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(ViewOutboundFulfillment::class, ['record' => $order->getKey()])
+        ->assertSeeText('Awaiting Logistics Allocation')
+        ->assertSeeText('Logistics must allocate the remaining released demand.');
+});
+
+it('hides the supply blocker section when the order has no procurement requirements', function (): void {
+    Gate::before(static fn (): bool => true);
+    $order = outboundQueueOrder();
+    $line = OrderLine::factory()->for($order)->create(['quantity' => 3]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(ViewOutboundFulfillment::class, ['record' => $order->getKey()])
+        ->assertDontSeeText(__('admin.inventory.outbound.sections.supply_blocker'));
+
+    SalesProcurementRequirement::query()->create([
+        'order_id' => $order->getKey(),
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $line->product_variant_id,
+        'required_base_quantity' => 2,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(ViewOutboundFulfillment::class, ['record' => $order->getKey()])
+        ->assertSeeText(__('admin.inventory.outbound.sections.supply_blocker'))
+        ->assertSeeText('Open');
+});
+
+it('shows the shipment status label instead of the raw value on planned deliveries', function (): void {
+    Gate::before(static fn (): bool => true);
+    $order = outboundQueueOrder();
+    $delivery = outboundQueueDelivery($order, 'done');
+    Shipment::factory()->create([
+        'order_id' => $order->getKey(),
+        'inventory_operation_id' => $delivery->getKey(),
+        'status' => ShipmentStatus::Arrived,
+    ]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(ViewOutboundFulfillment::class, ['record' => $order->getKey()])
+        ->assertSeeText(ShipmentStatus::Arrived->label())
+        ->assertDontSeeText('arrived');
+});
+
+it('gives the outbound and inbound detail sections the full page width so badges are not truncated', function (): void {
+    $schemas = [
+        'outbound' => OutboundFulfillmentResource::infolist(Schema::make()),
+        'inbound' => PurchaseInboundInfolist::configure(Schema::make()),
+    ];
+
+    foreach ($schemas as $name => $schema) {
+        $sections = array_filter($schema->getComponents(withHidden: true), static fn (mixed $component): bool => $component instanceof Section);
+
+        expect($sections)->not->toBeEmpty();
+
+        foreach ($sections as $section) {
+            expect($section->getColumnSpan('default'))->toBe('full', $name);
+        }
+    }
 });

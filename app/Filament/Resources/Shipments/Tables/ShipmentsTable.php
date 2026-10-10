@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Shipments\Tables;
 
 use App\Enums\ShipmentStatus;
+use App\Filament\Tables\TableFit;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\Shipments\ShipmentService;
@@ -18,18 +19,18 @@ final class ShipmentsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('tracking_number')->label(__('admin.shipment.fields.shipment_number'))->searchable()->sortable(),
                 TextColumn::make('order.order_number')->label(__('admin.shipment.fields.sales_order'))->searchable()->sortable(),
-                TextColumn::make('order.customer.company_name')->label(__('admin.shipment.fields.customer'))->searchable(),
-                TextColumn::make('warehouse.name')->label(__('admin.shipment.fields.warehouse'))->searchable(),
-                TextColumn::make('delivery.operation_number')->label(__('admin.shipment.fields.delivery'))->placeholder(__('—')),
+                TextColumn::make('order.customer.company_name')->wrap()->label(__('admin.shipment.fields.customer'))->searchable(),
+                TextColumn::make('warehouse.name')->toggleable(isToggledHiddenByDefault: true)->wrap()->label(__('admin.shipment.fields.warehouse'))->searchable(),
+                TextColumn::make('delivery.operation_number')->toggleable(isToggledHiddenByDefault: true)->label(__('admin.shipment.fields.delivery'))->placeholder(__('—')),
                 TextColumn::make('status')->label(__('admin.inventory.customer_return_request.fields.status'))->badge()->formatStateUsing(fn (ShipmentStatus $state): string => __('admin.shipment.statuses.'.$state->value)),
                 TextColumn::make('delivery.dispatched_at')->label(__('admin.shipment.fields.dispatched_at'))->dateTime()->placeholder(__('—')),
                 TextColumn::make('confirmed_at')->label(__('admin.shipment.fields.arrived_at'))->dateTime()->placeholder(__('—')),
-                TextColumn::make('confirmed_by')->label(__('admin.shipment.fields.confirmed_by'))
+                TextColumn::make('confirmed_by')->toggleable(isToggledHiddenByDefault: true)->wrap()->label(__('admin.shipment.fields.confirmed_by'))
                     ->state(fn (Shipment $record): ?string => $record->confirmedByLabel())
                     ->placeholder(__('—')),
             ])
@@ -41,7 +42,7 @@ final class ShipmentsTable
                 ),
                 SelectFilter::make('warehouse_id')->label(__('admin.inventory.shipment.fields.warehouse'))->relationship('warehouse', 'name')->searchable()->preload(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 Action::make('confirm')
                     ->label(__('admin.shipment.actions.confirm'))
@@ -54,6 +55,6 @@ final class ShipmentsTable
                             app(ShipmentService::class)->confirmByAdmin($record, $user);
                         }
                     }),
-            ]);
+            ]));
     }
 }

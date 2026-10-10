@@ -188,3 +188,21 @@ it('builds sub navigation only for view, edit, and related-record pages', functi
 
     expect(ProductResource::getRecordSubNavigation(new ManageProductVariantsIndex))->toBe([]);
 });
+
+// Release QA 2026-10-10: the variant list showed an empty "Main image" cell, and the attribute page used the generated
+// "Attribute Assignments" title and a "No product variant attribute values" empty state.
+it('shows an image placeholder in the variant list and names the attribute assignments page', function (): void {
+    $manager = productRecordTabsManager();
+    $variant = ProductVariant::factory()->create();
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariantsIndex::class)
+        ->assertSeeText('No image');
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariantAttributeValues::class, ['record' => $variant->getRouteKey()])
+        ->assertSeeText(['Attribute assignments', 'No attribute assignments'])
+        ->assertDontSeeText(['Attribute Assignments', 'product variant attribute values']);
+
+    expect(ManageProductVariantAttributeValues::getNavigationLabel())->toBe('Attribute assignments');
+});

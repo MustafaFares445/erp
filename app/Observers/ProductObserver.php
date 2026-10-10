@@ -17,9 +17,7 @@ final class ProductObserver
 {
     public function saving(Product $product): void
     {
-        if ($product->operational_profile === null) {
-            $product->operational_profile = ProductOperationalProfile::fromLegacyType($product->product_type);
-        }
+        $product->operational_profile ??= ProductOperationalProfile::fromLegacyType($product->product_type);
 
         if ($product->brand_id === null) {
             return;

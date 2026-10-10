@@ -60,7 +60,7 @@ final class TriageTicketAction
                                     ->options(static fn (Ticket $record): array => self::equipmentOptions($record))
                                     ->searchable()
                                     ->preload()
-                                    ->helperText(__('Search by product or serial number. Only equipment currently in this customer custody is shown.'))
+                                    ->helperText(__("Search by product or serial number. Only equipment currently in this customer's custody is shown."))
                                     ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
                                     ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
                                     ->live(),

@@ -18,6 +18,7 @@ use App\Models\PurchaseAgreement;
 use App\Models\PurchaseAgreementLine;
 use App\Models\Supplier;
 use App\Models\Unit;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -60,6 +61,18 @@ final class PurchaseAgreementResource extends Resource
     }
 
     #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('Purchase agreement');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('Purchase agreements');
+    }
+
+    #[\Override]
     public static function canViewAny(): bool
     {
         return auth()->user()?->can(PurchasePermission::AgreementView->value) ?? false;
@@ -82,12 +95,12 @@ final class PurchaseAgreementResource extends Resource
     {
         return $schema->components([
             Section::make(__('Agreement details'))->schema([
-                Select::make('supplier_id')->required()->searchable()->preload()
+                Select::make('supplier_id')->label(__('Supplier'))->required()->searchable()->preload()
                     ->options(fn (): array => Supplier::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all()),
                 CurrencySelect::make('currency_code')->required(),
-                DatePicker::make('starts_on')->required()->default(today()),
-                DatePicker::make('ends_on')->afterOrEqual('starts_on'),
-                Textarea::make('notes')->columnSpanFull(),
+                DatePicker::make('starts_on')->label(__('Starts on'))->required()->default(today()),
+                DatePicker::make('ends_on')->label(__('Ends on'))->afterOrEqual('starts_on'),
+                Textarea::make('notes')->label(__('Notes'))->columnSpanFull(),
             ])->columns(2),
             Section::make(__('Agreement pricing'))->schema([
                 Repeater::make('lines')->minItems(1)->defaultItems(1)->schema([
@@ -95,9 +108,9 @@ final class PurchaseAgreementResource extends Resource
                         ->options(fn (): array => ProductVariant::query()->where('is_active', true)->orderBy('sku')->pluck('sku', 'id')->all()),
                     Select::make('unit_id')->label(__('Unit'))->required()->searchable()
                         ->options(fn (): array => Unit::query()->orderBy('name')->pluck('name', 'id')->all()),
-                    TextInput::make('unit_price')->numeric()->minValue(0)->required(),
-                    TextInput::make('minimum_order_quantity')->numeric()->minValue(0),
-                    TextInput::make('lead_time_days')->numeric()->minValue(0),
+                    TextInput::make('unit_price')->label(__('Unit price'))->numeric()->minValue(0)->required(),
+                    TextInput::make('minimum_order_quantity')->label(__('Minimum order quantity'))->numeric()->minValue(0),
+                    TextInput::make('lead_time_days')->label(__('Lead time (days)'))->numeric()->minValue(0),
                 ])->columns(2),
             ]),
         ]);
@@ -126,8 +139,11 @@ final class PurchaseAgreementResource extends Resource
 
                         return $agreement instanceof PurchaseAgreement ? $agreement->currency_code : 'AED';
                     }),
-                    TextEntry::make('minimum_order_quantity')->label(__('MOQ'))->placeholder('—'),
-                    TextEntry::make('lead_time_days')->label(__('Lead days'))->placeholder('—'),
+                    TextEntry::make('minimum_order_quantity')
+                        ->label(__('Minimum order quantity'))
+                        ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
+                        ->placeholder('—'),
+                    TextEntry::make('lead_time_days')->label(__('Lead time (days)'))->placeholder('—'),
                 ])->columns(3),
             ]),
         ]);

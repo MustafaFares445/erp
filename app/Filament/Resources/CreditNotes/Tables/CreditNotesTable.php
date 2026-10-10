@@ -10,6 +10,7 @@ use App\Enums\CreditNoteStockConsequence;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\CreditNote;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -27,13 +28,13 @@ final class CreditNotesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('issue_date', 'desc')
             ->searchPlaceholder(__('admin.sales.credit_note_ui.search_placeholder'))
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('credit_note_number')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
+                TextColumn::make('customer.company_name')->wrap()->label(__('admin.sales.fields.customer'))->searchable(),
                 TextColumn::make('invoice.invoice_number')
                     ->label(__('admin.sales.credit_note_ui.source_invoice'))
                     ->searchable()
@@ -47,7 +48,7 @@ final class CreditNotesTable
                     ->label(__('admin.sales.credit_note_ui.total_credit'))
                     ->money()
                     ->sortable(),
-                TextColumn::make('stock_consequence')
+                TextColumn::make('stock_consequence')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.sales.credit_note_ui.stock_effect'))
                     ->formatStateUsing(fn (CreditNoteStockConsequence $state): string => $state->label()),
                 TextColumn::make('status')
@@ -97,10 +98,10 @@ final class CreditNotesTable
                     DateConstraint::make('confirmed_at')->label(__('Confirmed at')),
                 ]),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 EditAction::make()->visible(fn (CreditNote $record): bool => $record->isDraft()),
-            ])
+            ]))
             ->toolbarActions([]);
     }
 }

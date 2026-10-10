@@ -15,6 +15,7 @@ use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Services\Support\MaintenanceNextActionResolver;
@@ -47,7 +48,7 @@ final class MaintenanceRequestsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('updated_at', 'desc')
             ->columns([
                 FavoriteColumn::make(),
@@ -55,42 +56,54 @@ final class MaintenanceRequestsTable
                 TextColumn::make('customer.company_name')
                     ->label(__('Customer'))
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->wrap(),
                 TextColumn::make('equipment')
                     ->label(__('Equipment'))
                     ->getStateUsing(static fn (MaintenanceRecord $record): string => $record->serializedInventoryUnit?->productVariant->name
-                        ?? ($record->is_equipment_unlinked ? 'External / unlinked' : '—'))
-                    ->description(static fn (MaintenanceRecord $record): ?string => $record->serial_number !== null ? 'SN '.$record->serial_number : null),
+                        ?? ($record->is_equipment_unlinked ? __('External / unlinked') : '—'))
+                    ->description(static fn (MaintenanceRecord $record): ?string => self::serialDescription($record->serial_number))
+                    ->wrap(),
                 TextColumn::make('status')
                     ->label(__('Stage'))
                     ->badge()
                     ->formatStateUsing(static fn (MaintenanceStatus $state): string => $state->label())
-                    ->color(static fn (MaintenanceStatus $state): string => $state->color()),
+                    ->color(static fn (MaintenanceStatus $state): string => $state->color())
+                    ->extraCellAttributes(['class' => 'ierp-ta-wrap-badge']),
                 TextColumn::make('warranty_status')
                     ->label(__('Warranty eligibility'))
                     ->badge()
                     ->formatStateUsing(static fn (WarrantyStatus $state): string => $state->label())
-                    ->color(static fn (WarrantyStatus $state): string => $state->color()),
+                    ->color(static fn (WarrantyStatus $state): string => $state->color())
+                    ->extraCellAttributes(['class' => 'ierp-ta-wrap-badge']),
                 TextColumn::make('coverage_decision')
                     ->label(__('Repair coverage'))
                     ->badge()
-                    ->formatStateUsing(static fn (WarrantyClaimDecision $state): string => $state->label())
-                    ->color(static fn (WarrantyClaimDecision $state): string => $state->color()),
+                    ->formatStateUsing(static fn (WarrantyClaimDecision $state, MaintenanceRecord $record): string => self::isUnassessedAndFinished($state, $record)
+                        ? __('Not assessed')
+                        : $state->label())
+                    ->color(static fn (WarrantyClaimDecision $state, MaintenanceRecord $record): string => self::isUnassessedAndFinished($state, $record)
+                        ? 'gray'
+                        : $state->color())
+                    ->extraCellAttributes(['class' => 'ierp-ta-wrap-badge']),
                 TextColumn::make('customer_responsibility')
                     ->label(__('Customer pays'))
-                    ->state(static fn (MaintenanceRecord $record): string => number_format(self::coverage($record)['customer_amount_minor'] / 100, 2)),
+                    ->state(static fn (MaintenanceRecord $record): string => number_format(self::coverage($record)['customer_amount_minor'] / 100, 2))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('next_action')
                     ->label(__('Next action'))
                     ->state(static fn (MaintenanceRecord $record): string => app(MaintenanceNextActionResolver::class)->resolve($record))
-                    ->wrap(),
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('billing_type')
                     ->label(__('Commercial'))
                     ->badge()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->label(__('Updated'))
                     ->since()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('warranty_expiry_date')
                     ->label(__('Warranty expiry'))
                     ->date()
@@ -144,12 +157,12 @@ final class MaintenanceRequestsTable
                 ]),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ...self::primaryActions(),
-                ViewAction::make(),
-                EditAction::make()
-                    ->visible(static fn (MaintenanceRecord $record): bool => ! $record->isLockedForChanges()),
                 ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make()
+                        ->visible(static fn (MaintenanceRecord $record): bool => ! $record->isLockedForChanges()),
                     Action::make('cancel')
                         ->label(__('Cancel maintenance'))
                         ->color('danger')
@@ -171,7 +184,7 @@ final class MaintenanceRequestsTable
                         ->visible(static fn (MaintenanceRecord $record): bool => $record->trashed())
                         ->action(static fn (MaintenanceRecord $record) => $record->restore()),
                 ]),
-            ])
+            ]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('archive')
@@ -294,6 +307,32 @@ final class MaintenanceRequestsTable
                 ->color('primary')
                 ->visible($is(MaintenanceNextStep::CompleteQa)),
         ];
+    }
+
+    /**
+     * Demo and customer serials often already start with "SN"; avoid rendering "SN SN019-…".
+     */
+    private static function serialDescription(?string $serialNumber): ?string
+    {
+        if ($serialNumber === null || $serialNumber === '') {
+            return null;
+        }
+
+        if (str_starts_with(mb_strtoupper($serialNumber), 'SN')) {
+            return $serialNumber;
+        }
+
+        return __('SN :serial', ['serial' => $serialNumber]);
+    }
+
+    /**
+     * A closed or cancelled request that never received a coverage decision (installation,
+     * calibration, preventive or abandoned work) is no longer "pending diagnosis".
+     */
+    private static function isUnassessedAndFinished(WarrantyClaimDecision $decision, MaintenanceRecord $record): bool
+    {
+        return $decision === WarrantyClaimDecision::PendingDiagnosis
+            && in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true);
     }
 
     /** @return array{total_amount_minor:int,covered_amount_minor:int,customer_amount_minor:int} */

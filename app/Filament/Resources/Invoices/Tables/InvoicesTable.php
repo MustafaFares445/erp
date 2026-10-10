@@ -10,6 +10,7 @@ use App\Enums\InvoiceStatus;
 use App\Filament\Resources\Invoices\Actions\InvoiceActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\Invoice;
 use App\Services\Sales\InvoiceBalanceService;
 use App\Services\Sales\InvoiceNextActionResolver;
@@ -33,19 +34,20 @@ final class InvoicesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('invoice_date', 'desc')
             ->searchPlaceholder(__('Search by invoice number or customer name'))
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('invoice_number')->label(__('Invoice'))->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
+                TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable()->wrap(),
                 TextColumn::make('status')
                     ->label(__('Document status'))
                     ->badge()
                     ->formatStateUsing(fn (InvoiceStatus $state): string => $state->label())
                     ->color(fn (InvoiceStatus $state): string => $state->color())
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('financial_status')
                     ->label(__('Financial status'))
                     ->state(fn (Invoice $record): InvoiceFinancialStatus => app(InvoiceBalanceService::class)->financialStatus($record))
@@ -64,7 +66,8 @@ final class InvoicesTable
                 TextColumn::make('next_action')
                     ->label(__('Next action'))
                     ->state(fn (Invoice $record): string => app(InvoiceNextActionResolver::class)->resolve($record))
-                    ->wrap(),
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('invoice_date')->label(__('Invoice date'))->date()->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('amount_paid')->label(__('Amount paid'))->money()->sortable()
@@ -101,7 +104,7 @@ final class InvoicesTable
                 ]),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 InvoiceActions::issue()
                     ->button()
                     ->hidden(fn (Invoice $record): bool => self::nextStep($record) !== InvoiceNextStep::Issue),
@@ -115,7 +118,7 @@ final class InvoicesTable
                     ViewAction::make(),
                     EditAction::make()->visible(fn (Invoice $record): bool => $record->isDraft()),
                 ]),
-            ])
+            ]))
             ->toolbarActions([]);
     }
 
@@ -147,17 +150,17 @@ final class InvoicesTable
         $parts = [];
 
         if ((float) $record->amount_paid > 0.0) {
-            $parts[] = 'Paid: '.number_format((float) $record->amount_paid, 2);
+            $parts[] = __('Paid: :amount', ['amount' => number_format((float) $record->amount_paid, 2)]);
         }
 
         if ((float) $record->credited_amount > 0.0) {
-            $parts[] = 'Credited: '.number_format((float) $record->credited_amount, 2);
+            $parts[] = __('Credited: :amount', ['amount' => number_format((float) $record->credited_amount, 2)]);
         }
 
         $writtenOff = $record->writtenOffAmountMinor() / 100;
 
         if ($writtenOff > 0.0) {
-            $parts[] = 'Written off: '.number_format($writtenOff, 2);
+            $parts[] = __('Written off: :amount', ['amount' => number_format($writtenOff, 2)]);
         }
 
         return $parts === [] ? null : implode(' · ', $parts);

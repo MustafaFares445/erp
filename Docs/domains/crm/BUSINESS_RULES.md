@@ -3,7 +3,7 @@
 ---
 status: canonical
 owner: crm
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 verified_against: CRM services/enums/permissions/tests
 ---
 
@@ -12,6 +12,8 @@ verified_against: CRM services/enums/permissions/tests
 Customer approval states are Pending, Changes Requested, Approved and Rejected.
 
 Profile changes use explicit change requests with Pending, Approved, Rejected and Cancelled states rather than silently overwriting review-controlled data.
+
+Customer commercial profile facts include customer type/group, default currency, active default price list, default payment terms, assigned sales employee, billing address and tax registration number. Default price-list currency must match the customer default currency; customer groups must be active and assigned sales users must be Employee accounts.
 
 ## Leads
 

@@ -24,6 +24,7 @@ use App\Services\Accounting\TaxRegisterService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -100,7 +101,7 @@ final class ViewTaxRegister extends Page
     #[\Override]
     public function getTitle(): string
     {
-        return __('admin.resources.taxes').' — Register';
+        return __('admin.resources.taxes').' — '.__('Register');
     }
 
     #[\Override]
@@ -164,9 +165,14 @@ final class ViewTaxRegister extends Page
 
     private static function documentLabel(?string $sourceType, ?int $sourceId): string
     {
-        return $sourceType === null || $sourceId === null
-            ? '—'
-            : class_basename($sourceType).' #'.$sourceId;
+        if ($sourceType === null || $sourceId === null) {
+            return '—';
+        }
+
+        $type = Str::headline(class_basename($sourceType));
+        $translatedType = __($type);
+
+        return (is_string($translatedType) ? $translatedType : $type).' #'.$sourceId;
     }
 
     private function documentUrl(?string $sourceType, ?int $sourceId): ?string

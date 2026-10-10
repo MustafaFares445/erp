@@ -7,6 +7,7 @@ namespace App\Services\Inventory;
 use App\Data\Inventory\ReplenishmentRecommendation;
 use App\Enums\StockCondition;
 use App\Models\InventoryStock;
+use App\Models\SupplierProductReference;
 use App\Models\WarehouseReplenishmentPolicy;
 
 final class ReplenishmentRecommendationService
@@ -53,7 +54,7 @@ final class ReplenishmentRecommendationService
             supplierProductReferenceId: $this->integerKey($reference?->getKey()),
             supplierId: $reference?->supplier_id,
             supplierName: $reference?->supplier?->name,
-            leadTimeDays: $reference !== null
+            leadTimeDays: $reference instanceof SupplierProductReference
                 ? ($reference->lead_time_days ?? $reference->supplier?->default_lead_time_days)
                 : null,
             currencyCode: $reference?->currency_code,

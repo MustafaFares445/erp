@@ -80,7 +80,7 @@
                         </div>
                         <div class="ierp-card ierp-metric">
                             <div class="ierp-metric-label">{{ __('CSAT') }}</div>
-                            <div class="ierp-metric-value">{{ $customerSatisfaction['average_rating'] !== null ? __(':rating / 5', ['rating' => $customerSatisfaction['average_rating']]) : '—' }}</div>
+                            <div class="ierp-metric-value">@if ($customerSatisfaction['average_rating'] !== null)<bdi dir="ltr">{{ __(':rating / 5', ['rating' => $customerSatisfaction['average_rating']]) }}</bdi>@else—@endif</div>
                             <div class="ierp-metric-helper">{{ __(':count responses', ['count' => $customerSatisfaction['responses']]) }}</div>
                         </div>
                     </div>
@@ -421,7 +421,7 @@
                         </div>
                         <div class="ierp-card ierp-metric">
                             <div class="ierp-metric-label">{{ __('CSAT') }}</div>
-                            <div class="ierp-metric-value">{{ $customerSatisfaction['average_rating'] !== null ? __(':rating / 5', ['rating' => $customerSatisfaction['average_rating']]) : '—' }}</div>
+                            <div class="ierp-metric-value">@if ($customerSatisfaction['average_rating'] !== null)<bdi dir="ltr">{{ __(':rating / 5', ['rating' => $customerSatisfaction['average_rating']]) }}</bdi>@else—@endif</div>
                         </div>
                     </div>
 

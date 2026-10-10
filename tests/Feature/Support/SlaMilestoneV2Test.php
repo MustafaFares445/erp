@@ -6,6 +6,7 @@ use App\Enums\SlaMilestoneKey;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Models\EmployeeProfile;
+use App\Models\SlaPolicy;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\SlaService;
@@ -14,6 +15,7 @@ use App\Services\Support\TicketMessageService;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 
 uses(RefreshDatabase::class);
 
@@ -99,4 +101,26 @@ it('completes and reopens the resolution milestone through the ticket lifecycle'
     app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
     expect($milestone->refresh()->completed_at)->toBeNull();
+});
+
+it('falls back to the built-in resolution target when no SLA policy matches at go-live', function (): void {
+    $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Live]);
+    app(SlaService::class)->onTicketCreated($ticket);
+    $ticket->refresh();
+
+    expect($ticket->response_due_at)->not->toBeNull();
+
+    SlaPolicy::query()->delete();
+    Log::spy();
+
+    app(SlaService::class)->onTicketLive($ticket);
+    $ticket->refresh();
+
+    expect($ticket->live_at)->not->toBeNull()
+        ->and($ticket->resolution_due_at?->equalTo($ticket->live_at->clone()->addMinutes(240)))->toBeTrue()
+        ->and($ticket->slaMilestones()->where('key', SlaMilestoneKey::Resolution->value)->exists())->toBeFalse();
+
+    Log::shouldHaveReceived('warning')
+        ->with('support.sla.no_matching_policy', ['ticket_id' => $ticket->getKey(), 'priority' => TicketPriority::Urgent->value])
+        ->once();
 });

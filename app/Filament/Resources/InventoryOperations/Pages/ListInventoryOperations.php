@@ -6,9 +6,9 @@ namespace App\Filament\Resources\InventoryOperations\Pages;
 
 use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
+use App\Filament\Resources\InventoryOperations\Actions\InventoryOperationActions;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryOperations\Tables\InventoryOperationsTable;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 
@@ -28,7 +28,9 @@ final class ListInventoryOperations extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            InventoryOperationActions::createTransfer(),
+        ];
     }
 
     protected function savedTableViewPageKey(): string

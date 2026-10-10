@@ -13,6 +13,7 @@ use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
@@ -34,7 +35,7 @@ final class InventoryAlertsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('type')
@@ -46,7 +47,7 @@ final class InventoryAlertsTable
                     ->badge()
                     ->sortable(),
                 TextColumn::make('message')->wrap()->searchable(),
-                TextColumn::make('subject_reference')
+                TextColumn::make('subject_reference')->wrap()
                     ->label(__('admin.inventory.alert.origin'))
                     ->state(fn (InventoryAlert $record): string => self::subjectReference($record)),
                 TextColumn::make('state')
@@ -54,9 +55,10 @@ final class InventoryAlertsTable
                     ->state(fn (InventoryAlert $record): string => $record->isActive()
                         ? __('admin.inventory.alert.active')
                         : __('admin.inventory.alert.resolved'))
-                    ->badge(),
+                    ->badge()
+                    ->color(fn (InventoryAlert $record): string => $record->isActive() ? 'warning' : 'success'),
                 TextColumn::make('created_at')->dateTime()->sortable(),
-                TextColumn::make('resolved_at')->dateTime()->sortable()->placeholder(__('—')),
+                TextColumn::make('resolved_at')->toggleable(isToggledHiddenByDefault: true)->dateTime()->sortable()->placeholder(__('—')),
             ])
             ->filters([
                 TernaryFilter::make('active')
@@ -79,7 +81,7 @@ final class InventoryAlertsTable
                         ])
                         ->all()),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 ViewAction::make(),
                 Action::make('open_origin')
                     ->label(fn (InventoryAlert $record): string => self::originActionLabel($record))
@@ -90,7 +92,7 @@ final class InventoryAlertsTable
                     ->color(fn (InventoryAlert $record): string => self::reviewLabel($record) !== null ? 'primary' : 'gray')
                     ->url(fn (InventoryAlert $record): ?string => self::subjectUrl($record))
                     ->visible(fn (InventoryAlert $record): bool => self::subjectUrl($record) !== null),
-            ]);
+            ]));
     }
 
     /**

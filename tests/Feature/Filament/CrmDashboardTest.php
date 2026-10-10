@@ -221,3 +221,16 @@ it('lays out the CRM dashboard in aligned pairs with a lead source filter', func
         ->set('filters.leadSource', LeadSource::Referral->value)
         ->assertSet('filters.leadSource', LeadSource::Referral->value);
 });
+
+it('lays the lead status legend out right-to-left in Arabic', function (): void {
+    // Release QA 2026-10-10: Arabic doughnut legend labels were clipped at their start behind the next colour box.
+    $widget = app(CrmLeadFunnel::class);
+    $options = new ReflectionMethod($widget, 'getOptions');
+
+    expect($options->invoke($widget)['plugins']['legend']['rtl'])->toBeFalse();
+
+    app()->setLocale('ar');
+
+    expect($options->invoke($widget)['plugins']['legend']['rtl'])->toBeTrue()
+        ->and($options->invoke($widget)['plugins']['tooltip']['rtl'])->toBeTrue();
+});

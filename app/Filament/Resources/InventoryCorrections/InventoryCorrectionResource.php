@@ -13,12 +13,17 @@ use App\Filament\Resources\InventoryCorrections\Pages\ViewInventoryCorrection;
 use App\Filament\Resources\InventoryCorrections\RelationManagers\CorrectionLinesRelationManager;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryCorrection;
+use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryOperation;
+use App\Services\Inventory\Diagnostics\InventoryCorrectionDiagnoser;
+use App\Support\QuantityFormatter;
+use Illuminate\Database\Eloquent\Model;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use App\Filament\Components\InventoryViewDiagnostics;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -81,7 +86,9 @@ final class InventoryCorrectionResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make(__('admin.inventory.correction.details'))->columns(3)->schema([
+            InventoryViewDiagnostics::section(),
+            InventoryViewDiagnostics::metrics(static fn (Model $record): array => self::metrics($record)),
+            Section::make(__('admin.inventory.correction.details'))->columnSpanFull()->columns(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                 TextEntry::make('correction_number')
                     ->label(__('admin.inventory.correction.number')),
                 TextEntry::make('correction_type')
@@ -182,5 +189,39 @@ final class InventoryCorrectionResource extends Resource
             'index' => ManageInventoryCorrections::route('/'),
             'view' => ViewInventoryCorrection::route('/{record}'),
         ];
+    }
+
+    /**
+     * @return list<array{label: string, value: string, helper?: string|null, tone?: string|null}>
+     */
+    private static function metrics(Model $record): array
+    {
+        assert($record instanceof InventoryCorrection);
+
+        $record->loadMissing('lines');
+        $lines = $record->lines;
+        $metrics = [
+            [
+                'label' => __('inventory_view_ux.ui.correction_lines'),
+                'value' => (string) $lines->count(),
+                'tone' => $lines->isEmpty() && $record->isDraft() ? 'danger' : null,
+            ],
+            [
+                'label' => __('inventory_view_ux.ui.correction_quantity'),
+                'value' => QuantityFormatter::display($lines->sum(static fn (InventoryCorrectionLine $line): float => (float) $line->base_quantity)),
+                'helper' => __('inventory_view_ux.ui.document_base_unit_helper'),
+                'tone' => 'primary',
+            ],
+        ];
+
+        if ($record->isDraft()) {
+            $metrics[] = [
+                'label' => __('inventory_view_ux.ui.correction_remaining'),
+                'value' => QuantityFormatter::display(max(0.0, array_sum(InventoryCorrectionDiagnoser::remainingByMovement($record)))),
+                'helper' => __('inventory_view_ux.ui.correction_remaining_helper'),
+            ];
+        }
+
+        return $metrics;
     }
 }

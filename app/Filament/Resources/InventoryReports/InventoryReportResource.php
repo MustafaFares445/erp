@@ -28,6 +28,15 @@ final class InventoryReportResource extends Resource
         return __('admin.resources.inventory_reports');
     }
 
+    /**
+     * The page reports on many sources, so it is not titled after the stock model it is registered with.
+     */
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.resources.inventory_reports');
+    }
+
     #[\Override]
     public static function form(Schema $schema): Schema
     {

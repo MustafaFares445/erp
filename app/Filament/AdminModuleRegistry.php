@@ -724,11 +724,11 @@ final class AdminModuleRegistry
 
             return is_string($groupKey) ? $groupKey : null;
         }
-        $panelId = Filament::getCurrentOrDefaultPanel()?->getId();
         foreach ($groups as $group) {
             foreach (self::memberClassesOf($group) as $class) {
                 if (is_subclass_of($class, Resource::class)) {
-                    if (Str::startsWith($routeName, sprintf('filament.%s.resources.%s.', $panelId, $class::getSlug()))) {
+                    // Filament's route base name turns a nested slug's "/" into "." and adds clusters.
+                    if (Str::startsWith($routeName, $class::getRouteBaseName().'.')) {
                         return $group['key'];
                     }
 

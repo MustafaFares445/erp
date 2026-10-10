@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use App\Data\Inventory\PriceFloorOverrideData;
 use App\Enums\QuotationStatus;
 use App\Models\Quotation;
+use App\Services\Inventory\ProductPricingService;
 use App\Services\Sales\QuotationConversionService;
 use App\Services\Sales\QuotationResponseService;
 use App\Services\Sales\QuotationService;
@@ -162,7 +164,36 @@ final readonly class DemoSalesQuotationScenes
             $attributes['expires_at'] = $quote['expires'];
         }
 
-        $this->kit->quotes[$code] = app(QuotationService::class)->create($attributes, $this->kit->lines($quote['lines']));
+        $lines = $this->kit->lines($quote['lines']);
+
+        // F-11: one converted sale carries an explicit, audited below-floor approval.
+        // The override is created by the pricing service and is then supplied to the
+        // quotation line so conversion can retain its commercial provenance.
+        if ($code === 'QC4') {
+            $variant = $this->kit->variant('P010-A2');
+            $customerUser = $customer->user ?? throw new LogicException('Demo price-floor scenario requires a customer user.');
+            $override = app(ProductPricingService::class)->approveFloorOverride(
+                new PriceFloorOverrideData(
+                    productVariantId: DemoContext::keyOf($variant),
+                    customerUserId: DemoContext::keyOf($customerUser),
+                    attemptedPrice: 130.0,
+                    reason: '[DEMO-SALES] Strategic contract approval slightly below the configured floor.',
+                ),
+                $this->kit->context->as('admin'),
+            );
+
+            foreach ($lines as &$line) {
+                if ($line['product_variant_id'] === $variant->getKey()) {
+                    $line['unit_price'] = 130.0;
+                    $line['price_floor_override_id'] = DemoContext::keyOf($override);
+                }
+            }
+            unset($line);
+
+            $this->kit->context->as('sales_manager');
+        }
+
+        $this->kit->quotes[$code] = app(QuotationService::class)->create($attributes, $lines);
     }
 
     private function send(string $code): void

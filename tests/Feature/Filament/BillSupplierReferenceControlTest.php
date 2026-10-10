@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Filament\Resources\Bills\Pages\EditBill;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Models\Bill;
+use App\Models\BillLine;
 use App\Models\ChartAccount;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -139,4 +141,26 @@ it('requires the supplier invoice reference in the create action', function (): 
         ]);
 
     expect(Bill::query()->count())->toBe(0);
+});
+
+it('shows the linked purchase order supplier read-only on a purchase-order bill without persisting it as supplier_id', function (): void {
+    $order = PurchaseOrder::factory()->accepted()->create(['supplier_id' => $this->supplier->getKey()]);
+    $bill = Bill::factory()->forPurchaseOrder($order)->create();
+    BillLine::factory()->for($bill, 'bill')->create([
+        'chart_account_id' => $this->expenseAccount->getKey(),
+    ]);
+
+    expect($bill->supplier_id)->toBeNull();
+
+    Livewire::actingAs($this->actor)
+        ->test(EditBill::class, ['record' => $bill->getKey()])
+        ->assertFormSet(['supplier_id' => $this->supplier->getKey()])
+        ->assertFormFieldDisabled('supplier_id')
+        ->fillForm(['description' => 'Edited description'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($bill->refresh()->supplier_id)->toBeNull()
+        ->and($bill->resolved_supplier_id)->toBe($this->supplier->getKey())
+        ->and($bill->description)->toBe('Edited description');
 });

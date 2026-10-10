@@ -8,6 +8,7 @@ use App\Enums\PaymentStatus;
 use App\Filament\Resources\Payments\Actions\PaymentActions;
 use App\Filament\Tables\Columns\FavoriteColumn;
 use App\Filament\Tables\Filters\TableQueryBuilder;
+use App\Filament\Tables\TableFit;
 use App\Models\Payment;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -27,16 +28,17 @@ final class PaymentsTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->defaultSort('payment_date', 'desc')
             ->searchPlaceholder(__('admin.sales.payment_ui.search_placeholder'))
             ->columns([
                 FavoriteColumn::make(),
                 TextColumn::make('payment_number')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
+                TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable()->wrap(),
                 TextColumn::make('source')
                     ->label(__('admin.sales.payment_ui.source'))
-                    ->state(fn (Payment $record): string => $record->providerTransaction?->provider->label() ?? __('admin.sales.payment_ui.manual')),
+                    ->state(fn (Payment $record): string => $record->providerTransaction?->provider->label() ?? __('admin.sales.payment_ui.manual'))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('amount')
                     ->label(__('admin.sales.payment_ui.received'))
                     ->money(static fn (Payment $record): string => $record->currency)
@@ -51,12 +53,13 @@ final class PaymentsTable
                     ->money(static fn (Payment $record): string => $record->currency),
                 TextColumn::make('allocations_count')
                     ->label(__('admin.sales.payment_ui.related_invoices'))
-                    ->formatStateUsing(static fn (int $state): string => trans_choice('admin.sales.payment_ui.invoice_count', $state, ['count' => $state])),
+                    ->formatStateUsing(static fn (int $state): string => trans_choice('admin.sales.payment_ui.invoice_count', $state, ['count' => $state]))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (PaymentStatus $state): string => $state->label())
                     ->color(fn (PaymentStatus $state): string => $state->color())
-                    ->description(fn (PaymentStatus $state): string => $state->description())
+                    ->tooltip(fn (PaymentStatus $state): string => $state->description())
                     ->sortable(),
                 TextColumn::make('payment_date')->label(__('admin.sales.fields.date'))->date()->sortable(),
             ])
@@ -90,14 +93,14 @@ final class PaymentsTable
                 ]),
                 TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions(TableFit::rowActions([
                 PaymentActions::post()->button(),
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make()->visible(fn (Payment $record): bool => ! $record->isPosted()),
                     PaymentActions::reverse(),
                 ]),
-            ])
+            ]))
             ->toolbarActions([]);
     }
 }

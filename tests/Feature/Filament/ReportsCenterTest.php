@@ -61,3 +61,15 @@ it('denies the reports center when the user has no accessible report domain', fu
     expect(ReportsCenter::canAccess())->toBeFalse()
         ->and(ReportRegistry::accessibleDomains($user))->toBe([]);
 });
+
+it('localizes sales report titles in the Arabic discovery hub', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(SalesPermission::ReportView->value);
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs($viewer)->test(ReportsCenter::class)
+        ->assertSee('قمع عروض الأسعار')
+        ->assertSee('تحليل الفوز والخسارة')
+        ->assertDontSee('Quotation Funnel');
+});

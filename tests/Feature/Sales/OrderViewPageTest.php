@@ -17,6 +17,7 @@ use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\SalesProcurementRequirement;
 use App\Models\Shipment;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\Inventory\ProductPricingService;
 use Database\Seeders\InventoryPermissionSeeder;
@@ -273,4 +274,31 @@ it('keeps Cancel order permission-gated on the redesigned page', function (): vo
     Livewire::actingAs($viewer)
         ->test(ViewOrder::class, ['record' => $order->getKey()])
         ->assertActionVisible('cancel_order');
+});
+
+// Release QA 2026-10-10: the order lines repeated their "Lines" heading, left an unlabelled empty "Main image" slot and showed the English unit name in Arabic.
+it('renders order lines once, with an image placeholder and the unit name in the viewer language', function (): void {
+    $viewer = orderViewer();
+    $unit = Unit::factory()->create(['name' => 'Each', 'name_ar' => 'قطعة']);
+    $order = Order::factory()->create();
+    OrderLine::factory()->for($order)->create([
+        'product_variant_id' => activeOrderVariant(['unit_id' => $unit->getKey()])->getKey(),
+        'quantity' => 2,
+        'unit_price' => 100,
+    ]);
+
+    $html = Livewire::actingAs($viewer)
+        ->test(ViewOrder::class, ['record' => $order->getKey()])
+        ->assertSuccessful()
+        ->assertSeeText(['No image', '2 Each', '100.00 each'])
+        ->html();
+
+    expect($html)->not->toMatch('/class="fi-in-entry-label"[^>]*>\s*(Lines|Main image)\s*</');
+
+    app()->setLocale('ar');
+
+    Livewire::actingAs($viewer)
+        ->test(ViewOrder::class, ['record' => $order->getKey()])
+        ->assertSeeText('2 قطعة')
+        ->assertDontSeeText('2 Each');
 });

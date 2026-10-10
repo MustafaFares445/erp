@@ -7,14 +7,20 @@
     },
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:e2e": "e2e run"
     },
     "devDependencies": {
+        "@ai-sdk/openai": "^4.0.88",
+        "@e2e-dev/web": "^0.13.0",
         "@tailwindcss/vite": "^4.3.3",
+        "ai": "^7.0.0",
         "concurrently": "^10.0.5",
+        "e2e": "^0.18.0",
         "laravel-vite-plugin": "^3.2.0",
         "tailwindcss": "^4.3.3",
-        "vite": "^8.3.2"
+        "vite": "^8.3.2",
+        "zod": "^4.1.8"
     },
     "dependencies": {
         "leaflet": "^1.9.4"

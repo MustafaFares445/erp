@@ -8,6 +8,7 @@ use App\Enums\InventoryReportType;
 use App\Enums\ProductType;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
+use App\Filament\Tables\TableFit;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
@@ -24,11 +25,11 @@ final class InventoryReportsTable
 {
     public static function configure(Table $table, InventoryReportType $type, bool $canViewPricing): Table
     {
-        return $table
+        return TableFit::apply($table)
             ->columns(self::columns($type, $canViewPricing))
             ->filters(InventoryReportFilters::for($type))
             ->defaultSort('id', 'desc')
-            ->recordActions([])
+            ->recordActions(TableFit::rowActions([]))
             ->toolbarActions([]);
     }
 

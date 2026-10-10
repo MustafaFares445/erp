@@ -73,7 +73,8 @@ final class PurchasingUpcomingReceipts extends TableWidget
                 TextColumn::make('receiving_state')
                     ->label(__('dashboards.purchasing.columns.receiving'))
                     ->state(fn (PurchaseOrder $record): string => (string) __(app(PurchaseOrderWorkflowProjectionStore::class)->project($record)->logisticsState))
-                    ->badge(),
+                    ->badge()
+                    ->extraCellAttributes(['class' => 'ierp-ta-wrap-badge']),
                 TextColumn::make('total_amount')
                     ->label(__('dashboards.purchasing.columns.value'))
                     ->money(fn (PurchaseOrder $record): string => $record->currency_code),

@@ -141,7 +141,7 @@ final class ProductContextsRelationManager extends RelationManager
 
         return collect([
             self::t('Resolution').': '.$resolution->resolution_type->label(),
-            $resolution->resolved_at->toDayDateTimeString(),
+            $resolution->resolved_at->translatedFormat('M j, Y H:i'),
             $resolution->customerReturnRequest !== null ? self::t('Return request :number', ['number' => $resolution->customerReturnRequest->request_number]) : null,
             $resolution->notes,
         ])->filter()->implode(' · ');

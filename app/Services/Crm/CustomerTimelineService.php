@@ -71,6 +71,27 @@ final readonly class CustomerTimelineService
     }
 
     /**
+     * The translated label of a timeline source type, shared by the filter
+     * chips and the fallback title of an event whose record is gone. An
+     * unknown type degrades to a readable headline instead of a raw key.
+     */
+    public static function typeLabel(string $type): string
+    {
+        return match ($type) {
+            'quotation' => __('Quotation'),
+            'order' => __('Order'),
+            'invoice' => __('Invoice'),
+            'payment' => __('Payment'),
+            'ticket' => __('Ticket'),
+            'interaction' => __('Interaction'),
+            'visit' => __('Visit'),
+            'maintenance_record' => __('Maintenance Record'),
+            'activity' => __('Activity'),
+            default => str($type)->headline()->toString(),
+        };
+    }
+
+    /**
      * @param  list<string>  $types
      * @return LengthAwarePaginator<int, TimelineEvent>
      */
@@ -243,7 +264,7 @@ final readonly class CustomerTimelineService
             id: $row['id'],
             occurredAt: $occurredAt,
             occurredAtIsDateOnly: false,
-            title: str($row['type'])->headline()->toString(),
+            title: self::typeLabel($row['type']),
             detail: null,
             statusLabel: null,
             statusColor: null,

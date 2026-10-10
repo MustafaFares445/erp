@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\JournalEntryStatus;
@@ -17,12 +18,19 @@ use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\ReceivableWriteOff;
+use App\Models\Refund;
 use App\Models\SalesSetting;
+use App\Models\User;
 use App\Services\Accounting\AccountsReceivableService;
 use App\Services\Accounting\CustomerReceivablesSnapshot;
+use App\Services\Accounting\RefundService;
+use App\Services\Payments\PaymentService;
+use App\Services\Sales\CreditNoteService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\CurrencySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 
 uses(RefreshDatabase::class);
 
@@ -223,4 +231,109 @@ it('exports the aging proof and control-account tie out as csv', function (): vo
         ->and($csv)->toContain('Subledger outstanding')
         ->and($csv)->toContain('Receivable control account')
         ->and($csv)->toContain('Tie-out difference');
+});
+
+it('reconciles a credit issued after full collection and its later partial refund', function (): void {
+    Gate::before(static fn (): bool => true);
+    (new CurrencySeeder)->run();
+    $actor = User::factory()->admin()->create();
+    $asOf = CarbonImmutable::now();
+    $invoice = arInvoice($this->customer, $asOf, -10, '4840.50');
+    $line = $invoice->lines()->create([
+        'description' => 'Paid equipment',
+        'quantity' => '1.000',
+        'unit_price' => '4840.50',
+        'tax_amount' => '0.00',
+        'line_total' => '4840.50',
+        'sort_order' => 1,
+    ]);
+    arPostControlEntry($invoice, $this->period, '4840.50');
+    $method = PaymentMethod::factory()->create([
+        'is_active' => true,
+        'requires_proof' => false,
+        'chart_account_id' => ChartAccount::query()->where('code', '1100')->sole()->getKey(),
+    ]);
+    $payments = app(PaymentService::class);
+    $payment = $payments->createDraft($actor, [
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $method->getKey(),
+        'amount' => '4840.50',
+        'currency' => 'AED',
+        'payment_date' => $asOf->toDateString(),
+    ]);
+    $payments->post($actor, $payment, [['invoice_id' => $invoice->getKey(), 'amount' => '4840.50']]);
+    $credit = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $this->customer->getKey(),
+        'reason_category' => CreditNoteReason::PricingAdjustment,
+    ]);
+    $credits = app(CreditNoteService::class);
+    $credits->addLine($actor, $credit, 'Post-collection pricing correction', 1.0, 210.0, 0.0, $line);
+    $credits->confirm($actor, $credit);
+
+    $proof = $this->service->reconciliation($asOf);
+
+    expect($proof['control_account_minor'])->toBe(-21_000)
+        ->and($proof['subledger_minor'])->toBe(-21_000)
+        ->and($proof['difference_minor'])->toBe(0)
+        ->and($proof['is_reconciled'])->toBeTrue();
+
+    $refund = Refund::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => $invoice->getKey(),
+        'credit_note_id' => $credit->getKey(),
+        'payment_method_id' => $method->getKey(),
+        'amount' => '100.00',
+        'refund_date' => $asOf->toDateString(),
+        'created_by' => $actor->getKey(),
+    ]);
+    $checker = User::factory()->admin()->create();
+    $refunds = app(RefundService::class);
+    $approved = $refunds->approve($checker, $refund);
+    expect($this->service->reconciliation($asOf)['subledger_minor'])->toBe(-21_000);
+    $this->travelTo($asOf->addDay());
+    $refunds->pay($checker, $approved);
+
+    $summary = $this->service->aging($asOf);
+    expect($summary['outstanding_minor'])->toBe(0)
+        ->and($summary['credit_balance_minor'])->toBe(11_000)
+        ->and($summary['net_receivable_minor'])->toBe(-11_000)
+        ->and($summary['tie_out_difference_minor'])->toBe(0)
+        ->and($summary['customers'])->toBeEmpty()
+        ->and($summary['credit_customers'][0]['customer_id'])->toBe($this->customer->getKey())
+        ->and($this->service->customerDetail($this->customer, $asOf)['credit_balance_minor'])->toBe(11_000);
+
+    $statement = $this->service->statement($this->customer, $asOf->startOfMonth(), $asOf);
+    expect($statement['carried_forward_minor'])->toBe(-11_000)
+        ->and(collect($statement['entries'])->where('type', 'refund')->sum('debit_minor'))->toBe(10_000)
+        ->and($this->service->toCsv($asOf))->toContain('"Customer credit balance",110.00')
+        ->and(JournalEntryLine::query()->sum('debit'))->toEqual(JournalEntryLine::query()->sum('credit'));
+});
+
+it('reconciles standalone customer credits and preserves their history after reversal', function (): void {
+    Gate::before(static fn (): bool => true);
+    $actor = User::factory()->admin()->create();
+    $asOf = CarbonImmutable::now();
+    $credit = CreditNote::factory()->create([
+        'invoice_id' => null,
+        'customer_id' => $this->customer->getKey(),
+    ]);
+    $credits = app(CreditNoteService::class);
+    $credits->addLine($actor, $credit, 'Standalone commercial credit', 1.0, 75.0, 0.0);
+
+    $confirmed = $credits->confirm($actor, $credit);
+    expect($this->service->reconciliation($asOf)['subledger_minor'])->toBe(-7_500)
+        ->and($this->service->reconciliation($asOf)['is_reconciled'])->toBeTrue();
+
+    $this->travelTo($asOf->addDay());
+    $credits->reverse($actor, $confirmed);
+
+    expect($this->service->reconciliation($asOf)['subledger_minor'])->toBe(-7_500)
+        ->and($this->service->reconciliation($asOf)['is_reconciled'])->toBeTrue()
+        ->and($this->service->reconciliation($asOf->addDay())['subledger_minor'])->toBe(0)
+        ->and($this->service->reconciliation($asOf->addDay())['is_reconciled'])->toBeTrue();
+    $statement = $this->service->statement($this->customer, $asOf, $asOf->addDay());
+    expect($statement['carried_forward_minor'])->toBe(0)
+        ->and(collect($statement['entries'])->where('type', 'credit_note')->sum('credit_minor'))->toBe(7_500)
+        ->and(collect($statement['entries'])->where('type', 'credit_note_reversal')->sum('debit_minor'))->toBe(7_500);
 });

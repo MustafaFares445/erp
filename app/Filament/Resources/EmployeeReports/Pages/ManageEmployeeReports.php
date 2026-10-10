@@ -27,6 +27,12 @@ final class ManageEmployeeReports extends ManageRecords
     public ?string $report = null;
 
     #[\Override]
+    public function getTitle(): string
+    {
+        return __('admin.resources.employee_reports');
+    }
+
+    #[\Override]
     public function getSubheading(): string
     {
         return __('reporting.reports.employees.'.$this->reportType()->value);

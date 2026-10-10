@@ -43,7 +43,7 @@ final class InvoicesOverview extends StatsOverviewWidget
                 ->description(__('Outstanding across all issued invoices'))
                 ->url(InvoiceResource::getUrl('index', ['tab' => 'needs_attention'])),
             Stat::make(__('Overdue invoices'), (string) $overdue)
-                ->description($overdue > 0 ? MoneyFormatter::format($overdueMinor).' overdue' : 'Nothing overdue')
+                ->description($overdue > 0 ? __(':amount overdue', ['amount' => MoneyFormatter::format($overdueMinor)]) : __('Nothing overdue'))
                 ->color($overdue > 0 ? 'danger' : 'success')
                 ->url(InvoiceResource::getUrl('index', ['tab' => 'overdue'])),
             Stat::make(__('Unpaid invoices'), (string) $unpaid)

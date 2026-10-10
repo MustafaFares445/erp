@@ -104,7 +104,7 @@ it('covers the manufacturer catalog tab header table form and empty state', func
     $page = app(CatalogSetup::class);
     $page->tab = 'manufacturers';
 
-    $actions = (new ReflectionMethod(CatalogSetup::class, 'getHeaderActions'))->invoke($page);
+    $actions = new ReflectionMethod(CatalogSetup::class, 'getHeaderActions')->invoke($page);
     expect($actions)->toHaveCount(1)
         ->and($actions[0])->toBeInstanceOf(CreateAction::class);
 
@@ -114,7 +114,7 @@ it('covers the manufacturer catalog tab header table form and empty state', func
     $table = $page->table(Table::make($page));
     expect($table->getQuery()->getModel())->toBeInstanceOf(Manufacturer::class);
 
-    $description = (new ReflectionMethod(CatalogSetup::class, 'emptyStateDescription'))->invoke($page);
+    $description = new ReflectionMethod(CatalogSetup::class, 'emptyStateDescription')->invoke($page);
     expect($description)->toContain('manufacturers');
 });
 
@@ -129,7 +129,7 @@ it('covers product brand filtering by manufacturer', function (): void {
     $field = postMergeFinalUiFind($schema->getFlatComponents(withHidden: true), 'brand_id');
 
     expect($field)->toBeInstanceOf(Select::class);
-    $options = (new ReflectionProperty($field, 'options'))->getValue($field);
+    $options = new ReflectionProperty($field, 'options')->getValue($field);
 
     $get = Mockery::mock(Get::class);
     $get->shouldReceive('__invoke')->with('manufacturer_id')->andReturn($manufacturer->getKey());
@@ -153,7 +153,7 @@ it('covers purchase-order supplier reactive missing and default branches', funct
     expect($supplierSelect)->toBeInstanceOf(Select::class);
 
     /** @var array<int, Closure> $callbacks */
-    $callbacks = (new ReflectionProperty($supplierSelect, 'afterStateUpdated'))->getValue($supplierSelect);
+    $callbacks = new ReflectionProperty($supplierSelect, 'afterStateUpdated')->getValue($supplierSelect);
     expect($callbacks)->not->toBeEmpty();
 
     $missingSet = Mockery::mock(Set::class);
@@ -179,6 +179,7 @@ it('prefills supplier currency and expected date from the create-page query', fu
     (new PurchasePermissionSeeder)->run();
     $actor = User::factory()->admin()->create();
     $actor->assignRole(DashboardRole::PurchasingManager->value);
+
     $supplier = Supplier::factory()->create([
         'default_currency_code' => 'AED',
         'default_lead_time_days' => 4,
@@ -273,7 +274,7 @@ it('covers visit infolist recorded coordinates and detected product labels', fun
     $coordinates = postMergeFinalUiFind($schema->getFlatComponents(withHidden: true), 'check_in_coordinates');
 
     expect($coordinates)->toBeInstanceOf(TextEntry::class)
-        ->and($coordinates->getState())->toContain('25.2048');
+        ->and((string) $coordinates->getState())->toBe('<bdi dir="ltr">25.2048000, 55.2708000</bdi>');
 
     $variant = ProductVariant::factory()->create();
     $variantOpportunity = new SalesOpportunity;
@@ -322,7 +323,7 @@ it('normalizes a non-array quotation lines payload to an empty line set', functi
     $this->actingAs($actor);
 
     $quotation = Quotation::factory()->create();
-    $page = (new ReflectionClass(EditQuotation::class))->newInstanceWithoutConstructor();
+    $page = new ReflectionClass(EditQuotation::class)->newInstanceWithoutConstructor();
     $update = new ReflectionMethod(EditQuotation::class, 'handleRecordUpdate');
 
     $result = $update->invoke($page, $quotation, [

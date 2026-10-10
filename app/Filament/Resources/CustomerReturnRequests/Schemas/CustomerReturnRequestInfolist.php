@@ -8,6 +8,7 @@ use App\Enums\CustomerReturnRequestStatus;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Models\CustomerReturnRequest;
+use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -53,7 +54,8 @@ final class CustomerReturnRequestInfolist
                             ->label('')
                             ->schema([
                                 TextEntry::make('originalOperationLine.productVariant.sku')->label(__('admin.inventory.customer_return_request.fields.variant')),
-                                TextEntry::make('requested_quantity')->label(__('admin.inventory.customer_return_request.fields.quantity')),
+                                TextEntry::make('requested_quantity')->label(__('admin.inventory.customer_return_request.fields.quantity'))
+                                    ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                                 TextEntry::make('customer_note')->label(__('admin.inventory.customer_return_request.fields.note'))->placeholder(__('—')),
                             ])
                             ->columns(3),
