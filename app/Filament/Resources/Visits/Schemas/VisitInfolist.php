@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Visits\Schemas;
 use App\Enums\CustomerType;
 use App\Enums\VisitOutcome;
 use App\Enums\VisitStatus;
+use App\Filament\Support\OperationalRouteData;
 use App\Models\CustomerVisit;
 use App\Models\EmployeeVoiceNote;
 use App\Models\SalesOpportunity;
@@ -197,6 +198,12 @@ final class VisitInfolist
                         }),
                 ]),
 
+            Section::make(__('Suggested road directions'))
+                ->description(__('An estimated driving route is different from the actual recorded GPS trail above.'))
+                ->schema([
+                    View::make('filament.partials.operational-route-map')
+                        ->viewData(static fn (CustomerVisit $record): array => OperationalRouteData::visit($record)),
+                ]),
             Section::make(__('Sales activity'))
                 ->description(__('AI detections remain reviewable evidence until a manager accepts or rejects them.'))
                 ->schema([

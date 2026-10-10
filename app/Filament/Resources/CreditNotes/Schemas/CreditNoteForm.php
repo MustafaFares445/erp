@@ -8,12 +8,15 @@ use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStockConsequence;
 use App\Enums\InventoryReturnStatus;
 use App\Models\InventoryReturn;
+use App\Models\Invoice;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Schema;
 
 final class CreditNoteForm
@@ -28,11 +31,23 @@ final class CreditNoteForm
                 ->preload()
                 ->default(fn (): ?int => request()->integer('customer_id') ?: null)
                 ->live()
+                ->afterStateUpdated(static fn (Set $set): mixed => $set('invoice_id', null))
                 ->required(),
             Select::make('invoice_id')
-                ->relationship('invoice', 'invoice_number')
+                ->relationship(
+                    name: 'invoice',
+                    titleAttribute: 'invoice_number',
+                    modifyQueryUsing: static fn (Builder $query, Get $get): Builder => $query
+                        ->where('customer_id', (int) $get('customer_id'))
+                        ->whereNotNull('issued_at'),
+                )
                 ->searchable()
                 ->preload()
+                ->optionsLimit(50)
+                ->disabled(static fn (Get $get): bool => blank($get('customer_id')))
+                ->helperText(static fn (Get $get): string => blank($get('customer_id'))
+                    ? __('Select a customer first')
+                    : __('Only issued invoices belonging to the selected customer are shown. Leave blank for a standalone credit note.'))
                 ->default(fn (): ?int => request()->integer('invoice_id') ?: null),
             DatePicker::make('issue_date')->default(now())->required(),
             Select::make('reason_category')
@@ -65,9 +80,11 @@ final class CreditNoteForm
                         ->whereNotNull('customer_id');
                     $customerId = $get('customer_id');
 
-                    if (is_int($customerId) || (is_string($customerId) && is_numeric($customerId))) {
-                        $query->where('customer_id', (int) $customerId);
+                    if (! is_numeric($customerId)) {
+                        return [];
                     }
+
+                    $query->where('customer_id', (int) $customerId);
 
                     return $query
                         ->orderByDesc('posted_at')
@@ -78,6 +95,7 @@ final class CreditNoteForm
                 ->default(fn (): ?int => request()->integer('inventory_return_id') ?: null)
                 ->searchable()
                 ->preload()
+                ->disabled(fn (Get $get): bool => blank($get('customer_id')))
                 ->visible(fn (Get $get): bool => $get('stock_consequence') === CreditNoteStockConsequence::GoodsReturned->value)
                 ->required(fn (Get $get): bool => $get('stock_consequence') === CreditNoteStockConsequence::GoodsReturned->value),
             Textarea::make('reason')

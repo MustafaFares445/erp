@@ -60,13 +60,21 @@ final class StockLevelsRelationManager extends RelationManager
                     ->state(fn (Model $record): ?string => $this->policyFor($record)?->min_quantity)
                     ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state))
                     ->placeholder(__('—')),
-                TextColumn::make('low_stock')
-                    ->label(__('admin.inventory.stock.low_stock'))
-                    ->state(fn (Model $record): string => $this->isLowStock($record)
-                        ? __('admin.inventory.stock.low_stock')
-                        : __('admin.inventory.stock.healthy'))
+                TextColumn::make('replenishment_status')
+                    ->label(__('Replenishment status'))
+                    ->state(fn (Model $record): string => $this->policyFor($record)?->is_active
+                        ? ($this->isLowStock($record) ? __('Below minimum') : __('Within target'))
+                        : __('Not configured'))
                     ->badge()
-                    ->color(fn (Model $record): string => $this->isLowStock($record) ? 'danger' : 'success'),
+                    ->color(fn (Model $record): string => ! $this->policyFor($record)?->is_active
+                        ? 'gray' : ($this->isLowStock($record) ? 'warning' : 'success')),
+                TextColumn::make('availability_status')
+                    ->label(__('Stock availability'))
+                    ->state(fn (Model $record): string => (float) $record->getAttribute('available_quantity') > 0
+                        ? __('Available') : __('Out of stock'))
+                    ->badge()
+                    ->color(fn (Model $record): string => (float) $record->getAttribute('available_quantity') > 0
+                        ? 'info' : 'danger'),
             ])
             ->headerActions([])
             ->recordActions(TableFit::rowActions([]))

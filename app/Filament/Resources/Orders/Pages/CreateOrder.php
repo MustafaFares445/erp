@@ -167,10 +167,6 @@ final class CreateOrder extends CreateRecord
                                 ->label(__('Save and confirm commercial order'))
                                 ->helperText(__('Confirmation freezes quantity, UOM, price and tax evidence. It still does not reserve stock.'))
                                 ->visible(fn (): bool => auth()->user()?->can(SalesPermission::OrderConfirm->value) ?? false),
-                            Placeholder::make('review_note')
-                                ->label(__('Next module'))
-                                ->content(__('After confirmation, Sales must explicitly Release to Logistics. Logistics then chooses warehouses, lots/serials, reservations and shipment execution.'))
-                                ->columnSpanFull(),
                         ])
                         ->columns(2),
                 ]),

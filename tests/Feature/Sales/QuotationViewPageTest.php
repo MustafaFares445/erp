@@ -6,6 +6,7 @@ use App\Data\Inventory\PriceFloorOverrideData;
 use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
+use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Quotations\Pages\ViewQuotation;
 use App\Models\CustomerProfile;
 use App\Models\CustomerQuotationRequest;
@@ -110,7 +111,8 @@ it('does not offer another conversion once the quotation has been converted', fu
         ->test(ViewQuotation::class, ['record' => $sent->getKey()])
         ->assertSuccessful()
         ->assertActionHidden('convert')
-        ->assertSee((string) $order->order_number);
+        ->assertSee((string) $order->order_number)
+        ->assertSeeHtml(OrderResource::getUrl('view', ['record' => $order]));
 });
 
 it('only shows response history when a decision has been recorded', function (): void {

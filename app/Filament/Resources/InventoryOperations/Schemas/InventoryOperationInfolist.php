@@ -11,6 +11,7 @@ use App\Enums\TransferDiscrepancyDisposition;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Components\InventoryViewDiagnostics;
 use App\Filament\Components\WorkflowStepper;
+use App\Filament\Support\OperationalRouteData;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\InventoryOperation;
@@ -22,6 +23,7 @@ use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -34,6 +36,12 @@ final class InventoryOperationInfolist
             InventoryViewDiagnostics::metrics(
                 static fn (InventoryOperation $record): array => app(InventoryOperationDiagnoser::class)->keyFigures($record),
             ),
+            Section::make(__('Warehouse transfer route'))
+                ->visible(static fn (InventoryOperation $record): bool => $record->operation_type === OperationType::InternalTransfer)
+                ->schema([
+                    View::make('filament.partials.operational-route-map')
+                        ->viewData(static fn (InventoryOperation $record): array => OperationalRouteData::transfer($record)),
+                ]),
             Section::make(__('admin.inventory.operation.workflow.section'))
                 ->columns(2)
                 ->schema([

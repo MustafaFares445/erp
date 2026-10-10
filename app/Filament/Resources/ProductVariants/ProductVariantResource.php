@@ -20,6 +20,9 @@ use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
 use App\Filament\Tables\TableFit;
 use App\Models\Product;
+use App\Models\ProductAttribute;
+use App\Models\ProductAttributeValue;
+use App\Models\ProductVariantAttributeValue;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
 use App\Models\Unit;
@@ -44,6 +47,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Navigation\NavigationItem;
 use Filament\Resources\Pages\EditRecord;
@@ -340,11 +344,60 @@ final class ProductVariantResource extends Resource
                         ->native(false),
                 ]),
             Repeater::make('attributeAssignments')
+                ->label(__('Attribute assignments'))
                 ->relationship()
                 ->defaultItems(0)
                 ->schema([
-                    Select::make('product_attribute_value_id')->relationship('attributeValue', 'value')->required()->searchable()->preload(),
+                    Select::make('selected_attribute_id')
+                        ->label(__('Attribute'))
+                        ->options(static fn (): array => ProductAttribute::query()
+                            ->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
+                        ->afterStateHydrated(static function (Select $component, Get $get): void {
+                            $valueId = $get('product_attribute_value_id');
+                            $component->state(is_numeric($valueId)
+                                ? ProductAttributeValue::query()->whereKey((int) $valueId)->value('product_attribute_id')
+                                : null);
+                        })
+                        ->afterStateUpdated(static fn (Set $set): mixed => $set('product_attribute_value_id', null))
+                        ->live()
+                        ->distinct()
+                        ->dehydrated(false)
+                        ->searchable()
+                        ->preload()
+                        ->required(),
+                    Select::make('product_attribute_value_id')
+                        ->label(__('Value'))
+                        ->options(static fn (Get $get): array => is_numeric($get('selected_attribute_id'))
+                            ? ProductAttributeValue::query()
+                                ->where('product_attribute_id', (int) $get('selected_attribute_id'))
+                                ->where('is_active', true)->orderBy('value')
+                                ->limit(50)->pluck('value', 'id')->all()
+                            : [])
+                        ->getSearchResultsUsing(static fn (string $search, Get $get): array => is_numeric($get('selected_attribute_id'))
+                            ? ProductAttributeValue::query()
+                                ->where('product_attribute_id', (int) $get('selected_attribute_id'))
+                                ->where('value', 'like', '%'.$search.'%')
+                                ->where('is_active', true)
+                                ->orderBy('value')->limit(50)->pluck('value', 'id')->all()
+                            : [])
+                        ->getOptionLabelUsing(static function (mixed $value): ?string {
+                            if (! is_numeric($value)) {
+                                return null;
+                            }
+
+                            $label = ProductAttributeValue::query()->whereKey((int) $value)->value('value');
+
+                            return is_string($label) ? $label : null;
+                        })
+                        ->disabled(static fn (Get $get): bool => blank($get('selected_attribute_id')))
+                        ->helperText(static fn (Get $get): ?string => blank($get('selected_attribute_id'))
+                            ? (string) __('Choose an attribute first') : null)
+                        ->distinct()
+                        ->searchable()
+                        ->preload()
+                        ->required(),
                 ])
+                ->columns(2)
                 ->columnSpanFull(),
             FileUpload::make('images')
                 ->disk('public')
@@ -438,6 +491,16 @@ final class ProductVariantResource extends Resource
                     TextEntry::make('warranty_duration_value')->label(__('Legacy duration'))->placeholder(__('—')),
                     TextEntry::make('warranty_duration_unit')->label(__('Legacy unit'))->placeholder(__('—')),
                 ]),
+            Section::make(__('Attributes and values'))
+                ->schema([
+                    RepeatableEntry::make('attributeAssignments')
+                        ->hiddenLabel()
+                        ->schema([
+                            TextEntry::make('attributeValue.attribute.name')->label(__('Attribute')),
+                            TextEntry::make('attributeValue.value')->label(__('Value')),
+                        ])
+                        ->columns(2),
+                ]),
         ]);
     }
 
@@ -512,6 +575,7 @@ final class ProductVariantResource extends Resource
                             ->orWhereNull('weight_unit_id'))),
                 TrashedFilter::make(),
             ])
+            ->recordUrl(static fn (ProductVariant $record): string => self::getUrl('view', ['record' => $record]))
             ->recordActions(TableFit::rowActions([ViewAction::make(), self::editAction(), DeleteAction::make(), RestoreAction::make()]));
     }
 

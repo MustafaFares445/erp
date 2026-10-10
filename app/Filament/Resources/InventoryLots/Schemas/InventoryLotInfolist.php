@@ -30,7 +30,6 @@ final class InventoryLotInfolist
                 InventoryViewDiagnostics::section(),
                 Section::make(__('admin.inventory.lot.sections.identity'))->columns(2)->schema([
                     TextEntry::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->placeholder(__('—')),
-                    TextEntry::make('normalized_lot_number')->label(__('admin.inventory.lot.fields.normalized'))->placeholder(__('—')),
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.lot.fields.sku')),
                     TextEntry::make('productVariant.product.name')->label(__('admin.inventory.lot.fields.product')),
                     TextEntry::make('expires_at')->label(__('admin.inventory.lot.fields.expires_at'))->date()->placeholder(__('—')),

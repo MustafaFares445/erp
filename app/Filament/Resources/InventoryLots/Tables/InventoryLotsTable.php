@@ -10,6 +10,7 @@ use App\Models\InventoryLot;
 use App\Models\InventorySetting;
 use App\Models\Product;
 use App\Models\Warehouse;
+use App\Support\QuantityFormatter;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -33,28 +34,34 @@ final class InventoryLotsTable
                 TextColumn::make('total_physical')
                     ->label(__('admin.inventory.stock.on_hand_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalPhysicalQuantity())
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('saleable_quantity')
                     ->label(__('admin.inventory.stock.saleable_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Saleable))
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('quarantine_quantity')
                     ->label(__('admin.inventory.stock.quarantine_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Quarantine))
                     ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('damaged_quantity')
                     ->label(__('admin.inventory.stock.damaged_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Damaged))
                     ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reserved_quantity')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.stock.reserved_quantity'))
                     ->state(fn (InventoryLot $record): float => $record->totalConditionReservedQuantity(StockCondition::Saleable))
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('available_quantity')
                     ->state(fn (InventoryLot $record): float => $record->totalAvailableQuantity())
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('warehouse_count')->toggleable(isToggledHiddenByDefault: true)
                     ->label(__('admin.inventory.lot.fields.warehouses'))
                     ->state(fn (InventoryLot $record): int => $record->warehouseCount()),

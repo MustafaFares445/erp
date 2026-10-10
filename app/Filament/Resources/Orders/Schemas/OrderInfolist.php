@@ -12,6 +12,7 @@ use App\Enums\OrderStatus;
 use App\Enums\ResolvedPriceSource;
 use App\Enums\ShipmentStatus;
 use App\Filament\Components\WorkflowStepper;
+use App\Filament\Support\OperationalRouteData;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\Shipments\ShipmentResource;
@@ -33,6 +34,7 @@ use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
@@ -58,6 +60,11 @@ final class OrderInfolist
                 ->terminalKeys([OrderStatus::Cancelled->value])
                 ->columnSpanFull(),
             self::journeyEntry(),
+            Section::make(__('Order destination and delivery route'))
+                ->schema([
+                    View::make('filament.partials.operational-route-map')
+                        ->viewData(static fn (Order $record): array => OperationalRouteData::order($record)),
+                ]),
             Grid::make(12)->schema([
                 Group::make()
                     ->columnSpan(['default' => 12, 'lg' => 8])

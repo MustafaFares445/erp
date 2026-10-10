@@ -7,12 +7,14 @@ namespace App\Filament\Resources\ShipmentAttachments\Schemas;
 use App\Enums\ShipmentConfirmationSource;
 use App\Enums\ShipmentStatus;
 use App\Filament\Components\InventoryViewDiagnostics;
+use App\Filament\Support\OperationalRouteData;
 use App\Models\Shipment;
 use App\Models\ShipmentArrivalConfirmation;
 use App\Services\Inventory\Diagnostics\ShipmentDiagnoser;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -39,6 +41,11 @@ final class ShipmentAttachmentInfolist
                     ->placeholder(__('-')),
                 TextEntry::make('confirmed_at')->label(__('admin.shipment.fields.confirmed_at'))->dateTime(),
             ]),
+            Section::make(__('Shipment delivery route'))
+                ->schema([
+                    View::make('filament.partials.operational-route-map')
+                        ->viewData(static fn (Shipment $record): array => OperationalRouteData::shipment($record)),
+                ]),
             Section::make(__('admin.shipment.fields.confirmation_evidence'))
                 ->visible(fn (Shipment $record): bool => $record->arrivalConfirmation !== null)
                 ->schema([

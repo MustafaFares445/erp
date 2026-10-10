@@ -329,6 +329,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 AlpineComponent::make('customer-delivery-map', resource_path('js/filament/customer-delivery-map.js')),
                 AlpineComponent::make('customer-location-picker', resource_path('js/filament/customer-location-picker.js')),
                 AlpineComponent::make('visit-gps-trail-map', resource_path('js/filament/visit-gps-trail-map.js')),
+                AlpineComponent::make('operational-route-map', resource_path('js/filament/operational-route-map.js')),
                 AlpineComponent::make('notification-message-editor', resource_path('js/filament/notification-message-editor.js')),
                 // Swaps the IerpColors::CHART_* series colours for their dark-palette equivalents on every Chart.js widget.
                 Js::make('ierp-chart-theme', resource_path('js/filament/chart-theme.js')),

@@ -22,6 +22,14 @@ final class ManageProductVariantAttributeValues extends ManageRelatedRecords
     }
 
     #[\Override]
+    protected function getHeaderActions(): array
+    {
+        return [
+            ProductVariantResource::editAction()->label(__('Edit variant and attributes')),
+        ];
+    }
+
+    #[\Override]
     public function table(Table $table): Table
     {
         return $table

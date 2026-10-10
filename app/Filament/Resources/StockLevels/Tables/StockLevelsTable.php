@@ -16,6 +16,7 @@ use App\Filament\Tables\TableFit;
 use App\Models\InventoryStock;
 use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\StockAvailabilityExplainer;
+use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
@@ -59,36 +60,45 @@ final class StockLevelsTable
                     ->sortable(),
                 TextColumn::make('on_hand_quantity')
                     ->label(__('admin.inventory.stock.on_hand_quantity'))
-                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
-                    ->numeric(decimalPlaces: 3),
+                    ->summarize(Sum::make()->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'))
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('saleable_quantity')
                     ->label(__('admin.inventory.stock.saleable_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Saleable))
                     ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('quarantine_quantity')
                     ->label(__('admin.inventory.stock.quarantine_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Quarantine))
                     ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reserved_quantity')
                     ->label(__('admin.inventory.stock.reserved_quantity'))
-                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
-                    ->numeric(decimalPlaces: 3),
+                    ->summarize(Sum::make()->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'))
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('damaged_quantity')
                     ->label(__('admin.inventory.stock.damaged_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Damaged))
                     ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('available_quantity')
                     ->label(__('admin.inventory.stock.available_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('in_transit_quantity')
                     ->toggleable(isToggledHiddenByDefault: $table->getLivewire() instanceof ManageProductQuantities)
                     ->label(__('admin.inventory.stock.in_transit_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->inTransitQuantity())
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—'),
                 TextColumn::make('product_type')
                     ->label(__('admin.inventory.product_type.label'))
                     ->state(fn (InventoryStock $record): ?ProductType => $record->productVariant?->productType())
@@ -103,20 +113,30 @@ final class StockLevelsTable
                     ->state(fn (InventoryStock $record): ?float => $record->productVariant?->weightFor((float) $record->on_hand_quantity))
                     ->suffix(fn (InventoryStock $record): string => $record->productVariant?->weightSuffix() ?? '')
                     ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—')
                     ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.stock.reorder_level'))
                     ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity)
                     ->numeric(decimalPlaces: 3)
+                    ->formatStateUsing(static fn (mixed $state): string => is_numeric($state) ? QuantityFormatter::display($state) : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('low_stock')
-                    ->label(__('admin.inventory.stock.low_stock'))
-                    ->state(fn (InventoryStock $record): string => self::isLowStock($record)
-                        ? __('admin.inventory.stock.low_stock')
-                        : __('admin.inventory.stock.healthy'))
+                TextColumn::make('replenishment_status')
+                    ->label(__('Replenishment status'))
+                    ->state(static fn (InventoryStock $record): string => $record->replenishmentPolicy()?->is_active
+                        ? (self::isLowStock($record) ? __('Below minimum') : __('Within target'))
+                        : __('Not configured'))
                     ->badge()
-                    ->color(fn (InventoryStock $record): string => self::isLowStock($record) ? 'danger' : 'success'),
+                    ->color(static fn (InventoryStock $record): string => ! $record->replenishmentPolicy()?->is_active
+                        ? 'gray' : (self::isLowStock($record) ? 'warning' : 'success')),
+                TextColumn::make('availability_status')
+                    ->label(__('Stock availability'))
+                    ->state(static fn (InventoryStock $record): string => $record->saleableAvailableQuantity() > 0
+                        ? __('Available') : __('Out of stock'))
+                    ->badge()
+                    ->color(static fn (InventoryStock $record): string => $record->saleableAvailableQuantity() > 0
+                        ? 'info' : 'danger'),
             ])
             ->groups([
                 Group::make('warehouse.name')->label(__('admin.inventory.stock.warehouse')),

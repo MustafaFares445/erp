@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Quotations\Schemas;
 
 use App\Enums\QuotationStatus;
 use App\Enums\ResolvedPriceSource;
+use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Quotation;
 use App\Models\QuotationLine;
 use App\Models\QuotationResponse;
@@ -31,6 +32,7 @@ final class QuotationInfolist
         return $schema->columns(1)->components([
             self::heroSection(),
             self::workflowEntry(),
+            self::relatedOrderSection(),
             self::statusCallout(),
             Grid::make(['default' => 1, 'md' => 2, 'lg' => 4])->schema([
                 self::quotationDetailsSection(),
@@ -42,6 +44,24 @@ final class QuotationInfolist
             self::documentSection(),
             self::responseHistorySection(),
         ]);
+    }
+
+    private static function relatedOrderSection(): Section
+    {
+        return Section::make(__('Related order'))
+            ->visible(static fn (Quotation $record): bool => $record->convertedOrder !== null)
+            ->schema([
+                TextEntry::make('convertedOrder.order_number')
+                    ->label(__('Order'))
+                    ->url(static function (Quotation $record): ?string {
+                        $order = $record->convertedOrder;
+
+                        return $order !== null && (auth()->user()?->can('view', $order) ?? false)
+                            ? OrderResource::getUrl('view', ['record' => $order->getKey()])
+                            : null;
+                    })
+                    ->color('primary'),
+            ]);
     }
 
     private static function documentSection(): Section

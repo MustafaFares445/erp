@@ -74,6 +74,11 @@ use App\Services\Settings\CurrencyCatalogService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Field;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Support\Icons\Heroicon;
 use Filament\Infolists\Components\Entry;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
@@ -139,6 +144,7 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaultCurrency();
         $this->configureFilamentLabelTranslations();
+        $this->configureFormAffordances();
         $this->configureTableDefaults();
         $this->configureCustomerApiRateLimits();
 
@@ -219,6 +225,29 @@ final class AppServiceProvider extends ServiceProvider
      * closure, because Filament evaluates the default currency once per
      * formatted cell.
      */
+    /**
+     * Use discoverable selectors and visibly typed calendar/clock controls
+     * throughout the admin panel, not only on selected resources.
+     */
+    private function configureFormAffordances(): void
+    {
+        Select::configureUsing(static fn (Select $select): Select => $select
+            ->preload()
+            ->optionsLimit(50));
+
+        DateTimePicker::configureUsing(static fn (DateTimePicker $picker): DateTimePicker => $picker
+            ->native(false)
+            ->suffixIcon(Heroicon::Clock, isInline: true));
+
+        DatePicker::configureUsing(static fn (DatePicker $picker): DatePicker => $picker
+            ->native(false)
+            ->suffixIcon(Heroicon::CalendarDays, isInline: true));
+
+        TimePicker::configureUsing(static fn (TimePicker $picker): TimePicker => $picker
+            ->native(false)
+            ->suffixIcon(Heroicon::Clock, isInline: true));
+    }
+
     private function configureDefaultCurrency(): void
     {
         $resolve = static function (): string {
