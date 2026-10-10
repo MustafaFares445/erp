@@ -104,3 +104,11 @@ it('gives every order a distinct number when several are created in one transact
     expect($numbers->unique())->toHaveCount(5)
         ->and($numbers->last())->toBe('PO-000005');
 });
+
+it('ignores legacy textual PO-DEMO identifiers when advancing numeric purchase order numbers', function (): void {
+    PurchaseOrder::factory()->create(['purchase_order_number' => 'PO-DEMO99']);
+    PurchaseOrder::factory()->create(['purchase_order_number' => 'PO-000007']);
+    PurchaseOrder::factory()->create(['purchase_order_number' => 'PO-DEMO01']);
+
+    expect(app(PurchaseOrderNumberGenerator::class)->next())->toBe('PO-000008');
+});

@@ -68,11 +68,17 @@ final class Expense extends Model implements Favoritable, HasMedia
     {
         self::creating(function (self $expense): void {
             if (blank($expense->getAttribute('expense_number'))) {
-                $maxNumber = self::query()->lockForUpdate()->max('expense_number');
-                $next = is_string($maxNumber) && preg_match('/(\d+)$/', $maxNumber, $matches) === 1
-                    ? ((int) $matches[1]) + 1
-                    : 1;
-                $expense->setAttribute('expense_number', sprintf('EXP-%07d', $next));
+                // Ignore legacy EXP-DEMO-* references when advancing the
+                // canonical numeric sequence; lexical MAX() can otherwise
+                // repeatedly return a DEMO reference and duplicate an expense.
+                $maxSequence = 0;
+                foreach (self::withTrashed()->whereNotNull('expense_number')
+                    ->lockForUpdate()->pluck('expense_number') as $number) {
+                    if (is_string($number) && preg_match('/^EXP-(\\d+)$/D', $number, $matches) === 1) {
+                        $maxSequence = max($maxSequence, (int) $matches[1]);
+                    }
+                }
+                $expense->setAttribute('expense_number', sprintf('EXP-%07d', $maxSequence + 1));
             }
         });
 

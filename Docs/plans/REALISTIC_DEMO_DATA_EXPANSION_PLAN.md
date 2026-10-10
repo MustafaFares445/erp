@@ -1,6 +1,6 @@
 # IERP — Realistic Connected Demo Data Expansion Plan
 
-Status: Proposed (analysis only; no seed execution)
+Status: Implementation in progress; several seed waves executed in the single local dev database. See Docs/reference/UNIFIED_DEVELOPMENT_DATA.md for verified counts and remaining release blockers.
 Basis: direct code review on branch dev, 2026-10-10.
 Scope: Laravel seeders, factories, demo verification, UI/QA fixture readiness.
 
@@ -9,7 +9,7 @@ Build a believable synthetic UAE dental/medical equipment distribution company w
 
 Do NOT execute seeders against production; do not change production records; never use real payment gateways, emails, AI transcription or push providers. Use synthetic .test/.example identities and safe media fixtures.
 
-## 2. Verified current implementation
+## 2. Baseline findings before implementation (historical; see unified data report for current state)
 - database/seeders/DatabaseSeeder.php invokes defaults PLUS older *DemoSeeder classes. It also creates admin@ierp.com with hard-coded password 'password'. This must be made non-production-safe before expansion.
 - database/seeders/Demo/DemoMonthSeeder.php is a separate coherent, staged, service-based demo for 2026-09-04 through 2026-10-03. It is NOT called by DatabaseSeeder.
 - DemoFixtures defines 15 primary customers, 7 suppliers, 3 warehouses, 6 categories, 20 products and 42 variants; DemoEmployeeRosterSeeder defines 6 employees, and DemoSupportMonthSeeder adds 2 support workers.

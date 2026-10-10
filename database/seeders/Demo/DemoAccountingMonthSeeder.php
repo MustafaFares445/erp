@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Database\Seeders\Demo;
 
 use App\Models\ChartAccount;
+use App\Models\EmployeeProfile;
+use App\Models\Expense;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
 use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountingDocumentService;
+use App\Services\Accounting\Exceptions\PeriodCloseBlocked;
 use App\Services\Accounting\FiscalPeriodService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\PeriodCloseChecklistService;
@@ -45,13 +48,12 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
 
     protected function seed(DemoContext $context): void
     {
-        if (JournalEntry::query()->where('description', 'like', '[DEMO]%')->exists()) {
-            $this->note('Accounting month already present - skipped.');
-
-            return;
+        // A prior partial run may have posted opening entries before an expense
+        // failed. Resume per stage rather than skipping the entire accounting month.
+        if (! JournalEntry::query()->where('description', '[DEMO] Opening capital contribution')->exists()) {
+            $this->manualJournals($context);
         }
 
-        $this->manualJournals($context);
         $this->expenses($context);
         $this->periodClose($context);
     }
@@ -118,6 +120,10 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
             [$date, $merchant, $description, $total, $accountCode, $method, $approve, $approveOn, $payOn, $final] = $row;
             $supplierCode = $row[10] ?? null;
 
+            if (Expense::query()->where('description', "[DEMO] {$description}")->exists()) {
+                continue;
+            }
+
             $taxable = $description !== 'Bank fees';
             $subtotal = $taxable ? round($total / 1.05, 2) : $total;
             $tax = round($total - $subtotal, 2);
@@ -135,7 +141,9 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
                 'subtotal' => number_format($subtotal, 2, '.', ''),
                 'tax_total' => number_format($tax, 2, '.', ''),
                 'total_amount' => number_format($total, 2, '.', ''),
-                'requested_by' => $accountant->getKey(),
+                // requested_by references employee_profiles, NOT dashboard users.
+                'requested_by' => EmployeeProfile::query()
+                    ->where('user_id', $accountant->getKey())->value('id'),
             ]);
 
             if ($final === 'cancelled') {
@@ -164,12 +172,20 @@ final class DemoAccountingMonthSeeder extends DemoSeeder
         $chief = $context->as('chief_accountant');
         $periods = app(FiscalPeriodService::class);
 
-        FiscalPeriod::query()
+        // Never force-close a company period if other existing developer data
+        // leaves receivables or stock controls unreconciled. Preserve the open
+        // period and emit the mismatch for actual resolution.
+        foreach (FiscalPeriod::query()
             ->where('is_closed', false)
             ->whereDate('ends_at', '<', '2026-09-01')
             ->orderBy('starts_at')
-            ->get()
-            ->each(fn (FiscalPeriod $period) => $periods->close($chief, $period));
+            ->get() as $period) {
+            try {
+                $periods->close($chief, $period);
+            } catch (PeriodCloseBlocked $blocked) {
+                $this->note("Fiscal period {$period->name} left open: ".$blocked->getMessage());
+            }
+        }
 
         $september = FiscalPeriod::query()->whereDate('starts_at', '2026-09-01')->firstOrFail();
         app(PeriodCloseChecklistService::class)->run($september, $chief);

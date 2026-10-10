@@ -4,31 +4,21 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Enums\UserType;
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
+/**
+ * Only configuration and reference rows. Production db:seed must not create
+ * fixed-password users or synthetic business transactions.
+ *
+ * Development data: php artisan db:seed --class="Database\Seeders\Demo\UnifiedDevelopmentSeeder"
+ */
 final class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::query()->firstOrCreate([
-            'email' => 'admin@ierp.com',
-        ], [
-            'name' => 'Admin User',
-            'password' => Hash::make('password'),
-            'user_type' => UserType::Admin,
-        ]);
-
         $this->call([
             CurrencySeeder::class,
             InventoryPermissionSeeder::class,
@@ -47,13 +37,6 @@ final class DatabaseSeeder extends Seeder
             NotificationTemplateSeeder::class,
             PurchaseOrderNotificationTemplateSeeder::class,
             PackageTypeSeeder::class,
-            InventoryDemoSeeder::class,
-            EmployeeDemoSeeder::class,
-            AccountingDemoSeeder::class,
-            SupportDemoSeeder::class,
-            PurchasingDemoSeeder::class,
-            SalesDemoSeeder::class,
-            CrmDemoSeeder::class,
         ]);
     }
 }

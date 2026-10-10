@@ -27,15 +27,22 @@ final readonly class PurchaseOrderNumberGenerator
 
     public function next(): string
     {
-        $maxNumber = PurchaseOrder::withTrashed()
+        // Legacy databases contain PO-DEMO01 identifiers. A lexical MAX() sees
+        // those as higher than PO-000001, then casts DEMO01 to zero and wrongly
+        // reissues PO-000001. Only strictly numeric PO identifiers are sequences.
+        $maxSequence = 0;
+
+        foreach (PurchaseOrder::withTrashed()
             ->whereNotNull('purchase_order_number')
             ->lockForUpdate()
-            ->max('purchase_order_number');
+            ->pluck('purchase_order_number') as $number) {
+            if (! is_string($number) || ! preg_match('/^PO-(\\d+)$/D', $number, $matches)) {
+                continue;
+            }
 
-        $sequence = is_string($maxNumber)
-            ? (int) mb_substr($maxNumber, mb_strlen(self::PREFIX)) + 1
-            : 1;
+            $maxSequence = max($maxSequence, (int) $matches[1]);
+        }
 
-        return sprintf('%s%06d', self::PREFIX, $sequence);
+        return sprintf('%s%06d', self::PREFIX, $maxSequence + 1);
     }
 }

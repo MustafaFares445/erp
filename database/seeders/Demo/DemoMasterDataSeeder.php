@@ -99,8 +99,18 @@ final class DemoMasterDataSeeder extends DemoSeeder
                 default => ProductType::ExpiryMaterial,
             };
 
+            // Never rewrite the tracking behaviour of an existing real product:
+            // changing machine/grain/expiry flags after stock history is prohibited.
+            // In a populated developer DB, reserve a distinct product for demo SKUs.
+            $name = $definition['name'];
+            $existing = Product::query()->where('name', $name)->first();
+            if ($existing instanceof Product && $existing->variants()
+                ->where('sku', 'not like', 'DEMO-%')->exists()) {
+                $name = "[DEMO {$code}] ".$name;
+            }
+
             $product = Product::query()->updateOrCreate(
-                ['name' => $definition['name']],
+                ['name' => $name],
                 [
                     'name_ar' => $definition['name'],
                     'description' => "{$code} — {$definition['name']} (demo catalogue).",
