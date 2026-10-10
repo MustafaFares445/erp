@@ -163,7 +163,13 @@ final class SeedUnifiedDemoCommand extends Command
 
         $requiredStatusCases = [
             'tickets' => array_map(static fn (TicketStatus $s): string => $s->value, TicketStatus::cases()),
-            'purchase_orders' => array_map(static fn (PurchaseOrderStatus $s): string => $s->value, PurchaseOrderStatus::cases()),
+            // Purchasing's reject() deliberately returns to Draft with a
+            // rejection_reason. Rejected is a transition event, not a
+            // persistable final state; verify its evidence separately.
+            'purchase_orders' => array_values(array_filter(
+                array_map(static fn (PurchaseOrderStatus $s): string => $s->value, PurchaseOrderStatus::cases()),
+                static fn (string $status): bool => $status !== PurchaseOrderStatus::Rejected->value,
+            )),
             'plan_tasks' => array_map(static fn (PlanTaskStatus $s): string => $s->value, PlanTaskStatus::cases()),
         ];
         foreach ($requiredStatusCases as $table => $expected) {
@@ -173,6 +179,15 @@ final class SeedUnifiedDemoCommand extends Command
             $this->line("{$table} status coverage: ".($missing === [] ? 'PASS' : 'FAIL '.implode(', ', $missing)));
             $failed += (int) ($missing !== []);
         }
+
+        $rejectedDrafts = DB::table('purchase_orders')
+            ->where('status', PurchaseOrderStatus::Draft->value)
+            ->where('notes', 'like', '[DEMO-HISTORY] Procurement %')
+            ->whereNotNull('rejection_reason')
+            ->where('rejection_reason', '!=', '')
+            ->count();
+        $this->line('purchase-order rejection decisions: '.($rejectedDrafts >= 2 ? 'PASS' : "FAIL {$rejectedDrafts} / 2"));
+        $failed += (int) ($rejectedDrafts < 2);
 
         // E2E source chain: a demo sales order is complete only when a
         // real warehouse delivery reached Done, the corresponding AR invoice

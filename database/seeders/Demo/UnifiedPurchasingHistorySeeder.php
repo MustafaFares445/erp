@@ -91,9 +91,22 @@ final class UnifiedPurchasingHistorySeeder extends DemoSeeder
                 ]]);
             }
 
-            // 1/13 remains a draft; the other branches exercise real approval.
+            // Most 0/13 orders stay draft. Two above-threshold proposals
+            // exercise the real rejection workflow, which returns them to
+            // draft with a rejection_reason (not a persisted Rejected status).
             $branch = $n % 13;
             if ($branch === 0) {
+                if (in_array($n, [13, 26], true) && $order->rejection_reason === null) {
+                    $context->at($when->copy()->addHours(2)->toDateTimeString());
+                    $order = $approval->submit($buyer, $order);
+                    if ($order->status !== PurchaseOrderStatus::PendingApproval) {
+                        throw new LogicException("Historical purchase order {$n} should require approval before rejection.");
+                    }
+
+                    $context->at($when->copy()->addHours(4)->toDateTimeString());
+                    $approval->reject($manager, $order, 'Supplier pricing exceeds the approved clinic procurement budget.');
+                }
+
                 continue;
             }
 
@@ -106,8 +119,14 @@ final class UnifiedPurchasingHistorySeeder extends DemoSeeder
                 $order = $approval->approve($manager, $order);
             }
 
-            // Some commitments are approved but deliberately not transmitted.
+            // Most commitments stay accepted but unsent. Two terminate
+            // through the real short-close service with no open receipts.
             if ($branch === 1) {
+                if (in_array($n, [1, 14], true) && $order->status === PurchaseOrderStatus::Accepted) {
+                    $context->at($when->copy()->addDays(2)->toDateTimeString());
+                    $approval->close($manager, $order, 'Supplier cannot meet the agreed lead time; outstanding commitment withdrawn.');
+                }
+
                 continue;
             }
 

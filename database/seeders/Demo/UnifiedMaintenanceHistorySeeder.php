@@ -13,7 +13,7 @@ use Illuminate\Support\Carbon;
 use LogicException;
 
 /**
- * Sixty standalone preventive/corrective maintenance requests over 12 months.
+ * Sixty-four standalone preventive/corrective maintenance requests over 12 months.
  * Real service status transitions; these are requests, NOT fictitious signed
  * calibration or installation certificates.
  */
@@ -31,7 +31,7 @@ final class UnifiedMaintenanceHistorySeeder extends DemoSeeder
     protected function seed(DemoContext $context): void
     {
         $anchor = Carbon::parse(config()->string('demo.unified.anchor', now()->toDateString()));
-        $limit = max(1, min(60, (int) (getenv('DEMO_MAINTENANCE_LIMIT') ?: 60)));
+        $limit = max(1, min(64, (int) (getenv('DEMO_MAINTENANCE_LIMIT') ?: 64)));
         $customers = CustomerProfile::query()->where('customer_code', 'like', 'DEMO-CUST-%')
             ->where('is_active', true)->orderBy('customer_code')->get();
         if ($customers->count() < 100) {
@@ -54,12 +54,6 @@ final class UnifiedMaintenanceHistorySeeder extends DemoSeeder
 
             $context->at($date->toDateTimeString());
             $manager = $context->as('support_manager');
-            $customer = $customers[($n * 11) % $customers->count()]
-                ?? throw new LogicException('Missing customer for maintenance request.');
-            $customer = $customers[($n * 11) % $customers->count()]
-                ?? throw new LogicException('Missing customer for maintenance request.');
-            $customer = $customers[($n * 11) % $customers->count()]
-                ?? throw new LogicException('Missing customer for maintenance request.');
             $customer = $customers[($n * 11) % $customers->count()]
                 ?? throw new LogicException('Missing customer for maintenance request.');
             $record = $service->createStandalone([

@@ -22,7 +22,7 @@ Local-only demonstration login: demo.admin@ierp.test / password. Synthetic data 
 5. UnifiedSalesFulfillmentSeeder: 230 stock-backed order -> reservation/shipment -> delivery -> PDF invoice -> payment/AR split; respects mail suppressions.
 6. UnifiedEmployeeHistorySeeder: 72 employee monthly plans, 504 tasks and 360 GPS-proximate visits with service-driven status transitions.
 7. UnifiedSupportHistorySeeder: 120 support cases, triage, assignments and service states.
-8. UnifiedMaintenanceHistorySeeder: 60 maintenance, calibration and installation REQUESTS across the year (not fabricated completion certificates).
+8. UnifiedMaintenanceHistorySeeder: 64 maintenance, calibration and installation REQUESTS across the year (not fabricated completion certificates).
 
 ## Critical data integrity
 Product history is immutable: collisions with existing non-demo products use isolated demo identities instead of overwriting tracking behavior.
@@ -106,3 +106,8 @@ The October 2026 discrepancy was fully corrected, with an immutable accounting t
 **October 10 tie-out after corrections:** AR subledger and control both AED 105,503.30; AP subledger and control both AED 4,200.00. No remaining unreversed manual AR control lines. Finance audit still appropriately exits 1 because of March's missing legacy invoice/payment journals; March remains OPEN.
 
 Logs (not committed): `storage/logs/demo-finance-audit-corrected.log`, plus targeted accounting diagnostic logs in `storage/logs/`. Read-only diagnostic scripts and one-time guarded reversal script are under `storage/app/private/` and are excluded from the Git commit. The verification command and regression tests are versioned.
+
+
+## Pristine database validation
+
+A real `php artisan migrate:fresh --seed` run against an isolated local MySQL schema with isolated storage completed all migrations and unified seeder stages. This revealed two coverage gaps now resolved in the source: maintenance history creates 64 requests (76 total maintenance records on a pristine company); historical purchasing includes two short-closed orders and two authentic rejection decisions. PurchaseOrderApprovalService::reject() returns an order to draft with its rejection_reason; the strict verifier checks this evidence rather than falsely requiring the transient rejected enum as a persisted status. The isolated fresh database passes all strict integrity checks (230 order-to-invoice journeys, valid invoice media rows, no negative stocks, no unbalanced journals). The temporary schema and storage are disposable and do not replace the existing local ierp data.
