@@ -86,3 +86,22 @@ W5: strict CLI, idempotency, local tests and source-link checks COMPLETE for ser
 W6: separate long-running 10x–30x load not executed, deliberately avoiding a second permanent development environment; profiling can use disposable test datasets or read-only queries.
 
 Priorities for full plan closure: resolve March 2026 AR control mismatch, add annual finance/expense/bank statement coverage where period posting is permitted, improve RFQ/maintenance service volumes, and execute EN/AR browser and mobile E2E against the seeded local UI.
+## W5 Finance reconciliation phase (2026-10-10)
+
+Run the additional, deliberately **failing** financial release gate after `demo:seed --verify-only`:
+
+```powershell
+php artisan demo:finance-audit --anchor=2026-10-10 --months=12
+```
+
+This read-only command uses the Accounting AR and AP services to compare dated subledger balances to their posted control accounts for each month. It also reports issued invoices without source-linked posted journals, posted payments without matching journals, and unreversed manual AR control entries. It never changes financial records or overrides fiscal close checks. It returns nonzero on any discrepancy; `demo:seed --verify-only` remains the operational/fulfilment gate, not a substitute for finance-audit.
+
+**Verified findings:** 11 of 12 dated snapshots reconcile both AR and AP. The March 2026 AR ledger is short **AED 436.04**, because the legacy `CrmDemoSeeder` inserted `INV-CRMDEMO-000001` (issued March 9) and `PAY-CRMDEMO-000001` (posted April 9) as completed documents without posting either corresponding journal. The April 2026 fiscal period is already closed; do not fabricate an adjusting entry, reopen a closed period, or force-close March without deliberate accounting approval.
+
+The October 2026 discrepancy was fully corrected, with an immutable accounting trail:
+- Legacy `AccountingDemoSeeder` had posted `JE-000002` on October 5, debiting AR 1200 by AED 18,400 even though `INV-DEMO-2026-001` already posted its full AR/revenue entry. A Chief Accountant posted its domain-service reversal `JE-000690` on October 10; the original entry remains audit-visible. The legacy seeder was changed not to make that duplicate entry on future runs.
+- `CN-DEMO-2026-001`, AED 450, was confirmed on October 9 but has issue and posted-journal date October 15. The AR service now recognises confirmed credit notes **no earlier than issue_date**, for linked and standalone credits, and dates customer statements on the effective date. This fixes the previously premature AED 450 customer credit, without changing the credit note or backdating any posting.
+
+**October 10 tie-out after corrections:** AR subledger and control both AED 105,503.30; AP subledger and control both AED 4,200.00. No remaining unreversed manual AR control lines. Finance audit still appropriately exits 1 because of March's missing legacy invoice/payment journals; March remains OPEN.
+
+Logs (not committed): `storage/logs/demo-finance-audit-corrected.log`, plus targeted accounting diagnostic logs in `storage/logs/`. Read-only diagnostic scripts and one-time guarded reversal script are under `storage/app/private/` and are excluded from the Git commit. The verification command and regression tests are versioned.

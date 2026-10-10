@@ -373,6 +373,7 @@ final readonly class AccountsReceivableService
             ->filter(static fn (CreditNote $credit): bool => in_array($credit->status, [CreditNoteStatus::Confirmed, CreditNoteStatus::Reversed], true)
                 && $credit->confirmed_at !== null
                 && $credit->confirmed_at->lessThanOrEqualTo($asOf)
+                && $credit->issue_date->lessThanOrEqualTo($asOf)
                 && ($credit->reversed_at === null || $credit->reversed_at->greaterThan($asOf)))
             ->sum(static fn (CreditNote $credit): int => JournalEntryLine::toMinorUnits($credit->grand_total));
     }
@@ -407,6 +408,9 @@ final readonly class AccountsReceivableService
         $credits = CreditNote::withTrashed()
             ->whereNull('invoice_id')
             ->whereNotNull('confirmed_at')
+            // Financial effect starts on issue_date, not when a future-dated
+            // credit note is confirmed.
+            ->whereDate('issue_date', '<=', $asOf->toDateString())
             ->where('confirmed_at', '<=', $asOf)
             ->where(fn (Builder $query): Builder => $query->whereNull('reversed_at')->orWhere('reversed_at', '>', $asOf))
             ->get();
@@ -574,11 +578,20 @@ final readonly class AccountsReceivableService
             });
 
         CreditNote::query()->where('customer_id', $customer->id)->whereNotNull('confirmed_at')
-            ->whereBetween('confirmed_at', [$from, $to])->get()->each(function (CreditNote $credit) use (&$entries): void {
+            ->whereDate('issue_date', '<=', $to->toDateString())->where('confirmed_at', '<=', $to)
+            ->get()->each(function (CreditNote $credit) use (&$entries, $from, $to): void {
                 /** @var CarbonInterface $confirmedAt */
                 $confirmedAt = $credit->confirmed_at;
+                /** @var CarbonInterface $issueDate */
+                $issueDate = $credit->issue_date;
+                $effectiveAt = CarbonImmutable::instance($confirmedAt)->greaterThan($issueDate)
+                    ? CarbonImmutable::instance($confirmedAt)
+                    : CarbonImmutable::instance($issueDate);
+                if ($effectiveAt->lessThan($from) || $effectiveAt->greaterThan($to)) {
+                    return;
+                }
 
-                $entries[] = ['date' => $confirmedAt->toDateString(), 'type' => 'credit_note', 'reference' => $credit->credit_note_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total)];
+                $entries[] = ['date' => $effectiveAt->toDateString(), 'type' => 'credit_note', 'reference' => $credit->credit_note_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total)];
             });
 
         CreditNote::query()->where('customer_id', $customer->id)->whereBetween('reversed_at', [$from, $to])->get()

@@ -157,6 +157,7 @@ it('derives outstanding from confirmed credits, posted payments, and approved wr
         'subtotal' => '10.00',
         'tax_total' => '0.00',
         'grand_total' => '10.00',
+        'issue_date' => $asOf->subDays(3)->toDateString(),
         'status' => CreditNoteStatus::Confirmed,
         'confirmed_at' => $asOf->subDays(3),
     ]);
@@ -193,6 +194,46 @@ it('derives outstanding from confirmed credits, posted payments, and approved wr
         ->and($summary['paid_minor'])->toBe(2_000)
         ->and($summary['written_off_minor'])->toBe(1_500)
         ->and($summary['outstanding_minor'])->toBe(5_500);
+});
+
+it('recognises confirmed credit notes only once their ledger issue date arrives', function (): void {
+    $asOf = CarbonImmutable::parse('2026-10-10 12:00:00');
+    $invoice = arInvoice($this->customer, $asOf, -2, '100.00');
+
+    CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $this->customer->getKey(),
+        'issue_date' => '2026-10-15',
+        'confirmed_at' => '2026-10-09 11:00:00',
+        'status' => CreditNoteStatus::Confirmed,
+        'subtotal' => '20.00',
+        'tax_total' => '0.00',
+        'grand_total' => '20.00',
+    ]);
+
+    CreditNote::factory()->create([
+        'invoice_id' => null,
+        'customer_id' => $this->customer->getKey(),
+        'issue_date' => '2026-10-15',
+        'confirmed_at' => '2026-10-09 11:00:00',
+        'status' => CreditNoteStatus::Confirmed,
+        'subtotal' => '30.00',
+        'tax_total' => '0.00',
+        'grand_total' => '30.00',
+    ]);
+
+    $before = $this->service->aging($asOf);
+    $after = $this->service->aging(CarbonImmutable::parse('2026-10-15 12:00:00'));
+    $statement = $this->service->statement($this->customer, CarbonImmutable::parse('2026-10-09'), CarbonImmutable::parse('2026-10-16'));
+
+    expect($before['net_receivable_minor'])->toBe(10_000)
+        ->and($before['credited_minor'])->toBe(0)
+        ->and($after['net_receivable_minor'])->toBe(5_000)
+        ->and($after['credited_minor'])->toBe(2_000)
+        ->and(collect($statement['entries'])->where('type', 'credit_note')->pluck('date')->all())->toBe([
+            '2026-10-15',
+            '2026-10-15',
+        ]);
 });
 
 it('reconciles against the configured AR account rather than cash and surfaces direct control journals', function (): void {

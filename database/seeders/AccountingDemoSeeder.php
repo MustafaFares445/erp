@@ -343,10 +343,9 @@ final class AccountingDemoSeeder extends Seeder
         $posting = app(JournalPostingService::class);
         $thisMonth = CarbonImmutable::now()->startOfMonth();
 
-        $posting->postNew($accountant, $thisMonth->addDays(4), [
-            $this->debit('1200', '18400.00', 'Invoice to Bright Orthodontics'),
-            $this->credit('4100', '18400.00', 'Chair and scanner package'),
-        ], 'Product sales invoiced');
+        // The issued INV-DEMO-2026-001 already posts its own AR/revenue journal
+        // through AccountingDocumentService. Do not post an unlinked duplicate
+        // against account 1200: it doubles receivables and blocks fiscal close.
 
         $posting->postNew($accountant, $thisMonth->addDays(9), [
             $this->debit('5200', '22750.00', 'Monthly payroll run'),
