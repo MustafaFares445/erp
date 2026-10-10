@@ -10,6 +10,7 @@ use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
+use App\Filament\Resources\MaintenanceRequests\Pages\MaintenanceRequestsCalendar;
 use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\CalibrationRelationManager;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\ExternalRepairRelationManager;
@@ -81,6 +82,7 @@ final class MaintenanceRequestResource extends Resource
     {
         return [
             'index' => ListMaintenanceRequests::route('/'),
+            'calendar' => MaintenanceRequestsCalendar::route('/calendar'),
             'create' => CreateMaintenanceRequest::route('/create'),
             'view' => ViewMaintenanceRequest::route('/{record}'),
             'edit' => EditMaintenanceRequest::route('/{record}/edit'),

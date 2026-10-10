@@ -7,6 +7,7 @@ namespace App\Filament\Resources\SerializedInventoryUnits\Pages;
 use App\Enums\InventoryExportType;
 use App\Filament\Concerns\RequestsInventoryExports;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 
 final class ListSerializedInventoryUnits extends ListRecords
@@ -24,6 +25,7 @@ final class ListSerializedInventoryUnits extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [$this->inventoryExportAction(InventoryExportType::Devices)];
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(SerializedInventoryUnitResource::getUrl('calendar')), $this->inventoryExportAction(InventoryExportType::Devices)];
     }
 }

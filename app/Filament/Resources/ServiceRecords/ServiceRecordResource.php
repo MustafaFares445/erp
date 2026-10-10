@@ -7,6 +7,7 @@ namespace App\Filament\Resources\ServiceRecords;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\ServiceRecords\Pages\EditServiceRecord;
 use App\Filament\Resources\ServiceRecords\Pages\ListServiceRecords;
+use App\Filament\Resources\ServiceRecords\Pages\ServiceRecordsCalendar;
 use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
 use App\Filament\Resources\ServiceRecords\RelationManagers\ConsumedPartsRelationManager;
 use App\Filament\Resources\ServiceRecords\Schemas\ServiceRecordForm;
@@ -82,6 +83,7 @@ final class ServiceRecordResource extends Resource
     {
         return [
             'index' => ListServiceRecords::route('/'),
+            'calendar' => ServiceRecordsCalendar::route('/calendar'),
             'view' => ViewServiceRecord::route('/{record}'),
             'edit' => EditServiceRecord::route('/{record}/edit'),
         ];

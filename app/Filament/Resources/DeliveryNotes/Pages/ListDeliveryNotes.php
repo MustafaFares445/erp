@@ -10,6 +10,7 @@ use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\DeliveryNotes\Widgets\DeliveryNotesOverview;
 use App\Models\InventoryOperation;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,5 +68,12 @@ final class ListDeliveryNotes extends ListRecords
     private static function deliveredNotInvoicedQuery(Builder $query): Builder
     {
         return $query->where('stage', OperationStage::Done->value)->whereDoesntHave('invoiceDeliveryLink');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(DeliveryNoteResource::getUrl('calendar')),
+        ];
     }
 }

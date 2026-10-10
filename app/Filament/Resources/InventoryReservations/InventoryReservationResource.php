@@ -7,6 +7,7 @@ namespace App\Filament\Resources\InventoryReservations;
 use App\Filament\Components\InventoryViewDiagnostics;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryReservations\Pages\InventoryReservationsCalendar;
 use App\Filament\Resources\InventoryReservations\Pages\ListInventoryReservations;
 use App\Filament\Resources\InventoryReservations\Pages\ViewInventoryReservation;
 use App\Filament\Resources\InventoryReservations\Tables\InventoryReservationsTable;
@@ -144,6 +145,7 @@ final class InventoryReservationResource extends Resource
     {
         return [
             'index' => ListInventoryReservations::route('/'),
+            'calendar' => InventoryReservationsCalendar::route('/calendar'),
             'view' => ViewInventoryReservation::route('/{record}'),
         ];
     }

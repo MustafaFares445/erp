@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryLots;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\InventoryLots\Pages\InventoryLotsCalendar;
 use App\Filament\Resources\InventoryLots\Pages\ListInventoryLots;
 use App\Filament\Resources\InventoryLots\Pages\ViewInventoryLot;
 use App\Filament\Resources\InventoryLots\RelationManagers\LotBalancesRelationManager;
@@ -112,6 +113,7 @@ final class InventoryLotResource extends Resource
     {
         return [
             'index' => ListInventoryLots::route('/'),
+            'calendar' => InventoryLotsCalendar::route('/calendar'),
             'view' => ViewInventoryLot::route('/{record}'),
         ];
     }

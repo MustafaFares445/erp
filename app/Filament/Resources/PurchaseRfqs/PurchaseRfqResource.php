@@ -8,6 +8,7 @@ use App\Enums\PurchasePermission;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseRfqs\Pages\CreatePurchaseRfq;
 use App\Filament\Resources\PurchaseRfqs\Pages\ListPurchaseRfqs;
+use App\Filament\Resources\PurchaseRfqs\Pages\PurchaseRfqsCalendar;
 use App\Filament\Resources\PurchaseRfqs\Pages\ViewPurchaseRfq;
 use App\Filament\Resources\PurchaseRfqs\Tables\PurchaseRfqsTable;
 use App\Filament\Support\CurrencySelect;
@@ -214,6 +215,7 @@ final class PurchaseRfqResource extends Resource
     {
         return [
             'index' => ListPurchaseRfqs::route('/'),
+            'calendar' => PurchaseRfqsCalendar::route('/calendar'),
             'create' => CreatePurchaseRfq::route('/create'),
             'view' => ViewPurchaseRfq::route('/{record}'),
         ];

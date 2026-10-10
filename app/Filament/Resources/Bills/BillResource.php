@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Bills;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\Bills\Pages\BillsCalendar;
 use App\Filament\Resources\Bills\Pages\EditBill;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Pages\ViewBill;
@@ -157,6 +158,7 @@ final class BillResource extends Resource
     {
         return [
             'index' => ManageBills::route('/'),
+            'calendar' => BillsCalendar::route('/calendar'),
             'view' => ViewBill::route('/{record}'),
             'edit' => EditBill::route('/{record}/edit'),
         ];

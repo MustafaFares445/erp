@@ -9,6 +9,7 @@ use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -24,7 +25,8 @@ final class ListPurchaseOrders extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
-        return [CreateAction::make()->label(__('New Purchase Order'))];
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(PurchaseOrderResource::getUrl('calendar')), CreateAction::make()->label(__('New Purchase Order'))];
     }
 
     protected function savedTableViewPageKey(): string

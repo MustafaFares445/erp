@@ -8,6 +8,7 @@ use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Quotations\Pages\CreateQuotation;
 use App\Filament\Resources\Quotations\Pages\EditQuotation;
 use App\Filament\Resources\Quotations\Pages\ListQuotations;
+use App\Filament\Resources\Quotations\Pages\QuotationsCalendar;
 use App\Filament\Resources\Quotations\Pages\ViewQuotation;
 use App\Filament\Resources\Quotations\Schemas\QuotationForm;
 use App\Filament\Resources\Quotations\Schemas\QuotationInfolist;
@@ -86,6 +87,7 @@ final class QuotationResource extends Resource
     {
         return [
             'index' => ListQuotations::route('/'),
+            'calendar' => QuotationsCalendar::route('/calendar'),
             'create' => CreateQuotation::route('/create'),
             'view' => ViewQuotation::route('/{record}'),
             'edit' => EditQuotation::route('/{record}/edit'),

@@ -11,6 +11,7 @@ use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Quotations\Widgets\QuotationsOverview;
 use App\Models\Quotation;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -34,6 +35,7 @@ final class ListQuotations extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(QuotationResource::getUrl('calendar')),
             CreateAction::make(),
             $this->salesDocumentExportAction(),
         ];

@@ -11,6 +11,7 @@ use App\Models\Expense;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Accounting\ExpenseReceiptSynchronizer;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -41,22 +42,23 @@ final class ManageExpenses extends ManageRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()->using(function (
-            array $data,
-            AccountingDocumentService $documents,
-            ExpenseReceiptSynchronizer $receipts,
-        ): Expense {
-            $actor = auth()->user();
-            if (! $actor instanceof User) {
-                throw new LogicException('An authenticated accounting user is required.');
-            }
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(ExpenseResource::getUrl('calendar')), CreateAction::make()->using(function (
+                array $data,
+                AccountingDocumentService $documents,
+                ExpenseReceiptSynchronizer $receipts,
+            ): Expense {
+                $actor = auth()->user();
+                if (! $actor instanceof User) {
+                    throw new LogicException('An authenticated accounting user is required.');
+                }
 
-            $receipt = Arr::pull($data, 'receipt');
-            $expense = $documents->recordExpense($actor, self::normalizeData($data));
-            $receipts->sync($expense, is_string($receipt) ? $receipt : null);
+                $receipt = Arr::pull($data, 'receipt');
+                $expense = $documents->recordExpense($actor, self::normalizeData($data));
+                $receipts->sync($expense, is_string($receipt) ? $receipt : null);
 
-            return $expense;
-        })];
+                return $expense;
+            })];
     }
 
     /** @return array<string, mixed> */

@@ -8,6 +8,7 @@ use App\Filament\LocalizedResource as Resource;
 use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Resources\Invoices\Pages\EditInvoice;
+use App\Filament\Resources\Invoices\Pages\InvoicesCalendar;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Resources\Invoices\Pages\ViewInvoice;
 use App\Filament\Resources\Invoices\Schemas\InvoiceForm;
@@ -97,6 +98,7 @@ final class InvoiceResource extends Resource
     {
         return [
             'index' => ListInvoices::route('/'),
+            'calendar' => InvoicesCalendar::route('/calendar'),
             'create' => CreateInvoice::route('/create'),
             'view' => ViewInvoice::route('/{record}'),
             'edit' => EditInvoice::route('/{record}/edit'),

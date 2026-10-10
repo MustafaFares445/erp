@@ -8,6 +8,7 @@ use App\Enums\PurchaseRfqStatus;
 use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\PurchaseRfqs\PurchaseRfqResource;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -24,7 +25,8 @@ final class ListPurchaseRfqs extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()->label(__('New RFQ'))];
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(PurchaseRfqResource::getUrl('calendar')), CreateAction::make()->label(__('New RFQ'))];
     }
 
     protected function savedTableViewPageKey(): string

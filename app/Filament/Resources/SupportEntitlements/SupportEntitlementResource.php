@@ -9,6 +9,7 @@ use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SupportEntitlements\Pages\CreateSupportEntitlement;
 use App\Filament\Resources\SupportEntitlements\Pages\EditSupportEntitlement;
 use App\Filament\Resources\SupportEntitlements\Pages\ListSupportEntitlements;
+use App\Filament\Resources\SupportEntitlements\Pages\SupportEntitlementsCalendar;
 use App\Filament\Resources\SupportEntitlements\Schemas\SupportEntitlementForm;
 use App\Filament\Resources\SupportEntitlements\Tables\SupportEntitlementsTable;
 use App\Models\SupportEntitlement;
@@ -73,6 +74,7 @@ final class SupportEntitlementResource extends Resource
     {
         return [
             'index' => ListSupportEntitlements::route('/'),
+            'calendar' => SupportEntitlementsCalendar::route('/calendar'),
             'create' => CreateSupportEntitlement::route('/create'),
             'edit' => EditSupportEntitlement::route('/{record}/edit'),
         ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PricingTiers\Pages;
 
 use App\Filament\Resources\PricingTiers\PricingTierResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ManageRecords;
 
 final class ManagePricingTiers extends ManageRecords
@@ -15,6 +16,7 @@ final class ManagePricingTiers extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(PricingTierResource::getUrl('calendar')),
             PricingTierResource::createAction(),
             PricingTierResource::assignGeneralTierAction(),
         ];

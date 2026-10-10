@@ -6,6 +6,7 @@ namespace App\Filament\Resources\DeliveryNotes;
 
 use App\Enums\OperationType;
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\DeliveryNotes\Pages\DeliveryNotesCalendar;
 use App\Filament\Resources\DeliveryNotes\Pages\ListDeliveryNotes;
 use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
 use App\Filament\Resources\DeliveryNotes\Schemas\DeliveryNoteInfolist;
@@ -83,6 +84,7 @@ final class DeliveryNoteResource extends Resource
     {
         return [
             'index' => ListDeliveryNotes::route('/'),
+            'calendar' => DeliveryNotesCalendar::route('/calendar'),
             'view' => ViewDeliveryNote::route('/{record}'),
         ];
     }

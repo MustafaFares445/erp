@@ -9,6 +9,7 @@ use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\Ticket;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -25,7 +26,8 @@ final class ListTickets extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(TicketResource::getUrl('calendar')), CreateAction::make()];
     }
 
     protected function savedTableViewPageKey(): string

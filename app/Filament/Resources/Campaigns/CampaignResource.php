@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Campaigns;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\Resources\Campaigns\Pages\CampaignsCalendar;
 use App\Filament\Resources\Campaigns\Pages\CreateCampaign;
 use App\Filament\Resources\Campaigns\Pages\ListCampaigns;
 use App\Filament\Resources\Campaigns\Pages\ViewCampaign;
@@ -66,6 +67,7 @@ final class CampaignResource extends Resource
     {
         return [
             'index' => ListCampaigns::route('/'),
+            'calendar' => CampaignsCalendar::route('/calendar'),
             'create' => CreateCampaign::route('/create'),
             'view' => ViewCampaign::route('/{record}'),
         ];

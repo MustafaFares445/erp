@@ -8,6 +8,7 @@ use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Orders\Pages\CreateOrder;
 use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Filament\Resources\Orders\Pages\ListOrders;
+use App\Filament\Resources\Orders\Pages\OrdersCalendar;
 use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Resources\Orders\Schemas\OrderInfolist;
@@ -96,6 +97,7 @@ final class OrderResource extends Resource
     {
         return [
             'index' => ListOrders::route('/'),
+            'calendar' => OrdersCalendar::route('/calendar'),
             'create' => CreateOrder::route('/create'),
             'view' => ViewOrder::route('/{record}'),
             'edit' => EditOrder::route('/{record}/edit'),

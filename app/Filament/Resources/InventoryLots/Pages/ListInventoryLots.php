@@ -9,6 +9,7 @@ use App\Filament\Concerns\RequestsInventoryExports;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Models\InventoryLot;
 use App\Models\InventorySetting;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,7 +29,8 @@ final class ListInventoryLots extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [$this->inventoryExportAction(InventoryExportType::ExpiryLots)];
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(InventoryLotResource::getUrl('calendar')), $this->inventoryExportAction(InventoryExportType::ExpiryLots)];
     }
 
     /** @return array<string, Tab> */

@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SupplierProductReferences;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
+use App\Filament\Resources\SupplierProductReferences\Pages\SupplierProductReferencesCalendar;
 use App\Filament\Support\CurrencySelect;
 use App\Filament\Tables\TableFit;
 use App\Models\Product;
@@ -329,6 +330,7 @@ final class SupplierProductReferenceResource extends Resource
     #[\Override]
     public static function getPages(): array
     {
-        return ['index' => ManageSupplierProductReferences::route('/')];
+        return ['index' => ManageSupplierProductReferences::route('/'),
+            'calendar' => SupplierProductReferencesCalendar::route('/calendar'), ];
     }
 }

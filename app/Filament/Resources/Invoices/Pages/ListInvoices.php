@@ -11,6 +11,7 @@ use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Invoices\Widgets\InvoicesOverview;
 use App\Models\Invoice;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,7 +28,8 @@ final class ListInvoices extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [$this->salesDocumentExportAction()];
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(InvoiceResource::getUrl('calendar')), $this->salesDocumentExportAction()];
     }
 
     #[\Override]

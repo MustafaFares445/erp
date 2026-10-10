@@ -36,6 +36,7 @@ final class ListServiceAppointments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(ServiceAppointmentResource::getUrl('calendar')),
             Action::make('scheduleAppointment')
                 ->label(__('Schedule appointment'))
                 ->icon('heroicon-o-calendar-days')

@@ -8,6 +8,7 @@ use App\Enums\MaintenanceStatus;
 use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +45,13 @@ final class ListServiceRecords extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])),
             'completed' => Tab::make(__('Completed'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', MaintenanceStatus::Closed->value)),
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(ServiceRecordResource::getUrl('calendar')),
         ];
     }
 }

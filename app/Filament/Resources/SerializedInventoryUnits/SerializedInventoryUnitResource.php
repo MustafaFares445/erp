@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SerializedInventoryUnits;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ListSerializedInventoryUnits;
+use App\Filament\Resources\SerializedInventoryUnits\Pages\SerializedInventoryUnitsCalendar;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ViewSerializedInventoryUnit;
 use App\Filament\Resources\SerializedInventoryUnits\Schemas\SerializedInventoryUnitInfolist;
 use App\Filament\Resources\SerializedInventoryUnits\Tables\SerializedInventoryUnitsTable;
@@ -96,6 +97,7 @@ final class SerializedInventoryUnitResource extends Resource
     {
         return [
             'index' => ListSerializedInventoryUnits::route('/'),
+            'calendar' => SerializedInventoryUnitsCalendar::route('/calendar'),
             'view' => ViewSerializedInventoryUnit::route('/{record}'),
         ];
     }

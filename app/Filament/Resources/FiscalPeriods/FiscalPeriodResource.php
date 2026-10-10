@@ -7,6 +7,7 @@ namespace App\Filament\Resources\FiscalPeriods;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\FiscalPeriods\Pages\CreateFiscalPeriod;
 use App\Filament\Resources\FiscalPeriods\Pages\EditFiscalPeriod;
+use App\Filament\Resources\FiscalPeriods\Pages\FiscalPeriodsCalendar;
 use App\Filament\Resources\FiscalPeriods\Pages\ListFiscalPeriods;
 use App\Filament\Resources\FiscalPeriods\Pages\ViewFiscalPeriod;
 use App\Filament\Resources\FiscalPeriods\Schemas\FiscalPeriodForm;
@@ -79,6 +80,7 @@ final class FiscalPeriodResource extends Resource
     {
         return [
             'index' => ListFiscalPeriods::route('/'),
+            'calendar' => FiscalPeriodsCalendar::route('/calendar'),
             'create' => CreateFiscalPeriod::route('/create'),
             'view' => ViewFiscalPeriod::route('/{record}'),
             'edit' => EditFiscalPeriod::route('/{record}/edit'),

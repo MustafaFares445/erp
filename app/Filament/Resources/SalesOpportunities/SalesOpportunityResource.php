@@ -8,6 +8,7 @@ use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SalesOpportunities\Pages\CreateSalesOpportunity;
 use App\Filament\Resources\SalesOpportunities\Pages\EditSalesOpportunity;
 use App\Filament\Resources\SalesOpportunities\Pages\ListSalesOpportunities;
+use App\Filament\Resources\SalesOpportunities\Pages\SalesOpportunitiesCalendar;
 use App\Filament\Resources\SalesOpportunities\Pages\ViewSalesOpportunity;
 use App\Filament\Resources\SalesOpportunities\RelationManagers\StageHistoryRelationManager;
 use App\Filament\Resources\SalesOpportunities\Schemas\SalesOpportunityForm;
@@ -63,6 +64,7 @@ final class SalesOpportunityResource extends Resource
     #[\Override]
     public static function getPages(): array
     {
-        return ['index' => ListSalesOpportunities::route('/'), 'create' => CreateSalesOpportunity::route('/create'), 'view' => ViewSalesOpportunity::route('/{record}'), 'edit' => EditSalesOpportunity::route('/{record}/edit')];
+        return ['index' => ListSalesOpportunities::route('/'),
+            'calendar' => SalesOpportunitiesCalendar::route('/calendar'), 'create' => CreateSalesOpportunity::route('/create'), 'view' => ViewSalesOpportunity::route('/{record}'), 'edit' => EditSalesOpportunity::route('/{record}/edit')];
     }
 }

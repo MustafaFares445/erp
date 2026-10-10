@@ -11,6 +11,7 @@ use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Orders\Widgets\OrdersOverview;
 use App\Models\Order;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -34,6 +35,7 @@ final class ListOrders extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(OrderResource::getUrl('calendar')),
             CreateAction::make(),
             $this->salesDocumentExportAction(),
         ];

@@ -24,8 +24,10 @@
             </div>
         </div>
 
+        <div class="overflow-x-auto rounded-xl">
         <div @class([
             'grid gap-px overflow-hidden rounded-xl bg-gray-200 ring-1 ring-gray-200 dark:bg-white/10 dark:ring-white/10',
+            'min-w-[760px]' => $mode !== 'day',
             'grid-cols-1' => $mode === 'day',
             'grid-cols-7' => $mode !== 'day',
         ])>
@@ -80,6 +82,7 @@
                     </div>
                 </div>
             @endforeach
+        </div>
         </div>
     </div>
 </x-filament-panels::page>

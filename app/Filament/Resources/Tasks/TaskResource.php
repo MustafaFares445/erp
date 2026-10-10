@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Tasks;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Tasks\Pages\EditTask;
 use App\Filament\Resources\Tasks\Pages\ListTasks;
+use App\Filament\Resources\Tasks\Pages\TasksCalendar;
 use App\Filament\Resources\Tasks\Pages\ViewTask;
 use App\Filament\Resources\Tasks\Schemas\TaskForm;
 use App\Filament\Resources\Tasks\Tables\TasksTable;
@@ -51,6 +52,7 @@ final class TaskResource extends Resource
     {
         return [
             'index' => ListTasks::route('/'),
+            'calendar' => TasksCalendar::route('/calendar'),
             'view' => ViewTask::route('/{record}'),
             'edit' => EditTask::route('/{record}/edit'),
         ];

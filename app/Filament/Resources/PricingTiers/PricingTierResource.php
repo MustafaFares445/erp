@@ -19,6 +19,7 @@ use App\Enums\UserType;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PricingTiers\Pages\ManagePricingTiers;
+use App\Filament\Resources\PricingTiers\Pages\PricingTiersCalendar;
 use App\Models\ConstraintOverride;
 use App\Models\PricingTier;
 use App\Models\Product;
@@ -342,7 +343,8 @@ final class PricingTierResource extends Resource
     #[\Override]
     public static function getPages(): array
     {
-        return ['index' => ManagePricingTiers::route('/')];
+        return ['index' => ManagePricingTiers::route('/'),
+            'calendar' => PricingTiersCalendar::route('/calendar'), ];
     }
 
     #[\Override]

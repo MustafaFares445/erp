@@ -8,6 +8,7 @@ use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\MonthlyPlans\Pages\CreateMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\Pages\EditMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\Pages\ListMonthlyPlans;
+use App\Filament\Resources\MonthlyPlans\Pages\MonthlyPlansCalendar;
 use App\Filament\Resources\MonthlyPlans\Pages\ViewMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\RelationManagers\TasksRelationManager;
 use App\Filament\Resources\MonthlyPlans\RelationManagers\VisitsRelationManager;
@@ -62,6 +63,7 @@ final class MonthlyPlanResource extends Resource
     {
         return [
             'index' => ListMonthlyPlans::route('/'),
+            'calendar' => MonthlyPlansCalendar::route('/calendar'),
             'create' => CreateMonthlyPlan::route('/create'),
             'view' => ViewMonthlyPlan::route('/{record}'),
             'edit' => EditMonthlyPlan::route('/{record}/edit'),

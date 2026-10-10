@@ -12,6 +12,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -40,27 +41,28 @@ final class ManageBills extends ManageRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()
-            ->fillForm(fn (array $arguments): array => self::createDefaults($arguments))
-            ->createAnother(fn (array $arguments): bool => ! isset($arguments['purchase_order_id']))
-            ->using(function (array $data, AccountingDocumentService $documents): Bill {
-                $actor = auth()->user();
-                if (! $actor instanceof User) {
-                    throw new LogicException('An authenticated accounting user is required.');
-                }
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(BillResource::getUrl('calendar')), CreateAction::make()
+                ->fillForm(fn (array $arguments): array => self::createDefaults($arguments))
+                ->createAnother(fn (array $arguments): bool => ! isset($arguments['purchase_order_id']))
+                ->using(function (array $data, AccountingDocumentService $documents): Bill {
+                    $actor = auth()->user();
+                    if (! $actor instanceof User) {
+                        throw new LogicException('An authenticated accounting user is required.');
+                    }
 
-                $lines = Arr::pull($data, 'lines', []);
-                $normalizedLines = [];
-                if (is_array($lines)) {
-                    foreach ($lines as $line) {
-                        if (is_array($line)) {
-                            $normalizedLines[] = self::normalizeData($line);
+                    $lines = Arr::pull($data, 'lines', []);
+                    $normalizedLines = [];
+                    if (is_array($lines)) {
+                        foreach ($lines as $line) {
+                            if (is_array($line)) {
+                                $normalizedLines[] = self::normalizeData($line);
+                            }
                         }
                     }
-                }
 
-                return $documents->recordBill($actor, self::normalizeData($data), $normalizedLines);
-            })];
+                    return $documents->recordBill($actor, self::normalizeData($data), $normalizedLines);
+                })];
     }
 
     /** @param array<mixed> $arguments

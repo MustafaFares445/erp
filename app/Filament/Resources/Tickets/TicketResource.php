@@ -12,6 +12,7 @@ use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Tickets\Pages\CreateTicket;
 use App\Filament\Resources\Tickets\Pages\EditTicket;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
+use App\Filament\Resources\Tickets\Pages\TicketsCalendar;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
@@ -82,6 +83,7 @@ final class TicketResource extends Resource
     {
         return [
             'index' => ListTickets::route('/'),
+            'calendar' => TicketsCalendar::route('/calendar'),
             'create' => CreateTicket::route('/create'),
             'view' => ViewTicket::route('/{record}'),
             'edit' => EditTicket::route('/{record}/edit'),

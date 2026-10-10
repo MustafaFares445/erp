@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Expenses;
 use App\Enums\ExpenseStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
+use App\Filament\Resources\Expenses\Pages\ExpensesCalendar;
 use App\Filament\Resources\Expenses\Pages\ManageExpenses;
 use App\Filament\Resources\Expenses\Pages\ViewExpense;
 use App\Filament\Resources\Expenses\Schemas\ExpenseInfolist;
@@ -111,6 +112,7 @@ final class ExpenseResource extends Resource
     {
         return [
             'index' => ManageExpenses::route('/'),
+            'calendar' => ExpensesCalendar::route('/calendar'),
             'view' => ViewExpense::route('/{record}'),
             'edit' => EditExpense::route('/{record}/edit'),
         ];

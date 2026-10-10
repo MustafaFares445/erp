@@ -7,6 +7,7 @@ namespace App\Filament\Resources\PurchaseAgreements\Pages;
 use App\Filament\Concerns\HasTableViewTabs;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\PurchaseAgreements\PurchaseAgreementResource;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -33,6 +34,7 @@ final class ListPurchaseAgreements extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(PurchaseAgreementResource::getUrl('calendar')), CreateAction::make()];
     }
 }

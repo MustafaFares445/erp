@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Services\Purchasing\SupplierConfirmationService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Support\Exceptions\Halt;
@@ -24,6 +25,7 @@ final class ManageSupplierConfirmations extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(SupplierConfirmationResource::getUrl('calendar')),
             CreateAction::make()->using(function (array $data): SupplierConfirmation {
                 $actor = self::purchasingActor();
                 if (! $actor instanceof User) {

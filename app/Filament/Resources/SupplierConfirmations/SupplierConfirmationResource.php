@@ -12,6 +12,7 @@ use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
+use App\Filament\Resources\SupplierConfirmations\Pages\SupplierConfirmationsCalendar;
 use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierConfirmations\Schemas\SupplierConfirmationInfolist;
 use App\Filament\Tables\TableFit;
@@ -231,6 +232,7 @@ final class SupplierConfirmationResource extends Resource
     {
         return [
             'index' => ManageSupplierConfirmations::route('/'),
+            'calendar' => SupplierConfirmationsCalendar::route('/calendar'),
             'view' => ViewSupplierConfirmation::route('/{record}'),
         ];
     }

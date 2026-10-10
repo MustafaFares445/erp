@@ -9,6 +9,7 @@ use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
+use App\Filament\Resources\PurchaseOrders\Pages\PurchaseOrdersCalendar;
 use App\Filament\Resources\PurchaseOrders\Pages\ViewPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderInfolist;
@@ -129,6 +130,7 @@ final class PurchaseOrderResource extends Resource
     {
         return [
             'index' => ListPurchaseOrders::route('/'),
+            'calendar' => PurchaseOrdersCalendar::route('/calendar'),
             'create' => CreatePurchaseOrder::route('/create'),
             'view' => ViewPurchaseOrder::route('/{record}'),
             'edit' => EditPurchaseOrder::route('/{record}/edit'),

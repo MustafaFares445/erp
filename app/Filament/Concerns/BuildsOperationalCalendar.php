@@ -36,7 +36,12 @@ trait BuildsOperationalCalendar
      */
     protected function operationalCalendarViewData(Closure $eventsBetween, string $emptyDayMessage): array
     {
-        $anchor = Carbon::parse($this->date ?? now()->toDateString())->startOfDay();
+        try {
+            $anchor = Carbon::parse($this->date ?? now()->toDateString())->startOfDay();
+        } catch (\Throwable) {
+            $anchor = now()->startOfDay();
+        }
+
         [$start, $end, $days, $title, $previous, $next] = $this->range($anchor);
         $weekStart = $anchor->copy()->startOfWeek(Carbon::MONDAY);
 
@@ -48,7 +53,8 @@ trait BuildsOperationalCalendar
             'nextDate' => $next->toDateString(),
             'days' => $days,
             'weekdays' => collect(range(0, 6))->map(static fn (int $offset): string => $weekStart->copy()->addDays($offset)->translatedFormat('D'))->all(),
-            'events' => $eventsBetween($start, $end),
+            // Include the adjacent-month days shown in the six-week month grid.
+            'events' => $eventsBetween($days->first()->copy()->startOfDay(), $days->last()->copy()->endOfDay()),
             'emptyDayMessage' => $emptyDayMessage,
         ];
     }

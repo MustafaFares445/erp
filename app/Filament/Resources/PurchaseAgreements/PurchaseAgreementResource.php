@@ -9,6 +9,7 @@ use App\Enums\PurchasePermission;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseAgreements\Pages\CreatePurchaseAgreement;
 use App\Filament\Resources\PurchaseAgreements\Pages\ListPurchaseAgreements;
+use App\Filament\Resources\PurchaseAgreements\Pages\PurchaseAgreementsCalendar;
 use App\Filament\Resources\PurchaseAgreements\Pages\ViewPurchaseAgreement;
 use App\Filament\Support\CurrencySelect;
 use App\Filament\Tables\Columns\FavoriteColumn;
@@ -194,6 +195,7 @@ final class PurchaseAgreementResource extends Resource
     {
         return [
             'index' => ListPurchaseAgreements::route('/'),
+            'calendar' => PurchaseAgreementsCalendar::route('/calendar'),
             'create' => CreatePurchaseAgreement::route('/create'),
             'view' => ViewPurchaseAgreement::route('/{record}'),
         ];

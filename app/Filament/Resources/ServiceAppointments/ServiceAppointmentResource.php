@@ -7,6 +7,7 @@ namespace App\Filament\Resources\ServiceAppointments;
 use App\Filament\Concerns\RequiresSupportFeature;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\ServiceAppointments\Pages\ListServiceAppointments;
+use App\Filament\Resources\ServiceAppointments\Pages\ServiceAppointmentsCalendar;
 use App\Filament\Resources\ServiceAppointments\Tables\ServiceAppointmentsTable;
 use App\Models\ServiceAppointment;
 use BackedEnum;
@@ -69,6 +70,7 @@ final class ServiceAppointmentResource extends Resource
     {
         return [
             'index' => ListServiceAppointments::route('/'),
+            'calendar' => ServiceAppointmentsCalendar::route('/calendar'),
         ];
     }
 
